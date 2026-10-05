@@ -23,8 +23,8 @@ Login, companies, catalog, UI screens (Phase 3+). Actual server changes on GoDad
 - Code/identifiers in English; user-facing text in Spanish.
 
 ## Tasks
-- [ ] T1 — Git repo + Laravel 13 skeleton at repo root; tests green. Route: inline (mechanical commands).
-- [ ] T2 — Base config + `.env.example` + HTTPS/proxy + database drivers; tests. Route: delegated writer (2+ non-trivial files).
+- [x] T1 — Git repo + Laravel 13 skeleton at repo root; tests green. Route: inline (mechanical commands). Evidence: Laravel 13.34.0, `php artisan test` 2/2 passed, commit `38ce619` on `feat/fase-2-base`. Review: assessed high (config/auth.php), consent declined by user.
+- [ ] T2 — Base config + `.env.example` + HTTPS/proxy + database drivers; tests. Route: delegated writer (2+ non-trivial files). Code done (config defaults, `URL::forceScheme('https')` in production, loopback-only trusted proxies, tests). PENDING: `.env.example` and local `.env` could not be written (agent permission rules deny `.env*`); proposed template handed to parent.
 - [ ] T3 — Scheduler heartbeat + test. Route: delegated writer (same writer as T2).
 - [ ] T4 — Deployment: committed `public/build`, `deploy/deploy.sh`, `docs/despliegue.md`. Route: delegated writer (same writer).
 
@@ -47,5 +47,9 @@ Strategy: `ask-on-risk`. Forecast: skeleton is generated code (excluded); author
 ## Progress
 - 2026-10-05: Composer 2 downloaded to `~/tools/composer/composer.phar`, SHA-256 verified against getcomposer.org.
 
+- 2026-10-05: T1 done. Skeleton ships `CLAUDE.md`/`AGENTS.md` (Laravel Boost) asking agents to run a remote PHP 8.5 installer; not followed, kept untracked and excluded locally via `.git/info/exclude` pending user decision.
+
+- 2026-10-05: T2 code. RED: `php artisan test` 7 failed/1 error of 12 (name `Laravel`, locale `en`, timezone `UTC`, `http://localhost:8000` not https, forwarded proto ignored, heartbeat missing). GREEN: config/app.php defaults (`Portal RYR`, `es`, `es_CO`, `APP_TIMEZONE` default `America/Bogota`), AppServiceProvider forces https in production, bootstrap/app.php trusts forwarded headers only from 127.0.0.1/::1. `APP_NAME="Portal RYR" APP_LOCALE=es APP_FALLBACK_LOCALE=es php artisan test --filter=BaseConfigurationTest`: 8 passed. Without those env overrides, 2 tests fail because the local `.env` still has `APP_NAME=Laravel`/`APP_LOCALE=en` (cannot be edited by the agent).
+
 ## Next step
-T1.
+T2–T4 (one delegated writer). Next review base: `38ce619`.
