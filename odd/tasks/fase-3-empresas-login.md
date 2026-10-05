@@ -132,5 +132,7 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
   - GREEN: `php artisan test` → 120 passed (357 assertions). `php artisan migrate:fresh --seed` → DONE (`migrate:rollback --step=1` + `migrate` → DONE). `vendor/bin/pint --test` → passed.
   - Authored lines (excluding `odd/`): 4 files, +153/−180.
 
+- 2026-10-05: Parent spot check on `feat/fase-3-6-sin-vinculo-invitados` (`f819492`): `php artisan test` → 120 passed (357 assertions). Review of `38da14b..f819492`: assessed high (auth hot path), consent declined by Jhon. Next review base: `f819492`. Note: brief section 3 (guest linking by email) is superseded by this decision.
+
 ## Next step
 Review/delivery decision for slice 6, then T5 (blocked on Open question 1).
