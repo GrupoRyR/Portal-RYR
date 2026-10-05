@@ -29,7 +29,10 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - [x] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [x] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
 - [x] T5 — Emergency admin account: local database user with password + TOTP 2FA (Open question 1 resolved). Route: delegated writer.
-- [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Blocked on Open question 2.
+- [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Unblocked 2026-10-05 (Q2: Livewire 4). Split into:
+  - [ ] T6a — UI foundation: Livewire 4, self-hosted fonts (Bricolage Grotesque + Figtree), Tailwind 4 design tokens (light/dark) from the approved canvas, `--brand-*` CSS variables filled from the user's company, admin shell layout (sidebar), `/admin` access for `super_admin`/`portal_admin`; tests. Route: delegated writer (frontend-design skill).
+  - [ ] T6b — Companies list + edit (no tenant change): fields, domains, quick links, active switch, colors with WCAG contrast check and live preview, logo uploads (PNG/WebP, sanitized SVG); `super_admin` only; tests. Route: delegated writer.
+  - [ ] T6c — New-company wizard + tenant changes: recent Microsoft re-authentication, admin-consent link, consent detection, activity log, email notice to admins; tests. Route: delegated writer.
 
 ## Acceptance criteria
 - A sign-in from a tenant that is not an active company is rejected with a clear Spanish message.
@@ -47,7 +50,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 
 ## Open questions (product decisions, ask one at a time when reached)
 1. Emergency account when the database is down: credentials (password hash + TOTP secret) in `.env` with a file-based session for that route only, or a regular database user with 2FA (simpler, but not usable if MySQL is down, which the brief requires). **RESOLVED (Jhon, 2026-10-05):** regular database user with password + TOTP 2FA. Its purpose is signing in when Microsoft is down; it is NOT required to work when MySQL is down. The brief's sentence "Si la base de datos no responde, la cuenta de emergencia sigue funcionando" (section 3) is superseded.
-2. UI foundation for T6 and Phase 4: Livewire version and how the approved design tokens become CSS (frontend-design skill), before the first screen.
+2. ~~UI foundation for T6 and Phase 4~~ — RESOLVED 2026-10-05 by Jhon: **Livewire 4** (v4.4.7 on Packagist, supports Laravel 13; 3.x still maintained but previous major). Tokens: Tailwind 4 (already in the skeleton) + `--brand-*` CSS variables filled from the company record, per the approved Phase 1 canvas.
 
 ## Delivery
 Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including tests. Chain strategy (chosen by Jhon 2026-10-05): **stacked-to-main**. No remote yet, so slices are branches until a remote exists.
@@ -157,5 +160,7 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 
 - 2026-10-05: Parent spot check on `feat/fase-3-8-emergencia-login` (`cabacdb`): `php artisan test` → 151 passed (515 assertions). T5 split at its commit boundary into slices 7 and 8. Review of `6ee7a39..cabacdb`: assessed high (auth hot path), consent declined by Jhon. Next review base: `cabacdb`. To confirm with Jhon: code-step throttle is per account (stricter; a password holder can lock the owner out for ≤1 min).
 
+- 2026-10-05: Q2 resolved (Livewire 4). T6 split into T6a–T6c. Approved design references copied to `docs/diseno/`.
+
 ## Next step
-T6 (blocked on Open question 2: UI foundation).
+T6a (UI foundation) on `feat/fase-3-9-ui-base`, branched from `feat/fase-3-8-emergencia-login`.
