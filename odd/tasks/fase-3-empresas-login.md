@@ -30,7 +30,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - [x] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
 - [x] T5 — Emergency admin account: local database user with password + TOTP 2FA (Open question 1 resolved). Route: delegated writer.
 - [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Unblocked 2026-10-05 (Q2: Livewire 4). Split into:
-  - [ ] T6a — UI foundation: Livewire 4, self-hosted fonts (Bricolage Grotesque + Figtree), Tailwind 4 design tokens (light/dark) from the approved canvas, `--brand-*` CSS variables filled from the user's company, admin shell layout (sidebar), `/admin` access for `super_admin`/`portal_admin`; tests. Route: delegated writer (frontend-design skill).
+  - [x] T6a — UI foundation: Livewire 4, self-hosted fonts (Bricolage Grotesque + Figtree), Tailwind 4 design tokens (light/dark) from the approved canvas, `--brand-*` CSS variables filled from the user's company, admin shell layout (sidebar), `/admin` access for `super_admin`/`portal_admin`; tests. Route: delegated writer (frontend-design skill).
   - [ ] T6b — Companies list + edit (no tenant change): fields, domains, quick links, active switch, colors with WCAG contrast check and live preview, logo uploads (PNG/WebP, sanitized SVG); `super_admin` only; tests. Route: delegated writer.
   - [ ] T6c — New-company wizard + tenant changes: recent Microsoft re-authentication, admin-consent link, consent detection, activity log, email notice to admins; tests. Route: delegated writer.
 
@@ -66,6 +66,7 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 6 | `feat/fase-3-6-sin-vinculo-invitados` | slice 5 | No guest linking (Open question 3 decision) | 333 (+153/−180) |
 | 7 | `feat/fase-3-7-emergencia` | slice 6 | T5 schema + management command (`a202419`) | +459/−1 |
 | 8 | `feat/fase-3-8-emergencia-login` | slice 7 | T5 two-step sign-in (`cabacdb`) | ≈+611 (≈half tests) |
+| 9 | `feat/fase-3-9-ui-base` | slice 8 | T6a UI foundation (`fde6b63`, `1ebd080`, restyle commit) | +1638/−82 (≈570 tests; over budget, see T6a entry) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -162,5 +163,37 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 
 - 2026-10-05: Q2 resolved (Livewire 4). T6 split into T6a–T6c. Approved design references copied to `docs/diseno/`.
 
+- 2026-10-05: T6a done on `feat/fase-3-9-ui-base` (route: delegated writer, frontend-design skill), three work-unit commits.
+  - Commit A `fde6b63` feat(ui): design tokens, fonts and brand palette.
+    - Tailwind 4 tokens in `resources/css/app.css`: neutral light/dark (redefined under `prefers-color-scheme`), status chips, radii 10/12/14/18, `spacing-touch` 44px, `font-display` (Bricolage Grotesque) and `font-sans` (Figtree).
+    - Fonts self-hosted from `@fontsource-variable/bricolage-grotesque` and `@fontsource-variable/figtree` 5.3.0; the Bunny font was removed from `vite.config.js`.
+    - `App\Branding\HexColor` (strict `#RRGGBB`, `\z` anchor), `Contrast` (WCAG 2.x ratio and AA/AAA constants, reusable for the T6b warning), `Oklch` (OKLab matrices, gamut clipping by chroma), `BrandPalette`.
+    - Derivation: button = primary darkened in OKLCH steps of 0.005 (chroma scaled) until white ≥ 4.5:1; tint = L 0.96, C ≤ 0.025; ink = primary darkened until ≥ 7:1 on the tint; dark scheme: tint L 0.30, ink lightened until ≥ 7:1. Invalid primary → neutral palette; invalid accent/dark → primary/ink.
+    - RED: `php artisan test tests/Unit/Branding` → 50 tests, 0 passed, 2 failed, 48 errors (`Class "App\Branding\…" not found`). GREEN: 50 passed (114 assertions); `php artisan test` → 201 passed.
+    - Segurex `#FF671F` → button `#C94F16` (4.55:1), tint `#FEEEE8`, ink `#8D350C` (7.03:1), dark tint `#432519`, dark ink `#FFA17D`.
+    - Derivados `#183F94` → button `#183F94` (9.64:1, unchanged), tint `#ECF2FE`, ink `#183F94` (8.59:1), dark tint `#202D47`, dark ink `#97BAFE`.
+  - Commit B `1ebd080` feat(admin): Livewire 4 layouts and admin shell.
+    - `livewire/livewire` v4.4.7 bundled from `vendor/livewire/livewire/dist/livewire.esm` in `resources/js/app.js` with `@livewireScriptConfig` (no CDN). `config/livewire.php`: `inject_assets` false, `component_layout` `components.layouts.app`. Alpine (with the focus plugin) comes from that bundle.
+    - `x-layouts.app`: lang es, viewport, light/dark `theme-color`, `<x-brand-style />` (inline `--brand-*` of the user's company), Vite, Livewire.
+    - `x-layouts.admin` (class `App\View\Components\Layouts\Admin`): grouped nav; only Empresas is a link, other items show «Próximamente» without links; active item `bg-brand-tint text-brand-ink` + `aria-current`; user card with role label; skip link; off-canvas below 1024px with a real button (`aria-expanded`/`aria-controls`), `x-trap`, Escape/backdrop close and focus return.
+    - Spatie `role`/`permission`/`role_or_permission` aliases in `bootstrap/app.php`. `/admin` (`admin.index`, auth + `role:super_admin|portal_admin`) redirects to `/admin/empresas` (`admin.companies.index`, extra `role:super_admin`). Spanish `errors/403` view.
+    - RED: `php artisan test tests/Feature/Admin tests/Feature/Layouts` → 16 tests, 0 passed, 3 failed, 13 errors (404s, `Route [admin.companies.index] not defined`, `Unable to locate … [layouts.app]`). GREEN: 16 passed; `php artisan test` → 217 passed.
+    - Found in the browser check: with `prefers-reduced-motion`, the global `transition-duration: 0.01ms` kept inherited `visibility` hidden for a frame, so focus could not move into the opened menu. Fixed with `0s`; the sidebar no longer transitions `visibility`.
+  - Commit C (see `git log`) feat(ui): restyled placeholders.
+    - Login per `Login.dc.html`: neutral, decorative app tiles, «Todas tus aplicaciones en un solo lugar», single «Entrar con Microsoft» in `#17191C`, active companies' short names (view composer in `AppServiceProvider`).
+    - Emergency steps and home on `x-layouts.app`; home shows the company brand, «Administración» for admins and «Cerrar sesión».
+    - `ExampleTest` now uses `RefreshDatabase` because `/login` reads the active companies.
+    - `resources/css/app.css` no longer scans `storage/framework/views`: the compiled-view cache (including error pages compiled during tests) changed the CSS hash between builds. The build is now the same before and after `php artisan view:cache`.
+    - RED: `php artisan test tests/Feature/Layouts/PlaceholderPagesTest.php` → 5 tests, 1 passed, 4 failed (the emergency noindex guard already held). GREEN: `php artisan test` → 222 passed (701 assertions).
+  - Checks: `npm run build` → built (CSS 50.88 kB / 12.26 kB gzip; JS 296.38 kB / 96.14 kB gzip, almost all Livewire + Alpine). `php artisan route:list --path=admin` → 2 routes. `php artisan view:cache` → cached, then `view:clear`. `vendor/bin/pint --test` → passed.
+  - Browser check (local static render): desktop sidebar 248px, every item 44px high; no horizontal scroll at 375px; menu opens with focus on «Cerrar menú», Escape closes and returns focus; dark scheme colors applied; login fits 375×812 without scrolling.
+  - Authored lines (excluding `public/build`, lock files, `odd/`): A +809/−8 (272 tests), B +626/−2 (207 tests), C +204/−73 (85 tests + 1-line ExampleTest change). Slice 9 is over the 400-line budget; the three commits are the natural split points.
+- To confirm with Jhon (T6a):
+  1. Ink is derived at 7:1 (AAA) to stay close to the canvas (`#8D350C` vs `#8F360B`); the brief only requires 4.5:1.
+  2. Segurex button is `#C94F16` (4.55:1), slightly lighter than the canvas `#C4470F` (4.94:1), because the derivation stops at the first AA step.
+  3. Livewire + Alpine add about 96 kB gzip of JS to every page, including the sign-in page.
+  4. portal_admin may enter `/admin`, but its only section today (Empresas) is super_admin only, so it lands on a 403 until later sections exist.
+  5. The sign-in page lists active companies by short name; logos come with T6b.
+
 ## Next step
-T6a (UI foundation) on `feat/fase-3-9-ui-base`, branched from `feat/fase-3-8-emergencia-login`.
+T6b (companies list + edit) on a new slice branched from `feat/fase-3-9-ui-base`.

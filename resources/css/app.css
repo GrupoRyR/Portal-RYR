@@ -6,7 +6,9 @@
 @import '@fontsource-variable/figtree';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+/* Compiled views (storage/framework/views) are not scanned: their content
+   depends on the local view cache and made builds differ between runs.
+   Blade sources under resources/ are detected automatically. */
 
 /*
  * Design tokens — approved design system (docs/diseno/Tokens.dc.html).

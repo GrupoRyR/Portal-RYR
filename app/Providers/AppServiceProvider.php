@@ -4,9 +4,11 @@ namespace App\Providers;
 
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
+use App\Models\Company;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
@@ -36,6 +38,11 @@ class AppServiceProvider extends ServiceProvider
         // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('microsoft', MicrosoftProvider::class);
+        });
+
+        // The neutral sign-in page names the active companies of the group.
+        View::composer('auth.login', function (\Illuminate\View\View $view) {
+            $view->with('companies', Company::active()->orderBy('name')->get(['name', 'short_name']));
         });
     }
 }
