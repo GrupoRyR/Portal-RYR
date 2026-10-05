@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
@@ -31,3 +32,17 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
 });
+
+// Administration: super_admin and portal_admin only (role names from
+// Database\Seeders\RoleSeeder). Each section narrows access further.
+Route::middleware(['auth', 'role:super_admin|portal_admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/', fn () => redirect()->route('admin.companies.index'))->name('index');
+
+        // Decision 2026-10-05: portal_admin cannot manage companies.
+        Route::get('/empresas', [CompanyController::class, 'index'])
+            ->middleware('role:super_admin')
+            ->name('companies.index');
+    });
