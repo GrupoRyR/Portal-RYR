@@ -57,8 +57,11 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 0 | `feat/fase-2-base` | `main` | Phase 2 (generated skeleton → `size:exception`) | — |
 | 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 (`8f8ee4b`) | 428 (≈half tests) |
 | 2 | `feat/fase-3-2-directorio` | slice 1 | T2 (`ff59d89`) | 467 (≈half tests) |
-| 3 | `feat/fase-3-3-usuarios` | slice 2 | T3 | ~200 |
-| 4 | `feat/fase-3-4-login` | slice 3 | T4 | ~450 |
+| 3 | `feat/fase-3-3-usuarios` | slice 2 | T3 (`191377f`) | 511 (≈278 tests) |
+| 4 | `feat/fase-3-4-auth-base` | slice 3 | T4 packages, config, roles (`385e786`) | 529 (≈356 vendor-published config/migration) |
+| 5 | `feat/fase-3-5-login` | slice 4 | T4 login flow + security fix (`ed6453e`, `38da14b`) | 1369 (≈600 tests) |
+
+Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
 Slicing pass (2026-10-05): the original slice 1 came to ~895 authored lines, so it was split at the existing T1/T2 commit boundary. Both halves stay slightly above 400 because about half of each is tests; no cohesive smaller split exists → recommend `size:exception` for slices 1 and 2.
 
@@ -107,5 +110,12 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
   - Commit: `fix(auth): ...` (see `git log --oneline -3`).
 - `.env` keys for Jhon: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (e.g. `https://portal.example.com/auth/microsoft/callback`), optional `MICROSOFT_TENANT=organizations`, `PORTAL_SUPER_ADMIN_EMAILS` (comma-separated). Run `php artisan storage:link` on the server for avatars.
 
+- 2026-10-05: Parent found a cross-tenant account-takeover path in the first T4 version (guest status and `super_admin` derived from the mutable `mail` attribute). Fixed in `38da14b` by the writer: guest only when the validated `idp` claim proves the home tenant owns the email domain; email linking only for trusted home or verified-guest sign-ins; `super_admin` only on a trusted home sign-in. Source verified by the parent: https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference (`idp`; `email`/`preferred_username` mutable, never for authorization; guests should be treated as new users).
+- 2026-10-05: Parent spot check `php artisan test` → 120 passed (330 assertions). Review of `ac301d6..38da14b`: assessed high (auth hot path), consent declined by Jhon. Next review base: `38da14b`.
+- Env keys Jhon must add (names only): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (absolute), `MICROSOFT_TENANT` (optional, default `organizations`), `PORTAL_SUPER_ADMIN_EMAILS`. Server needs `php artisan storage:link` for avatars.
+
+## Open question 3 (product, raised 2026-10-05)
+Brief section 3 asks to link a Derivados guest in Segurex to their Derivados account by email. Microsoft's guidance is to treat guests as new users; even with the `idp` check, Segurex admins can edit a real guest's `mail` and redirect the link to another Derivados user. Options: keep verified-guest linking (current) or stop linking guests (separate user per tenant).
+
 ## Next step
-Review/delivery decision for slices 3 and 4, then T5 (blocked on Open question 1).
+Ask Jhon Open question 3, then T5 (blocked on Open question 1).
