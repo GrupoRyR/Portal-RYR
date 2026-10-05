@@ -66,7 +66,9 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 6 | `feat/fase-3-6-sin-vinculo-invitados` | slice 5 | No guest linking (Open question 3 decision) | 333 (+153/−180) |
 | 7 | `feat/fase-3-7-emergencia` | slice 6 | T5 schema + management command (`a202419`) | +459/−1 |
 | 8 | `feat/fase-3-8-emergencia-login` | slice 7 | T5 two-step sign-in (`cabacdb`) | ≈+611 (≈half tests) |
-| 9 | `feat/fase-3-9-ui-base` | slice 8 | T6a UI foundation (`fde6b63`, `1ebd080`, restyle commit) | +1638/−82 (≈570 tests; over budget, see T6a entry) |
+| 9 | `feat/fase-3-9-ui-tokens` | slice 8 | T6a tokens, fonts, brand palette (`fde6b63`) | +809/−8 (272 tests) |
+| 10 | `feat/fase-3-10-admin-shell` | slice 9 | T6a Livewire 4, layouts, admin shell (`1ebd080`) | +626/−2 (207 tests) |
+| 11 | `feat/fase-3-11-ui-paginas` | slice 10 | T6a restyled placeholder pages (`b2aa517`) | +204/−73 |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -195,5 +197,8 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
   4. portal_admin may enter `/admin`, but its only section today (Empresas) is super_admin only, so it lands on a 403 until later sections exist.
   5. The sign-in page lists active companies by short name; logos come with T6b.
 
+- 2026-10-05: Parent spot check on `feat/fase-3-11-ui-paginas` (`b2aa517`): `php artisan test` → 222 passed (701 assertions). T6a split at its commit boundaries into slices 9–11. Review of `0f290a2..b2aa517`: assessed high (auth view), consent declined by Jhon. Next review base: `b2aa517`.
+- To confirm with Jhon: ink at 7:1 (AAA) vs 4.5:1; Segurex button `#C94F16` (4.55:1) vs adding a margin to land near the canvas `#C4470F`; Livewire+Alpine ~96 kB gzip JS on every page (incl. sign-in) vs loading it only where needed; portal_admin lands on 403 until later admin sections exist.
+
 ## Next step
-T6b (companies list + edit) on a new slice branched from `feat/fase-3-9-ui-base`.
+Confirm the T6a adjustments with Jhon, then T6b (companies list + edit) on `feat/fase-3-12-empresas-admin` branched from `feat/fase-3-11-ui-paginas`.
