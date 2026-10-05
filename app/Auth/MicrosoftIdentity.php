@@ -7,7 +7,10 @@ use stdClass;
 
 /**
  * Who signed in with Microsoft, taken from the validated id_token claims
- * (`tid`, `oid`) and the Graph profile Socialite fetched.
+ * (`tid`, `oid`, `idp`) and the Graph profile Socialite fetched.
+ *
+ * `email` comes from attributes the signing tenant's admins control, so it
+ * is only a hint: it proves nothing outside that tenant.
  */
 final readonly class MicrosoftIdentity
 {
@@ -17,7 +20,16 @@ final readonly class MicrosoftIdentity
         public ?string $email,
         public string $name,
         public string $accessToken,
+        public ?string $homeTenantId = null,
     ) {}
+
+    /**
+     * Whether the account lives in the tenant it signed in to (not a guest).
+     */
+    public function isHomeSignIn(): bool
+    {
+        return $this->homeTenantId === $this->tenantId;
+    }
 
     /**
      * @param  stdClass|null  $claims  The provider's validated id_token claims.
@@ -46,7 +58,35 @@ final readonly class MicrosoftIdentity
 
         $name = trim((string) ($user->getName() ?? $claims->name ?? ''));
 
-        return new self($tenantId, $objectId, $email, $name !== '' ? $name : (string) $email, $accessToken);
+        return new self(
+            $tenantId,
+            $objectId,
+            $email,
+            $name !== '' ? $name : (string) $email,
+            $accessToken,
+            self::homeTenant($claims->idp ?? null, $tenantId),
+        );
+    }
+
+    /**
+     * The tenant the account is homed in. Per the id_token reference, `idp`
+     * equals the issuer unless the account is not in the issuer's tenant
+     * (guests), where it holds the home tenant's STS URI, e.g.
+     * `https://sts.windows.net/{homeTid}/`; when absent, `iss` (the signing
+     * tenant) applies. An `idp` that names no Entra tenant (e.g. `live.com`)
+     * yields null: no tenant is proven.
+     *
+     * @see https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference
+     */
+    private static function homeTenant(mixed $idp, string $tenantId): ?string
+    {
+        if ($idp === null || trim((string) $idp) === '') {
+            return $tenantId;
+        }
+
+        $pattern = '#^https://(?:sts\.windows\.net|login\.microsoftonline\.com)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:/|$)#i';
+
+        return preg_match($pattern, trim((string) $idp), $matches) === 1 ? strtolower($matches[1]) : null;
     }
 
     /**

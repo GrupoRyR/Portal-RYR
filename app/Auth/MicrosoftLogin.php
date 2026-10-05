@@ -41,12 +41,12 @@ class MicrosoftLogin
             throw LoginFailed::retry();
         }
 
-        [$company, $isGuest] = $this->resolveCompany($identity);
+        [$company, $isGuest, $emailTrusted] = $this->resolveCompany($identity);
 
-        $user = DB::transaction(fn () => $this->upsertUser($identity, $company, $isGuest));
+        $user = DB::transaction(fn () => $this->upsertUser($identity, $company, $isGuest, $emailTrusted));
 
         $this->syncFromGraph($user, $identity->accessToken);
-        $this->syncRoles($user);
+        $this->syncRoles($user, verifiedOwnEmail: $emailTrusted && ! $isGuest);
 
         $user->forceFill(['last_login_at' => now()])->save();
 
@@ -54,26 +54,32 @@ class MicrosoftLogin
     }
 
     /**
-     * A user whose email domain belongs to a company of ANOTHER tenant is a
-     * guest (e.g. a Derivados user invited into Segurex): their company is
-     * the domain owner, which must be active. Everyone else gets the
-     * company of the token's tenant.
+     * Decide the company and whether the email may be trusted. `mail` and
+     * the UPN are set by the signing tenant's admins, so an email is only
+     * trusted when its domain belongs to the company of the tenant that
+     * vouches for the account:
      *
-     * @return array{0: Company, 1: bool}
+     * - home sign-in in the tenant whose company owns the domain → trusted;
+     * - domain owned by a company of ANOTHER tenant → a guest (e.g. a
+     *   Derivados user invited into Segurex), accepted only when the
+     *   validated `idp` claim proves that tenant is the account's home;
+     *   the owner must be active;
+     * - otherwise the company of the token's tenant, email untrusted.
+     *
+     * @return array{0: Company, 1: bool, 2: bool} company, is guest, email trusted
      */
     private function resolveCompany(MicrosoftIdentity $identity): array
     {
         $owner = Company::query()
-            ->where('tenant_id', '!=', $identity->tenantId)
             ->get()
             ->first(fn (Company $company) => $company->ownsEmailDomain($identity->email));
 
-        if ($owner !== null) {
-            if (! $owner->is_active) {
+        if ($owner !== null && $owner->tenant_id !== $identity->tenantId) {
+            if ($identity->homeTenantId !== $owner->tenant_id || ! $owner->is_active) {
                 throw LoginFailed::tenantNotAllowed();
             }
 
-            return [$owner, true];
+            return [$owner, true, true];
         }
 
         $company = $this->tenants->resolveCompany($identity->tenantId, $identity->email);
@@ -82,17 +88,30 @@ class MicrosoftLogin
             throw LoginFailed::tenantNotAllowed();
         }
 
-        return [$company, false];
+        $emailTrusted = $owner !== null && $identity->isHomeSignIn();
+
+        return [$company, false, $emailTrusted];
     }
 
-    private function upsertUser(MicrosoftIdentity $identity, Company $company, bool $isGuest): User
+    private function upsertUser(MicrosoftIdentity $identity, Company $company, bool $isGuest, bool $emailTrusted): User
     {
         $user = User::query()
             ->where('tenant_id', $identity->tenantId)
             ->where('azure_oid', $identity->objectId)
-            ->first()
-            ?? User::query()->whereRaw('lower(email) = ?', [$identity->email])->first()
-            ?? new User(['name' => $identity->name]);
+            ->first();
+
+        if ($user === null && $emailTrusted) {
+            $user = User::query()->whereRaw('lower(email) = ?', [$identity->email])->first();
+        }
+
+        if ($user === null) {
+            // An untrusted email must never reach someone else's account.
+            if ($this->emailTakenByAnotherUser(new User, $identity->email)) {
+                throw LoginFailed::retry();
+            }
+
+            $user = new User(['name' => $identity->name]);
+        }
 
         // A guest sign-in never replaces the home-tenant identity already
         // stored for the user; a home sign-in always records it.
@@ -169,14 +188,20 @@ class MicrosoftLogin
     /**
      * Only the roles derived from Microsoft are touched; any other role
      * (e.g. `announcements_editor`) is managed inside the portal.
+     *
+     * `super_admin` is granted only when the listed email was vouched for by
+     * the tenant owning its domain (never on a guest sign-in) and removed
+     * once the email leaves the list; otherwise it is left as it was.
      */
-    private function syncRoles(User $user): void
+    private function syncRoles(User $user, bool $verifiedOwnEmail): void
     {
-        $this->toggleRole(
-            $user,
-            self::SUPER_ADMIN,
-            in_array($user->email, config('portal.super_admin_emails', []), true),
-        );
+        $listed = in_array($user->email, config('portal.super_admin_emails', []), true);
+
+        if (! $listed) {
+            $this->toggleRole($user, self::SUPER_ADMIN, false);
+        } elseif ($verifiedOwnEmail) {
+            $this->toggleRole($user, self::SUPER_ADMIN, true);
+        }
 
         $this->toggleRole(
             $user,

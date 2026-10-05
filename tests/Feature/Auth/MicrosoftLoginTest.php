@@ -13,6 +13,7 @@ use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use SocialiteProviders\Microsoft\MicrosoftUser;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 use Tests\TestCase;
@@ -28,6 +29,11 @@ class MicrosoftLoginTest extends TestCase
     private const OID = '11111111-1111-1111-1111-111111111111';
 
     private const GUEST_OID = '22222222-2222-2222-2222-222222222222';
+
+    /**
+     * `idp` claim of a B2B guest whose home tenant is Derivados.
+     */
+    private const DERIVADOS_IDP = 'https://sts.windows.net/54f53029-e6e2-4b5f-a862-3454ae886468/';
 
     private const ADMIN_GROUP = 'aaaaaaaa-0000-0000-0000-000000000001';
 
@@ -181,7 +187,7 @@ class MicrosoftLoginTest extends TestCase
     {
         $this->derivados->update(['is_active' => false]);
         $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID],
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
             ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
         );
 
@@ -197,7 +203,7 @@ class MicrosoftLoginTest extends TestCase
             'azure_oid' => self::OID,
         ]);
         $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID],
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
             ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
         );
         $this->fakeGraph();
@@ -212,10 +218,152 @@ class MicrosoftLoginTest extends TestCase
         $this->assertSame(self::OID, $home->azure_oid);
     }
 
+    /**
+     * An admin of another allowed tenant sets a user's `mail` to the super
+     * admin's address and signs in through their own tenant.
+     *
+     * @return array<string, array{0: array<string, string>}>
+     */
+    public static function spoofedMailClaims(): array
+    {
+        return [
+            'home user, no idp' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID]],
+            'idp is the signing tenant' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP]],
+            'idp of a third tenant' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://sts.windows.net/cccccccc-0000-0000-0000-000000000000/']],
+            'unparseable idp' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'live.com']],
+        ];
+    }
+
+    #[DataProvider('spoofedMailClaims')]
+    public function test_a_spoofed_mail_from_another_tenant_cannot_take_over_an_account(array $claims): void
+    {
+        config(['portal.super_admin_emails' => ['jhon.castro@segurex.com']]);
+        $jhon = User::factory()->microsoft($this->segurex)->create([
+            'name' => 'Jhon Castro',
+            'email' => 'jhon.castro@segurex.com',
+            'azure_oid' => self::OID,
+        ]);
+        $jhon->assignRole('super_admin');
+        $before = $jhon->fresh()->getAttributes();
+        $this->signInAs($claims, [
+            'mail' => 'jhon.castro@segurex.com',
+            'userPrincipalName' => 'mallory@derivados.com',
+        ]);
+        $this->fakeGraph(displayName: 'Mallory');
+
+        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+        $this->assertSame($before, $jhon->fresh()->getAttributes());
+        $this->assertSame(['super_admin'], $jhon->fresh()->getRoleNames()->all());
+    }
+
+    public function test_a_guest_whose_home_tenant_claim_does_not_match_the_domain_owner_is_rejected(): void
+    {
+        $other = Company::factory()->forTenant('cccccccc-0000-0000-0000-000000000000', ['otra.com'])->create();
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://sts.windows.net/'.$other->tenant_id.'/'],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
+        );
+
+        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_a_guest_without_home_tenant_claim_is_rejected(): void
+    {
+        $home = User::factory()->microsoft($this->derivados)->create(['email' => 'luis@derivados.com']);
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
+        );
+
+        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+        $this->assertSame(self::DERIVADOS_TENANT, $home->fresh()->tenant_id);
+    }
+
+    public function test_a_v2_issuer_style_idp_is_accepted_for_a_verified_guest(): void
+    {
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://login.microsoftonline.com/'.strtoupper(self::DERIVADOS_TENANT).'/v2.0'],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertTrue(User::sole()->company->is($this->derivados));
+    }
+
+    public function test_an_email_owned_by_no_company_never_links_to_an_existing_user(): void
+    {
+        $existing = User::factory()->microsoft($this->segurex)->create(['email' => 'luis@gmail.com']);
+        $this->signInAs(
+            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
+            ['mail' => 'luis@gmail.com', 'userPrincipalName' => 'luis@derivados.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertSessionHasErrors(['login' => self::FAILURE_MESSAGE]);
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+        $this->assertNotSame(self::GUEST_OID, $existing->fresh()->azure_oid);
+    }
+
+    public function test_an_email_owned_by_no_company_creates_a_user_when_free(): void
+    {
+        $this->signInAs(
+            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
+            ['mail' => 'luis@gmail.com', 'userPrincipalName' => 'luis@derivados.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $user = User::sole();
+        $this->assertSame('luis@gmail.com', $user->email);
+        $this->assertTrue($user->company->is($this->derivados));
+    }
+
+    public function test_super_admin_is_not_granted_on_a_guest_sign_in(): void
+    {
+        config(['portal.super_admin_emails' => ['luis@derivados.com']]);
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse(User::sole()->hasRole('super_admin'));
+    }
+
+    public function test_super_admin_is_not_granted_when_no_company_owns_the_email_domain(): void
+    {
+        config(['portal.super_admin_emails' => ['ana@gmail.com']]);
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::OID],
+            ['mail' => 'ana@gmail.com', 'userPrincipalName' => 'ana@segurex.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse(User::sole()->hasRole('super_admin'));
+    }
+
     public function test_a_first_time_guest_gets_the_company_owning_its_email_domain(): void
     {
         $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID],
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
             ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
         );
         $this->fakeGraph();
