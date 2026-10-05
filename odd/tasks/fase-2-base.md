@@ -26,7 +26,7 @@ Login, companies, catalog, UI screens (Phase 3+). Actual server changes on GoDad
 - [x] T1 — Git repo + Laravel 13 skeleton at repo root; tests green. Route: inline (mechanical commands). Evidence: Laravel 13.34.0, `php artisan test` 2/2 passed, commit `38ce619` on `feat/fase-2-base`. Review: assessed high (config/auth.php), consent declined by user.
 - [ ] T2 — Base config + `.env.example` + HTTPS/proxy + database drivers; tests. Route: delegated writer (2+ non-trivial files). Code done (config defaults, `URL::forceScheme('https')` in production, loopback-only trusted proxies, tests). PENDING: `.env.example` and local `.env` could not be written (agent permission rules deny `.env*`); proposed template handed to parent.
 - [x] T3 — Scheduler heartbeat + test. Route: delegated writer (same writer as T2). Evidence: see Progress.
-- [ ] T4 — Deployment: committed `public/build`, `deploy/deploy.sh`, `docs/despliegue.md`. Route: delegated writer (same writer).
+- [x] T4 — Deployment: committed `public/build`, `deploy/deploy.sh`, `docs/despliegue.md`. Route: delegated writer (same writer). Evidence: see Progress.
 
 ## Acceptance criteria
 - `php artisan test` passes.
@@ -51,7 +51,9 @@ Strategy: `ask-on-risk`. Forecast: skeleton is generated code (excluded); author
 
 - 2026-10-05: T2 code. RED: `php artisan test` 7 failed/1 error of 12 (name `Laravel`, locale `en`, timezone `UTC`, `http://localhost:8000` not https, forwarded proto ignored, heartbeat missing). GREEN: config/app.php defaults (`Portal RYR`, `es`, `es_CO`, `APP_TIMEZONE` default `America/Bogota`), AppServiceProvider forces https in production, bootstrap/app.php trusts forwarded headers only from 127.0.0.1/::1. `APP_NAME="Portal RYR" APP_LOCALE=es APP_FALLBACK_LOCALE=es php artisan test --filter=BaseConfigurationTest`: 8 passed. Without those env overrides, 2 tests fail because the local `.env` still has `APP_NAME=Laravel`/`APP_LOCALE=en` (cannot be edited by the agent). Commit `afbe555`.
 
-- 2026-10-05: T3 done. RED: `SchedulerHeartbeatTest` 1 failed + 1 error (task not registered). GREEN: `routes/console.php` registers `scheduler-heartbeat` (`everyMinute`, `withoutOverlapping`) writing `Cache::forever('scheduler:last_run', ISO-8601)`. `php artisan test` (with env overrides above): 12 passed. `php artisan schedule:list`: `* * * * * scheduler-heartbeat`. `php artisan schedule:run` locally: `Running [scheduler-heartbeat] DONE`, cache value `2026-10-05T13:48:30-05:00`.
+- 2026-10-05: T3 done. RED: `SchedulerHeartbeatTest` 1 failed + 1 error (task not registered). GREEN: `routes/console.php` registers `scheduler-heartbeat` (`everyMinute`, `withoutOverlapping`) writing `Cache::forever('scheduler:last_run', ISO-8601)`. `php artisan test` (with env overrides above): 12 passed. `php artisan schedule:list`: `* * * * * scheduler-heartbeat`. `php artisan schedule:run` locally: `Running [scheduler-heartbeat] DONE`, cache value `2026-10-05T13:48:30-05:00`. Commit `d74e712`.
+
+- 2026-10-05: T4 done. `/public/build` removed from `.gitignore` (`/node_modules` still ignored); `npm install` 0 vulnerabilities; `npm run build` built in ~1.6s, 11 files (196K) committed with `package-lock.json` in `1b95ee6`. `deploy/deploy.sh` (mode 100755; `bash -n` OK): maintenance mode + EXIT trap `artisan up`, `git pull --ff-only`, composer `--no-dev`, `migrate --force`, `optimize`, `storage:link` if missing. Composer override is `COMPOSER_BIN` (not `COMPOSER`, which Composer reads as the composer.json filename). `docs/despliegue.md` (Spanish) covers first install, cron + heartbeat check, AutoSSL, routine deploy, rollback, do-nots. `composer validate --no-check-publish`: valid.
 
 ## Next step
-T2–T4 (one delegated writer). Next review base: `38ce619`.
+User/parent: apply the proposed `.env.example` (agent could not write `.env*`) and set local `.env` APP_NAME/APP_LOCALE/APP_FALLBACK_LOCALE/APP_FAKER_LOCALE/APP_TIMEZONE, then re-run `php artisan test` and close T2. Then review/delivery decision. Next review base: `38ce619`.
