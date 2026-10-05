@@ -61,5 +61,7 @@ Strategy: `ask-on-risk`. Forecast: skeleton is generated code (excluded); author
 
 - 2026-10-05: Jhon committed `.env.example` (`5850c04`, 48+/24-). All tasks T1–T4 done; working tree clean.
 
+- 2026-10-05: Template `CLAUDE.md`/`AGENTS.md` deleted at Jhon's request (never committed); their `.git/info/exclude` lines removed. Phase 2 closed.
+
 ## Next step
-Decide on template `CLAUDE.md`/`AGENTS.md` (untracked, locally excluded), then Phase 2 is closed. Push/merge are Jhon's decisions. Next review base: `5850c04`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
+Phase 3 (companies + multi-tenant Microsoft login). Needs SVG logos before UI work. Push/merge are Jhon's decisions. Next review base: `5850c04`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
