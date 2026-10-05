@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
+use App\Models\Company;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -41,8 +42,12 @@ Route::middleware(['auth', 'role:super_admin|portal_admin'])
     ->group(function () {
         Route::get('/', fn () => redirect()->route('admin.companies.index'))->name('index');
 
-        // Decision 2026-10-05: portal_admin cannot manage companies.
+        // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
+        // manage companies, decision 2026-10-05).
         Route::get('/empresas', [CompanyController::class, 'index'])
-            ->middleware('role:super_admin')
+            ->can('viewAny', Company::class)
             ->name('companies.index');
+        Route::get('/empresas/{company:slug}', [CompanyController::class, 'show'])
+            ->can('update', 'company')
+            ->name('companies.show');
     });

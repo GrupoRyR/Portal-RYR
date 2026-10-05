@@ -103,6 +103,19 @@ class Company extends Model
     }
 
     /**
+     * The other company that already lists this email domain, if any. A
+     * domain may belong to one company only. The table is small, so the
+     * check runs in PHP instead of a database-specific JSON query.
+     */
+    public static function domainOwner(string $domain, ?int $exceptId = null): ?self
+    {
+        return self::query()
+            ->when($exceptId !== null, fn (Builder $query) => $query->whereKeyNot($exceptId))
+            ->get(['id', 'name', 'domains'])
+            ->first(fn (self $company) => in_array($domain, $company->domains ?? [], true));
+    }
+
+    /**
      * Whether the email belongs to one of this company's domains. The match
      * is exact on the part after the last "@" (no subdomains, no suffixes).
      */
