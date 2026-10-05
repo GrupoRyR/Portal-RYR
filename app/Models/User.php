@@ -20,6 +20,10 @@ use Spatie\Permission\Traits\HasRoles;
  * A person who signs in with Microsoft. Identified by the object ID
  * (`azure_oid`) inside their home tenant (`tenant_id`); the password is only
  * used by non-Microsoft accounts and is otherwise null.
+ *
+ * Emergency accounts (`is_emergency`) are local: password + TOTP, no
+ * tenant, object ID or company. They are managed only through the
+ * `portal:emergency-account` command, so the 2FA columns are not fillable.
  */
 #[Fillable([
     'name',
@@ -32,7 +36,7 @@ use Spatie\Permission\Traits\HasRoles;
     'photo_path',
     'last_login_at',
 ])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -49,6 +53,10 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'is_emergency' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_timestep' => 'integer',
         ];
     }
 

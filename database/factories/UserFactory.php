@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use PragmaRX\Google2FA\Google2FA;
 
 /**
  * @extends Factory<User>
@@ -41,6 +42,24 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * A local emergency account with password and confirmed TOTP 2FA, and
+     * no tenant, object ID or company.
+     */
+    public function emergency(?string $secret = null): static
+    {
+        return $this->state(fn () => [
+            'name' => 'Cuenta de emergencia',
+            'is_emergency' => true,
+            'azure_oid' => null,
+            'tenant_id' => null,
+            'company_id' => null,
+            'two_factor_secret' => $secret ?? (new Google2FA)->generateSecretKey(32),
+            'two_factor_confirmed_at' => now(),
+            'two_factor_last_timestep' => null,
         ]);
     }
 
