@@ -61,7 +61,8 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 4 | `feat/fase-3-4-auth-base` | slice 3 | T4 packages, config, roles (`385e786`) | 529 (≈356 vendor-published config/migration) |
 | 5 | `feat/fase-3-5-login` | slice 4 | T4 login flow + security fix (`ed6453e`, `38da14b`) | 1369 (≈600 tests) |
 | 6 | `feat/fase-3-6-sin-vinculo-invitados` | slice 5 | No guest linking (Open question 3 decision) | 333 (+153/−180) |
-| 7 | `feat/fase-3-7-emergencia` | slice 6 | T5 emergency account (`a202419` schema + command, then the sign-in flow commit) | ≈1070 (+1070/−1; ≈480 tests) |
+| 7 | `feat/fase-3-7-emergencia` | slice 6 | T5 schema + management command (`a202419`) | +459/−1 |
+| 8 | `feat/fase-3-8-emergencia-login` | slice 7 | T5 two-step sign-in (`cabacdb`) | ≈+611 (≈half tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -154,5 +155,7 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
   - Authored lines: commit A +459/−1 (excluding `composer.lock`), commit B ≈+611 (about half tests).
 - Env keys for T5 (names only): `PORTAL_EMERGENCY_PATH` (optional). Server: run `php artisan portal:emergency-account <email>` over SSH once and store the password and secret offline.
 
+- 2026-10-05: Parent spot check on `feat/fase-3-8-emergencia-login` (`cabacdb`): `php artisan test` → 151 passed (515 assertions). T5 split at its commit boundary into slices 7 and 8. Review of `6ee7a39..cabacdb`: assessed high (auth hot path), consent declined by Jhon. Next review base: `cabacdb`. To confirm with Jhon: code-step throttle is per account (stricter; a password holder can lock the owner out for ≤1 min).
+
 ## Next step
-Review/delivery decision for slice 7, then T6 (blocked on Open question 2).
+T6 (blocked on Open question 2: UI foundation).
