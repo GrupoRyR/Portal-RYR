@@ -83,6 +83,16 @@ class AdminAccessTest extends TestCase
             ->assertSee('Súper administrador');
     }
 
+    public function test_admin_pages_load_livewire(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super_admin');
+
+        $this->actingAs($user)->get(route('admin.companies.index'))
+            ->assertSee('window.livewireScriptConfig', false)
+            ->assertSee('/build/assets/livewire-', false);
+    }
+
     public function test_sections_that_do_not_exist_yet_are_not_links(): void
     {
         $user = User::factory()->create();

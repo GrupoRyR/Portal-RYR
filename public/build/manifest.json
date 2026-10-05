@@ -35,10 +35,10 @@
       "assets/figtree-latin-wght-normal-D_ZTVpCC.woff2"
     ]
   },
-  "resources/js/app.js": {
-    "file": "assets/app-CJm6V6pB.js",
-    "name": "app",
-    "src": "resources/js/app.js",
+  "resources/js/livewire.js": {
+    "file": "assets/livewire-CJm6V6pB.js",
+    "name": "livewire",
+    "src": "resources/js/livewire.js",
     "isEntry": true
   }
 }

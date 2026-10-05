@@ -69,6 +69,7 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 9 | `feat/fase-3-9-ui-tokens` | slice 8 | T6a tokens, fonts, brand palette (`fde6b63`) | +809/−8 (272 tests) |
 | 10 | `feat/fase-3-10-admin-shell` | slice 9 | T6a Livewire 4, layouts, admin shell (`1ebd080`) | +626/−2 (207 tests) |
 | 11 | `feat/fase-3-11-ui-paginas` | slice 10 | T6a restyled placeholder pages (`b2aa517`) | +204/−73 |
+| 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654` + follow-up) | +68/−18 |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -200,5 +201,14 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 - 2026-10-05: Parent spot check on `feat/fase-3-11-ui-paginas` (`b2aa517`): `php artisan test` → 222 passed (701 assertions). T6a split at its commit boundaries into slices 9–11. Review of `0f290a2..b2aa517`: assessed high (auth view), consent declined by Jhon. Next review base: `b2aa517`.
 - To confirm with Jhon: ink at 7:1 (AAA) vs 4.5:1; Segurex button `#C94F16` (4.55:1) vs adding a margin to land near the canvas `#C4470F`; Livewire+Alpine ~96 kB gzip JS on every page (incl. sign-in) vs loading it only where needed; portal_admin lands on 403 until later admin sections exist.
 
+- 2026-10-05: Jhon's T6a decisions: (1) ink stays at 7:1 (AAA); (2) button target 4.8:1 with white text, AA 4.5:1 kept as invariant; (3) Livewire/Alpine only where needed. Implemented on `feat/fase-3-12-ajustes-ui` (from `feat/fase-3-11-ui-paginas`; route: delegated writer), two work-unit commits.
+  - Commit A `10eb654` feat(branding): `BrandPalette::BUTTON_CONTRAST = 4.8`. Segurex button → `#C24C15` (4.84:1; canvas `#C4470F` is 4.94:1, within 6 per channel). Derivados unchanged (`#183F94`, 9.64:1). Invariant test (every sample primary ≥ 4.5:1) unchanged.
+    - RED: `php artisan test tests/Unit/Branding` → `Undefined constant App\Branding\BrandPalette::BUTTON_CONTRAST`. GREEN: all branding tests pass.
+  - Commit B (see `git log`) feat(ui): `resources/js/app.js` renamed to `resources/js/livewire.js` (the only JS entry). `x-layouts.app` gets a `livewire` flag (default false) that adds that entry, `@livewireStyles` and `@livewireScriptConfig`; `x-layouts.admin` always passes it. Sign-in, emergency, home and 403 pages now ship CSS only.
+    - RED: 4 failed (layout default/opt-in, placeholder pages, admin page). GREEN: `php artisan test` → 226 passed (717 assertions).
+    - Build: `app-*.css` 50.88 kB (12.26 kB gzip); `livewire-*.js` 296.38 kB (96.14 kB gzip), admin only; no JS on other pages.
+    - Pages that later embed a Livewire component outside the admin shell must pass `livewire` to `x-layouts.app` (Livewire asset injection is off).
+  - Authored lines: A +11/−5, B +57/−13.
+
 ## Next step
-Confirm the T6a adjustments with Jhon, then T6b (companies list + edit) on `feat/fase-3-12-empresas-admin` branched from `feat/fase-3-11-ui-paginas`.
+T6b (companies list + edit) on `feat/fase-3-13-empresas-admin`, branched from `feat/fase-3-12-ajustes-ui`.
