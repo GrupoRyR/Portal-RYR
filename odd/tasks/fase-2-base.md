@@ -57,5 +57,7 @@ Strategy: `ask-on-risk`. Forecast: skeleton is generated code (excluded); author
 
 - 2026-10-05: Parent spot check: `APP_NAME="Portal RYR" APP_LOCALE=es APP_FALLBACK_LOCALE=es APP_FAKER_LOCALE=es_CO php artisan test`: 12 passed (18 assertions); `schedule:list` shows `scheduler-heartbeat` every minute. Review of `38ce619..312b644`: assessed high (deploy/deploy.sh executable, shell process), consent declined by user. `.atl/` (gentle-ai skill registry cache) excluded locally.
 
+- 2026-10-05: Jhon applied `.env.example` and local `.env` by hand. Plain `php artisan test` (after `config:clear`): 12 passed, 18 assertions. `.env.example` commit left to Jhon (agent cannot read or stage `.env*` files).
+
 ## Next step
-User: the agent permission rules deny `.env*`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
+After Jhon commits `.env.example`: check T2, decide on template `CLAUDE.md`/`AGENTS.md`, close Phase 2. Previous note — the agent permission rules deny `.env*`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
