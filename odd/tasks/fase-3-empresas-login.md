@@ -24,7 +24,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - Laravel 13.34, PHP 8.3, PHPUnit 12.
 
 ## Tasks
-- [ ] T1 — Companies domain: migration, `Company` model, seeder with the two real tenants, domains and brand colors; tests. Route: delegated writer (multi-file).
+- [x] T1 — Companies domain: migration, `Company` model, seeder with the two real tenants, domains and brand colors; tests. Route: delegated writer (multi-file).
 - [ ] T2 — `TenantDirectory`: allowed tenant IDs from active companies (cached, invalidated on company save/delete), resolve company from `tid` + email domain (shared-tenant rule), reject unknown/inactive tenants; tests. Route: delegated writer (same as T1).
 - [ ] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [ ] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
@@ -65,6 +65,10 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
 - 2026-10-05: Document created. Branch created from `feat/fase-2-base` at `6cb35bf`.
 
 - 2026-10-05: Chain strategy stacked-to-main chosen; branch renamed to `feat/fase-3-1-empresas`.
+- 2026-10-05: T1 done (route: delegated writer). `companies` migration (tenant_id indexed, not unique), `Company` model (array/bool/datetime casts, lowercase tenant_id and domains, `active()` scope, exact-match `ownsEmailDomain`; subdomains such as `mail.segurex.com` are not owned), `CompanyFactory`, idempotent `CompanySeeder` called from `DatabaseSeeder`.
+  - RED: `php artisan test tests/Feature/Companies` → 10 errors (`Class "App\Models\Company" not found`, `Target class [Database\Seeders\CompanySeeder] does not exist`).
+  - GREEN: `php artisan test` → 22 passed (62 assertions).
+  - `php artisan migrate:fresh --seed` → companies migrated, `CompanySeeder` DONE; tinker shows segurex `97cd024c-…5816c8`, derivados `54f53029-…886468`.
 
 ## Next step
-Slice 1: T1 + T2 (one delegated writer).
+Slice 1: T2 (`TenantDirectory`).
