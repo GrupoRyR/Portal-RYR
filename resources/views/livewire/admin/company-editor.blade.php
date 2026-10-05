@@ -22,6 +22,11 @@
         ...$palette->cssVariables(),
     ])->map(fn ($value, $name) => $name.':'.$value)->implode(';');
     $initial = mb_strtoupper(mb_substr(trim($shortName) ?: (trim($name) ?: '?'), 0, 1));
+    $uploads = [
+        ['property' => 'logoLight', 'label' => 'Logo claro', 'hint' => 'PNG, WebP o SVG · máx. 1 MB', 'path' => $company->logo_light_path, 'accept' => '.png,.webp,.svg,image/png,image/webp,image/svg+xml'],
+        ['property' => 'logoDark', 'label' => 'Logo oscuro', 'hint' => 'PNG, WebP o SVG · máx. 1 MB', 'path' => $company->logo_dark_path, 'accept' => '.png,.webp,.svg,image/png,image/webp,image/svg+xml'],
+        ['property' => 'icon', 'label' => 'Ícono celular', 'hint' => 'PNG de 512 × 512 px', 'path' => $company->icon_path, 'accept' => '.png,image/png'],
+    ];
 @endphp
 <div class="grid gap-6 min-[1360px]:grid-cols-[minmax(0,1fr)_300px] min-[1360px]:items-start">
     <form id="company-form" wire:submit="save" class="flex min-w-0 flex-col gap-5" novalidate>
@@ -158,6 +163,28 @@
         {{-- Brand --}}
         <section class="{{ $card }}" aria-labelledby="c-brand">
             <h2 id="c-brand" class="font-sans text-lg font-bold tracking-normal">Marca</h2>
+
+            <div class="grid gap-3 sm:grid-cols-3">
+                @foreach ($uploads as $upload)
+                    @php($property = $upload['property'])
+                    <div class="flex flex-col gap-1.5">
+                        <label for="c-{{ $property }}"
+                               class="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-control border border-dashed border-line-strong bg-ground p-3 text-center text-[0.8125rem] text-fg-soft hover:bg-subtle has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-fg">
+                            <span class="text-sm font-semibold text-fg">{{ $upload['label'] }}</span>
+                            @if ($this->{$property})
+                                <span class="break-all">Nuevo: {{ $this->{$property}->getClientOriginalName() }}</span>
+                            @elseif ($upload['path'])
+                                <img src="{{ $company->brandFileUrl($upload['path']) }}" alt="{{ $upload['label'] }} actual de {{ $company->name }}" class="max-h-10 max-w-full object-contain">
+                            @else
+                                <span>{{ $upload['hint'] }}</span>
+                            @endif
+                            <span wire:loading wire:target="{{ $property }}" class="font-semibold">Subiendo…</span>
+                            <input id="c-{{ $property }}" type="file" wire:model="{{ $property }}" accept="{{ $upload['accept'] }}" class="sr-only">
+                        </label>
+                        @error($property) <p class="{{ $error }}">{{ $message }}</p> @enderror
+                    </div>
+                @endforeach
+            </div>
 
             <div class="grid gap-4 sm:grid-cols-3">
                 @foreach (['colorPrimary' => 'Principal', 'colorAccent' => 'Acento', 'colorDark' => 'Oscuro'] as $property => $text)

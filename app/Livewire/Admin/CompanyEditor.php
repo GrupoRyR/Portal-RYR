@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Admin;
 
+use App\Branding\BrandAssetStore;
 use App\Branding\BrandPalette;
 use App\Branding\Contrast;
+use App\Branding\SvgLogo;
 use App\Models\Company;
 use Closure;
 use Illuminate\Contracts\View\View;
@@ -13,14 +15,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 /**
  * Edits one company (brief 5.1): names, email domains, quick links, brand
- * colors with a live contrast check and preview, and the active switch. Slug and tenant are read-only here (tenant changes are T6c).
+ * colors with a live contrast check and preview, logos and the active
+ * switch. Slug and tenant are read-only here (tenant changes are T6c).
  */
 class CompanyEditor extends Component
 {
     use AuthorizesRequests;
+    use WithFileUploads;
 
     public const MAX_QUICK_LINKS = 8;
 
@@ -53,6 +59,12 @@ class CompanyEditor extends Component
     public string $colorDark = '';
 
     public bool $isActive = true;
+
+    public ?TemporaryUploadedFile $logoLight = null;
+
+    public ?TemporaryUploadedFile $logoDark = null;
+
+    public ?TemporaryUploadedFile $icon = null;
 
     public string $preview = 'light';
 
@@ -121,7 +133,7 @@ class CompanyEditor extends Component
         }
     }
 
-    public function save(): mixed
+    public function save(BrandAssetStore $assets): mixed
     {
         $this->authorize('update', $this->company);
 
@@ -135,17 +147,17 @@ class CompanyEditor extends Component
             return null;
         }
 
-        return $this->persist();
+        return $this->persist($assets);
     }
 
-    public function confirmDeactivation(): mixed
+    public function confirmDeactivation(BrandAssetStore $assets): mixed
     {
         $this->authorize('update', $this->company);
 
         $this->isActive = false;
         $this->confirmingDeactivation = true;
 
-        return $this->save();
+        return $this->save($assets);
     }
 
     public function cancelDeactivation(): void
@@ -171,6 +183,9 @@ class CompanyEditor extends Component
             'colorAccent' => ['required', 'string', 'regex:'.self::HEX_PATTERN],
             'colorDark' => ['required', 'string', 'regex:'.self::HEX_PATTERN],
             'isActive' => ['boolean'],
+            'logoLight' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
+            'logoDark' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
+            'icon' => ['nullable', 'file', 'max:1024', 'extensions:png', $this->isIcon(...)],
         ];
     }
 
@@ -200,6 +215,13 @@ class CompanyEditor extends Component
             'colorPrimary.regex' => 'Usa el formato #RRGGBB, por ejemplo #FF671F.',
             'colorAccent.regex' => 'Usa el formato #RRGGBB, por ejemplo #666666.',
             'colorDark.regex' => 'Usa el formato #RRGGBB, por ejemplo #8F360B.',
+            'logoLight.max' => 'El archivo pesa más de 1 MB.',
+            'logoDark.max' => 'El archivo pesa más de 1 MB.',
+            'icon.max' => 'El archivo pesa más de 1 MB.',
+            'logoLight.extensions' => 'Sube un archivo PNG, WebP o SVG.',
+            'logoDark.extensions' => 'Sube un archivo PNG, WebP o SVG.',
+            'icon.extensions' => 'Sube un archivo PNG de 512 × 512 px.',
+            'file' => 'No se pudo leer el archivo.',
         ];
     }
 
@@ -215,10 +237,21 @@ class CompanyEditor extends Component
         ]);
     }
 
-    private function persist(): mixed
+    private function persist(BrandAssetStore $assets): mixed
     {
         $company = $this->company;
-        DB::transaction(function () use ($company) {
+        $old = [];
+        $new = [];
+
+        foreach (['logoLight' => 'logo-light', 'logoDark' => 'logo-dark', 'icon' => 'icon'] as $property => $slot) {
+            if ($this->{$property} !== null) {
+                $attribute = BrandAssetStore::SLOTS[$slot];
+                $old[$attribute] = $company->{$attribute};
+                $new[$attribute] = $assets->store($company, $slot, $this->{$property});
+            }
+        }
+
+        DB::transaction(function () use ($company, $new) {
             $company->fill([
                 'name' => trim($this->name),
                 'short_name' => trim($this->shortName),
@@ -231,8 +264,13 @@ class CompanyEditor extends Component
                 'color_accent' => strtoupper($this->colorAccent),
                 'color_dark' => strtoupper($this->colorDark),
                 'is_active' => $this->isActive,
+                ...$new,
             ])->save();
         });
+
+        foreach ($new as $attribute => $path) {
+            $assets->deleteReplaced($old[$attribute], $path);
+        }
 
         session()->flash('status', 'Cambios guardados.');
 
@@ -262,6 +300,43 @@ class CompanyEditor extends Component
 
         if ($owner !== null) {
             $fail("Este dominio ya pertenece a {$owner->name}.");
+        }
+    }
+
+    private function isLogo(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $extension = strtolower($value->getClientOriginalExtension());
+
+        if ($extension === 'svg') {
+            if (SvgLogo::sanitize((string) file_get_contents($value->getRealPath())) === null) {
+                $fail('El SVG no es válido o no se pudo limpiar. Exporta el logo de nuevo como SVG.');
+            }
+
+            return;
+        }
+
+        $type = @getimagesize($value->getRealPath())[2] ?? null;
+        $expected = ['png' => IMAGETYPE_PNG, 'webp' => IMAGETYPE_WEBP][$extension] ?? null;
+
+        if ($expected === null || $type !== $expected) {
+            $fail('El archivo no es una imagen PNG o WebP válida.');
+        }
+    }
+
+    private function isIcon(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $size = @getimagesize($value->getRealPath());
+
+        if ($size === false || $size[2] !== IMAGETYPE_PNG || $size[0] !== 512 || $size[1] !== 512) {
+            $fail('El ícono debe ser un PNG de exactamente 512 × 512 px.');
         }
     }
 }

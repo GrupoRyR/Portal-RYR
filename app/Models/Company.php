@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * A company of the group. Each one is bound to a Microsoft tenant; the
@@ -113,6 +114,14 @@ class Company extends Model
             ->when($exceptId !== null, fn (Builder $query) => $query->whereKeyNot($exceptId))
             ->get(['id', 'name', 'domains'])
             ->first(fn (self $company) => in_array($domain, $company->domains ?? [], true));
+    }
+
+    /**
+     * Public URL of a stored brand file (logos and icon on the "public" disk).
+     */
+    public function brandFileUrl(?string $path): ?string
+    {
+        return $path === null ? null : Storage::disk('public')->url($path);
     }
 
     /**
