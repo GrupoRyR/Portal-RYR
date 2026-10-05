@@ -24,7 +24,7 @@ Login, companies, catalog, UI screens (Phase 3+). Actual server changes on GoDad
 
 ## Tasks
 - [x] T1 — Git repo + Laravel 13 skeleton at repo root; tests green. Route: inline (mechanical commands). Evidence: Laravel 13.34.0, `php artisan test` 2/2 passed, commit `38ce619` on `feat/fase-2-base`. Review: assessed high (config/auth.php), consent declined by user.
-- [ ] T2 — Base config + `.env.example` + HTTPS/proxy + database drivers; tests. Route: delegated writer (2+ non-trivial files). Code done (config defaults, `URL::forceScheme('https')` in production, loopback-only trusted proxies, tests). PENDING: `.env.example` and local `.env` could not be written (agent permission rules deny `.env*`); proposed template handed to parent.
+- [x] T2 — Base config + `.env.example` + HTTPS/proxy + database drivers; tests. Route: delegated writer (2+ non-trivial files). `.env.example` applied and committed by Jhon (`5850c04`); review of that change declined by user. Code done (config defaults, `URL::forceScheme('https')` in production, loopback-only trusted proxies, tests). PENDING: `.env.example` and local `.env` could not be written (agent permission rules deny `.env*`); proposed template handed to parent.
 - [x] T3 — Scheduler heartbeat + test. Route: delegated writer (same writer as T2). Evidence: see Progress.
 - [x] T4 — Deployment: committed `public/build`, `deploy/deploy.sh`, `docs/despliegue.md`. Route: delegated writer (same writer). Evidence: see Progress.
 
@@ -59,5 +59,7 @@ Strategy: `ask-on-risk`. Forecast: skeleton is generated code (excluded); author
 
 - 2026-10-05: Jhon applied `.env.example` and local `.env` by hand. Plain `php artisan test` (after `config:clear`): 12 passed, 18 assertions. `.env.example` commit left to Jhon (agent cannot read or stage `.env*` files).
 
+- 2026-10-05: Jhon committed `.env.example` (`5850c04`, 48+/24-). All tasks T1–T4 done; working tree clean.
+
 ## Next step
-After Jhon commits `.env.example`: check T2, decide on template `CLAUDE.md`/`AGENTS.md`, close Phase 2. Previous note — the agent permission rules deny `.env*`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
+Decide on template `CLAUDE.md`/`AGENTS.md` (untracked, locally excluded), then Phase 2 is closed. Push/merge are Jhon's decisions. Next review base: `5850c04`. Jhon applies the proposed template (scratchpad `env.example.proposed`) to `.env.example` and sets local `.env` values (APP_NAME, APP_LOCALE, APP_FALLBACK_LOCALE, APP_FAKER_LOCALE, APP_TIMEZONE), or grants access; then re-run `php artisan test`, commit `.env.example`, close T2. Next review base: `312b644`.
