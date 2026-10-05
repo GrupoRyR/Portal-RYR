@@ -50,11 +50,21 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 2. UI foundation for T6 and Phase 4: Livewire version and how the approved design tokens become CSS (frontend-design skill), before the first screen.
 
 ## Delivery
-Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including tests; above the ~400-line slice budget, so ask for the chain strategy before the second work-unit commit.
-Branch `feat/fase-3-empresas-login` is stacked on `feat/fase-2-base` (not yet merged to `main`).
+Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including tests. Chain strategy (chosen by Jhon 2026-10-05): **stacked-to-main**. No remote yet, so slices are branches until a remote exists.
+
+| Slice | Branch | Base | Holds | Budget |
+|---|---|---|---|---|
+| 0 | `feat/fase-2-base` | `main` | Phase 2 (generated skeleton → `size:exception`) | — |
+| 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 + T2 | ~350 |
+| 2 | `feat/fase-3-2-usuarios` | slice 1 | T3 | ~200 |
+| 3 | `feat/fase-3-3-login` | slice 2 | T4 | ~450 |
+
+Each slice states start, end, dependencies and out-of-scope in its PR body with the dependency diagram; tests and docs travel with their slice.
 
 ## Progress
 - 2026-10-05: Document created. Branch created from `feat/fase-2-base` at `6cb35bf`.
 
+- 2026-10-05: Chain strategy stacked-to-main chosen; branch renamed to `feat/fase-3-1-empresas`.
+
 ## Next step
-T1–T3 (one delegated writer).
+Slice 1: T1 + T2 (one delegated writer).
