@@ -183,9 +183,9 @@ class MicrosoftLoginTest extends TestCase
         $this->assertDatabaseCount('users', 0);
     }
 
-    public function test_a_guest_of_an_inactive_company_is_rejected(): void
+    public function test_a_sign_in_through_an_inactive_company_tenant_is_rejected(): void
     {
-        $this->derivados->update(['is_active' => false]);
+        $this->segurex->update(['is_active' => false]);
         $this->signInAs(
             ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
             ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
@@ -196,31 +196,44 @@ class MicrosoftLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_a_derivados_guest_in_segurex_is_linked_to_the_same_user(): void
+    public function test_a_derivados_guest_in_segurex_becomes_a_separate_segurex_user(): void
     {
         $home = User::factory()->microsoft($this->derivados)->create([
+            'name' => 'Luis Gómez',
             'email' => 'luis@derivados.com',
             'azure_oid' => self::OID,
+            'job_title' => 'Contador',
         ]);
+        $home->syncGroups([['id' => self::ADMIN_GROUP, 'display_name' => 'APP-PortalAdmin']]);
+        $home->assignRole('portal_admin');
+        $before = $home->fresh()->getAttributes();
         $this->signInAs(
             ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
             ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
         );
-        $this->fakeGraph();
+        $this->fakeGraph(groups: [['id' => 'bbbbbbbb-0000-0000-0000-000000000009', 'displayName' => 'APP-Cartera']]);
 
         $this->hitCallback()->assertRedirect('/');
 
-        $this->assertDatabaseCount('users', 1);
-        $this->assertAuthenticatedAs($home);
+        $this->assertDatabaseCount('users', 2);
+        $guest = User::where('azure_oid', self::GUEST_OID)->sole();
+        $this->assertAuthenticatedAs($guest);
+        $this->assertSame('luis@derivados.com', $guest->email);
+        $this->assertSame(self::SEGUREX_TENANT, $guest->tenant_id);
+        $this->assertTrue($guest->company->is($this->segurex));
+        $this->assertTrue($guest->isInGroup('APP-Cartera'));
+        $this->assertFalse($guest->hasRole('portal_admin'));
+
         $home->refresh();
-        $this->assertTrue($home->company->is($this->derivados));
-        $this->assertSame(self::DERIVADOS_TENANT, $home->tenant_id);
-        $this->assertSame(self::OID, $home->azure_oid);
+        $this->assertSame($before, $home->getAttributes());
+        $this->assertTrue($home->isInGroup('APP-PortalAdmin'));
+        $this->assertFalse($home->isInGroup('APP-Cartera'));
+        $this->assertSame(['portal_admin'], $home->getRoleNames()->all());
     }
 
     /**
-     * An admin of another allowed tenant sets a user's `mail` to the super
-     * admin's address and signs in through their own tenant.
+     * Someone signs in with `mail` set to the super admin's address: an
+     * admin of another allowed tenant, or a guest inside the owning tenant.
      *
      * @return array<string, array{0: array<string, string>}>
      */
@@ -231,11 +244,13 @@ class MicrosoftLoginTest extends TestCase
             'idp is the signing tenant' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP]],
             'idp of a third tenant' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://sts.windows.net/cccccccc-0000-0000-0000-000000000000/']],
             'unparseable idp' => [['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'live.com']],
+            'guest in the owning tenant' => [['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP]],
+            'guest in the owning tenant, foreign idp' => [['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://sts.windows.net/cccccccc-0000-0000-0000-000000000000/']],
         ];
     }
 
     #[DataProvider('spoofedMailClaims')]
-    public function test_a_spoofed_mail_from_another_tenant_cannot_take_over_an_account(array $claims): void
+    public function test_a_spoofed_mail_cannot_touch_another_account(array $claims): void
     {
         config(['portal.super_admin_emails' => ['jhon.castro@segurex.com']]);
         $jhon = User::factory()->microsoft($this->segurex)->create([
@@ -251,85 +266,29 @@ class MicrosoftLoginTest extends TestCase
         ]);
         $this->fakeGraph(displayName: 'Mallory');
 
-        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
+        $this->hitCallback()->assertRedirect('/');
 
-        $this->assertGuest();
-        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('users', 2);
+        $mallory = User::where('azure_oid', self::GUEST_OID)->sole();
+        $this->assertAuthenticatedAs($mallory);
+        $this->assertFalse($mallory->hasRole('super_admin'));
         $this->assertSame($before, $jhon->fresh()->getAttributes());
         $this->assertSame(['super_admin'], $jhon->fresh()->getRoleNames()->all());
     }
 
-    public function test_a_guest_whose_home_tenant_claim_does_not_match_the_domain_owner_is_rejected(): void
+    public function test_super_admin_is_granted_on_a_home_sign_in_with_an_issuer_style_idp(): void
     {
-        $other = Company::factory()->forTenant('cccccccc-0000-0000-0000-000000000000', ['otra.com'])->create();
-        $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://sts.windows.net/'.$other->tenant_id.'/'],
-            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
-        );
-
-        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
-
-        $this->assertGuest();
-        $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_a_guest_without_home_tenant_claim_is_rejected(): void
-    {
-        $home = User::factory()->microsoft($this->derivados)->create(['email' => 'luis@derivados.com']);
-        $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID],
-            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
-        );
-
-        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
-
-        $this->assertGuest();
-        $this->assertDatabaseCount('users', 1);
-        $this->assertSame(self::DERIVADOS_TENANT, $home->fresh()->tenant_id);
-    }
-
-    public function test_a_v2_issuer_style_idp_is_accepted_for_a_verified_guest(): void
-    {
-        $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => 'https://login.microsoftonline.com/'.strtoupper(self::DERIVADOS_TENANT).'/v2.0'],
-            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
-        );
+        config(['portal.super_admin_emails' => ['ana@segurex.com']]);
+        $this->signInAs([
+            'tid' => self::SEGUREX_TENANT,
+            'oid' => self::OID,
+            'idp' => 'https://login.microsoftonline.com/'.strtoupper(self::SEGUREX_TENANT).'/v2.0',
+        ]);
         $this->fakeGraph();
 
         $this->hitCallback()->assertRedirect('/');
 
-        $this->assertTrue(User::sole()->company->is($this->derivados));
-    }
-
-    public function test_an_email_owned_by_no_company_never_links_to_an_existing_user(): void
-    {
-        $existing = User::factory()->microsoft($this->segurex)->create(['email' => 'luis@gmail.com']);
-        $this->signInAs(
-            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
-            ['mail' => 'luis@gmail.com', 'userPrincipalName' => 'luis@derivados.com'],
-        );
-        $this->fakeGraph();
-
-        $this->hitCallback()->assertSessionHasErrors(['login' => self::FAILURE_MESSAGE]);
-
-        $this->assertGuest();
-        $this->assertDatabaseCount('users', 1);
-        $this->assertNotSame(self::GUEST_OID, $existing->fresh()->azure_oid);
-    }
-
-    public function test_an_email_owned_by_no_company_creates_a_user_when_free(): void
-    {
-        $this->signInAs(
-            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
-            ['mail' => 'luis@gmail.com', 'userPrincipalName' => 'luis@derivados.com'],
-        );
-        $this->fakeGraph();
-
-        $this->hitCallback()->assertRedirect('/');
-
-        $user = User::sole();
-        $this->assertSame('luis@gmail.com', $user->email);
-        $this->assertTrue($user->company->is($this->derivados));
+        $this->assertTrue(User::sole()->hasRole('super_admin'));
     }
 
     public function test_super_admin_is_not_granted_on_a_guest_sign_in(): void
@@ -360,22 +319,7 @@ class MicrosoftLoginTest extends TestCase
         $this->assertFalse(User::sole()->hasRole('super_admin'));
     }
 
-    public function test_a_first_time_guest_gets_the_company_owning_its_email_domain(): void
-    {
-        $this->signInAs(
-            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
-            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
-        );
-        $this->fakeGraph();
-
-        $this->hitCallback()->assertRedirect('/');
-
-        $user = User::sole();
-        $this->assertSame('luis@derivados.com', $user->email);
-        $this->assertTrue($user->company->is($this->derivados));
-    }
-
-    public function test_a_user_is_matched_by_object_id_before_email(): void
+    public function test_repeated_sign_ins_of_the_same_identity_update_the_same_row(): void
     {
         $existing = User::factory()->microsoft($this->segurex)->create([
             'email' => 'old@segurex.com',
@@ -385,25 +329,45 @@ class MicrosoftLoginTest extends TestCase
         $this->fakeGraph();
 
         $this->hitCallback();
+        $this->post('/logout');
+        $this->hitCallback();
 
         $this->assertDatabaseCount('users', 1);
         $this->assertAuthenticatedAs($existing);
         $this->assertSame('ana@segurex.com', $existing->fresh()->email);
     }
 
-    public function test_an_existing_user_without_identity_is_linked_by_email(): void
+    public function test_an_existing_user_with_the_same_email_is_never_linked(): void
     {
         $existing = User::factory()->create(['email' => 'ana@segurex.com']);
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         $this->fakeGraph();
 
-        $this->hitCallback();
+        $this->hitCallback()->assertRedirect('/');
 
-        $existing->refresh();
-        $this->assertDatabaseCount('users', 1);
-        $this->assertSame(self::OID, $existing->azure_oid);
-        $this->assertSame(self::SEGUREX_TENANT, $existing->tenant_id);
-        $this->assertTrue($existing->company->is($this->segurex));
+        $this->assertDatabaseCount('users', 2);
+        $this->assertNull($existing->fresh()->azure_oid);
+        $user = User::where('azure_oid', self::OID)->sole();
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame('ana@segurex.com', $user->email);
+    }
+
+    public function test_an_email_owned_by_no_company_is_stored_even_if_another_user_has_it(): void
+    {
+        $existing = User::factory()->microsoft($this->segurex)->create(['email' => 'luis@gmail.com']);
+        $this->signInAs(
+            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
+            ['mail' => 'luis@gmail.com', 'userPrincipalName' => 'luis@derivados.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertDatabaseCount('users', 2);
+        $this->assertNotSame(self::GUEST_OID, $existing->fresh()->azure_oid);
+        $user = User::where('azure_oid', self::GUEST_OID)->sole();
+        $this->assertSame('luis@gmail.com', $user->email);
+        $this->assertTrue($user->company->is($this->derivados));
     }
 
     public function test_profile_photo_and_groups_are_updated_from_graph(): void

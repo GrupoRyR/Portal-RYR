@@ -91,6 +91,20 @@ class UserMicrosoftIdentityTest extends TestCase
         $this->assertSame(2, User::whereNull('azure_oid')->count());
     }
 
+    public function test_email_is_indexed_but_not_unique(): void
+    {
+        $this->assertTrue(Schema::hasIndex('users', ['email']));
+        $this->assertFalse(Schema::hasIndex('users', ['email'], 'unique'));
+    }
+
+    public function test_two_identities_may_share_an_email(): void
+    {
+        User::factory()->create(['email' => 'luis@derivados.com', 'tenant_id' => self::TENANT, 'azure_oid' => self::OID]);
+        User::factory()->create(['email' => 'luis@derivados.com', 'tenant_id' => '54f53029-e6e2-4b5f-a862-3454ae886468', 'azure_oid' => self::OID]);
+
+        $this->assertSame(2, User::where('email', 'luis@derivados.com')->count());
+    }
+
     public function test_a_user_belongs_to_a_company(): void
     {
         $company = Company::factory()->create();

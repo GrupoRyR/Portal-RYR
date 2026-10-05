@@ -14,8 +14,14 @@ use Throwable;
 
 /**
  * Turns a Microsoft identity into a portal user: gate the tenant, pick the
- * company, find or create the user (linking guests by email), refresh the
- * profile, photo and groups from Graph, and align the managed roles.
+ * signing tenant's company, find or create the user by (tenant, object ID)
+ * only, refresh the profile, photo and groups from Graph, and align the
+ * managed roles.
+ *
+ * Guests are never linked to their home account: per Microsoft's guidance
+ * (id-token-claims-reference) a guest sign-in is a separate user whose
+ * privileges come only from the tenant it signed in to. The email is only
+ * data, never an identity.
  */
 class MicrosoftLogin
 {
@@ -41,101 +47,58 @@ class MicrosoftLogin
             throw LoginFailed::retry();
         }
 
-        [$company, $isGuest, $emailTrusted] = $this->resolveCompany($identity);
-
-        $user = DB::transaction(fn () => $this->upsertUser($identity, $company, $isGuest, $emailTrusted));
-
-        $this->syncFromGraph($user, $identity->accessToken);
-        $this->syncRoles($user, verifiedOwnEmail: $emailTrusted && ! $isGuest);
-
-        $user->forceFill(['last_login_at' => now()])->save();
-
-        return $user;
-    }
-
-    /**
-     * Decide the company and whether the email may be trusted. `mail` and
-     * the UPN are set by the signing tenant's admins, so an email is only
-     * trusted when its domain belongs to the company of the tenant that
-     * vouches for the account:
-     *
-     * - home sign-in in the tenant whose company owns the domain → trusted;
-     * - domain owned by a company of ANOTHER tenant → a guest (e.g. a
-     *   Derivados user invited into Segurex), accepted only when the
-     *   validated `idp` claim proves that tenant is the account's home;
-     *   the owner must be active;
-     * - otherwise the company of the token's tenant, email untrusted.
-     *
-     * @return array{0: Company, 1: bool, 2: bool} company, is guest, email trusted
-     */
-    private function resolveCompany(MicrosoftIdentity $identity): array
-    {
-        $owner = Company::query()
-            ->get()
-            ->first(fn (Company $company) => $company->ownsEmailDomain($identity->email));
-
-        if ($owner !== null && $owner->tenant_id !== $identity->tenantId) {
-            if ($identity->homeTenantId !== $owner->tenant_id || ! $owner->is_active) {
-                throw LoginFailed::tenantNotAllowed();
-            }
-
-            return [$owner, true, true];
-        }
-
         $company = $this->tenants->resolveCompany($identity->tenantId, $identity->email);
 
         if ($company === null) {
             throw LoginFailed::tenantNotAllowed();
         }
 
-        $emailTrusted = $owner !== null && $identity->isHomeSignIn();
+        $user = DB::transaction(fn () => $this->upsertUser($identity, $company));
 
-        return [$company, false, $emailTrusted];
+        $this->syncFromGraph($user, $identity->accessToken);
+        $this->syncRoles($user, $this->ownsItsEmail($identity));
+
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        return $user;
     }
 
-    private function upsertUser(MicrosoftIdentity $identity, Company $company, bool $isGuest, bool $emailTrusted): User
+    private function upsertUser(MicrosoftIdentity $identity, Company $company): User
     {
         $user = User::query()
             ->where('tenant_id', $identity->tenantId)
             ->where('azure_oid', $identity->objectId)
-            ->first();
+            ->first()
+            ?? new User([
+                'name' => $identity->name,
+                'tenant_id' => $identity->tenantId,
+                'azure_oid' => $identity->objectId,
+            ]);
 
-        if ($user === null && $emailTrusted) {
-            $user = User::query()->whereRaw('lower(email) = ?', [$identity->email])->first();
-        }
-
-        if ($user === null) {
-            // An untrusted email must never reach someone else's account.
-            if ($this->emailTakenByAnotherUser(new User, $identity->email)) {
-                throw LoginFailed::retry();
-            }
-
-            $user = new User(['name' => $identity->name]);
-        }
-
-        // A guest sign-in never replaces the home-tenant identity already
-        // stored for the user; a home sign-in always records it.
-        if (! $isGuest || $user->azure_oid === null) {
-            $user->tenant_id = $identity->tenantId;
-            $user->azure_oid = $identity->objectId;
-        }
-
-        if ($user->email !== $identity->email && ! $this->emailTakenByAnotherUser($user, $identity->email)) {
-            $user->email = $identity->email;
-        }
-
+        $user->email = $identity->email;
         $user->company_id = $company->id;
         $user->save();
 
         return $user;
     }
 
-    private function emailTakenByAnotherUser(User $user, string $email): bool
+    /**
+     * Whether the email can be trusted for privileges. `mail` and the UPN
+     * are set by the signing tenant's admins, so only a home sign-in (the
+     * `idp` home tenant is the signing tenant) in the tenant whose company
+     * owns the email domain vouches for it.
+     */
+    private function ownsItsEmail(MicrosoftIdentity $identity): bool
     {
-        return User::query()
-            ->whereRaw('lower(email) = ?', [$email])
-            ->when($user->exists, fn ($query) => $query->whereKeyNot($user->getKey()))
-            ->exists();
+        if (! $identity->isHomeSignIn()) {
+            return false;
+        }
+
+        $owner = Company::query()
+            ->get()
+            ->first(fn (Company $company) => $company->ownsEmailDomain($identity->email));
+
+        return $owner !== null && $owner->tenant_id === $identity->tenantId;
     }
 
     /**
