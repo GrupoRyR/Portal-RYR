@@ -55,9 +55,12 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | Slice | Branch | Base | Holds | Budget |
 |---|---|---|---|---|
 | 0 | `feat/fase-2-base` | `main` | Phase 2 (generated skeleton → `size:exception`) | — |
-| 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 + T2 | ~350 |
-| 2 | `feat/fase-3-2-usuarios` | slice 1 | T3 | ~200 |
-| 3 | `feat/fase-3-3-login` | slice 2 | T4 | ~450 |
+| 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 (`8f8ee4b`) | 428 (≈half tests) |
+| 2 | `feat/fase-3-2-directorio` | slice 1 | T2 (`ff59d89`) | 467 (≈half tests) |
+| 3 | `feat/fase-3-3-usuarios` | slice 2 | T3 | ~200 |
+| 4 | `feat/fase-3-4-login` | slice 3 | T4 | ~450 |
+
+Slicing pass (2026-10-05): the original slice 1 came to ~895 authored lines, so it was split at the existing T1/T2 commit boundary. Both halves stay slightly above 400 because about half of each is tests; no cohesive smaller split exists → recommend `size:exception` for slices 1 and 2.
 
 Each slice states start, end, dependencies and out-of-scope in its PR body with the dependency diagram; tests and docs travel with their slice.
 
@@ -76,5 +79,9 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
   - `php artisan migrate:fresh --seed` → DONE; tinker `allowedTenantIds()` → `["54f53029-e6e2-4b5f-a862-3454ae886468", "97cd024c-cd7a-419b-b385-f47b5f5816c8"]`.
   - `composer validate --no-check-publish` → valid.
 
+  - Commit: `ff59d89` feat(tenancy): add cached tenant directory with shared-tenant company resolution.
+- 2026-10-05: Parent spot check `php artisan test` → 46 passed. Review of `feat/fase-2-base..ff59d89`: assessed medium (`slice_budget_reached`, executable change in `app/Models/Company.php`), consent declined by Jhon. Next review base: `ff59d89`.
+- Writer decisions to confirm: exact-domain match only (subdomains not owned); second primary per tenant rejected (application check only); shared tenant without an active primary resolves to null; seeded colors follow the design canvas (Segurex dark `#8F360B` is not in the brief; Derivados extra blues `#6D94E8`, `#031D54` not stored).
+
 ## Next step
-Slice 1 complete (T1 + T2). Next: slice 2 on `feat/fase-3-2-usuarios` (T3 — users for Microsoft identities).
+Slice 3 on `feat/fase-3-3-usuarios` (T3 — users for Microsoft identities), branched from `feat/fase-3-2-directorio`.
