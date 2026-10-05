@@ -9,7 +9,8 @@ use App\Models\Company;
  *
  * Only the primary color is required; everything that carries text is
  * derived from it so any company color stays readable:
- * - button: the primary, darkened in OKLCH until white text reaches WCAG AA;
+ * - button: the primary, darkened in OKLCH until white text reaches 4.8:1
+ *   (WCAG AA 4.5:1 plus a margin, decision 2026-10-05);
  * - tint: a very light primary for active/selected backgrounds;
  * - ink: a dark primary for text on the tint (AAA target, AA guaranteed);
  * - darkTint/darkInk: the same pair for the dark color scheme.
@@ -19,6 +20,9 @@ use App\Models\Company;
  */
 final readonly class BrandPalette
 {
+    /** White text on the button must reach this ratio (AA 4.5:1 + margin). */
+    public const BUTTON_CONTRAST = 4.8;
+
     private const WHITE = '#FFFFFF';
 
     private const STEP = 0.005;
@@ -82,7 +86,7 @@ final readonly class BrandPalette
             primary: $primaryColor->toHex(),
             accent: (HexColor::tryFrom($accent) ?? $primaryColor)->toHex(),
             dark: (HexColor::tryFrom($dark) ?? $ink)->toHex(),
-            button: self::darkenUntil($primaryColor, HexColor::from(self::WHITE), Contrast::AA_NORMAL)->toHex(),
+            button: self::darkenUntil($primaryColor, HexColor::from(self::WHITE), self::BUTTON_CONTRAST)->toHex(),
             tint: $tint->toHex(),
             ink: $ink->toHex(),
             darkTint: $darkTint->toHex(),
