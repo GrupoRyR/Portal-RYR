@@ -39,5 +39,7 @@ Branch `feat/fase-6-guia-migracion` stacked on `feat/fase-5-6-informe-uso` (`fa8
   - Not verified (stated as such in the guide): effect of Supabase «Allow new users to sign up» off on existing users signing in with Azure; exact Supabase dashboard field labels; behaviour when the Azure email arrives unverified (guide asks to check Authentication → Users after the first test); Portafolio file/table names (repo not available).
   - Open points for Jhon: Toma Pedidos domain (`.env.example` says `pedidos.segurex.com`, catalog says `pedidos.segurex.com.co`); whether to keep an emergency password account in the Supabase apps; whether to enable «Assignment required» per app.
 
+- 2026-10-06: Parent readback of `docs/migracion-apps.md` (`c412c5f`, 600 lines): 10 sections in order, no tenant IDs or secrets, only fictitious example emails. Phase 6 closed. Open for Jhon: Toma Pedidos real domain for the redirect URI (`.env.example` `pedidos.segurex.com` vs catalog `pedidos.segurex.com.co`), keep a password emergency account in the Supabase apps, «Assignment required» per app, password transition period.
+
 ## Next step
-Phase 6 close-out.
+Phase 7 (Soporte TI) when Jhon asks for it.
