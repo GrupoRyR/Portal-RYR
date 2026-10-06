@@ -7,7 +7,7 @@ return [
     // Full-page components render inside <x-layouts.app>.
     'component_layout' => 'components.layouts.app',
 
-    // Livewire's JavaScript is bundled by Vite in resources/js/app.js and the
+    // Livewire's JavaScript is bundled by Vite in resources/js/livewire.js and the
     // layout prints @livewireScriptConfig, so nothing is injected.
     'inject_assets' => false,
 

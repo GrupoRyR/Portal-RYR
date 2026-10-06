@@ -20,8 +20,22 @@ class AppLayoutTest extends TestCase
             ->assertSee('<meta name="theme-color"', false)
             ->assertSee('<title>Prueba · '.config('app.name').'</title>', false)
             ->assertSee('/build/assets/', false)
-            ->assertSee('window.livewireScriptConfig', false)
             ->assertSee('Contenido');
+    }
+
+    public function test_it_ships_no_livewire_by_default(): void
+    {
+        $this->blade('<x-layouts.app>Contenido</x-layouts.app>')
+            ->assertDontSee('livewireScriptConfig', false)
+            ->assertDontSee('resources/js/livewire.js', false)
+            ->assertDontSee('/assets/livewire-', false);
+    }
+
+    public function test_it_loads_livewire_when_asked(): void
+    {
+        $this->blade('<x-layouts.app livewire>Contenido</x-layouts.app>')
+            ->assertSee('window.livewireScriptConfig', false)
+            ->assertSee('/build/assets/livewire-', false);
     }
 
     public function test_it_never_requests_third_party_fonts(): void

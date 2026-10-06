@@ -25,6 +25,17 @@ class PlaceholderPagesTest extends TestCase
             ->assertSee('/build/assets/', false);
     }
 
+    public function test_pages_without_livewire_components_ship_no_livewire_javascript(): void
+    {
+        $this->get('/login')->assertOk()->assertDontSee('livewireScriptConfig', false)->assertDontSee('/assets/livewire-', false);
+        $this->get(self::EMERGENCY_PATH)->assertOk()->assertDontSee('livewireScriptConfig', false)->assertDontSee('/assets/livewire-', false);
+
+        $this->actingAs(User::factory()->create())->get('/')
+            ->assertOk()
+            ->assertDontSee('livewireScriptConfig', false)
+            ->assertDontSee('/assets/livewire-', false);
+    }
+
     public function test_the_login_page_lists_only_active_companies(): void
     {
         Company::factory()->create(['name' => 'Segurex Latam', 'short_name' => 'Segurex']);

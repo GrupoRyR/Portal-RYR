@@ -13,13 +13,15 @@ class BrandPaletteTest extends TestCase
 {
     private const WHITE = '#FFFFFF';
 
-    public function test_the_segurex_button_is_darkened_until_white_text_passes_aa(): void
+    public function test_the_segurex_button_is_darkened_until_white_text_reaches_the_target(): void
     {
         $palette = BrandPalette::fromColors('#FF671F', '#666666', '#8F360B');
 
         $this->assertSame('#FF671F', $palette->primary);
-        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio(self::WHITE, $palette->button));
-        $this->assertCloseTo('#C4470F', $palette->button, 12);
+        // Target 4.8:1 (decision 2026-10-05) leaves a margin over AA 4.5:1.
+        $this->assertGreaterThanOrEqual(BrandPalette::BUTTON_CONTRAST, Contrast::ratio(self::WHITE, $palette->button));
+        $this->assertSame(4.8, BrandPalette::BUTTON_CONTRAST);
+        $this->assertCloseTo('#C4470F', $palette->button, 6);
     }
 
     public function test_the_derivados_button_keeps_the_primary_color(): void

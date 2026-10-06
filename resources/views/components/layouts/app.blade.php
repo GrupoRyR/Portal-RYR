@@ -1,6 +1,8 @@
 @props([
     'title' => null,
     'noindex' => false,
+    // Livewire + Alpine (~96 kB gzip) load only on pages that need them.
+    'livewire' => false,
 ])
 <!DOCTYPE html>
 <html lang="es">
@@ -16,13 +18,19 @@
 
     <x-brand-style />
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @livewireStyles
+    @if ($livewire)
+        @vite(['resources/css/app.css', 'resources/js/livewire.js'])
+        @livewireStyles
+    @else
+        @vite('resources/css/app.css')
+    @endif
     {{ $head ?? '' }}
 </head>
 <body {{ $attributes->merge(['class' => 'min-h-dvh']) }}>
     {{ $slot }}
 
-    @livewireScriptConfig
+    @if ($livewire)
+        @livewireScriptConfig
+    @endif
 </body>
 </html>
