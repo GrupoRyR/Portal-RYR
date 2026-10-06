@@ -15,7 +15,7 @@
         </div>
 
         <div class="mt-12 flex flex-col gap-3.5">
-            <h1 class="text-[2.5rem] leading-[1.05] font-bold tracking-[-0.025em]">Todas tus aplicaciones en un solo lugar</h1>
+            <h1 class="text-[2.5rem] leading-[1.05] font-bold tracking-[-0.025em] break-words hyphens-auto">Todas tus aplicaciones en un solo lugar</h1>
             <p class="text-base leading-normal text-fg-soft">Entra con la misma cuenta de Microsoft que usas para tu correo de trabajo.</p>
         </div>
 

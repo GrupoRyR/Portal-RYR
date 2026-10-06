@@ -8,8 +8,9 @@ use App\Settings\PortalSettings;
  * The service worker served at /sw.js: resources/js/sw.js with its
  * settings in front (`self.PORTAL = {...};`):
  *
- * - version: tied to the Vite build manifest (and the worker's own code),
- *   so every deploy with new assets gets new caches and drops the old ones;
+ * - version: tied to the Vite build manifest, the worker's own code and the
+ *   offline page, so every deploy that changes them gets new caches and
+ *   drops the old ones;
  * - precache: the built CSS/JS of the home screen and its Latin fonts, read
  *   from public/build/manifest.json, plus the offline page;
  * - maxAgeMs: the idle timeout of Configuración; a saved home page older
@@ -35,8 +36,10 @@ final class ServiceWorkerScript
         /** @var array<string, array<string, mixed>> $manifest */
         $manifest = json_decode($manifestJson, true) ?: [];
 
+        $offlinePage = (string) @file_get_contents(public_path(ltrim(self::OFFLINE_PAGE, '/')));
+
         $config = [
-            'version' => substr(hash('sha256', $manifestJson."\n".$template), 0, 12),
+            'version' => substr(hash('sha256', $manifestJson."\n".$template."\n".$offlinePage), 0, 12),
             'precache' => [...$this->homeAssets($manifest), self::OFFLINE_PAGE],
             'maxAgeMs' => $this->settings->idleTimeoutMinutes() * 60 * 1000,
         ];

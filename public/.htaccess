@@ -23,3 +23,24 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Compress text responses (pages, CSS, JS, the manifest, SVG icons) when the
+# hosting does not already do it: about 78 kB -> 17 kB for the stylesheet.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Built assets carry a content hash in their name: cache them for a year.
+    <If "%{REQUEST_URI} =~ m#^/build/assets/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+
+    # Precached by the service worker; browsers must always revalidate it.
+    <Files "offline.html">
+        Header set Cache-Control "no-cache"
+    </Files>
+</IfModule>
+
+# /sw.js and /manifest.webmanifest are answered by Laravel (no file here):
+# their content type and cache headers are set in App\Http\Controllers\Pwa.

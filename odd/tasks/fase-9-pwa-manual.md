@@ -23,7 +23,7 @@ Home stays free of Livewire/Alpine. No new heavy JS libraries. Code in English, 
 ## Tasks
 - [x] T1 — Manifest per company + icons (192/512/maskable from brand icon, cached files) + meta tags; tests. Route: delegated writer.
 - [x] T2 — Service worker + offline notice + per-user cache privacy (sign-out purge); tests where deterministic (headers, routes, manifest, SW served with correct scope/headers) + browser check. Route: delegated writer (same).
-- [ ] T3 — Lighthouse/device-emulation pass and fixes. Route: delegated writer (same).
+- [x] T3 — Lighthouse/device-emulation pass and fixes. Route: delegated writer (same).
 - [ ] T4 — `docs/manual-administracion.md` with the device test checklist. Route: delegated writer (same).
 
 ## Acceptance criteria
@@ -46,5 +46,11 @@ Branch `feat/fase-9-pwa-manual` stacked on `feat/fase-8-api-integraciones` (`f3f
   - RED: 12 new tests (`ServiceWorkerTest`, `CachePrivacyTest`) failed (404 /sw.js, missing classes, missing header, missing offline page). GREEN: `php artisan test` 861 passed; `pint --test` passed; `npm run build` committed.
   - Browser check (Playwright Chromium against a scratch `php -S` server with a scratch SQLite DB and a scratch dev-login route outside the repo; the desktop built-in browser pane refuses service worker registration — "unknown error when fetching the script" — so it was not usable): SW active with scope `/`; caches `portal-static|pages|images-<version>`; offline reload of home shows 3 cards with `data-pwa-source="cache"` and the notice; offline app launch shows «Sin conexión»; second user signing in replaces the saved page (key changes) and offline shows the second user; logout → console «Clear-Site-Data … Cleared data types: "cache", "storage"», caches `[]`, no registration; cookies cleared (session expiry) → navigation to /login purges the saved page and offline `/` shows the offline page. CDP `Page.getAppManifest`: no errors; `Page.getInstallabilityErrors`: none.
 
+- 2026-10-06: T3 done (route: delegated writer, same). **Lighthouse could not run**: it is not installed (no global or npx cache copy) and installing it is a download this agent may not do without the user's approval, so no Lighthouse scores are claimed. Manual checks instead, with Playwright Chromium against the scratch server (`php -S`, no gzip, APP_DEBUG off), Lighthouse-like mobile throttling (412×823, DPR 1.75, 150 ms RTT, 1.6 Mbit/s, CPU ×4, cold cache, service worker blocked), two runs each:
+  - Home: TTFB 513–530 ms, FCP = LCP 1.24–1.26 s, CLS 0, load 1.68 s. Sign-in: TTFB 1.23–1.24 s (first request of a fresh context on the single-threaded dev server), FCP = LCP 2.10–2.12 s, CLS 0.002. Only render-blocking resource: `app.css` (78 kB raw, 17 kB gzip); `php -S` does not compress, production should (see below). home.js 3 kB, Latin fonts 61 kB, no Livewire on either page. Home meets the brief's < 2 s; sign-in is around 2 s on this dev server.
+  - Accessibility/layout at 375/768/1024/1440 in light and dark: no horizontal overflow; all interactive targets ≥ 44 × 44 except the home logo link (36 px tall on phones → fixed with `min-h-touch`) and the card title links, whose real target is the whole stretched card (≥ 168 px). Root font size 200 % at 375 px: home search form overflowed by 71 px (flex item min-content of the input → fixed with `min-w-0`); sign-in headline «aplicaciones» overflowed (→ `break-words hyphens-auto`; Chrome on Windows has no Spanish hyphenation, so it breaks without a hyphen); after the fixes both pages have no horizontal scroll. Offline notice colors are the design's maintenance tokens (`#7A4F00`/`#FFF4DB` light, `#F5D58A`/`#2A2418` dark).
+  - `public/.htaccess`: `mod_deflate` for text types (incl. `application/manifest+json`), `Cache-Control: public, max-age=31536000, immutable` for `/build/assets/*`, `no-cache` for `offline.html` (Apache 2.4 `<If>`; not testable locally — verify on the server). The worker version now also hashes `offline.html`.
+  - Test-first exception: these are layout/CSS and server-config fixes without a meaningful deterministic PHPUnit RED; verified by the browser measurements above. `php artisan test` 861 passed; `pint --test` passed; build committed.
+
 ## Next step
-T3.
+T4.
