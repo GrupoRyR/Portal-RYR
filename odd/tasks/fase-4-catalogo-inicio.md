@@ -56,7 +56,8 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
 | T1 catalog domain | `feat/fase-4-1-catalogo` | `06566f9` | `7059efe` | +1152 / −1 (tests 419, SVG 40) | committed, not pushed |
 | T2 access rules + resolver | `feat/fase-4-2-acceso` | T1 (`4bf4a95`) | `2e8b4e2` | +654 / −0 (tests 363) | committed, not pushed |
 | T3 launch, favorites, recents | `feat/fase-4-3-lanzamiento` | T2 (`fba3ae0`) | `84be060` | +919 / −0 (tests 511) | committed, not pushed |
-| T4 home screen | `feat/fase-4-4-inicio` | T3 (`e9ea5ad`) | `8e9e912`, see last commit of the branch | +1877 / −31 excl. `public/build` and `odd` (tests 858) | committed, not pushed |
+| T4 home model | `feat/fase-4-4-inicio-modelo` | T3 (`e9ea5ad`) | `8e9e912` | +1091 / −6 (tests 523) | committed, not pushed |
+| T4 home UI | `feat/fase-4-5-inicio-ui` | T4 model | `90a1ebb` | +786 / −25 excl. build (tests 335) | committed, not pushed |
 
 ## Progress
 - 2026-10-05: Document created.
@@ -85,6 +86,8 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
   - Layout: header with brand mark, search and account menu (`<details>`: Administración for `super_admin`/`portal_admin`, «Cerrar sesión» POST); no «Soporte TI» (Phase 7). Desktop ≥ 1280 px: right column with Microsoft 365, room left for announcements (Phase 5). Phone: 2 columns, fixed bottom bar Inicio · Favoritos · Buscar · Perfil padded with `env(safe-area-inset-bottom)` (new layout prop `viewport-fit`, default off). No Livewire/Alpine on the page (test).
   - Browser check (static render of seeded data, served locally): 1440 px, 768 px and 375 px light, 375 px dark (dark icons swap), empty state, server search, client search («CAMARAS» → 1 resultado, «zzz» → empty message), favorite move with a mocked `fetch`, bottom-bar Perfil opens the menu, no horizontal scroll at 375 px.
   - Deviations from the canvases: search sits above the greeting on phones (one search field for all sizes); the Favoritos section shows a hint when empty (the bottom bar links to it); search results keep the card grid instead of the PhoneSearch list and there are no «Búsquedas recientes»; recents show no «hace 12 min» times; no «Solicitar acceso a TI» button in the empty state (needs `support_url`, Phase 7); the star keeps one label «Marcar {app} como favorita» with `aria-pressed` instead of switching between «Agregar/Quitar».
+- 2026-10-05: Parent spot check on `feat/fase-4-5-inicio-ui` (`90a1ebb`): `php artisan test` → 497 passed (2453 assertions). T4 split at its commit boundary. Review of `e9ea5ad..90a1ebb`: assessed high (auth test touched), consent declined by Jhon. Next review base: `90a1ebb`.
+- Decisions by parent per brief: «Todas las empresas activas» = per-app flag (T5) so new companies are included automatically (brief §5.2); launches store only the device type (desktop/tablet/phone), no IP or user agent.
 
 ## Next step
 T5 (Admin Aplicaciones) on a new branch from `feat/fase-4-4-inicio`. To confirm with the user: the OneDrive default URL (consumer domain that redirects work accounts), the T4 design deviations above, plus the open T3 questions ("all companies" apps; device type without IP/User-Agent for the launch log).
