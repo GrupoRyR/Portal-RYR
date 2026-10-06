@@ -73,6 +73,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
   - `app_launches` stores user, app, company, device (`desktop` | `tablet` | `phone`, `App\Support\DeviceClassifier`) and `launched_at`; no IP and no raw User-Agent (pending user confirmation against brief §5.2 «desde qué dispositivo»). iPadOS 13+ Safari reports a desktop User-Agent and counts as `desktop`.
   - `POST`/`DELETE /favoritos/{app:slug}` → `{favorite: bool}`, 404 for apps the user cannot open. `AppCatalog::recentApps()` (30 days, distinct, newest first, still visible) and `lastOpenedWithin()` (default 30 min, for Soporte TI in Phase 7).
   - Maintenance and local pages are minimal Blade pages on `x-layouts.app` (no Livewire); the Soporte TI button of the canvases arrives in Phase 7.
+- 2026-10-05: Parent spot check on `feat/fase-4-3-lanzamiento` (`55d032d`): `php artisan test` → 434 passed (2248 assertions). Review of `06566f9..55d032d`: assessed medium, consent declined by Jhon. Next review base: `55d032d`.
 
 ## Next step
 T4 (home UI) on a new branch from `feat/fase-4-3-lanzamiento`: uses `AppCatalog::visibleApps()/recentApps()`, `User::favoriteApps()`, the favorite routes and `apps.open` (cards with `open_in = new` get `target="_blank" rel="noopener"`). Open questions for the user: "all companies" apps, and whether device type without IP/User-Agent is enough for the launch log.
