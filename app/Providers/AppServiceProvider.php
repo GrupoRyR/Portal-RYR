@@ -8,10 +8,12 @@ use App\Models\Company;
 use App\Models\Integration;
 use App\Policies\AdminSections;
 use App\Policies\RolePolicy;
+use App\Pwa\PortalUserKey;
 use App\Settings\ApplySessionLifetime;
 use App\Settings\PortalSettings;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
@@ -66,6 +68,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Idle timeout of Configuración, applied before the session starts.
         Event::listen(RouteMatched::class, ApplySessionLifetime::class);
+
+        // Every web response names its user for the service worker, which
+        // drops a saved page as soon as someone else (or nobody) is signed in.
+        Event::listen(RequestHandled::class, PortalUserKey::class);
 
         // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
         Event::listen(function (SocialiteWasCalled $event) {

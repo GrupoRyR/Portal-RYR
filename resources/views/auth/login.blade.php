@@ -15,7 +15,7 @@
         </div>
 
         <div class="mt-12 flex flex-col gap-3.5">
-            <h1 class="text-[2.5rem] leading-[1.05] font-bold tracking-[-0.025em]">Todas tus aplicaciones en un solo lugar</h1>
+            <h1 class="text-[2.5rem] leading-[1.05] font-bold tracking-[-0.025em] break-words hyphens-auto">Todas tus aplicaciones en un solo lugar</h1>
             <p class="text-base leading-normal text-fg-soft">Entra con la misma cuenta de Microsoft que usas para tu correo de trabajo.</p>
         </div>
 
@@ -41,7 +41,8 @@
                                         @if ($company->logo_dark_path)
                                             <source srcset="{{ $company->brandFileUrl($company->logo_dark_path) }}" media="(prefers-color-scheme: dark)">
                                         @endif
-                                        <img src="{{ $company->brandFileUrl($company->logo_light_path) }}" alt="{{ $company->name }}" class="h-7 w-auto max-w-32 object-contain" loading="lazy" decoding="async">
+                                        @php($logoSize = $company->brandImageSize($company->logo_light_path))
+                                        <img src="{{ $company->brandFileUrl($company->logo_light_path) }}" alt="{{ $company->name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-7 w-auto max-w-32 object-contain" loading="lazy" decoding="async">
                                     </picture>
                                 @else
                                     {{ $company->short_name ?: $company->name }}

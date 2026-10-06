@@ -2,23 +2,31 @@
     Home screen (docs/diseno/Main, Tablet, PhoneHome, PhoneDark, PhoneSearch
     and PhoneEmpty). Announcements: a card in the desktop aside, a banner
     with the top one on phone and tablet. $page is an App\View\Home\HomePage: no queries here.
-    Works without JavaScript; resources/js/home.js adds instant search and
-    the favorite toggle. No Livewire or Alpine on this page.
+    Works without JavaScript; resources/js/home.js adds instant search, the
+    favorite toggle and the offline notice. No Livewire or Alpine on this page.
+    data-pwa-source turns to "cache" when the service worker (resources/js/sw.js)
+    answers with the saved copy of this page.
 --}}
 @php
     /** @var \App\View\Home\HomePage $page */
     $searching = $page->isSearching();
 @endphp
-<x-layouts.app title="Inicio" viewport-fit :data-server-search="$searching ? 'true' : 'false'">
+<x-layouts.app title="Inicio" viewport-fit :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
     <x-slot:head>
         @vite('resources/js/home.js')
     </x-slot:head>
+
+    {{-- docs/diseno/PhoneDark: shown by home.js without network or from the saved copy. --}}
+    <p role="status" data-offline-notice hidden class="flex items-center gap-2 bg-status-maintenance-bg px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-[0.8125rem] font-semibold text-status-maintenance md:px-8 lg:px-10">
+        <x-home.icon name="wifi-off" stroke-width="2" class="size-4" />
+        <span data-offline-text>Sin conexión · mostrando tus apps guardadas</span>
+    </p>
 
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
     <header class="md:border-b md:border-line md:bg-surface">
         <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-8 gap-y-3 px-4 pt-5 pb-3 md:h-[72px] md:flex-nowrap md:px-8 md:py-0 lg:px-10">
-            <a href="{{ route('home') }}" class="order-1 flex min-w-0 flex-1 items-center gap-3 md:flex-none md:shrink-0 xl:w-[300px]">
+            <a href="{{ route('home') }}" class="order-1 flex min-h-touch min-w-0 flex-1 items-center gap-3 md:flex-none md:shrink-0 xl:w-[300px]">
                 @if ($page->companyIconUrl)
                     <img src="{{ $page->companyIconUrl }}" alt="" width="36" height="36" class="size-9 shrink-0 rounded-[10px] object-contain">
                 @else
@@ -31,7 +39,7 @@
             </a>
 
             @if ($page->hasApps())
-                <form role="search" method="GET" action="{{ route('home') }}" class="order-3 basis-full md:order-2 md:mx-auto md:max-w-[560px] md:flex-1 md:basis-auto" data-search-form>
+                <form role="search" method="GET" action="{{ route('home') }}" class="order-3 min-w-0 basis-full md:order-2 md:mx-auto md:max-w-[560px] md:flex-1 md:basis-auto" data-search-form>
                     <label for="buscar" class="sr-only">Buscar aplicaciones</label>
                     <div class="flex h-12 items-center gap-2.5 rounded-[14px] border border-line bg-surface pr-2 pl-3.5 focus-within:border-brand-button focus-within:ring-1 focus-within:ring-brand-button md:h-11 md:rounded-control md:bg-subtle">
                         <x-home.icon name="search" stroke-width="2" class="size-[18px] text-fg-muted" />
@@ -66,7 +74,7 @@
                                 <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
                             </a>
                         @endif
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout') }}" data-logout>
                             @csrf
                             <button type="submit" class="flex min-h-touch w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-sm font-semibold hover:bg-subtle">
                                 <x-home.icon name="logout" class="size-[18px] text-fg-muted" />Cerrar sesión

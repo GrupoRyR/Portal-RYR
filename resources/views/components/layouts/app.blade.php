@@ -20,6 +20,7 @@
     <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }}</title>
 
     <x-brand-style />
+    <x-pwa-head />
 
     @if ($livewire)
         @vite(['resources/css/app.css', 'resources/js/livewire.js'])

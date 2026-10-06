@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -198,6 +199,57 @@ class Company extends Model
     public function brandFileUrl(?string $path): ?string
     {
         return $path === null ? null : Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Intrinsic size of a stored brand image, for the img width/height
+     * attributes (the browser reserves the space before it loads). Paths are
+     * unique per upload, so the result is cached for good. Null when the
+     * file is missing or its size cannot be read.
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public function brandImageSize(?string $path): ?array
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        return Cache::rememberForever('brand-image-size:'.$path, function () use ($path): ?array {
+            $contents = Storage::disk('public')->get($path);
+
+            if ($contents === null || $contents === '') {
+                return null;
+            }
+
+            if (str_ends_with(strtolower($path), '.svg')) {
+                return self::svgSize($contents);
+            }
+
+            $size = @getimagesizefromstring($contents);
+
+            return $size === false || $size[0] < 1 || $size[1] < 1 ? null : [$size[0], $size[1]];
+        });
+    }
+
+    /**
+     * @return array{0: int, 1: int}|null
+     */
+    private static function svgSize(string $svg): ?array
+    {
+        if (! preg_match('/<svg\b[^>]*>/i', $svg, $tag)) {
+            return null;
+        }
+
+        if (preg_match('/\bviewBox\s*=\s*["\']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*["\']/i', $tag[0], $box)) {
+            [$width, $height] = [(int) round((float) $box[1]), (int) round((float) $box[2])];
+        } elseif (preg_match('/\bwidth\s*=\s*["\']([\d.]+)(?:px)?["\']/i', $tag[0], $w) && preg_match('/\bheight\s*=\s*["\']([\d.]+)(?:px)?["\']/i', $tag[0], $h)) {
+            [$width, $height] = [(int) round((float) $w[1]), (int) round((float) $h[1])];
+        } else {
+            return null;
+        }
+
+        return $width < 1 || $height < 1 ? null : [$width, $height];
     }
 
     /**
