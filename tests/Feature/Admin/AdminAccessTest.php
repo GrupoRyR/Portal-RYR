@@ -37,12 +37,13 @@ class AdminAccessTest extends TestCase
             ->assertSee('lang="es"', false);
     }
 
-    public function test_announcement_editors_are_forbidden(): void
+    public function test_announcement_editors_land_on_the_announcements(): void
     {
         $user = User::factory()->create();
         $user->assignRole('announcements_editor');
 
-        $this->actingAs($user)->get('/admin')->assertForbidden();
+        // Phase 5: editors reach the admin area, but only the announcements.
+        $this->actingAs($user)->get('/admin')->assertRedirect(route('admin.announcements.index'));
     }
 
     public function test_portal_admins_can_open_the_admin_area(): void

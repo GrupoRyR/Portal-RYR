@@ -31,7 +31,8 @@ final class HomePageBuilder
 
     public const ANNOUNCEMENT_LIMIT = 3;
 
-    public const ADMIN_ROLES = ['super_admin', 'portal_admin'];
+    /** Roles offered the «Administración» link (each lands on its own section). */
+    public const ADMIN_ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
 
     public function __construct(private readonly AppCatalog $catalog) {}
 

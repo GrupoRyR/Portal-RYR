@@ -25,7 +25,7 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 
 ## Tasks
 - [x] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
-- [ ] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
+- [x] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
 - [ ] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
 - [ ] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
 - [ ] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
@@ -42,7 +42,9 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 
 | Slice | Branch | Base | Holds | Budget |
 |---|---|---|---|---|
-| 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`), T1 home display + /anuncios (see Progress) | domain +1062 (413 tests); display see Progress |
+| 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`) | +1062 (413 tests) → `size:exception` |
+| 2 | `feat/fase-5-2-anuncios-inicio` | slice 1 | T1 home display + /anuncios (`2a6a118`) | +465 −3 (167 tests) |
+| 3 | `feat/fase-5-3-admin-anuncios` | slice 2 | T2 list + access (`1b47fb7`) and editor (`48f6590`) — kept together: `1b47fb7` alone has a dead «Nuevo anuncio» link | +1701 −29 (≈840 tests) → `size:exception` |
 
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
@@ -51,6 +53,14 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
   - Images: `App\Announcements\AnnouncementImageStore` (PNG/JPEG/WebP ≤ 2 MB, ≤ 40 MP, GD → 16:9 center-crop WebP ≤ 1280×720, EXIF rotation for JPEG, SVG refused). `AnnouncementPublisher` saves companies + image in one transaction; new file deleted on failure, replaced file deleted only after commit.
   - Home: up to 3 in the desktop aside card (≥1280 px) with «Ver todos» → `/anuncios` (auth, 10 per page, no Livewire); phone/tablet banner with the top one → `/anuncios#a-{id}`; nothing rendered without announcements. One extra query on home, constant with the number of announcements. Shared partials `x-announcements.card` / `x-announcements.banner` (reused by the T2 preview).
   - RED: 36/36 new tests errored (missing model/store/route). GREEN: `php artisan test` → 612 passed (576 before).
+- 2026-10-06: T2 done (route: delegated writer, same as T1).
+  - `AnnouncementPolicy`: super/portal admins manage all; `announcements_editor` creates and edits only announcements whose audience is exactly their own company; `publishTo` re-checked on every save (crafted Livewire requests get 403); nobody deletes. `Announcement::manageableBy()` scopes the list the same way.
+  - Access (`1b47fb7`): `/admin` group admits `announcements_editor`; landing companies → apps → announcements; editors see only «Anuncios» in the sidebar (other sections left out) and get «Administración» on the home menu. Existing admin tests kept green (`test_announcement_editors_are_forbidden` became `..._land_on_the_announcements`).
+  - List `/admin/anuncios`: tabs Todos/Publicados/Programados/Vencidos/Retirados with counts, company filter (`?empresa=`, admins only), rows with thumbnail, pin, audience · dates · author, status chip; new `status-scheduled` color tokens.
+  - Editor `/admin/anuncios/nuevo` and `/admin/anuncios/{id}` (`App\Livewire\Admin\AnnouncementEditor`): title, body with live «n / 280», image upload/remove, «Para quién», Desde/Hasta (`datetime-local`, Hasta after Desde), «Fijar arriba», Retirar (wire:confirm) / Volver a publicar, live preview Escritorio/Celular using `x-announcements.card` and `x-announcements.banner` (banner now sized by container query so the phone preview looks like a phone).
+  - RED: 34/39 new tests failed or errored (5 guards on existing 403s already passed). GREEN: `php artisan test` → 651 passed.
+
+- 2026-10-06: Parent spot check on `feat/fase-5-3-admin-anuncios` (`48f6590`): `php artisan test` → 651 passed (3196 assertions). Jhon dismissed the review prompt and then disabled receipt-driven development globally (`gentle-ai review mode disable` → off). From now on: no review assessment or consent prompts; ordinary checks only.
 
 ## Next step
-T2 — Admin Anuncios (same delegated writer), branch `feat/fase-5-2-admin-anuncios` from slice 1.
+T3 (Roles), T4 (Auditoría), T5 (Informe de uso) — one delegated writer, slices from `feat/fase-5-3-admin-anuncios`.

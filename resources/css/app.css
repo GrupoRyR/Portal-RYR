@@ -42,6 +42,8 @@
     --color-status-neutral-bg: #f0f0ec;
     --color-status-local: #334155;
     --color-status-local-bg: #e6eaf0;
+    --color-status-scheduled: #1e4fa8;
+    --color-status-scheduled-bg: #e8eefa;
 
     /* Radii: chip 10 · control 12 · icon 14 · card 18 */
     --radius-chip: 10px;
@@ -91,6 +93,8 @@
         --color-status-neutral-bg: #26272b;
         --color-status-local: #cbd5e1;
         --color-status-local-bg: #262b33;
+        --color-status-scheduled: #a9c1f5;
+        --color-status-scheduled-bg: #1b2540;
     }
 }
 
