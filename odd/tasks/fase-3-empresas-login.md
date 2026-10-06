@@ -72,7 +72,11 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654`, `eb10899`) | +68/−18 |
 | 13 | `feat/fase-3-13-empresas-admin` | slice 12 | T6b companies list + edit (`8af717d`) | +984/−12 (339 tests; one editor, no cohesive smaller split → `size:exception`) |
 | 14 | `feat/fase-3-14-logos` | slice 13 | T6b sanitized logo uploads + sign-in logos (`3149ef4`) | +401/−9 (169 tests) |
-| 15 | `feat/fase-3-15-asistente-empresa` | slice 14 | T6c: logo orphan fix (`2bd31e5`), re-authentication (`beb5f86`), audit (`f5a4817`), consent checker (`19db99e`), notices (`031a0b2`), wizard (`c664b70`), tenant change (follow-up) | +2739/−27 (1078 tests; includes 125 vendor-published activitylog lines and docs; see T6c entry for commit boundaries) |
+| 15 | `feat/fase-3-15-reautenticacion` | slice 14 | T6c logo orphan fix + recent Microsoft re-auth (`2bd31e5`, `beb5f86`) | +455/−19 (211 tests) |
+| 16 | `feat/fase-3-16-auditoria` | slice 15 | T6c activity log (`f5a4817`) | +174 authored (108 tests) + 125 vendor-published |
+| 17 | `feat/fase-3-17-consentimiento-avisos` | slice 16 | T6c consent checker + admin notices (`19db99e`, `031a0b2`) | +521 (276 tests) |
+| 18 | `feat/fase-3-18-asistente` | slice 17 | T6c new-company wizard + PowerShell script + deploy doc (`c664b70`) | +1132/−9 (313 tests; one wizard → `size:exception`) |
+| 19 | `feat/fase-3-19-cambio-inquilino` | slice 18 | T6c tenant change + doc (`bbde3f0`) | +335/−2 (170 tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -279,5 +283,9 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
   4. Activating from the editor now requires verified consent.
   5. `spatie/laravel-activitylog` is on 4.x because 5.x needs PHP 8.4.
 
+- 2026-10-05: Parent spot check on `feat/fase-3-19-cambio-inquilino` (`bbde3f0`): `php artisan test` → 317 passed (1128 assertions); `app/Branding` untouched by T6c (writer had reverted an out-of-surface edit). T6c sliced at commit boundaries into slices 15–19. Review of `a875cf3..bbde3f0`: assessed high (auth), consent declined by Jhon. Next review base: `bbde3f0`.
+- 2026-10-05: **Phase 3 closed.** All tasks T1–T6 checked; acceptance criteria covered by tests (tenant gate, company resolution, no guest linking — supersedes brief §3, profile/groups sync, roles, cache invalidation). Not yet verified against a real Entra tenant (needs Jhon's app registration and `.env`). Open checks: 375px browser check of the companies editor and wizard.
+- To confirm with Jhon (T6c): tenant change deactivates the company until the new tenant consents; a normal sign-in never counts as recent re-auth; failed/cancelled re-auth signs out; re-activation requires verified consent; emergency account cannot create companies or change tenants.
+
 ## Next step
-Phase 3 close-out.
+Phase 3 close-out with Jhon (real Entra test, decisions above), then Phase 4 (catalog and home screen).
