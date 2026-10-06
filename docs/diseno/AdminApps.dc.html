@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Portal RYR · Admin · Aplicaciones</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+a:hover{color:inherit}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #17191C;outline-offset:2px}
+.nav:hover{background:#F5F5F2}
+tbody tr:hover{background:#FAFAF8}
+th{text-align:left;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5E6168;padding:12px 16px;border-bottom:1px solid #E5E5E0}
+td{padding:14px 16px;border-bottom:1px solid #ECECE7;font-size:14px;vertical-align:middle}
+input::placeholder{color:#6B6E75}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F5F5F2; font-family: 'Figtree', system-ui, sans-serif; color: #17191C; display: flex; overflow: hidden">
+  <nav aria-label="Administración" style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E5E5E0; padding: 20px 14px; display: flex; flex-direction: column; gap: 2px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px 24px">
+      <div style="width: 36px; height: 36px; border-radius: 10px; background: #C4470F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">S</div>
+      <div style="display: flex; flex-direction: column; line-height: 1.15"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 16px">Segurex Latam</span><span style="font-size: 12px; color: #5E6168">Administración</span></div>
+    </div>
+    <span style="padding: 12px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Catálogo</span>
+    <a href="AdminApps.dc.html" aria-current="page" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: #8F360B; background: #FFEFE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"></rect><rect x="13" y="4" width="7" height="7" rx="2"></rect><rect x="4" y="13" width="7" height="7" rx="2"></rect><rect x="13" y="13" width="7" height="7" rx="2"></rect></svg>Aplicaciones</a>
+    <a href="AdminCategories.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8z"></path><circle cx="8.5" cy="8.5" r="1.2"></circle></svg>Categorías</a>
+    <a href="AdminAnnouncements.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4a1 1 0 0 0 1 1h2l6 4V5L7 9H5a1 1 0 0 0-1 1z"></path><path d="M17 9a4 4 0 0 1 0 6"></path></svg>Anuncios</a>
+    <span style="padding: 16px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Organización</span>
+    <a href="AdminCompanies.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14M15 10h3a2 2 0 0 1 2 2v8M3 20h18M8 8h3M8 12h3M8 16h3"></path></svg>Empresas</a>
+    <a href="AdminRoles.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11l2 2 4-4"></path></svg>Roles</a>
+    <a href="AdminIntegrations.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5M15 4v5M7 9h10v3a5 5 0 0 1-10 0zM12 17v3"></path></svg>Integraciones</a>
+    <span style="padding: 16px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Seguimiento</span>
+    <a href="AdminAudit.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"></path></svg>Auditoría</a>
+    <a href="AdminUsage.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Informe de uso</a>
+    <a href="AdminSettings.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"></path></svg>Configuración</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid #ECECE7">
+      <a href="Main.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Volver al portal</a>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #FFEFE6; color: #8F360B; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">JC</div>
+        <div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14px">Jhon Castro</span><span style="font-size: 12px; color: #5E6168">Súper administrador</span></div>
+      </div>
+    </div>
+  </nav>
+  <div style="flex: 1; min-width: 0; padding: 32px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em">Aplicaciones</h1>
+        <p style="margin: 0; font-size: 15px; color: #5E6168">Lo que cada persona ve en su portal sale de aquí.</p>
+      </div>
+      <a href="#" style="height: 44px; box-sizing: border-box; padding: 0 18px; border-radius: 12px; background: #C4470F; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Nueva aplicación</a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #5E6168">Publicadas</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 26px">5</span></div>
+      <div style="background: #FFFFFF; border: 1px solid #F0B9B2; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #B42318; font-weight: 600">Con fallas</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 26px">1</span></div>
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #5E6168">En mantenimiento</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 26px">0</span></div>
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5E6168">Entran con Microsoft</span><span style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 26px">1 de 4</span><span style="flex: 1; height: 6px; border-radius: 3px; background: #ECECE7; overflow: hidden"><span style="display: block; width: 25%; height: 6px; background: #17191C"></span></span></span></div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 18px; overflow: hidden; display: flex; flex-direction: column">
+      <form role="search" style="display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #E5E5E0">
+        <label for="a-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Buscar aplicación</label>
+        <div style="flex: 1; max-width: 320px; height: 44px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D6D6D0; display: flex; align-items: center; gap: 8px; padding: 0 12px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E6168" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input id="a-q" type="search" placeholder="Nombre o identificador" style="flex: 1; min-width: 0; border: 0; font: inherit; font-size: 14px; outline: none">
+        </div>
+        <label for="a-co" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Empresa</label>
+        <select id="a-co" style="height: 44px; border: 1px solid #D6D6D0; border-radius: 10px; padding: 0 12px; font: inherit; font-size: 14px; background: #FFFFFF; color: #17191C"><option>Todas las empresas</option><option>Segurex Latam</option><option>Soluciones y Derivados</option></select>
+        <label for="a-st" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Estado</label>
+        <select id="a-st" style="height: 44px; border: 1px solid #D6D6D0; border-radius: 10px; padding: 0 12px; font: inherit; font-size: 14px; background: #FFFFFF; color: #17191C"><option>Todos los estados</option><option>Activa</option><option>Con fallas</option><option>En mantenimiento</option><option>Oculta</option></select>
+        <label for="a-ca" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Categoría</label>
+        <select id="a-ca" style="height: 44px; border: 1px solid #D6D6D0; border-radius: 10px; padding: 0 12px; font: inherit; font-size: 14px; background: #FFFFFF; color: #17191C"><option>Todas las categorías</option><option>Ventas</option><option>Contabilidad</option><option>Tesorería</option><option>TI o Sistemas</option></select>
+      </form>
+      <table style="width: 100%; border-collapse: collapse">
+        <thead>
+          <tr><th scope="col">Aplicación</th><th scope="col">Empresa</th><th scope="col">Categoría</th><th scope="col">Tipo</th><th scope="col">Inicio de sesión</th><th scope="col">Estado</th><th scope="col">Quién la ve</th><th scope="col"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Acciones</span></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: #EEF0FF; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4338CA" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"></rect><path d="M9.5 3h5v3h-5z"></path><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"></path></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Toma Pedidos SAP</span><span style="font-family: ui-monospace, monospace; font-size: 12px; color: #5E6168">toma-pedidos</span></span></span></td>
+            <td>Segurex</td><td>Ventas</td><td>Web · GoDaddy</td>
+            <td><span style="font-size: 13px; font-weight: 600; color: #1F7A4D">Microsoft</span></td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #1F7A4D; background: #E6F5EC; border-radius: 8px; padding: 4px 10px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #22A06B"></span>Activa</span></td>
+            <td style="font-family: ui-monospace, monospace; font-size: 13px">APP-TomaPedidos</td>
+            <td><a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; font-weight: 600; font-size: 14px">Editar</a></td>
+          </tr>
+          <tr>
+            <td><span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: #F3EEFF; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Portafolio de productos</span><span style="font-family: ui-monospace, monospace; font-size: 12px; color: #5E6168">portafolio</span></span></span></td>
+            <td>Derivados</td><td>Ventas</td><td>Web · GoDaddy</td>
+            <td><span style="font-size: 13px; font-weight: 600; color: #45484E">Propio</span></td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #1F7A4D; background: #E6F5EC; border-radius: 8px; padding: 4px 10px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #22A06B"></span>Activa</span></td>
+            <td style="font-family: ui-monospace, monospace; font-size: 13px">APP-Portafolio</td>
+            <td><a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; font-weight: 600; font-size: 14px">Editar</a></td>
+          </tr>
+          <tr>
+            <td><span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: #E7F6EF; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M15 3v4h4"></path><path d="M10 16l4.5-4.5M11.5 11.5h3v3"></path></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Cuentas por pagar</span><span style="font-family: ui-monospace, monospace; font-size: 12px; color: #5E6168">cuentas-por-pagar</span></span></span></td>
+            <td>Segurex</td><td>Tesorería</td><td>Web · Vercel</td>
+            <td><span style="font-size: 13px; font-weight: 600; color: #45484E">Propio</span></td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #1F7A4D; background: #E6F5EC; border-radius: 8px; padding: 4px 10px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #22A06B"></span>Activa</span></td>
+            <td style="font-family: ui-monospace, monospace; font-size: 13px">APP-CuentasPorPagar</td>
+            <td><a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; font-weight: 600; font-size: 14px">Editar</a></td>
+          </tr>
+          <tr style="background: #FFF8F7">
+            <td><span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: #FDF3E3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"></path><rect x="4" y="8" width="16" height="11" rx="2.5"></rect><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"></path></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Visualizador de cartera</span><span style="font-family: ui-monospace, monospace; font-size: 12px; color: #5E6168">cartera</span></span></span></td>
+            <td>Segurex</td><td>Contabilidad</td><td>Web · Vercel</td>
+            <td><span style="font-size: 13px; font-weight: 600; color: #45484E">Propio</span></td>
+            <td><span style="display: inline-flex; flex-direction: column; gap: 2px"><span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #B42318; background: #FEEEEC; border-radius: 8px; padding: 4px 10px">Con fallas</span><span style="font-size: 12px; color: #5E6168">reportado hace 25 min</span></span></td>
+            <td style="font-family: ui-monospace, monospace; font-size: 13px">APP-Cartera</td>
+            <td><a href="AdminAppEdit.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; font-weight: 600; font-size: 14px">Editar</a></td>
+          </tr>
+          <tr>
+            <td style="border-bottom: 0"><span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: #EDF0F4; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="12" height="10" rx="2.5"></rect><path d="M15 10.5l6-3.5v10l-6-3.5"></path><circle cx="7" cy="10.5" r="0.6"></circle></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Cámaras</span><span style="font-family: ui-monospace, monospace; font-size: 12px; color: #5E6168">camaras</span></span></span></td>
+            <td style="border-bottom: 0">Segurex</td><td style="border-bottom: 0">TI o Sistemas</td><td style="border-bottom: 0">Instalada en el equipo</td>
+            <td style="border-bottom: 0"><span style="font-size: 13px; color: #5E6168">No aplica</span></td>
+            <td style="border-bottom: 0"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #1F7A4D; background: #E6F5EC; border-radius: 8px; padding: 4px 10px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #22A06B"></span>Activa</span></td>
+            <td style="border-bottom: 0; font-family: ui-monospace, monospace; font-size: 13px">APP-Camaras</td>
+            <td style="border-bottom: 0"><a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; font-weight: 600; font-size: 14px">Editar</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

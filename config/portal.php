@@ -43,4 +43,22 @@ return [
 
     'emergency_path' => trim((string) env('PORTAL_EMERGENCY_PATH', 'acceso-emergencia'), '/'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed application hosts
+    |--------------------------------------------------------------------------
+    |
+    | Web apps of the catalog may only point at `https://` URLs on these
+    | hosts (App\Catalog\AppUrlPolicy). A plain domain also covers its
+    | subdomains; `*` matches part of one DNS label only. Configuración
+    | (Phase 5) will manage this list.
+    |
+    */
+
+    'allowed_app_hosts' => [
+        'segurex.com.co',
+        'derivadoscol.com.co',
+        'sgx-*.vercel.app',
+    ],
+
 ];

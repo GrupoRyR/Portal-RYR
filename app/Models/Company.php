@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -156,6 +157,16 @@ class Company extends Model
                     ->all()
             ),
         );
+    }
+
+    /**
+     * Catalog apps that apply to this company (`app_companies`).
+     *
+     * @return BelongsToMany<App, $this>
+     */
+    public function apps(): BelongsToMany
+    {
+        return $this->belongsToMany(App::class, 'app_companies')->withTimestamps();
     }
 
     /**
