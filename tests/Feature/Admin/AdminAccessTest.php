@@ -64,6 +64,17 @@ class AdminAccessTest extends TestCase
             ->assertSee(self::FORBIDDEN_MESSAGE);
     }
 
+    public function test_portal_admins_do_not_see_the_companies_link(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('portal_admin');
+
+        $this->actingAs($user)->get(route('admin.apps.index'))
+            ->assertOk()
+            ->assertSee('Aplicaciones')
+            ->assertDontSee('href="'.route('admin.companies.index').'"', false);
+    }
+
     public function test_super_admins_see_the_companies_page_inside_the_admin_shell(): void
     {
         $user = User::factory()->create(['name' => 'Jhon Castro']);
