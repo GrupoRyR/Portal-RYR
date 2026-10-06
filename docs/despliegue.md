@@ -219,6 +219,61 @@ El portal se puede instalar en celulares, tablets y computadores, y guarda una c
 4. **Íconos de cada empresa.** Se generan una sola vez a partir del ícono de la empresa (PNG de 512 × 512) en `storage/app/public/brand/<empresa>/pwa/`, con la extensión GD de PHP. Si GD no está instalada (`php -m | grep -i gd`), el portal usa el ícono neutro de `public/icons/portal-*.png`. Requiere el enlace `public/storage` (paso 1.10).
 5. **Actualizaciones.** No hay que borrar cachés a mano: cada `npm run build` cambia los nombres de los archivos y la versión del *service worker*; al abrir el portal con conexión, el navegador descarga la versión nueva y borra la anterior. Por eso `public/build` siempre debe ir en el commit.
 
+### 1.12 Respaldos diarios
+
+Cada noche, en hora de Bogotá, el portal guarda una copia de la base de datos y de los archivos subidos (logos, íconos e imágenes de anuncios) en un solo `.zip`, en el mismo servidor y fuera de la carpeta pública. Lo hace el cron del paso 1.9; no hay que crear otro cron.
+
+| Hora | Tarea | Qué hace |
+|---|---|---|
+| 02:00 | `backup:clean` | Borra las copias viejas (ver sección 6.1) |
+| 02:30 | `backup:run --isolated` | Crea la copia del día |
+| 08:00 | `backup:monitor` | Revisa que haya una copia de menos de un día y que no ocupen más de 2500 MB |
+| cada minuto | `portal:run-requested-backup` | Ejecuta la copia pedida con **Respaldar ahora** (Administración › Configuración), si hay una |
+
+Si una copia falla o el monitor encuentra un problema, se envía un correo a las direcciones de `PORTAL_SUPER_ADMIN_EMAILS` con el correo configurado en el paso 1.10. Las copias correctas no envían correo: se ven en Configuración.
+
+Haga esto una sola vez, por SSH:
+
+1. **Compruebe `mysqldump`**, el programa que copia la base de datos:
+
+   ```bash
+   which mysqldump
+   ```
+
+   - Si responde `/usr/bin/mysqldump`, no hay que hacer nada.
+   - Si responde otra ruta, por ejemplo `/usr/local/bin/mysqldump`, agregue a `.env` **la carpeta**, sin el nombre del programa, y regenere la caché de configuración:
+
+     ```dotenv
+     DB_DUMP_BINARY_PATH=/usr/local/bin
+     ```
+
+     ```bash
+     php artisan optimize
+     ```
+
+   - Si no responde nada, pida a GoDaddy la ruta de `mysqldump` para su plan.
+
+2. **Compruebe PHP:** la extensión `zip` y la función `proc_open` (con ella PHP ejecuta `mysqldump`):
+
+   ```bash
+   php -m | grep -i zip
+   php -r "var_dump(function_exists('proc_open'));"
+   ```
+
+   Deben mostrar `zip` y `bool(true)`. Si no, actívelos en cPanel › **Select PHP Version** › **Extensions** o pídalo a GoDaddy.
+
+3. **Haga la primera copia a mano** y revise que quedó:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   php artisan backup:run
+   php artisan backup:list
+   ```
+
+   `backup:run` debe terminar con `Backup completed!`. `backup:list` debe mostrar una fila `portal-ryr` en el disco `backups` con `Healthy` en ✅, `# of backups` en 1, la fecha (`Newest backup`) y el espacio usado. Si falla, el mensaje dice por qué (por ejemplo `mysqldump: not found`): corrija y repita.
+
+4. Abra **Administración › Configuración**: la tarjeta **Respaldo diario de la base de datos** debe mostrar la fecha de esa copia y «correcto».
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)
@@ -280,7 +335,7 @@ COMPOSER_BIN="php ~/composer.phar" bash deploy/deploy.sh
 
 3. En el servidor, ejecute `bash deploy/deploy.sh`.
 
-Si el cambio incluía una migración que alteró tablas, revise antes con el equipo de desarrollo si hace falta `php artisan migrate:rollback --step=1`. Ese comando puede borrar datos: no lo ejecute sin respaldo de la base de datos.
+Si el cambio incluía una migración que alteró tablas, revise antes con el equipo de desarrollo si hace falta `php artisan migrate:rollback --step=1`. Ese comando puede borrar datos: antes haga una copia con `php artisan backup:run` (sección 6).
 
 ---
 
@@ -308,3 +363,113 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | El celular no ofrece instalar el portal | Que el sitio abra con HTTPS y que `/manifest.webmanifest` y `/sw.js` respondan 200 (paso 1.11) |
 | Un equipo sigue viendo la versión anterior | Cerrar todas las pestañas o ventanas del portal y abrirlo de nuevo con conexión |
 | El ícono instalado es el neutro | Que la empresa tenga ícono (Administración › Empresas), que PHP tenga GD y que exista `public/storage` |
+| La tarjeta de respaldo dice «terminó con error» | El correo enviado a los súper administradores y `storage/logs/laravel-AAAA-MM-DD.log`; casi siempre es la ruta de `mysqldump` (paso 1.12) |
+| «Respaldar ahora» se queda en «Programado…» | Que el cron esté corriendo (paso 1.9); la copia empieza en el minuto siguiente |
+
+---
+
+## 6. Respaldos: dónde están, descargarlos y restaurarlos
+
+### 6.1 Dónde están y cuántas se guardan
+
+Las copias están en el servidor, fuera de la carpeta pública (nadie las puede abrir desde el navegador):
+
+```text
+/home/<usuario>/<ruta-app>/storage/app/private/backups/portal-ryr/AAAA-MM-DD-HH-MM-SS.zip
+```
+
+El nombre es la fecha y hora (Bogotá) en que se hizo. Cada `.zip` tiene:
+
+- `db-dumps/mysql-<base-de-datos>.sql`: la base de datos completa (empresas, apps, accesos, anuncios, configuración, auditoría, uso).
+- `storage/app/public/...`: los archivos subidos (logos e íconos de empresas y apps, imágenes de anuncios).
+
+No incluye el código (está en Git) ni el archivo `.env` (guárdelo aparte, en un lugar seguro).
+
+Se conservan **todas las copias de los últimos 7 días** y después **una por semana durante 4 semanas más**; las más viejas se borran a las 02:00. La copia más reciente nunca se borra. Si entre todas pasan de 2000 MB, se borran las más antiguas.
+
+Para ver cuánto ocupan:
+
+```bash
+cd /home/<usuario>/<ruta-app>
+php artisan backup:list
+du -sh storage/app/private/backups
+```
+
+En cPanel, **Disk Usage** muestra el espacio total del plan. Las copias cuentan dentro de ese espacio.
+
+### 6.2 Descargar una copia
+
+Las copias tienen datos personales (nombres y correos). Guárdelas en un lugar seguro y bórrelas de su equipo cuando ya no las necesite; no las envíe por correo ni chat.
+
+**Con el administrador de archivos de cPanel:**
+
+1. Abra cPanel › **File Manager**.
+2. Entre a `<ruta-app>/storage/app/private/backups/portal-ryr`.
+3. Seleccione el `.zip` de la fecha que necesita y pulse **Download**.
+
+**Por SSH, desde su equipo:**
+
+```bash
+scp <usuario>@<servidor>:/home/<usuario>/<ruta-app>/storage/app/private/backups/portal-ryr/<archivo>.zip .
+```
+
+### 6.3 Restaurar una copia paso a paso
+
+Restaurar reemplaza los datos actuales por los de la copia: todo lo que se hizo después de esa fecha se pierde. Hágalo solo si es necesario y avise antes a los administradores.
+
+1. Entre por SSH y vaya a la aplicación:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   ```
+
+2. Haga una copia del estado actual, por si necesita volver atrás, y anote su nombre:
+
+   ```bash
+   php artisan backup:run
+   php artisan backup:list
+   ```
+
+3. Ponga el sitio en mantenimiento:
+
+   ```bash
+   php artisan down
+   ```
+
+4. Descomprima la copia elegida en una carpeta de trabajo **fuera** de la aplicación:
+
+   ```bash
+   mkdir -p ~/restaurar
+   unzip storage/app/private/backups/portal-ryr/<archivo>.zip -d ~/restaurar
+   ls ~/restaurar/db-dumps
+   ```
+
+5. Restaure la base de datos. Use los valores `DB_HOST`, `DB_USERNAME` y `DB_DATABASE` del `.env`; el comando pide la contraseña (`DB_PASSWORD`):
+
+   ```bash
+   mysql -h <DB_HOST> -u <DB_USERNAME> -p <DB_DATABASE> < ~/restaurar/db-dumps/mysql-<DB_DATABASE>.sql
+   ```
+
+   El archivo borra y vuelve a crear cada tabla, así que no hay que vaciar la base antes. Si no tiene SSH, puede importarlo en cPanel › **phpMyAdmin** › base de datos › **Import**, si el tamaño lo permite.
+
+6. Restaure los archivos subidos (agrega y reemplaza; no borra los que no estén en la copia):
+
+   ```bash
+   cp -a ~/restaurar/storage/app/public/. storage/app/public/
+   ```
+
+7. Borre la caché (la configuración del portal se guarda en caché) y vuelva a poner el sitio en línea:
+
+   ```bash
+   php artisan cache:clear
+   php artisan optimize
+   php artisan up
+   ```
+
+8. Revise el portal: entre, abra Administración › Empresas y Aplicaciones, y confirme que los datos son los esperados.
+
+9. Borre la carpeta de trabajo:
+
+   ```bash
+   rm -rf ~/restaurar
+   ```

@@ -3,6 +3,7 @@
 namespace App\Audit;
 
 use App\Api\StatusReporter;
+use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
 use App\Models\Announcement;
 use App\Models\App;
@@ -54,6 +55,7 @@ final class AuditPresenter
         'integration.revoked' => 'Revocó el token de',
         'integration.abilities_changed' => 'Cambió los permisos de',
         'integration.ips_changed' => 'Cambió las IP permitidas de',
+        'backup.requested' => 'Pidió',
     ];
 
     private const REJECTION_REASONS = [
@@ -180,6 +182,10 @@ final class AuditPresenter
     {
         if ($activity->log_name === PortalSettings::AUDIT_LOG) {
             return 'la configuración del portal';
+        }
+
+        if ($activity->log_name === BackupRequests::AUDIT_LOG) {
+            return 'un respaldo inmediato de la base de datos';
         }
 
         $model = $activity->subject;

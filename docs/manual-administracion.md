@@ -170,7 +170,12 @@ Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Gu
 - **Sesión:** cerrar la sesión por inactividad después de 4, 8 o 24 horas; **Al salir, cerrar también Microsoft** (si está apagado, solo se cierra el portal). Este tiempo también limita cuánto tiempo el celular muestra la copia guardada del inicio sin conexión (sección 5).
 - **Dominios permitidos para apps:** solo se aceptan direcciones `https://` en estos dominios. Un dominio incluye sus subdominios; `*` reemplaza parte de una sola etiqueta (`sgx-*.vercel.app`). No se puede quitar un dominio que usa una app publicada.
 - **Estados reportados por la API:** después de cuántas horas sin reportes una tarjeta deja de mostrarse «Con fallas» (1, 2 o 4).
-- **Respaldo diario de la base de datos:** todavía no está disponible desde el portal.
+- **Respaldo diario de la base de datos:** cada noche, a las 2:30 a. m. (hora de Bogotá), el portal guarda en el servidor una copia de la base de datos y de los archivos subidos (logos, íconos e imágenes de anuncios). Esta tarjeta no depende de **Guardar cambios** y muestra datos reales:
+  - **Último respaldo:** fecha y hora de la copia más reciente y, si el último intento salió bien, «correcto». Si nunca se ha hecho una copia, dice «nunca».
+  - Debajo, el tamaño de esa copia y cuántas copias hay guardadas (las de los últimos 7 días y una por semana del mes anterior).
+  - Si el último intento falló, lo dice en rojo con su fecha. Los súper administradores reciben además un correo con el motivo. La copia buena anterior sigue guardada. Avise al equipo de TI: la solución está en la guía de despliegue (`docs/despliegue.md`, sección 5).
+  - **Respaldar ahora** pide una copia inmediata, por ejemplo antes de un cambio grande. La copia no se hace en ese instante: queda **Programado** y empieza en el minuto siguiente; mientras tanto el botón dice «Programado…». La tarjeta se actualiza sola. Solo se permite una a la vez y hasta 3 por hora. Cada pedido queda en Auditoría como «Pidió un respaldo inmediato de la base de datos».
+  - Las copias no se descargan ni se restauran desde el portal: lo hace TI en el servidor (guía de despliegue, sección 6).
 
 ---
 

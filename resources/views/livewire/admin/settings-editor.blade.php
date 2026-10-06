@@ -6,7 +6,6 @@
     $error = 'text-[0.8125rem] font-semibold text-status-failure';
     $card = 'flex min-w-0 flex-col gap-3.5 rounded-[18px] border border-line bg-surface p-5 sm:p-[22px]';
     $heading = 'font-sans text-lg font-bold tracking-normal';
-    $soon = 'rounded-md bg-subtle px-1.5 text-[10px] leading-5 font-semibold whitespace-nowrap text-fg-muted';
 @endphp
 <form wire:submit="save" class="flex flex-col gap-5" novalidate>
     <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
@@ -22,7 +21,7 @@
 
     <p role="status" @class(['rounded-control bg-status-active-bg px-4 py-3 text-sm font-semibold text-status-active', 'sr-only' => $notice === ''])>{{ $notice }}</p>
 
-    @if ($errors->any())
+    @if (collect($errors->keys())->diff(['backup'])->isNotEmpty())
         <p role="alert" class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Revisa los campos marcados. No se guardó ningún cambio.</p>
     @endif
 
@@ -121,16 +120,27 @@
             </div>
         </section>
 
-        {{-- Respaldo diario: not built yet, so no status is shown. --}}
-        <section aria-labelledby="s-backup" class="{{ $card }} flex-row! items-center">
+        {{-- Respaldo diario: real data from the backups disk and the recorded runs (App\Backups\BackupOverview).
+             «Respaldar ahora» acts at once (no «Guardar cambios»): it leaves a request for the scheduler. --}}
+        <section aria-labelledby="s-backup" class="{{ $card }} flex-row! flex-wrap items-center"
+                 @if ($backup->isBusy()) wire:poll.15s @endif>
             <svg class="size-[22px] shrink-0 text-fg-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
             <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span class="flex flex-wrap items-center gap-2">
-                    <h2 id="s-backup" class="font-sans text-[0.9375rem] font-bold tracking-normal">Respaldo diario de la base de datos</h2>
-                    <span class="{{ $soon }}">Próximamente</span>
-                </span>
-                <span class="{{ $hint }}">Aún no está disponible desde el portal.</span>
+                <h2 id="s-backup" class="font-sans text-[0.9375rem] font-bold tracking-normal">Respaldo diario de la base de datos</h2>
+                <span class="{{ $hint }}">{{ $backup->lastBackupLine() }}</span>
+                @if ($copies = $backup->copiesLine())
+                    <span class="text-xs text-fg-muted">{{ $copies }}</span>
+                @endif
+                @if ($failure = $backup->failureLine())
+                    <span class="{{ $error }}">{{ $failure }} Se avisó por correo a los súper administradores.</span>
+                @endif
+                <span role="status" @class(['text-[0.8125rem] font-semibold text-fg-soft', 'sr-only' => ! $backup->isBusy()])>{{ $backup->progressLine() }}</span>
+                @error('backup') <span role="alert" class="{{ $error }}">{{ $message }}</span> @enderror
             </span>
+            <button type="button" wire:click="requestBackup" wire:loading.attr="disabled" wire:target="requestBackup" @disabled($backup->isBusy())
+                    class="inline-flex h-10 shrink-0 items-center rounded-[10px] border border-line-strong bg-surface px-3.5 text-sm font-semibold hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-60">
+                {{ $backup->isBusy() ? 'Programado…' : 'Respaldar ahora' }}
+            </button>
         </section>
     </div>
 </form>

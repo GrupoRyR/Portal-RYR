@@ -64,9 +64,9 @@ class SettingsPageTest extends TestCase
             ->assertSeeInOrder(['Soporte TI', 'Sesión', 'Dominios permitidos para apps', 'Estados reportados por la API', 'Respaldo diario de la base de datos'])
             ->assertSeeText('Si un sistema deja de reportar una app con fallas, la tarjeta vuelve a verse normal después de este tiempo.')
             ->assertDontSeeText('Se aplicará cuando esté lista la sección Integraciones.')
-            ->assertSeeText('Próximamente')
-            ->assertDontSeeText('Respaldar ahora')
-            ->assertDontSeeText('Último respaldo');
+            ->assertDontSeeText('Próximamente')
+            ->assertSeeText('Respaldar ahora')
+            ->assertSeeText('Último respaldo');
     }
 
     public function test_portal_admins_editors_and_plain_users_are_forbidden_and_see_no_link(): void

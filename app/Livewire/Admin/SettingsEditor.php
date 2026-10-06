@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin;
 
+use App\Backups\BackupOverview;
+use App\Backups\BackupRequests;
 use App\Catalog\AppUrlPolicy;
 use App\Models\App;
 use App\Models\User;
@@ -21,7 +23,8 @@ use Livewire\Component;
  * Configuración (docs/diseno/AdminSettings.dc.html): portal-wide settings
  * stored by App\Settings\PortalSettings. Super admins only; every action
  * is re-authorized. Domains are added and removed in the form and only
- * applied, with everything else, by «Guardar cambios».
+ * applied, with everything else, by «Guardar cambios». The «Respaldo
+ * diario» card is separate: «Respaldar ahora» acts at once.
  */
 class SettingsEditor extends Component
 {
@@ -152,11 +155,32 @@ class SettingsEditor extends Component
         $this->notice = 'Cambios guardados.';
     }
 
+    /**
+     * «Respaldar ahora»: leaves a request that the scheduler runs the next
+     * minute; the dump never runs inside this request.
+     */
+    public function requestBackup(BackupRequests $requests): void
+    {
+        $this->authorize(AdminSections::SETTINGS);
+        $this->resetErrorBag('backup');
+
+        if ($refusal = $requests->refusal()) {
+            $this->addError('backup', $refusal);
+
+            return;
+        }
+
+        /** @var User $user */
+        $user = Auth::user();
+        $requests->request($user);
+    }
+
     public function render(): View
     {
         return view('livewire.admin.settings-editor', [
             'idleOptions' => $this->idleOptions(),
             'ticketExample' => $this->ticketExample(),
+            'backup' => BackupOverview::current(),
         ]);
     }
 
