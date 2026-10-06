@@ -31,7 +31,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - [x] T5 — Emergency admin account: local database user with password + TOTP 2FA (Open question 1 resolved). Route: delegated writer.
 - [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Unblocked 2026-10-05 (Q2: Livewire 4). Split into:
   - [x] T6a — UI foundation: Livewire 4, self-hosted fonts (Bricolage Grotesque + Figtree), Tailwind 4 design tokens (light/dark) from the approved canvas, `--brand-*` CSS variables filled from the user's company, admin shell layout (sidebar), `/admin` access for `super_admin`/`portal_admin`; tests. Route: delegated writer (frontend-design skill).
-  - [ ] T6b — Companies list + edit (no tenant change): fields, domains, quick links, active switch, colors with WCAG contrast check and live preview, logo uploads (PNG/WebP, sanitized SVG); `super_admin` only; tests. Route: delegated writer.
+  - [x] T6b — Companies list + edit (no tenant change): fields, domains, quick links, active switch, colors with WCAG contrast check and live preview, logo uploads (PNG/WebP, sanitized SVG); `super_admin` only; tests. Route: delegated writer.
   - [ ] T6c — New-company wizard + tenant changes: recent Microsoft re-authentication, admin-consent link, consent detection, activity log, email notice to admins; tests. Route: delegated writer.
 
 ## Acceptance criteria
@@ -69,7 +69,9 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 9 | `feat/fase-3-9-ui-tokens` | slice 8 | T6a tokens, fonts, brand palette (`fde6b63`) | +809/−8 (272 tests) |
 | 10 | `feat/fase-3-10-admin-shell` | slice 9 | T6a Livewire 4, layouts, admin shell (`1ebd080`) | +626/−2 (207 tests) |
 | 11 | `feat/fase-3-11-ui-paginas` | slice 10 | T6a restyled placeholder pages (`b2aa517`) | +204/−73 |
-| 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654` + follow-up) | +68/−18 |
+| 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654`, `eb10899`) | +68/−18 |
+| 13 | `feat/fase-3-13-empresas-admin` | slice 12 | T6b companies list + edit (`8af717d`) | +984/−12 (339 tests; one editor, no cohesive smaller split → `size:exception`) |
+| 14 | `feat/fase-3-14-logos` | slice 13 | T6b sanitized logo uploads + sign-in logos (`3149ef4`) | +401/−9 (169 tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -209,6 +211,30 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
     - Build: `app-*.css` 50.88 kB (12.26 kB gzip); `livewire-*.js` 296.38 kB (96.14 kB gzip), admin only; no JS on other pages.
     - Pages that later embed a Livewire component outside the admin shell must pass `livewire` to `x-layouts.app` (Livewire asset injection is off).
   - Authored lines: A +11/−5, B +57/−13.
+  - Unit 1 commit B: `eb10899`.
+
+- 2026-10-05: T6b done on `feat/fase-3-13-empresas-admin` (from `feat/fase-3-12-ajustes-ui`; route: delegated writer, frontend-design skill), two work-unit commits.
+  - Commit A `8af717d` feat(admin): companies list and editor.
+    - `App\Policies\CompanyPolicy` (`viewAny`/`view`/`update` → `super_admin`). Routes `admin.companies.index` (`/admin/empresas`, list + first company's editor or empty state) and `admin.companies.show` (`/admin/empresas/{company:slug}`), both with `can:` middleware inside the existing `auth` + `role:super_admin|portal_admin` group.
+    - `App\Livewire\Admin\CompanyEditor` (class component, Livewire 4) authorizes on mount and on every action. Edits name, short name, email domains (lowercase host pattern; `Company::domainOwner()` keeps each domain on one company, checked when adding and when saving), quick links (label + `https://` only, max 8), the three colors (strict `#RRGGBB`, stored uppercase) and the active switch. Slug, tenant (disabled «Cambiar», «Próximamente») and the consent badge are read-only.
+    - Contrast warning copied from the canvas: shown when white on the primary is < 4.5:1, with the derived button color and ratio (Segurex: 2,9:1 → `#C24C15`, 4,8:1). Live preview (Claro/Oscuro/Celular, `aria-pressed`) uses `BrandPalette::fromColors()` of the values being edited, not the saved ones.
+    - Deactivation: the first save shows a confirmation panel («Desactivar empresa» / «Cancelar»; `confirmingDeactivation` is `#[Locked]`). Deactivating the admin's own company is refused («No puedes desactivar la empresa con la que iniciaste sesión.»). Saving goes through the model, so `CompanyObserver` forgets the tenant cache.
+    - Validation messages are Spanish in the component (the app has no `lang/` files).
+  - Commit B (see `git log`) feat(admin): logos.
+    - `enshrined/svg-sanitize` 1.0.0. `App\Branding\SvgLogo` (remote references removed; a document without a single `<svg>` root makes the library throw → rejected). `App\Branding\BrandAssetStore` stores on the `public` disk under `brand/{slug}/{slot}-{random}.{ext}` and deletes the replaced file after the company is saved.
+    - Logos: PNG, WebP or SVG ≤ 1 MB; content checked (`getimagesize` type must match the extension; SVG must sanitize). Icon: PNG exactly 512 × 512.
+    - The sign-in page shows the light logo (`alt` = company name) with the dark logo as a `prefers-color-scheme: dark` source, falling back to the short name. The list shows the icon when present.
+  - RED (both commits written test-first): `php artisan test tests/Feature/Admin` → 38 tests, 11 passed, 3 failed, 24 errors (`Unable to find component: [App\Livewire\Admin\CompanyEditor]`, `Route [admin.companies.show] not defined`, empty state and sign-in logo missing). GREEN: commit A state `php artisan test` → 246 passed (824 assertions); commit B state → 253 passed (867 assertions).
+  - Build: `app-*.css` 57.54 kB (13.41 kB gzip); `livewire-*.js` 296.38 kB (96.14 kB gzip, admin only).
+  - Authored lines: A +984/−12 (339 tests), B +401/−9 (169 tests). Over the 400-line budget; A is one cohesive editor (component + view are ~620 lines).
+  - Browser check (static render, 1440px): three columns as in the canvas (list 260px, form, 300px preview aside), contrast warning text matches the canvas with the derived values.
+- To confirm with Jhon (T6b):
+  1. Uploaded files are written before the database save; if the save fails afterwards, the new file stays orphaned in `brand/{slug}/` (no cleanup job yet).
+  2. The editor saves and reloads the page (`admin.companies.show`) so the list reflects new names and states.
+  3. «Nueva empresa» is shown disabled until the T6c wizard.
+  4. Logos are stored under `/storage/brand/…`; production needs `php artisan storage:link` (already noted for avatars).
+
+- 2026-10-05: Parent spot check on `feat/fase-3-14-logos` (`3149ef4`): `php artisan test` → 253 passed (867 assertions). T6b split at its commit boundary into slices 13 and 14. Review of `1d399a4..3149ef4`: assessed high (auth view), consent declined by Jhon. Next review base: `3149ef4`. Open follow-ups: orphaned upload file if the DB save fails after writing it (fix in T6c); 375px phone layout of the editor not yet checked in a browser.
 
 ## Next step
-T6b (companies list + edit) on `feat/fase-3-13-empresas-admin`, branched from `feat/fase-3-12-ajustes-ui`.
+T6c (new-company wizard + tenant changes) on `feat/fase-3-15-asistente-empresa` branched from `feat/fase-3-14-logos`.

@@ -31,8 +31,12 @@
                                    'border-2 border-fg' => $current,
                                    'border border-line hover:border-line-strong' => ! $current,
                                ])>
+                                @if ($company->icon_path)
+                                    <img src="{{ $company->brandFileUrl($company->icon_path) }}" alt="" class="size-10 shrink-0 rounded-[11px] object-cover">
+                                @else
                                     <span class="flex size-10 shrink-0 items-center justify-center rounded-[11px] font-display text-lg font-bold text-white"
                                           style="background-color: {{ \App\Branding\BrandPalette::forCompany($company)->button }}" aria-hidden="true">{{ mb_strtoupper(mb_substr($company->short_name ?: $company->name, 0, 1)) }}</span>
+                                @endif
                                 <span class="flex min-w-0 flex-1 flex-col gap-1">
                                     <span class="truncate text-[0.9375rem] font-bold">{{ $company->name }}</span>
                                     <span class="truncate text-[0.8125rem] text-fg-muted">{{ implode(', ', $company->domains ?? []) }}</span>

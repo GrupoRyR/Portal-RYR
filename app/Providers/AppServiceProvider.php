@@ -42,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
 
         // The neutral sign-in page names the active companies of the group.
         View::composer('auth.login', function (\Illuminate\View\View $view) {
-            $view->with('companies', Company::active()->orderBy('name')->get(['name', 'short_name']));
+            $view->with('companies', Company::active()->orderBy('name')->get(['name', 'short_name', 'logo_light_path', 'logo_dark_path']));
         });
     }
 }
