@@ -164,12 +164,19 @@ class StatusApiTest extends TestCase
         $this->assertSame('Sigue caída', $this->cartera->fresh()->external_status_message);
     }
 
-    public function test_hidden_apps_accept_reports(): void
+    public function test_hidden_apps_reject_reports_like_unknown_ones(): void
     {
+        // Decision 2026-10-06: hidden apps are out of the API altogether
+        // (the catalog leaves them out too), and a 404 does not reveal them.
         $this->cartera->update(['status' => App::STATUS_HIDDEN]);
 
-        $this->report(['status' => 'down'])->assertOk();
-        $this->assertSame('down', $this->cartera->fresh()->external_status);
+        $this->report(['status' => 'down'])
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Not found.']);
+
+        $this->assertNull($this->cartera->fresh()->external_status);
+        $this->assertSame(0, AppStatusEvent::query()->count());
+        $this->assertCount(0, $this->apiEntries());
     }
 
     // --- Expiry -----------------------------------------------------------------

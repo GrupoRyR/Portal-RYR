@@ -13,8 +13,9 @@ use Illuminate\Validation\Rule;
 
 /**
  * PUT /api/v1/apps/{slug}/status (ability `status:write`): an external
- * system reports whether an app works. Any existing app may be reported,
- * hidden ones included (hiding only removes it from the home screen).
+ * system reports whether an app works. Hidden apps answer 404 like unknown
+ * ones: they are out of the API altogether, as in the catalog (decision
+ * 2026-10-06).
  */
 class AppStatusController extends Controller
 {
@@ -24,6 +25,8 @@ class AppStatusController extends Controller
 
     public function __invoke(Request $request, App $app, StatusReporter $reporter): JsonResponse
     {
+        abort_if($app->status === App::STATUS_HIDDEN, 404);
+
         $report = $request->validate([
             'status' => ['required', 'string', Rule::in(App::EXTERNAL_STATUSES)],
             'message' => ['nullable', 'string', 'max:'.self::MAX_MESSAGE],
