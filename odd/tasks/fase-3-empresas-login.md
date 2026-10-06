@@ -29,10 +29,10 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - [x] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [x] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
 - [x] T5 — Emergency admin account: local database user with password + TOTP 2FA (Open question 1 resolved). Route: delegated writer.
-- [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Unblocked 2026-10-05 (Q2: Livewire 4). Split into:
+- [x] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Unblocked 2026-10-05 (Q2: Livewire 4). Split into:
   - [x] T6a — UI foundation: Livewire 4, self-hosted fonts (Bricolage Grotesque + Figtree), Tailwind 4 design tokens (light/dark) from the approved canvas, `--brand-*` CSS variables filled from the user's company, admin shell layout (sidebar), `/admin` access for `super_admin`/`portal_admin`; tests. Route: delegated writer (frontend-design skill).
   - [x] T6b — Companies list + edit (no tenant change): fields, domains, quick links, active switch, colors with WCAG contrast check and live preview, logo uploads (PNG/WebP, sanitized SVG); `super_admin` only; tests. Route: delegated writer.
-  - [ ] T6c — New-company wizard + tenant changes: recent Microsoft re-authentication, admin-consent link, consent detection, activity log, email notice to admins; tests. Route: delegated writer.
+  - [x] T6c — New-company wizard + tenant changes: recent Microsoft re-authentication, admin-consent link, consent detection, activity log, email notice to admins; tests. Route: delegated writer.
 
 ## Acceptance criteria
 - A sign-in from a tenant that is not an active company is rejected with a clear Spanish message.
@@ -72,6 +72,11 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654`, `eb10899`) | +68/−18 |
 | 13 | `feat/fase-3-13-empresas-admin` | slice 12 | T6b companies list + edit (`8af717d`) | +984/−12 (339 tests; one editor, no cohesive smaller split → `size:exception`) |
 | 14 | `feat/fase-3-14-logos` | slice 13 | T6b sanitized logo uploads + sign-in logos (`3149ef4`) | +401/−9 (169 tests) |
+| 15 | `feat/fase-3-15-reautenticacion` | slice 14 | T6c logo orphan fix + recent Microsoft re-auth (`2bd31e5`, `beb5f86`) | +455/−19 (211 tests) |
+| 16 | `feat/fase-3-16-auditoria` | slice 15 | T6c activity log (`f5a4817`) | +174 authored (108 tests) + 125 vendor-published |
+| 17 | `feat/fase-3-17-consentimiento-avisos` | slice 16 | T6c consent checker + admin notices (`19db99e`, `031a0b2`) | +521 (276 tests) |
+| 18 | `feat/fase-3-18-asistente` | slice 17 | T6c new-company wizard + PowerShell script + deploy doc (`c664b70`) | +1132/−9 (313 tests; one wizard → `size:exception`) |
+| 19 | `feat/fase-3-19-cambio-inquilino` | slice 18 | T6c tenant change + doc (`bbde3f0`) | +335/−2 (170 tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -236,5 +241,51 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 
 - 2026-10-05: Parent spot check on `feat/fase-3-14-logos` (`3149ef4`): `php artisan test` → 253 passed (867 assertions). T6b split at its commit boundary into slices 13 and 14. Review of `1d399a4..3149ef4`: assessed high (auth view), consent declined by Jhon. Next review base: `3149ef4`. Open follow-ups: orphaned upload file if the DB save fails after writing it (fix in T6c); 375px phone layout of the editor not yet checked in a browser.
 
+- 2026-10-05: T6c done on `feat/fase-3-15-asistente-empresa` (from `feat/fase-3-14-logos` at `a875cf3`; route: delegated writer, frontend-design skill), seven work-unit commits, each one a possible slice.
+  - `2bd31e5` fix(admin): a failed company save deletes the logo files it had just written (closes the T6b follow-up). RED: the new test found `brand/segurex/logo-light-….png` left behind. GREEN: 39 admin tests pass. +48/−16 (21 tests).
+  - `beb5f86` feat(auth): `microsoft.recent` middleware (`App\Http\Middleware\RequireRecentMicrosoftLogin`) and `App\Auth\RecentMicrosoftLogin`.
+    - The session key `auth.microsoft_confirmed_at` must be under 10 minutes old; otherwise the user goes to `GET /auth/microsoft/confirm?return=…`, which sends them to Microsoft with `prompt=login` (and `login_hint`).
+    - Only same-site relative return paths are kept (absolute, `//`, backslash, control characters → `/`).
+    - The callback is shared (no longer behind `guest`): for a signed-in user it consumes the pending confirmation and accepts it only when the token's (`tid`, `oid`) equal the user's. A mismatch or failure signs out with the generic error.
+    - Emergency accounts get a Spanish 403 («Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.»). A normal sign-in does not count as a confirmation (Microsoft may have used SSO without asking for credentials).
+    - RED: 15 tests, 1 passed, 14 errors (class, alias and route missing). GREEN: `php artisan test` → 269 passed. +407/−3 (190 tests).
+  - `f5a4817` feat(audit): `spatie/laravel-activitylog` 4.12.3 (5.x requires PHP 8.4; 4.12 supports Laravel 13). `Company` logs every change to fillable attributes (log `companies`, only changed fields, `old`/`attributes`, causer = signed-in user) and the named events `company.created`, `company.tenant_changed`, `company.consent_verified`, `company.activated`, `company.deactivated`. Nothing secret is stored. RED: 5 tests, 1 passed (no-secret guard), 1 failed, 3 errors. GREEN: 274 passed. +174 authored (108 tests), plus the vendor-published config and three migrations (+125).
+  - `19db99e` feat(microsoft): `App\Microsoft\ConsentChecker`.
+    - It POSTs `client_credentials` with scope `https://graph.microsoft.com/.default` to `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`.
+    - 200 with an `access_token` → `granted`.
+    - AADSTS700016 (UnauthorizedClient_DoesNotMatchRequest, app not found in the tenant), AADSTS65001 (DelegationDoesNotExist) and AADSTS500011 (InvalidResourceServicePrincipalNotFound) → `pending`. Codes come from `error_codes`, or from `error_description` when that list is missing.
+    - Everything else, including a bad or expired secret (7000215/7000222), an unknown tenant (90002), Conditional Access, 5xx, network errors and a missing id or secret → `unknown`.
+    - Logs carry only the tenant, the status and the AADSTS codes, never the secret or the token.
+    - Sources: https://learn.microsoft.com/en-us/entra/identity-platform/reference-error-codes and https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow.
+    - RED: 14 errors (class missing). GREEN: 14 passed. +291 (170 tests).
+  - `031a0b2` feat(notifications): `CompanyChangedNotice` (Spanish mail: created, tenant changed, activated) and `CompanyAdminNotifier` (users with `super_admin`/`portal_admin` plus `PORTAL_SUPER_ADMIN_EMAILS` that are not users, deduplicated; `DB::afterCommit` + `sendNow`, one try/catch per recipient, failures logged as «Company notice could not be sent.»). RED: 4 errors. GREEN: 4 passed. +230 (106 tests).
+  - `c664b70` feat(admin): new-company wizard.
+    - `/admin/empresas/nueva` (`admin.companies.create`) and `/admin/empresas/{slug}/asistente` (`admin.companies.wizard`), both `microsoft.recent` + `CompanyPolicy` (`create`/`update`, super_admin). `App\Livewire\Admin\CompanyWizard`.
+    - Step 1: name, short name, slug (follows the name until edited; unique; `nueva` reserved), tenant (strict lowercase GUID), domains (one company per domain), colors, «Empresa principal de este inquilino» only when the tenant is already used (primary rule enforced). Creating needs a fresh confirmation, stores the company inactive without consent and notifies.
+    - Step 2: admin-consent link with a copy button, `wire:poll.60s="checkConsent"` plus «Comprobar ahora»; `granted` sets `consent_verified_at`; `unknown` shows «No se pudo comprobar» and never verifies.
+    - Step 3: `APP-PortalAdmin` (one group per app arrives in Phase 4) and the command `.\crear-grupos-app.ps1 -TenantId <tenant>`; `docs/scripts/crear-grupos-app.ps1` (Microsoft Graph PowerShell, creates only missing security groups, idempotent, ASCII so Windows PowerShell 5.1 reads it).
+    - Step 4: activation only with verified consent; notifies.
+    - The list shows «Paso 2 de 4 · Consentimiento» and «Continuar» for inactive, unverified companies; «Nueva empresa» is enabled.
+    - `redirect_uri` is included in the admin-consent link: the v2 `adminconsent` endpoint documents it as Required and it must exactly match a registered redirect URI, so the existing `MICROSOFT_REDIRECT_URI` is used. The link carries `state=admin-consent`, and the shared callback answers that state with a Spanish page («Consentimiento registrado» / «No se completó el consentimiento») without trusting its parameters. This could not be tried against a real Entra tenant from here.
+    - `docs/despliegue.md` § 1.10: Microsoft keys, mail settings, `storage:link`, the PowerShell script.
+    - RED: 17 tests, 0 passed, 2 failed, 15 errors (routes and component missing). GREEN: `php artisan test` → 309 passed (1084 assertions). +1132/−9 (313 tests).
+  - Commit H (see `git log`) feat(admin): tenant change in the editor.
+    - «Cambiar» opens a panel only after a fresh confirmation (otherwise it redirects to `/auth/microsoft/confirm?return=/admin/empresas/{slug}`); emergency accounts get 403.
+    - It asks for the new GUID and the short name typed as confirmation, warns that users of the current tenant lose access at once, and refuses the same tenant, the admin's own company and a second primary.
+    - On success it sets the tenant, resets `consent_verified_at`, deactivates the company, notifies, and returns to the wizard (consent step). The tenant cache is cleared by `CompanyObserver`.
+    - Re-activating from the editor now requires verified consent and notifies admins.
+    - RED: 7 errors (methods missing), then 1 failure for the editor reactivation rule. GREEN: `php artisan test` → 317 passed (1128 assertions). +165/−2 plus 170 test lines.
+  - Env keys (names only): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`, `PORTAL_SUPER_ADMIN_EMAILS`, `MAIL_MAILER`, `MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`.
+- To confirm with Jhon (T6c):
+  1. A tenant change also deactivates the company until the new tenant consents and it is activated again (the wizard flow); a super admin cannot change the tenant of their own company.
+  2. A normal Microsoft sign-in does not count as the recent re-authentication; the first sensitive action after signing in always asks Microsoft again.
+  3. A failed or cancelled re-authentication signs the user out (same rule as a mismatched account).
+  4. Activating from the editor now requires verified consent.
+  5. `spatie/laravel-activitylog` is on 4.x because 5.x needs PHP 8.4.
+
+- 2026-10-05: Parent spot check on `feat/fase-3-19-cambio-inquilino` (`bbde3f0`): `php artisan test` → 317 passed (1128 assertions); `app/Branding` untouched by T6c (writer had reverted an out-of-surface edit). T6c sliced at commit boundaries into slices 15–19. Review of `a875cf3..bbde3f0`: assessed high (auth), consent declined by Jhon. Next review base: `bbde3f0`.
+- 2026-10-05: **Phase 3 closed.** All tasks T1–T6 checked; acceptance criteria covered by tests (tenant gate, company resolution, no guest linking — supersedes brief §3, profile/groups sync, roles, cache invalidation). Not yet verified against a real Entra tenant (needs Jhon's app registration and `.env`). Open checks: 375px browser check of the companies editor and wizard.
+- To confirm with Jhon (T6c): tenant change deactivates the company until the new tenant consents; a normal sign-in never counts as recent re-auth; failed/cancelled re-auth signs out; re-activation requires verified consent; emergency account cannot create companies or change tenants.
+
 ## Next step
-T6c (new-company wizard + tenant changes) on `feat/fase-3-15-asistente-empresa` branched from `feat/fase-3-14-logos`.
+Phase 3 close-out with Jhon (real Entra test, decisions above), then Phase 4 (catalog and home screen).

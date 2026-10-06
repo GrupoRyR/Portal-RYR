@@ -94,12 +94,36 @@
                 <label for="c-tenant" class="{{ $label }}">ID de inquilino</label>
                 <div class="flex gap-2">
                     <input id="c-tenant" type="text" value="{{ $company->tenant_id }}" readonly aria-describedby="c-tenant-help" class="{{ $readonly }} min-w-0 flex-1 font-mono">
-                    <button type="button" disabled aria-describedby="c-tenant-help" class="inline-flex min-h-touch shrink-0 cursor-not-allowed items-center gap-1.5 rounded-[10px] border border-line px-3.5 text-sm font-semibold text-fg-muted">
+                    <button type="button" wire:click="startTenantChange" aria-describedby="c-tenant-help" @disabled($changingTenant)
+                            class="inline-flex min-h-touch shrink-0 items-center gap-1.5 rounded-[10px] border border-line-strong bg-surface px-3.5 text-sm font-semibold hover:bg-subtle disabled:opacity-60">
                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
                         Cambiar
                     </button>
                 </div>
-                <p id="c-tenant-help" class="text-[0.8125rem] text-fg-muted">Próximamente. Solo el súper administrador podrá cambiarlo; pedirá confirmar con Microsoft y avisará por correo a los administradores.</p>
+                <p id="c-tenant-help" class="text-[0.8125rem] text-fg-muted">Solo el súper administrador puede cambiarlo. Pide confirmar con Microsoft, queda en auditoría y avisa por correo a los administradores.</p>
+
+                @if ($changingTenant)
+                    <div role="group" aria-labelledby="c-tenant-change" class="mt-2 flex flex-col gap-4 rounded-[14px] border border-status-failure/40 bg-status-failure-bg p-4">
+                        <div class="flex flex-col gap-1 text-status-failure">
+                            <h3 id="c-tenant-change" class="font-sans text-[0.9375rem] font-bold tracking-normal">Cambiar la organización de Microsoft</h3>
+                            <p class="text-sm">Los usuarios del inquilino actual pierden el acceso de inmediato. La empresa queda inactiva y vuelve al asistente: hará falta el consentimiento del nuevo inquilino y activarla de nuevo.</p>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="c-new-tenant" class="{{ $label }}">Nuevo ID de inquilino</label>
+                            <input id="c-new-tenant" type="text" wire:model="newTenantId" spellcheck="false" autocapitalize="none" placeholder="00000000-0000-0000-0000-000000000000" class="{{ $field }} font-mono text-sm">
+                            @error('newTenantId') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="c-tenant-confirm" class="{{ $label }}">Escribe {{ $company->short_name }} para confirmar</label>
+                            <input id="c-tenant-confirm" type="text" wire:model="tenantConfirmation" autocomplete="off" class="{{ $field }}">
+                            @error('tenantConfirmation') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" wire:click="changeTenant" wire:loading.attr="disabled" wire:target="changeTenant" class="inline-flex min-h-touch items-center rounded-control bg-status-failure px-4 text-sm font-semibold text-white dark:text-ground">Cambiar inquilino</button>
+                            <button type="button" wire:click="cancelTenantChange" class="inline-flex min-h-touch items-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold">Cancelar</button>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="flex flex-col gap-2">
