@@ -193,7 +193,7 @@ class AppEditor extends Component
                 $app->fill([...$this->attributes(), ...$new])->save();
 
                 $companyIds = array_map('intval', $this->companyIds);
-                $app->companies()->sync($companyIds);
+                $app->syncCompanies($companyIds);
 
                 $newCompanies = $this->companyNames($companyIds);
 

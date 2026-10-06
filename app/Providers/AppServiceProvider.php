@@ -5,14 +5,18 @@ namespace App\Providers;
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
+use App\Models\Integration;
 use App\Policies\AdminSections;
 use App\Policies\RolePolicy;
 use App\Settings\ApplySessionLifetime;
 use App\Settings\PortalSettings;
 use App\Tenancy\TenantDirectory;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -49,6 +53,16 @@ class AppServiceProvider extends ServiceProvider
         Gate::define(AdminSections::INTEGRATIONS, [AdminSections::class, 'manageIntegrations']);
         Gate::define(AdminSections::SETTINGS, [AdminSections::class, 'manageSettings']);
         Gate::policy(Role::class, RolePolicy::class);
+
+        // API for external systems: each token has its own budget; calls
+        // that reach the limiter without a token are limited per address.
+        RateLimiter::for('api', function (Request $request) {
+            $integration = $request->user();
+
+            return $integration instanceof Integration
+                ? Limit::perMinute(Integration::REQUESTS_PER_MINUTE)->by('integration:'.$integration->getKey())
+                : Limit::perMinute(30)->by('ip:'.$request->ip());
+        });
 
         // Idle timeout of Configuración, applied before the session starts.
         Event::listen(RouteMatched::class, ApplySessionLifetime::class);

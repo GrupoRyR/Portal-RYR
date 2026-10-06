@@ -87,6 +87,9 @@ class App extends Model
 
     public const EXTERNAL_STATUSES = ['operational', 'degraded', 'down'];
 
+    /** Reported statuses that turn the card «Con fallas». */
+    public const FAILING_EXTERNAL_STATUSES = ['degraded', 'down'];
+
     /**
      * @var array<string, mixed>
      */
@@ -183,6 +186,24 @@ class App extends Model
         return $this->hasMany(AppAccessRule::class);
     }
 
+    /**
+     * Links the app to exactly these companies. A change marks the app as
+     * updated, so API clients reading `?updated_since=` notice it.
+     *
+     * @param  list<int>  $companyIds
+     */
+    public function syncCompanies(array $companyIds): bool
+    {
+        $changes = $this->companies()->sync($companyIds);
+        $changed = array_filter($changes) !== [];
+
+        if ($changed) {
+            $this->touch();
+        }
+
+        return $changed;
+    }
+
     public function isWeb(): bool
     {
         return $this->type === self::TYPE_WEB;
@@ -196,6 +217,14 @@ class App extends Model
     public function inMaintenance(): bool
     {
         return $this->status === self::STATUS_MAINTENANCE;
+    }
+
+    /**
+     * Whether an external system reported the app as degraded or down.
+     */
+    public function hasReportedFailure(): bool
+    {
+        return in_array($this->external_status, self::FAILING_EXTERNAL_STATUSES, true);
     }
 
     /**
