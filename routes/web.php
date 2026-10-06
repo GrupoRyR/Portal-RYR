@@ -17,6 +17,7 @@ use App\Models\AppCategory;
 use App\Models\Company;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Models\Role;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [MicrosoftLoginController::class, 'show'])->name('login');
@@ -110,6 +111,12 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/categorias', 'admin.categories.index')
             ->can('viewAny', AppCategory::class)
             ->name('categories.index');
+
+        // App\Policies\RolePolicy: super_admin and portal_admin; both only
+        // add or remove announcements editors.
+        Route::view('/roles', 'admin.roles.index')
+            ->can('viewAny', Role::class)
+            ->name('roles.index');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
