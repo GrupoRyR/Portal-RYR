@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Api\StatusReporter;
 use App\Livewire\Admin\AppEditor;
 use App\Models\App;
 use App\Models\AppAccessRule;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\Integration;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -268,6 +270,22 @@ class AppEditorTest extends TestCase
         $entry = Activity::where('event', 'app.external_status_cleared')->firstOrFail();
         $this->assertTrue($entry->causer->is($this->admin));
         $this->assertSame('down', $entry->properties['old']['external_status']);
+    }
+
+    public function test_an_expired_report_is_marked_and_the_recent_history_is_listed(): void
+    {
+        $app = App::factory()->create(['slug' => 'cartera']);
+        $monitor = Integration::factory()->create(['name' => 'Monitor de disponibilidad', 'abilities' => [Integration::STATUS_WRITE]]);
+        $this->travel(-3)->hours();
+        app(StatusReporter::class)->report($app, $monitor, ['status' => 'degraded', 'message' => 'Lento']);
+        $this->travelBack();
+        $this->travel(-150)->minutes();
+        app(StatusReporter::class)->report($app, $monitor, ['status' => 'down', 'message' => 'Caída']);
+        $this->travelBack();
+
+        $this->editor($app->fresh())
+            ->assertSee('Ya no se muestra en el inicio: pasaron más de 2 horas sin reportes.')
+            ->assertSeeInOrder(['Últimos reportes', 'Caída', 'Monitor de disponibilidad', 'Degradada', 'Monitor de disponibilidad']);
     }
 
     // --- Activity log -------------------------------------------------------

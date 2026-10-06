@@ -267,6 +267,9 @@
                             @if ($app->external_status_at)
                                 <span class="{{ $hint }}">Reportado {{ $app->external_status_at->diffForHumans() }}</span>
                             @endif
+                            @if ($app->external_status && $app->external_status !== 'operational' && ! $app->hasCurrentReport())
+                                <span class="{{ $hint }}">Ya no se muestra en el inicio: pasaron más de {{ $statusTtl === 1 ? '1 hora' : "{$statusTtl} horas" }} sin reportes.</span>
+                            @endif
                         </div>
                         <button type="button" wire:click="clearExternalStatus" wire:confirm="¿Limpiar el estado reportado? La tarjeta vuelve a verse normal."
                                 class="inline-flex min-h-touch items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-subtle">
@@ -274,6 +277,26 @@
                         </button>
                     @else
                         <p class="text-[0.9375rem] text-fg-soft">Ningún sistema ha reportado fallas.</p>
+                    @endif
+                    @if ($statusEvents->isNotEmpty())
+                        <div class="flex flex-col gap-2">
+                            <h3 class="{{ $label }}">Últimos reportes</h3>
+                            <ol role="list" class="flex flex-col rounded-[12px] border border-line">
+                                @foreach ($statusEvents as $event)
+                                    @php([$eventLabel] = $reported[$event->status] ?? [$event->status])
+                                    <li class="flex flex-col gap-0.5 border-b border-line px-3 py-2.5 text-[0.8125rem] last:border-b-0">
+                                        <span class="flex flex-wrap justify-between gap-x-2">
+                                            <strong class="{{ $event->status === 'operational' ? 'text-status-active' : 'text-status-failure' }}">{{ $eventLabel }}</strong>
+                                            <time datetime="{{ $event->created_at->toIso8601String() }}" class="text-fg-muted">{{ $event->created_at->diffForHumans() }}</time>
+                                        </span>
+                                        @if ($event->message)
+                                            <span class="break-words">«{{ $event->message }}»</span>
+                                        @endif
+                                        <span class="text-fg-muted">{{ $event->integration?->name ?? 'Sistema eliminado' }}</span>
+                                    </li>
+                                @endforeach
+                            </ol>
+                        </div>
                     @endif
                 </section>
             @endunless

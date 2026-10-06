@@ -6,8 +6,9 @@ use App\Models\App;
 
 /**
  * The chip at the bottom of an app card. One per card, the most important
- * first: maintenance, failures reported by an external system, installed
- * locally, own sign-in, otherwise active.
+ * first: maintenance, failures reported by an external system (until they
+ * expire, App\Models\App::hasReportedFailure()), installed locally, own
+ * sign-in, otherwise active.
  */
 enum AppCardStatus: string
 {
@@ -17,14 +18,11 @@ enum AppCardStatus: string
     case OwnLogin = 'own-login';
     case Local = 'local';
 
-    /** External statuses that turn an active app's card red. */
-    public const FAILING_EXTERNAL_STATUSES = ['degraded', 'down'];
-
     public static function of(App $app): self
     {
         return match (true) {
             $app->inMaintenance() => self::Maintenance,
-            in_array($app->external_status, self::FAILING_EXTERNAL_STATUSES, true) => self::Failing,
+            $app->hasReportedFailure() => self::Failing,
             $app->isLocal() => self::Local,
             $app->login_type === 'own' => self::OwnLogin,
             default => self::Active,

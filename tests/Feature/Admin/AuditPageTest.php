@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Api\StatusReporter;
 use App\Audit\AuditFeed;
 use App\Audit\AuditFilters;
 use App\Audit\SecurityLog;
 use App\Models\App;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\Integration;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
@@ -189,7 +191,23 @@ class AuditPageTest extends TestCase
         $this->audit(['tipo' => 'apps'])->assertSeeText('Portafolio de productos')->assertDontSeeText('Cambió la empresa')->assertDontSeeText('Confirmó');
         $this->audit(['tipo' => 'cambios'])->assertSeeText('Cambió la empresa')->assertDontSeeText('Portafolio de productos')->assertDontSeeText('Confirmó');
         $this->audit(['tipo' => 'seguridad'])->assertSeeText('Confirmó')->assertDontSeeText('Portafolio de productos')->assertDontSeeText('Cambió la empresa');
-        $this->audit()->assertSeeText('Próximamente');
+        $this->audit()->assertSee('name="tipo" value="api"', false)->assertDontSee('API <span', false);
+    }
+
+    public function test_api_status_changes_are_listed_under_the_api_type_with_the_system_name(): void
+    {
+        $monitor = Integration::factory()->create(['name' => 'Monitor de disponibilidad', 'abilities' => [Integration::STATUS_WRITE]]);
+        app(StatusReporter::class)->report($this->cartera, $monitor, ['status' => 'down', 'message' => 'SAP no responde']);
+        $this->changeCompany($this->admin, ['color_primary' => '#C4470F']);
+
+        $this->audit(['tipo' => 'api'])
+            ->assertSeeTextInOrder(['Monitor de disponibilidad', 'API', 'Reportó el estado de la app Visualizador de cartera'])
+            ->assertSeeTextInOrder(['Estado reportado', '—', 'down'])
+            ->assertSeeTextInOrder(['Mensaje reportado', '—', 'SAP no responde'])
+            ->assertDontSeeText('Cambió la empresa');
+        $this->audit(['tipo' => 'cambios'])->assertSeeText('Cambió la empresa')->assertDontSeeText('Reportó el estado');
+        $this->audit()->assertSeeText('Reportó el estado')->assertSeeText('Cambió la empresa');
+        $this->audit(['q' => 'monitor'])->assertSeeText('Reportó el estado')->assertDontSeeText('Cambió la empresa');
     }
 
     public function test_the_company_filter(): void

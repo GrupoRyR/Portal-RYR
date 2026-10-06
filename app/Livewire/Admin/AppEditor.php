@@ -7,6 +7,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
 use App\Rules\AllowedAppUrl;
+use App\Settings\PortalSettings;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -43,6 +44,9 @@ class AppEditor extends Component
     public const DATETIME_FORMAT = 'Y-m-d\TH:i';
 
     public const WEB_HOSTINGS = ['godaddy', 'vercel', 'other'];
+
+    /** Latest API reports listed under «Estado reportado». */
+    public const STATUS_HISTORY = 5;
 
     public const WEB_LOGIN_TYPES = ['microsoft', 'own'];
 
@@ -193,7 +197,7 @@ class AppEditor extends Component
                 $app->fill([...$this->attributes(), ...$new])->save();
 
                 $companyIds = array_map('intval', $this->companyIds);
-                $app->companies()->sync($companyIds);
+                $app->syncCompanies($companyIds);
 
                 $newCompanies = $this->companyNames($companyIds);
 
@@ -328,6 +332,12 @@ class AppEditor extends Component
             'categories' => AppCategory::query()->ordered()->get(['id', 'name']),
             'companies' => Company::query()->orderBy('name')->get(['id', 'name', 'short_name', 'is_active']),
             'accent' => preg_match(self::HEX_PATTERN, $this->accentColor) === 1 ? strtoupper($this->accentColor) : '#334155',
+            'statusEvents' => $this->app === null ? collect() : $this->app->statusEvents()
+                ->with('integration:id,name')
+                ->latest('id')
+                ->limit(self::STATUS_HISTORY)
+                ->get(),
+            'statusTtl' => app(PortalSettings::class)->apiStatusTtlHours(),
         ]);
     }
 

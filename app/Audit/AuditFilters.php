@@ -23,12 +23,15 @@ final readonly class AuditFilters
 
     public const TYPE_SECURITY = 'seguridad';
 
+    public const TYPE_API = 'api';
+
     /** Value => label, in the order of the type control. */
     public const TYPES = [
         self::TYPE_ALL => 'Todo',
         self::TYPE_CHANGES => 'Cambios',
         self::TYPE_LAUNCHES => 'Apps abiertas',
         self::TYPE_SECURITY => 'Seguridad',
+        self::TYPE_API => 'API',
     ];
 
     /** Value => label, in the order of the period control. */
@@ -104,6 +107,15 @@ final readonly class AuditFilters
     public function includesSecurity(): bool
     {
         return in_array($this->type, [self::TYPE_ALL, self::TYPE_SECURITY], true);
+    }
+
+    /**
+     * Status reports of external systems and the management of their
+     * tokens (activity log `api`).
+     */
+    public function includesApi(): bool
+    {
+        return in_array($this->type, [self::TYPE_ALL, self::TYPE_API], true);
     }
 
     public function includesLaunches(): bool

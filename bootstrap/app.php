@@ -1,17 +1,22 @@
 <?php
 
+use App\Http\Middleware\AuthorizeIntegrationRequest;
 use App\Http\Middleware\RequireRecentMicrosoftLogin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // API for external systems (brief §6b): /api/v1, Bearer tokens.
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -35,10 +40,22 @@ return Application::configure(basePath: dirname(__DIR__))
             'microsoft.recent' => RequireRecentMicrosoftLogin::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            // API (routes/api.php): token abilities and integration checks.
+            'abilities' => CheckAbilities::class,
+            'integration' => AuthorizeIntegrationRequest::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // API routes always answer JSON (401, 403, 404, 422, 429...), even
+        // without an `Accept: application/json` header.
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A missing app or route: no model class names in API answers.
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Not found.'], 404);
+            }
+        });
     })->create();

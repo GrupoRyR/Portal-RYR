@@ -136,11 +136,11 @@ class HomePageBuilderTest extends TestCase
         $active = $this->openableApp(['login_type' => 'microsoft']);
         $maintenance = $this->openableApp(['status' => App::STATUS_MAINTENANCE]);
         $failing = $this->openableApp(['login_type' => 'microsoft']);
-        $failing->forceFill(['external_status' => 'down', 'external_status_message' => 'SAP no responde'])->save();
+        $failing->forceFill(['external_status_at' => now(), 'external_status' => 'down', 'external_status_message' => 'SAP no responde'])->save();
         $degraded = $this->openableApp();
-        $degraded->forceFill(['external_status' => 'degraded'])->save();
+        $degraded->forceFill(['external_status_at' => now(), 'external_status' => 'degraded'])->save();
         $failingInMaintenance = $this->openableApp(['status' => App::STATUS_MAINTENANCE]);
-        $failingInMaintenance->forceFill(['external_status' => 'down'])->save();
+        $failingInMaintenance->forceFill(['external_status_at' => now(), 'external_status' => 'down'])->save();
         $own = $this->openableApp(['login_type' => 'own']);
         $local = App::factory()->local()->forCompanies($this->company)->create();
         AppAccessRule::forCompany($local, $this->company);

@@ -106,14 +106,15 @@ class AdminAccessTest extends TestCase
             ->assertSee('/build/assets/livewire-', false);
     }
 
-    public function test_sections_that_do_not_exist_yet_are_not_links(): void
+    public function test_every_section_of_the_sidebar_is_a_real_link(): void
     {
         $user = User::factory()->create();
         $user->assignRole('super_admin');
 
         $response = $this->actingAs($user)->get(route('admin.companies.index'));
 
-        $response->assertSee('Próximamente');
+        $response->assertDontSee('Próximamente')
+            ->assertSee('href="'.route('admin.integrations.index').'"', false);
         $this->assertSame(1, substr_count($response->getContent(), 'href="'.route('admin.companies.index').'"'));
         $this->assertStringNotContainsString('href="#"', $response->getContent());
     }

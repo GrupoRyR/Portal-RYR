@@ -3,7 +3,6 @@
 namespace App\View\Admin;
 
 use App\Models\App;
-use App\View\Home\AppCardStatus;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -23,7 +22,7 @@ enum AppAdminStatus: string
         return match (true) {
             $app->status === App::STATUS_HIDDEN => self::Hidden,
             $app->inMaintenance() => self::Maintenance,
-            in_array($app->external_status, AppCardStatus::FAILING_EXTERNAL_STATUSES, true) => self::Failing,
+            $app->hasReportedFailure() => self::Failing,
             default => self::Active,
         };
     }
@@ -48,12 +47,8 @@ enum AppAdminStatus: string
         match ($this) {
             self::Hidden => $query->where('status', App::STATUS_HIDDEN),
             self::Maintenance => $query->where('status', App::STATUS_MAINTENANCE),
-            self::Failing => $query->where('status', App::STATUS_ACTIVE)
-                ->whereIn('external_status', AppCardStatus::FAILING_EXTERNAL_STATUSES),
-            self::Active => $query->where('status', App::STATUS_ACTIVE)
-                ->where(fn (Builder $query) => $query
-                    ->whereNull('external_status')
-                    ->orWhereNotIn('external_status', AppCardStatus::FAILING_EXTERNAL_STATUSES)),
+            self::Failing => $query->where('status', App::STATUS_ACTIVE)->reportedFailing(),
+            self::Active => $query->where('status', App::STATUS_ACTIVE)->notReportedFailing(),
         };
     }
 }

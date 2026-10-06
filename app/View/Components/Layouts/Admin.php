@@ -67,7 +67,10 @@ class Admin extends Component
                     ? ['label' => 'Empresas', 'icon' => 'building', 'route' => 'admin.companies.index', 'active' => 'admin.companies.*']
                     : null,
                 ['label' => 'Roles', 'icon' => 'user-check', 'route' => 'admin.roles.index', 'active' => 'admin.roles.*'],
-                self::soon('Integraciones', 'plug'),
+                // API tokens: super admins only (AdminSections::INTEGRATIONS).
+                $this->user->can(AdminSections::INTEGRATIONS)
+                    ? ['label' => 'Integraciones', 'icon' => 'plug', 'route' => 'admin.integrations.index', 'active' => 'admin.integrations.*']
+                    : null,
             ]))],
             ['label' => 'Seguimiento', 'items' => [
                 ['label' => 'Auditoría', 'icon' => 'list', 'route' => 'admin.audit.index', 'active' => 'admin.audit.*'],
@@ -113,13 +116,5 @@ class Admin extends Component
     public function render(): View
     {
         return view('components.layouts.admin');
-    }
-
-    /**
-     * @return array{label: string, icon: string, route: null, active: null}
-     */
-    private static function soon(string $label, string $icon): array
-    {
-        return ['label' => $label, 'icon' => $icon, 'route' => null, 'active' => null];
     }
 }

@@ -116,7 +116,7 @@
                         <option value="{{ $hours }}" @selected($hours === $apiStatusTtl)>{{ $hours === 1 ? '1 hora' : "{$hours} horas" }}</option>
                     @endforeach
                 </select>
-                <span id="s-ttl-h" class="{{ $hint }}">Se aplicará cuando esté lista la sección Integraciones.</span>
+                <span id="s-ttl-h" class="{{ $hint }}">Si un sistema deja de reportar una app con fallas, la tarjeta vuelve a verse normal después de este tiempo.</span>
                 @error('apiStatusTtl') <p class="{{ $error }}">{{ $message }}</p> @enderror
             </div>
         </section>

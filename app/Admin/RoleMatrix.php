@@ -40,7 +40,6 @@ final class RoleMatrix
                 'Integraciones',
                 ['super_admin' => true, 'portal_admin' => false, 'announcements_editor' => false],
                 fn (User $user) => $user->can(AdminSections::INTEGRATIONS),
-                available: false,
             ),
             new RoleMatrixSection(
                 'Aplicaciones y accesos',

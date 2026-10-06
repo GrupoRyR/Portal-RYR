@@ -62,6 +62,8 @@ class SettingsPageTest extends TestCase
             ->assertSee('href="'.route('admin.settings.index').'" aria-current="page"', false)
             ->assertSeeText('Ajustes que aplican a todo el portal y a todas las empresas.')
             ->assertSeeInOrder(['Soporte TI', 'Sesión', 'Dominios permitidos para apps', 'Estados reportados por la API', 'Respaldo diario de la base de datos'])
+            ->assertSeeText('Si un sistema deja de reportar una app con fallas, la tarjeta vuelve a verse normal después de este tiempo.')
+            ->assertDontSeeText('Se aplicará cuando esté lista la sección Integraciones.')
             ->assertSeeText('Próximamente')
             ->assertDontSeeText('Respaldar ahora')
             ->assertDontSeeText('Último respaldo');
