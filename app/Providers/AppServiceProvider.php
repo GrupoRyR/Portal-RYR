@@ -3,8 +3,11 @@
 namespace App\Providers;
 
 use App\Tenancy\TenantDirectory;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
+use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,5 +29,10 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
+        Event::listen(function (SocialiteWasCalled $event) {
+            $event->extendSocialite('microsoft', MicrosoftProvider::class);
+        });
     }
 }

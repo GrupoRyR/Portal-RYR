@@ -28,6 +28,21 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Multi-tenant Entra ID app registered once in the Segurex tenant. The
+    // `organizations` endpoint accepts any work account; the portal then
+    // admits only tenants of active companies (App\Tenancy\TenantDirectory).
+    'microsoft' => [
+        'client_id' => env('MICROSOFT_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+        // Must be absolute: the SocialiteProviders manager does not expand
+        // relative redirect URIs.
+        'redirect' => env(
+            'MICROSOFT_REDIRECT_URI',
+            rtrim((string) env('APP_URL', 'http://localhost'), '/').'/auth/microsoft/callback',
+        ),
+        'tenant' => env('MICROSOFT_TENANT', 'organizations'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
