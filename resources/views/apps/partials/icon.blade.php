@@ -4,9 +4,9 @@
 @if ($app->icon_path)
     <picture>
         @if ($app->icon_dark_path)
-            <source srcset="{{ asset($app->icon_dark_path) }}" media="(prefers-color-scheme: dark)">
+            <source srcset="{{ $app->iconUrl(dark: true) }}" media="(prefers-color-scheme: dark)">
         @endif
-        <img src="{{ asset($app->icon_path) }}" alt="" width="48" height="48" class="{{ $class }} shrink-0 rounded-icon">
+        <img src="{{ $app->iconUrl() }}" alt="" width="48" height="48" class="{{ $class }} shrink-0 rounded-icon">
     </picture>
 @else
     <span aria-hidden="true" class="{{ $class }} flex shrink-0 items-center justify-center rounded-icon font-display text-xl font-bold text-white" style="background-color: {{ $accent }}">{{ mb_strtoupper(mb_substr($app->name, 0, 1)) }}</span>

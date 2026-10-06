@@ -75,6 +75,12 @@ Route::middleware(['auth', 'role:super_admin|portal_admin'])
         Route::get('/aplicaciones', [AppController::class, 'index'])
             ->can('viewAny', App::class)
             ->name('apps.index');
+        Route::get('/aplicaciones/nueva', [AppController::class, 'create'])
+            ->can('create', App::class)
+            ->name('apps.create');
+        Route::get('/aplicaciones/{app:slug}', [AppController::class, 'edit'])
+            ->can('update', 'app')
+            ->name('apps.edit');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).

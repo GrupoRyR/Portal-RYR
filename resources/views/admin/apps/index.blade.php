@@ -15,6 +15,11 @@
             <h1 class="text-[2rem] leading-tight font-bold">Aplicaciones</h1>
             <p class="text-[0.9375rem] text-fg-muted">Lo que cada persona ve en su portal sale de aquí.</p>
         </div>
+        <a href="{{ route('admin.apps.create') }}"
+           class="inline-flex h-11 items-center gap-2 rounded-control bg-brand-button px-[18px] text-[0.9375rem] font-semibold text-white">
+            <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Nueva aplicación
+        </a>
     </div>
 
     @if (session('status'))
@@ -140,6 +145,7 @@
                                 </td>
                                 <td class="max-w-56 px-4 py-3.5 text-fg-soft">{{ $row->audience }}</td>
                                 <td class="px-4 py-3.5 text-right">
+                                    <a href="{{ route('admin.apps.edit', $row->app) }}" class="inline-flex min-h-touch items-center px-2 font-semibold text-brand-ink underline-offset-4 hover:underline">Editar<span class="sr-only"> {{ $row->app->name }}</span></a>
                                 </td>
                             </tr>
                         @endforeach
