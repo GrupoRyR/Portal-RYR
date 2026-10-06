@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
 use App\Models\App;
+use App\Models\AppCategory;
 use App\Models\Company;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -81,6 +82,11 @@ Route::middleware(['auth', 'role:super_admin|portal_admin'])
         Route::get('/aplicaciones/{app:slug}', [AppController::class, 'edit'])
             ->can('update', 'app')
             ->name('apps.edit');
+
+        // App\Policies\AppCategoryPolicy: super_admin and portal_admin.
+        Route::view('/categorias', 'admin.categories.index')
+            ->can('viewAny', AppCategory::class)
+            ->name('categories.index');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
