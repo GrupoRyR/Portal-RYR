@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Microsoft\GraphClient;
+use App\Microsoft\HttpGraphClient;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
@@ -17,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantDirectory::class);
+        $this->app->bind(GraphClient::class, HttpGraphClient::class);
     }
 
     /**
