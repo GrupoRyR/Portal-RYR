@@ -27,7 +27,7 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 - [x] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
 - [x] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
 - [x] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
-- [ ] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
+- [x] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
 - [ ] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
 
 ## Acceptance criteria
@@ -46,6 +46,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 | 2 | `feat/fase-5-2-anuncios-inicio` | slice 1 | T1 home display + /anuncios (`2a6a118`) | +465 −3 (167 tests) |
 | 3 | `feat/fase-5-3-admin-anuncios` | slice 2 | T2 list + access (`1b47fb7`) and editor (`48f6590`) — kept together: `1b47fb7` alone has a dead «Nuevo anuncio» link | +1701 −29 (≈840 tests) → `size:exception` |
 | 4 | `feat/fase-5-4-roles` | slice 3 | T3 roles page (one commit) | +982 −1 (404 tests) → `size:exception` |
+| 5 | `feat/fase-5-5-auditoria` | slice 4 | T4 security events (`76e0d85`), audit page (`b2dae6e`), CSV export (this commit) | ≈ +1600 −20 (≈570 tests) → `size:exception`, or split into 5a (`76e0d85`) and 5b (rest) |
 
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
@@ -70,5 +71,14 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
   - Design deviations: «Roles» row reads «Solo editores» for both admin roles (both can only manage editors; the other roles are automatic); «Anuncios» reads «Solo de su empresa» for editors.
   - RED: 23/23 new tests errored (missing class/route/component). GREEN: `php artisan test` → 674 passed.
 
+- 2026-10-06: T4 done (route: delegated writer, same as T1–T3).
+  - Security events (`76e0d85`, `App\Audit\SecurityLog`, log name `security`): Microsoft sign-in success (causer = user; company, device type from `DeviceClassifier`, roles added/removed at that sign-in), rejection (no causer; reason code from `LoginFailed::$reason` or `provider_error`, tenant id when known), emergency success/failure (email attempted, step, reason), re-authentication confirmed/failed (causer = session user). No password, code, token, IP or User-Agent. Laravel log lines unchanged.
+  - Page `/admin/auditoria` (`b2dae6e`, controller with GET filters, gate `viewActivity`): newest-first feed (`App\Audit\AuditFeed`) over `activity_log` + `app_launches`. **Query choice:** one `UNION ALL` of the two sources, each first cut to the page size by its own `(time, id)` index (new migration), then sorted and cut again — the database never sorts more than two pages of keys; keyset cursor `(time, source, id)` (opaque, base64url) instead of OFFSET, so deep pages cost the same and new rows never shift a page. Only the 50 keys are then hydrated with eager loads per source (query count constant: tested few vs many rows).
+  - Columns Cuándo (relative < 24 h, then «D MMM YYYY, HH:mm» Bogotá) / Quién («Sistema» without causer) / Qué hizo (Cambio · Abrió app · Seguridad; API disabled «Próximamente») / Sobre qué (readable phrase per event) / Desde (device for launches, «—» otherwise). Change rows expand (`<details>`) to Campo/Antes/Después with Spanish labels; unknown attributes raw.
+  - Filters (bookmarkable GET): `q` (person name/email, app name/slug; activity matches causer, user subject or app subject), `tipo`, `empresa` (launch company; for activity the causer's company — anonymous security events drop out), `periodo` hoy/7/30/90 (calendar days in Bogotá, today included) or `rango` with `desde`/`hasta`. Odd parameters fall back to defaults.
+  - «Exportar CSV» (this commit, `App\Audit\AuditCsv`): same filters, streamed page by page, UTF-8 BOM, header row, `;` separator (Excel with Colombian regional settings), formula guard (`= + - @`, tab, CR → leading `'`), capped at 50 000 rows with a final note row and a visible hint on the page; throttled 10/min.
+  - RED: 7/7 security-event tests failed before `76e0d85`; 18/18 page/export tests errored (missing route/classes). GREEN: `php artisan test` → 699 passed.
+  - Note: `test_the_favorite_star_works_without_javascript` failed once in a full run and passed on rerun (pre-existing, unrelated to T4).
+
 ## Next step
-T4 (Auditoría), then T5 (Informe de uso) — same delegated writer, stacked slices.
+T5 (Informe de uso) — same delegated writer, stacked on `feat/fase-5-5-auditoria`.

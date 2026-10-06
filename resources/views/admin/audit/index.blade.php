@@ -1,5 +1,6 @@
-{{-- Auditoría: unified event list with GET filters (docs/diseno/AdminAudit.dc.html). --}}
+{{-- Auditoría: unified event list with GET filters and CSV export (docs/diseno/AdminAudit.dc.html). --}}
 @php
+    use App\Audit\AuditCsv;
     use App\Audit\AuditEntry;
     use App\Audit\AuditFilters;
 
@@ -17,6 +18,14 @@
         <div class="flex flex-col gap-1">
             <h1 class="text-[2rem] leading-tight font-bold">Auditoría</h1>
             <p class="max-w-[60ch] text-[0.9375rem] text-fg-muted">Cada cambio de configuración, cada app abierta y cada inicio de sesión.</p>
+        </div>
+        <div class="flex flex-col items-end gap-1 max-sm:w-full max-sm:items-stretch">
+            <a href="{{ route('admin.audit.export', $filters->query()) }}"
+               class="inline-flex h-11 items-center justify-center gap-2 rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold hover:bg-subtle">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+                Exportar CSV
+            </a>
+            <span class="text-xs text-fg-muted">Con los filtros de abajo; máximo {{ number_format(AuditCsv::MAX_ROWS, 0, ',', ' ') }} eventos por archivo.</span>
         </div>
     </div>
 

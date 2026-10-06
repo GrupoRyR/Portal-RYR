@@ -95,6 +95,7 @@ class AuditPageTest extends TestCase
         $editor = User::factory()->create();
         $editor->assignRole('announcements_editor');
         $this->actingAs($editor)->get(route('admin.audit.index'))->assertForbidden();
+        $this->actingAs($editor)->get(route('admin.audit.export'))->assertForbidden();
 
         $this->actingAs(User::factory()->create())->get(route('admin.audit.index'))->assertForbidden();
     }

@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Audit\AuditCsv;
 use App\Audit\AuditFeed;
 use App\Audit\AuditFilters;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Auditoría (brief §5.2 «Registro de auditoría»,
  * docs/diseno/AdminAudit.dc.html): every change, app launch and security
  * event, newest first, filtered by GET parameters (App\Audit\AuditFilters)
- * so a view can be bookmarked.
+ * so a view can be bookmarked, and exported as CSV with the same filters.
  */
 class AuditController extends Controller
 {
@@ -30,5 +32,10 @@ class AuditController extends Controller
             'paged' => $cursor !== null && $cursor !== '',
             'companies' => Company::query()->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
+    }
+
+    public function export(Request $request, AuditFeed $feed, AuditCsv $csv): StreamedResponse
+    {
+        return $csv->download($feed, AuditFilters::fromArray($request->query()));
     }
 }

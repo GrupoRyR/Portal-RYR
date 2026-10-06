@@ -123,6 +123,9 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         // App\Policies\AdminSections::ACTIVITY: super_admin and portal_admin.
         Route::middleware('can:'.AdminSections::ACTIVITY)->group(function () {
             Route::get('/auditoria', [AuditController::class, 'index'])->name('audit.index');
+            Route::get('/auditoria/exportar', [AuditController::class, 'export'])
+                ->middleware('throttle:10,1')
+                ->name('audit.export');
         });
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
