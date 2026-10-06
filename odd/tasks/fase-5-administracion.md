@@ -91,5 +91,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
   - RED: the 11 tests were written before the implementation and all errored (missing route/class). GREEN: `php artisan test` → 710 passed.
   - Visual check (static render served locally, 1440 px and 375 px) for Roles, Auditoría and Informe de uso: no horizontal page overflow; the roles matrix scrolls inside its card on phones; a fieldset overflow in Auditoría at 375 px was fixed before commit.
 
+- 2026-10-06: Parent spot check on `feat/fase-5-6-informe-uso` (`8bf6564`): `php artisan test` → 710 passed (3473 assertions); working tree clean. Phase 5 closed: all tasks done, acceptance criteria covered by tests. Pending for Jhon: push/PRs (slices 1–6, several need `size:exception`), confirm the decisions listed in the T3–T5 hand-back (CSV `;`, company filter by causer, active users by current company, top-10 cap).
+
 ## Next step
-Phase 5 close-out.
+Phase 6 (app migration guide) when Jhon asks for it.
