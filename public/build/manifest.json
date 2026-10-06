@@ -20,7 +20,7 @@
     "src": "node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-nC2rCbm7.css",
+    "file": "assets/app-B1a4VlE6.css",
     "name": "app",
     "names": [
       "app.css"
@@ -36,7 +36,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-BvRk9kiK.js",
+    "file": "assets/app-CJm6V6pB.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

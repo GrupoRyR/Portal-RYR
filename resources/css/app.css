@@ -124,7 +124,9 @@
         *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
+            /* 0s, not a tiny duration: inherited visibility must flip at once
+               so focus can move into a panel in the same frame. */
+            transition-duration: 0s !important;
             scroll-behavior: auto !important;
         }
     }
