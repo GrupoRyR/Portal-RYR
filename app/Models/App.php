@@ -34,6 +34,7 @@ use LogicException;
     'hosting',
     'login_type',
     'app_category_id',
+    'available_to_all_companies',
     'sort_order',
     'status',
     'maintenance_message',
@@ -78,12 +79,14 @@ class App extends Model
     protected $attributes = [
         'status' => self::STATUS_ACTIVE,
         'sort_order' => 0,
+        'available_to_all_companies' => false,
     ];
 
     protected function casts(): array
     {
         return [
             'sort_order' => 'integer',
+            'available_to_all_companies' => 'boolean',
             'maintenance_until' => 'datetime',
             'external_status_at' => 'datetime',
         ];
@@ -111,7 +114,9 @@ class App extends Model
     }
 
     /**
-     * Companies whose users may get this app (rules still apply).
+     * Companies whose users may get this app (rules still apply). Ignored
+     * when `available_to_all_companies` is on: then every active company
+     * may get it.
      *
      * @return BelongsToMany<Company, $this>
      */
