@@ -1,9 +1,131 @@
 @import 'tailwindcss';
 
+/* Self-hosted variable fonts (no third-party font requests). Each file is
+   split by unicode-range, so browsers only download the Latin subset. */
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/figtree';
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/*
+ * Design tokens — approved design system (docs/diseno/Tokens.dc.html).
+ * Neutral colors are redefined for the dark scheme below (not inverted).
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+
+    /* Neutral base (light) */
+    --color-ground: #f5f5f2;
+    --color-surface: #ffffff;
+    --color-subtle: #f0f0ec;
+    --color-line: #e5e5e0;
+    --color-line-strong: #d6d6d0;
+    --color-fg: #17191c;
+    --color-fg-soft: #45484e;
+    --color-fg-muted: #5e6168;
+    --color-on-fg: #ffffff;
+
+    /* Status chips: text, background and dot */
+    --color-status-active: #1f7a4d;
+    --color-status-active-bg: #e6f5ec;
+    --color-status-active-dot: #22a06b;
+    --color-status-failure: #b42318;
+    --color-status-failure-bg: #feeeec;
+    --color-status-maintenance: #7a4f00;
+    --color-status-maintenance-bg: #fff4db;
+    --color-status-neutral: #45484e;
+    --color-status-neutral-bg: #f0f0ec;
+    --color-status-local: #334155;
+    --color-status-local-bg: #e6eaf0;
+
+    /* Radii: chip 10 · control 12 · icon 14 · card 18 */
+    --radius-chip: 10px;
+    --radius-control: 12px;
+    --radius-icon: 14px;
+    --radius-card: 18px;
+
+    /* Minimum touch target */
+    --spacing-touch: 44px;
+}
+
+/* Brand colors come from the signed-in user's company, rendered inline in
+   the page <head> by App\Branding\BrandPalette (neutral when signed out). */
+@theme inline {
+    --color-brand-primary: var(--brand-primary, #17191c);
+    --color-brand-accent: var(--brand-accent, #5e6168);
+    --color-brand-dark: var(--brand-dark, #17191c);
+    --color-brand-button: var(--brand-button, #17191c);
+    --color-brand-tint: var(--brand-tint, #f0f0ec);
+    --color-brand-ink: var(--brand-ink, #17191c);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-ground: #121315;
+        --color-surface: #1c1d20;
+        --color-subtle: #26272b;
+        --color-line: #2c2e33;
+        --color-line-strong: #3a3c42;
+        --color-fg: #f2f2ef;
+        --color-fg-soft: #c9cbd0;
+        --color-fg-muted: #a3a6ad;
+        --color-on-fg: #121315;
+
+        --color-status-active: #5fd39b;
+        --color-status-active-bg: #12332a;
+        --color-status-active-dot: #3cc985;
+        --color-status-failure: #ff8f84;
+        --color-status-failure-bg: #3a1d1a;
+        --color-status-maintenance: #f5d58a;
+        --color-status-maintenance-bg: #2a2418;
+        --color-status-neutral: #c9cbd0;
+        --color-status-neutral-bg: #26272b;
+        --color-status-local: #cbd5e1;
+        --color-status-local-bg: #262b33;
+    }
+}
+
+@layer base {
+    :root {
+        color-scheme: light dark;
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-ground font-sans text-fg antialiased;
+    }
+
+    h1,
+    h2,
+    h3 {
+        @apply font-display;
+        letter-spacing: -0.02em;
+    }
+
+    /* One visible focus style everywhere (keyboard only). */
+    :focus-visible {
+        outline: 2px solid var(--color-fg);
+        outline-offset: 2px;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
 }
