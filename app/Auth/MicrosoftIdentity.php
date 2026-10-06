@@ -45,7 +45,7 @@ final readonly class MicrosoftIdentity
         $accessToken = (string) ($user->token ?? '');
 
         if ($tenantId === '' || $objectId === '' || $accessToken === '') {
-            throw LoginFailed::retry();
+            throw LoginFailed::retry('missing_claims');
         }
 
         $email = self::email([

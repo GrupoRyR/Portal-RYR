@@ -2,6 +2,7 @@
 
 namespace App\Auth;
 
+use App\Audit\SecurityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -11,7 +12,8 @@ use Illuminate\Support\Facades\RateLimiter;
 /**
  * Two-step local sign-in (password, then TOTP) for the emergency account,
  * used when Microsoft sign-in is unavailable. Every failure looks the same
- * to the caller; the reason only goes to the log, never secrets.
+ * to the caller; the reason only goes to the log and the security events
+ * (App\Audit\SecurityLog), never secrets.
  */
 class EmergencyLogin
 {
@@ -107,6 +109,7 @@ class EmergencyLogin
         $request->session()->forget(self::SESSION_KEY);
 
         Log::notice('Emergency sign-in succeeded.', $this->context($request, $user->email));
+        SecurityLog::emergencySignIn($user, $request->userAgent());
 
         return $user;
     }
@@ -156,6 +159,7 @@ class EmergencyLogin
             'step' => $step,
             'reason' => $reason,
         ]);
+        SecurityLog::emergencyFailed($email, $step, $reason);
 
         return false;
     }

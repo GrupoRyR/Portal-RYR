@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Audit\SecurityLog;
 use App\Auth\LoginFailed;
 use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
@@ -73,17 +74,24 @@ class MicrosoftLoginController extends Controller
             return $this->confirmed($request, $request->user(), $recent);
         }
 
+        // Every rejection is also a security event (Auditoría) with a reason
+        // code and, when the token got that far, the tenant ID.
+        $identity = null;
+
         try {
             $driver = Socialite::driver('microsoft');
             $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
-            $user = $login->handle($identity);
+            $user = $login->handle($identity, $request->userAgent());
         } catch (LoginFailed $e) {
+            SecurityLog::microsoftRejected($e->reason, $identity?->tenantId);
+
             return $this->failed($e->getMessage());
         } catch (Throwable $e) {
             Log::warning('Microsoft sign-in failed.', [
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
             ]);
+            SecurityLog::microsoftRejected('provider_error', $identity?->tenantId);
 
             return $this->failed(LoginFailed::RETRY);
         }
@@ -115,6 +123,8 @@ class MicrosoftLoginController extends Controller
             Log::warning('Microsoft re-authentication failed.', ['user_id' => $user->id, 'exception' => $e::class]);
             $matches = false;
         }
+
+        SecurityLog::reauthentication($user, $matches, $request->userAgent());
 
         if (! $matches) {
             // Someone else's Microsoft account (or a failed sign-in) answered
