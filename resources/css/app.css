@@ -45,6 +45,12 @@
     --color-status-scheduled: #1e4fa8;
     --color-status-scheduled-bg: #e8eefa;
 
+    /* Charts (dataviz reference palette, categorical slots 1-3, validated
+       for CVD and contrast in both schemes). Marks only, never text. */
+    --color-viz-1: #2a78d6;
+    --color-viz-2: #eb6834;
+    --color-viz-3: #1baf7a;
+
     /* Radii: chip 10 · control 12 · icon 14 · card 18 */
     --radius-chip: 10px;
     --radius-control: 12px;
@@ -95,6 +101,10 @@
         --color-status-local-bg: #262b33;
         --color-status-scheduled: #a9c1f5;
         --color-status-scheduled-bg: #1b2540;
+
+        --color-viz-1: #3987e5;
+        --color-viz-2: #d95926;
+        --color-viz-3: #199e70;
     }
 }
 

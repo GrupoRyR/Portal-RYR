@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
+use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
@@ -120,12 +121,14 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             ->can('viewAny', Role::class)
             ->name('roles.index');
 
-        // App\Policies\AdminSections::ACTIVITY: super_admin and portal_admin.
+        // App\Policies\AdminSections::ACTIVITY (Auditoría and Informe de uso):
+        // super_admin and portal_admin.
         Route::middleware('can:'.AdminSections::ACTIVITY)->group(function () {
             Route::get('/auditoria', [AuditController::class, 'index'])->name('audit.index');
             Route::get('/auditoria/exportar', [AuditController::class, 'export'])
                 ->middleware('throttle:10,1')
                 ->name('audit.export');
+            Route::get('/informe-uso', UsageController::class)->name('usage.index');
         });
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot

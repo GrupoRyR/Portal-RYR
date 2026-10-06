@@ -28,7 +28,7 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 - [x] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
 - [x] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
 - [x] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
-- [ ] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
+- [x] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
 
 ## Acceptance criteria
 - An announcement for Derivados never shows to a Segurex user; one for all companies shows to both; outside its window it shows to nobody; pinned ones come first.
@@ -46,7 +46,8 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 | 2 | `feat/fase-5-2-anuncios-inicio` | slice 1 | T1 home display + /anuncios (`2a6a118`) | +465 −3 (167 tests) |
 | 3 | `feat/fase-5-3-admin-anuncios` | slice 2 | T2 list + access (`1b47fb7`) and editor (`48f6590`) — kept together: `1b47fb7` alone has a dead «Nuevo anuncio» link | +1701 −29 (≈840 tests) → `size:exception` |
 | 4 | `feat/fase-5-4-roles` | slice 3 | T3 roles page (one commit) | +982 −1 (404 tests) → `size:exception` |
-| 5 | `feat/fase-5-5-auditoria` | slice 4 | T4 security events (`76e0d85`), audit page (`b2dae6e`), CSV export (this commit) | ≈ +1600 −20 (≈570 tests) → `size:exception`, or split into 5a (`76e0d85`) and 5b (rest) |
+| 5 | `feat/fase-5-5-auditoria` | slice 4 | T4 security events (`76e0d85`), audit page (`b2dae6e`), CSV export (`23bd8f0`) | +1782 −19 (569 tests) → `size:exception`, or split into 5a (`76e0d85`, +281 −18) and 5b (`b2dae6e` + `23bd8f0`) |
+| 6 | `feat/fase-5-6-informe-uso` | slice 5 | T5 usage report (one commit) | +706 −2 (271 tests) → `size:exception` |
 
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
@@ -76,9 +77,19 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
   - Page `/admin/auditoria` (`b2dae6e`, controller with GET filters, gate `viewActivity`): newest-first feed (`App\Audit\AuditFeed`) over `activity_log` + `app_launches`. **Query choice:** one `UNION ALL` of the two sources, each first cut to the page size by its own `(time, id)` index (new migration), then sorted and cut again — the database never sorts more than two pages of keys; keyset cursor `(time, source, id)` (opaque, base64url) instead of OFFSET, so deep pages cost the same and new rows never shift a page. Only the 50 keys are then hydrated with eager loads per source (query count constant: tested few vs many rows).
   - Columns Cuándo (relative < 24 h, then «D MMM YYYY, HH:mm» Bogotá) / Quién («Sistema» without causer) / Qué hizo (Cambio · Abrió app · Seguridad; API disabled «Próximamente») / Sobre qué (readable phrase per event) / Desde (device for launches, «—» otherwise). Change rows expand (`<details>`) to Campo/Antes/Después with Spanish labels; unknown attributes raw.
   - Filters (bookmarkable GET): `q` (person name/email, app name/slug; activity matches causer, user subject or app subject), `tipo`, `empresa` (launch company; for activity the causer's company — anonymous security events drop out), `periodo` hoy/7/30/90 (calendar days in Bogotá, today included) or `rango` with `desde`/`hasta`. Odd parameters fall back to defaults.
-  - «Exportar CSV» (this commit, `App\Audit\AuditCsv`): same filters, streamed page by page, UTF-8 BOM, header row, `;` separator (Excel with Colombian regional settings), formula guard (`= + - @`, tab, CR → leading `'`), capped at 50 000 rows with a final note row and a visible hint on the page; throttled 10/min.
+  - «Exportar CSV» (`23bd8f0`, `App\Audit\AuditCsv`): same filters, streamed page by page, UTF-8 BOM, header row, `;` separator (Excel with Colombian regional settings), formula guard (`= + - @`, tab, CR → leading `'`), capped at 50 000 rows with a final note row and a visible hint on the page; throttled 10/min.
   - RED: 7/7 security-event tests failed before `76e0d85`; 18/18 page/export tests errored (missing route/classes). GREEN: `php artisan test` → 699 passed.
   - Note: `test_the_favorite_star_works_without_javascript` failed once in a full run and passed on rerun (pre-existing, unrelated to T4).
 
+- 2026-10-06: T5 done (route: delegated writer, same as T1–T4; resumed after two API 529 interruptions, working tree kept).
+  - `/admin/informe-uso` (`App\Http\Controllers\Admin\UsageController`, gate `viewActivity`: super_admin and portal_admin; editors 403). Period `?periodo=7|30|90` (default 30; anything else → 30), bookmarkable links with `aria-current`.
+  - `App\Usage\UsageReport` computes everything with 5 grouped queries (count constant: tested few vs many rows). A period of N days = today + the N−1 previous calendar days in Bogotá, up to now.
+  - **Active user (definition):** a user of an active company, not an emergency account, who opened at least one app (`app_launches`) OR signed in (`users.last_login_at`) inside the period; counted for the company they belong to now. Shown per active company with the help text «entraron al portal o abrieron una app al menos una vez en N días».
+  - Tiles: active users per company, total launches, device split as one stacked meter (dataviz categorical slots 1–3 as new `--color-viz-1..3` tokens with dark-mode steps, validated with `validate_palette.js`: all checks pass; light aqua < 3:1 relieved by visible labels) + legend with percentages (largest remainder, always 100 %).
+  - «Apps más abiertas»: top 10, single-series horizontal HTML bars (slot 1, ≤ 20 px, 4 px rounded data end), value at the tip, `role="img"` + `aria-label` and `title`/hover-focus tooltip with the exact count; «Ver como tabla» toggles a table with the same numbers. Note: local apps count launches of their info page.
+  - «Sin uso en 90 días»: non-hidden apps without launches in the last 90 days, whatever the period, with the last use or «nunca se ha abierto desde el portal»; positive empty state. No sample data, no «Datos de ejemplo» chip.
+  - RED: the 11 tests were written before the implementation and all errored (missing route/class). GREEN: `php artisan test` → 710 passed.
+  - Visual check (static render served locally, 1440 px and 375 px) for Roles, Auditoría and Informe de uso: no horizontal page overflow; the roles matrix scrolls inside its card on phones; a fieldset overflow in Auditoría at 375 px was fixed before commit.
+
 ## Next step
-T5 (Informe de uso) — same delegated writer, stacked on `feat/fase-5-5-auditoria`.
+Phase 5 close-out.
