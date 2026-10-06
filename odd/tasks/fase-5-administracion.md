@@ -42,8 +42,9 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 
 | Slice | Branch | Base | Holds | Budget |
 |---|---|---|---|---|
-| 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`), home display + /anuncios (`2a6a118`) | +1062 (413 tests) / +465 −3 (167 tests) → split at the commit boundary or `size:exception` |
-| 2 | `feat/fase-5-2-admin-anuncios` | slice 1 | T2 policy + editor access + list (`1b47fb7`), Livewire editor + preview (see Progress) | +816 −13 (≈460 tests) / editor see Progress |
+| 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`) | +1062 (413 tests) → `size:exception` |
+| 2 | `feat/fase-5-2-anuncios-inicio` | slice 1 | T1 home display + /anuncios (`2a6a118`) | +465 −3 (167 tests) |
+| 3 | `feat/fase-5-3-admin-anuncios` | slice 2 | T2 list + access (`1b47fb7`) and editor (`48f6590`) — kept together: `1b47fb7` alone has a dead «Nuevo anuncio» link | +1701 −29 (≈840 tests) → `size:exception` |
 
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
@@ -59,5 +60,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
   - Editor `/admin/anuncios/nuevo` and `/admin/anuncios/{id}` (`App\Livewire\Admin\AnnouncementEditor`): title, body with live «n / 280», image upload/remove, «Para quién», Desde/Hasta (`datetime-local`, Hasta after Desde), «Fijar arriba», Retirar (wire:confirm) / Volver a publicar, live preview Escritorio/Celular using `x-announcements.card` and `x-announcements.banner` (banner now sized by container query so the phone preview looks like a phone).
   - RED: 34/39 new tests failed or errored (5 guards on existing 403s already passed). GREEN: `php artisan test` → 651 passed.
 
+- 2026-10-06: Parent spot check on `feat/fase-5-3-admin-anuncios` (`48f6590`): `php artisan test` → 651 passed (3196 assertions). Jhon dismissed the review prompt and then disabled receipt-driven development globally (`gentle-ai review mode disable` → off). From now on: no review assessment or consent prompts; ordinary checks only.
+
 ## Next step
-T3 — Admin Roles per canvas (delegated writer), branch from slice 2.
+T3 (Roles), T4 (Auditoría), T5 (Informe de uso) — one delegated writer, slices from `feat/fase-5-3-admin-anuncios`.
