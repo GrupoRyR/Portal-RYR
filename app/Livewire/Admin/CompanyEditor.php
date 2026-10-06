@@ -2,11 +2,15 @@
 
 namespace App\Livewire\Admin;
 
+use App\Auth\RecentMicrosoftLogin;
 use App\Branding\BrandAssetStore;
 use App\Branding\BrandPalette;
 use App\Branding\Contrast;
 use App\Branding\SvgLogo;
 use App\Models\Company;
+use App\Models\User;
+use App\Notifications\CompanyAdminNotifier;
+use App\Notifications\CompanyChangedNotice;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -72,6 +76,14 @@ class CompanyEditor extends Component
 
     #[Locked]
     public bool $confirmingDeactivation = false;
+
+    /** Tenant change panel (super_admin + recent Microsoft re-authentication). */
+    #[Locked]
+    public bool $changingTenant = false;
+
+    public string $newTenantId = '';
+
+    public string $tenantConfirmation = '';
 
     public function mount(Company $company): void
     {
@@ -141,6 +153,7 @@ class CompanyEditor extends Component
 
         $this->validate();
         $this->guardOwnCompany();
+        $this->guardActivationWithoutConsent();
 
         // Turning a company off locks out all its users: ask first.
         if ($this->company->is_active && ! $this->isActive && ! $this->confirmingDeactivation) {
@@ -166,6 +179,85 @@ class CompanyEditor extends Component
     {
         $this->confirmingDeactivation = false;
         $this->isActive = true;
+    }
+
+    /**
+     * Opens the tenant change panel. Changing a tenant moves the company to
+     * another Microsoft organization, so it needs a fresh Microsoft sign-in.
+     */
+    public function startTenantChange(RecentMicrosoftLogin $recent): mixed
+    {
+        $this->authorizeTenantChange();
+
+        if (! $recent->isFresh()) {
+            return $this->redirectToConfirm();
+        }
+
+        $this->changingTenant = true;
+        $this->newTenantId = '';
+        $this->tenantConfirmation = '';
+
+        return null;
+    }
+
+    public function cancelTenantChange(): void
+    {
+        $this->changingTenant = false;
+        $this->resetValidation(['newTenantId', 'tenantConfirmation']);
+    }
+
+    /**
+     * Moves the company to another tenant: users of the old tenant lose
+     * access at once, consent is reset and the company goes back to the
+     * wizard (consent, groups, activation).
+     */
+    public function changeTenant(RecentMicrosoftLogin $recent, CompanyAdminNotifier $notifier): mixed
+    {
+        $this->authorizeTenantChange();
+
+        if (! $recent->isFresh()) {
+            return $this->redirectToConfirm();
+        }
+
+        $company = $this->company->fresh();
+        $this->newTenantId = strtolower(trim($this->newTenantId));
+
+        $this->validate([
+            'newTenantId' => ['required', 'regex:'.CompanyWizard::TENANT_PATTERN],
+            'tenantConfirmation' => ['required', 'string'],
+        ], [
+            'newTenantId.required' => 'Pega el nuevo ID de inquilino.',
+            'newTenantId.regex' => 'Pega el ID de inquilino (GUID) tal como aparece en Microsoft Entra.',
+            'tenantConfirmation.required' => 'Escribe el nombre corto para confirmar.',
+        ]);
+
+        $errors = [];
+
+        if ($this->newTenantId === $company->tenant_id) {
+            $errors['newTenantId'] = 'Es el mismo inquilino que ya tiene la empresa.';
+        } elseif (Auth::user()?->company_id === $company->id) {
+            $errors['newTenantId'] = 'No puedes cambiar el inquilino de la empresa con la que iniciaste sesión.';
+        } elseif ($company->is_primary_for_tenant && ($primary = $this->tenantPrimary($this->newTenantId, $company)) !== null) {
+            $errors['newTenantId'] = "Ese inquilino ya tiene una empresa principal: {$primary->name}. Solo puede haber una.";
+        }
+
+        if (mb_strtolower(trim($this->tenantConfirmation)) !== mb_strtolower(trim($company->short_name))) {
+            $errors['tenantConfirmation'] = "Escribe exactamente «{$company->short_name}» para confirmar.";
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        DB::transaction(fn () => $company->update([
+            'tenant_id' => $this->newTenantId,
+            'consent_verified_at' => null,
+            'is_active' => false,
+        ]));
+
+        $notifier->notify($company, CompanyChangedNotice::TENANT_CHANGED, Auth::user());
+
+        return $this->redirectRoute('admin.companies.wizard', $company);
     }
 
     /**
@@ -242,6 +334,7 @@ class CompanyEditor extends Component
     private function persist(BrandAssetStore $assets): mixed
     {
         $company = $this->company;
+        $wasActive = $company->is_active;
         $old = [];
         $new = [];
 
@@ -283,9 +376,55 @@ class CompanyEditor extends Component
             $assets->deleteReplaced($old[$attribute], $path);
         }
 
+        if (! $wasActive && $company->is_active) {
+            app(CompanyAdminNotifier::class)->notify($company, CompanyChangedNotice::ACTIVATED, Auth::user());
+        }
+
         session()->flash('status', 'Cambios guardados.');
 
         return $this->redirectRoute('admin.companies.show', $company->slug);
+    }
+
+    private function authorizeTenantChange(): void
+    {
+        $this->authorize('update', $this->company);
+
+        $user = Auth::user();
+
+        if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
+            abort(403, RecentMicrosoftLogin::EMERGENCY_MESSAGE);
+        }
+    }
+
+    private function redirectToConfirm(): mixed
+    {
+        return $this->redirectRoute('auth.microsoft.confirm', [
+            'return' => route('admin.companies.show', $this->company, false),
+        ]);
+    }
+
+    private function tenantPrimary(string $tenantId, Company $except): ?Company
+    {
+        return Company::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_primary_for_tenant', true)
+            ->whereKeyNot($except->id)
+            ->first();
+    }
+
+    /**
+     * A company only opens to its users once its tenant's admin consented
+     * (otherwise sign-ins would fail at Microsoft anyway).
+     */
+    private function guardActivationWithoutConsent(): void
+    {
+        if (! $this->isActive || $this->company->is_active || $this->company->consent_verified_at !== null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'isActive' => 'Todavía no llega el consentimiento del administrador de Microsoft. Continúa el asistente para activarla.',
+        ]);
     }
 
     private function guardOwnCompany(): void
