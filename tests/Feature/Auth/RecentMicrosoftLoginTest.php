@@ -13,6 +13,7 @@ use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SocialiteProviders\Microsoft\MicrosoftUser;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class RecentMicrosoftLoginTest extends TestCase
@@ -186,5 +187,34 @@ class RecentMicrosoftLoginTest extends TestCase
             ->assertSee('Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.');
 
         $this->actingAs($emergency)->get(route('auth.microsoft.confirm', ['return' => '/admin']))->assertForbidden();
+    }
+
+    // --- Security events (Auditoría) ---------------------------------------
+
+    public function test_confirmations_are_recorded_as_security_events(): void
+    {
+        $this->mockCallback(self::TENANT, self::OID);
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz');
+
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame('reauth.confirmed', $entry->event);
+        $this->assertTrue($entry->causer->is($this->user));
+    }
+
+    public function test_a_confirmation_by_another_account_is_recorded(): void
+    {
+        $this->mockCallback(self::TENANT, '99999999-2222-3333-4444-555555555555');
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz');
+
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame('reauth.failed', $entry->event);
+        $this->assertTrue($entry->causer->is($this->user));
+        $this->assertStringNotContainsString('99999999', json_encode($entry->properties));
     }
 }

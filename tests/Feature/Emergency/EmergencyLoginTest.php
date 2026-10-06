@@ -12,6 +12,7 @@ use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use PragmaRX\Google2FA\Google2FA;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class EmergencyLoginTest extends TestCase
@@ -283,6 +284,41 @@ class EmergencyLoginTest extends TestCase
         $this->assertSame('PruebaNavegador/1.0', $success->context['user_agent']);
 
         $dump = json_encode(collect($this->logged)->map(fn (MessageLogged $e) => [$e->message, $e->context])->all());
+        $this->assertStringNotContainsString(self::PASSWORD, $dump);
+        $this->assertStringNotContainsString('otra-clave-muy-larga-2026', $dump);
+        $this->assertStringNotContainsString(self::SECRET, $dump);
+        $this->assertStringNotContainsString($code, $dump);
+        $this->assertStringNotContainsString($this->wrongCode(), $dump);
+    }
+
+    // --- Security events (Auditoría) ---------------------------------------
+
+    public function test_sign_ins_and_failures_are_security_events_without_secrets(): void
+    {
+        $user = $this->emergencyUser();
+        $code = $this->code();
+
+        $this->postCredentials(password: 'otra-clave-muy-larga-2026');
+        $this->postCredentials('Nadie@Segurex.com', 'algo');
+        $this->postCredentials();
+        $this->postCode($this->wrongCode());
+        $this->postCode($code)->assertRedirect('/');
+
+        $entries = Activity::query()->where('log_name', 'security')->orderBy('id')->get();
+
+        $this->assertSame(
+            [
+                ['login.emergency_failed', self::EMAIL, 'credentials'],
+                ['login.emergency_failed', 'nadie@segurex.com', 'credentials'],
+                ['login.emergency_failed', self::EMAIL, 'code'],
+                ['login.emergency', self::EMAIL, 'code'],
+            ],
+            $entries->map(fn (Activity $entry) => [$entry->event, $entry->properties['email'], $entry->properties['step']])->all(),
+        );
+        $this->assertNull($entries[0]->causer_id);
+        $this->assertTrue($entries[3]->causer->is($user));
+
+        $dump = json_encode($entries->pluck('properties')->all());
         $this->assertStringNotContainsString(self::PASSWORD, $dump);
         $this->assertStringNotContainsString('otra-clave-muy-larga-2026', $dump);
         $this->assertStringNotContainsString(self::SECRET, $dump);

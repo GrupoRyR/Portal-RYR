@@ -17,6 +17,7 @@ use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SocialiteProviders\Microsoft\MicrosoftUser;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class MicrosoftLoginTest extends TestCase
@@ -548,5 +549,72 @@ class MicrosoftLoginTest extends TestCase
         $this->hitCallback()->assertSessionHasErrors(['login' => self::FAILURE_MESSAGE]);
 
         $this->assertGuest();
+    }
+
+    // --- Security events (Auditoría) ---------------------------------------
+
+    public function test_a_successful_sign_in_is_recorded_as_a_security_event(): void
+    {
+        config(['portal.super_admin_emails' => ['ana@segurex.com']]);
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph(groups: [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin']]);
+
+        $this->withHeader('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148')
+            ->hitCallback()
+            ->assertRedirect('/');
+
+        $user = User::sole();
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+
+        $this->assertSame('login.microsoft', $entry->event);
+        $this->assertTrue($entry->causer->is($user));
+        $this->assertSame($this->segurex->id, $entry->properties['company_id']);
+        $this->assertSame($this->segurex->name, $entry->properties['company']);
+        $this->assertSame('phone', $entry->properties['device']);
+        $this->assertEqualsCanonicalizing(['super_admin', 'portal_admin'], $entry->properties['roles_added']);
+        $this->assertSame([], $entry->properties['roles_removed']);
+        $this->assertStringNotContainsString('graph-access-token', json_encode($entry->properties));
+    }
+
+    public function test_role_removals_at_sign_in_are_part_of_the_event(): void
+    {
+        $user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana@segurex.com', 'azure_oid' => self::OID]);
+        $user->assignRole('portal_admin');
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph();
+
+        $this->hitCallback();
+
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame([], $entry->properties['roles_added']);
+        $this->assertSame(['portal_admin'], $entry->properties['roles_removed']);
+    }
+
+    public function test_a_rejected_tenant_is_recorded_without_causer(): void
+    {
+        $this->signInAs(['tid' => 'FFFFFFFF-0000-0000-0000-000000000000', 'oid' => self::OID]);
+
+        $this->hitCallback()->assertRedirect(route('login'));
+
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame('login.microsoft_rejected', $entry->event);
+        $this->assertNull($entry->causer_id);
+        $this->assertSame('tenant_not_allowed', $entry->properties['reason']);
+        $this->assertSame('ffffffff-0000-0000-0000-000000000000', $entry->properties['tenant_id']);
+        $this->assertStringNotContainsString('graph-access-token', json_encode($entry->properties));
+    }
+
+    public function test_a_provider_error_is_recorded_without_a_tenant(): void
+    {
+        $provider = Mockery::mock(MicrosoftProvider::class);
+        $provider->shouldReceive('user')->andThrow(new InvalidStateException);
+        Socialite::shouldReceive('driver')->with('microsoft')->andReturn($provider);
+
+        $this->hitCallback();
+
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame('login.microsoft_rejected', $entry->event);
+        $this->assertSame('provider_error', $entry->properties['reason']);
+        $this->assertNull($entry->properties['tenant_id']);
     }
 }

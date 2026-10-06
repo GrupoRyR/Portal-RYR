@@ -2,6 +2,7 @@
 
 namespace App\Auth;
 
+use App\Audit\SecurityLog;
 use App\Microsoft\GraphClient;
 use App\Models\Company;
 use App\Models\User;
@@ -16,7 +17,8 @@ use Throwable;
  * Turns a Microsoft identity into a portal user: gate the tenant, pick the
  * signing tenant's company, find or create the user by (tenant, object ID)
  * only, refresh the profile, photo and groups from Graph, and align the
- * managed roles.
+ * managed roles. A successful sign-in is recorded as a security event
+ * (App\Audit\SecurityLog) with the role changes it applied.
  *
  * Guests are never linked to their home account: per Microsoft's guidance
  * (id-token-claims-reference) a guest sign-in is a separate user whose
@@ -37,28 +39,30 @@ class MicrosoftLogin
     /**
      * @throws LoginFailed
      */
-    public function handle(MicrosoftIdentity $identity): User
+    public function handle(MicrosoftIdentity $identity, ?string $userAgent = null): User
     {
         if (! $this->tenants->isAllowed($identity->tenantId)) {
             throw LoginFailed::tenantNotAllowed();
         }
 
         if ($identity->email === null) {
-            throw LoginFailed::retry();
+            throw LoginFailed::retry('missing_email');
         }
 
         $company = $this->tenants->resolveCompany($identity->tenantId, $identity->email);
 
         if ($company === null) {
-            throw LoginFailed::tenantNotAllowed();
+            throw LoginFailed::tenantNotAllowed('no_company');
         }
 
         $user = DB::transaction(fn () => $this->upsertUser($identity, $company));
 
         $this->syncFromGraph($user, $identity->accessToken);
-        $this->syncRoles($user, $this->ownsItsEmail($identity));
+        $roleChanges = $this->syncRoles($user, $this->ownsItsEmail($identity));
 
         $user->forceFill(['last_login_at' => now()])->save();
+
+        SecurityLog::microsoftSignIn($user, $userAgent, $roleChanges);
 
         return $user;
     }
@@ -78,7 +82,7 @@ class MicrosoftLogin
         // Emergency accounts are local only; they never sign in through
         // Microsoft, even if an identity was somehow attached to them.
         if ($user->is_emergency) {
-            throw LoginFailed::retry();
+            throw LoginFailed::retry('emergency_account');
         }
 
         $user->email = $identity->email;
@@ -161,30 +165,41 @@ class MicrosoftLogin
      * `super_admin` is granted only when the listed email was vouched for by
      * the tenant owning its domain (never on a guest sign-in) and removed
      * once the email leaves the list; otherwise it is left as it was.
+     *
+     * @return array{added: list<string>, removed: list<string>}
      */
-    private function syncRoles(User $user, bool $verifiedOwnEmail): void
+    private function syncRoles(User $user, bool $verifiedOwnEmail): array
     {
+        $changes = ['added' => [], 'removed' => []];
         $listed = in_array($user->email, config('portal.super_admin_emails', []), true);
 
         if (! $listed) {
-            $this->toggleRole($user, self::SUPER_ADMIN, false);
+            $this->toggleRole($user, self::SUPER_ADMIN, false, $changes);
         } elseif ($verifiedOwnEmail) {
-            $this->toggleRole($user, self::SUPER_ADMIN, true);
+            $this->toggleRole($user, self::SUPER_ADMIN, true, $changes);
         }
 
         $this->toggleRole(
             $user,
             self::PORTAL_ADMIN,
             $user->isInGroup((string) config('portal.admin_group')),
+            $changes,
         );
+
+        return $changes;
     }
 
-    private function toggleRole(User $user, string $role, bool $shouldHave): void
+    /**
+     * @param  array{added: list<string>, removed: list<string>}  $changes
+     */
+    private function toggleRole(User $user, string $role, bool $shouldHave, array &$changes): void
     {
         if ($shouldHave && ! $user->hasRole($role)) {
             $user->assignRole(Role::findOrCreate($role, 'web'));
+            $changes['added'][] = $role;
         } elseif (! $shouldHave && $user->hasRole($role)) {
             $user->removeRole($role);
+            $changes['removed'][] = $role;
         }
     }
 }

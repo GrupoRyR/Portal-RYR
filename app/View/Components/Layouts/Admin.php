@@ -69,7 +69,7 @@ class Admin extends Component
                 self::soon('Integraciones', 'plug'),
             ]))],
             ['label' => 'Seguimiento', 'items' => [
-                self::soon('Auditoría', 'list'),
+                ['label' => 'Auditoría', 'icon' => 'list', 'route' => 'admin.audit.index', 'active' => 'admin.audit.*'],
                 self::soon('Informe de uso', 'chart'),
             ]],
             ['label' => null, 'items' => [
