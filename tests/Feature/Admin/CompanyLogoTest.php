@@ -68,6 +68,27 @@ class CompanyLogoTest extends TestCase
         Storage::disk('public')->assertExists($path);
     }
 
+    public function test_a_failed_save_leaves_no_orphaned_upload(): void
+    {
+        Storage::disk('public')->put('brand/segurex/current.png', 'current');
+        $this->company->update(['logo_light_path' => 'brand/segurex/current.png']);
+
+        // Any database failure after the file was written.
+        Company::saving(fn () => throw new \RuntimeException('Database unavailable.'));
+
+        try {
+            $this->editor()
+                ->set('logoLight', UploadedFile::fake()->image('logo.png', 400, 120))
+                ->call('save');
+            $this->fail('The save should have failed.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Database unavailable.', $e->getMessage());
+        }
+
+        $this->assertSame(['brand/segurex/current.png'], Storage::disk('public')->allFiles('brand/segurex'));
+        $this->assertSame('brand/segurex/current.png', $this->company->fresh()->logo_light_path);
+    }
+
     public function test_replacing_a_logo_deletes_the_previous_file(): void
     {
         Storage::disk('public')->put('brand/segurex/old-dark.png', 'old');

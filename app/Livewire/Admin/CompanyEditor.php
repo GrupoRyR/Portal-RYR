@@ -12,11 +12,13 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Throwable;
 
 /**
  * Edits one company (brief 5.1): names, email domains, quick links, brand
@@ -251,22 +253,31 @@ class CompanyEditor extends Component
             }
         }
 
-        DB::transaction(function () use ($company, $new) {
-            $company->fill([
-                'name' => trim($this->name),
-                'short_name' => trim($this->shortName),
-                'domains' => $this->domains,
-                'quick_links' => $this->quickLinks === [] ? null : array_map(
-                    fn (array $link) => ['label' => trim($link['label']), 'url' => trim($link['url'])],
-                    $this->quickLinks,
-                ),
-                'color_primary' => strtoupper($this->colorPrimary),
-                'color_accent' => strtoupper($this->colorAccent),
-                'color_dark' => strtoupper($this->colorDark),
-                'is_active' => $this->isActive,
-                ...$new,
-            ])->save();
-        });
+        try {
+            DB::transaction(function () use ($company, $new) {
+                $company->fill([
+                    'name' => trim($this->name),
+                    'short_name' => trim($this->shortName),
+                    'domains' => $this->domains,
+                    'quick_links' => $this->quickLinks === [] ? null : array_map(
+                        fn (array $link) => ['label' => trim($link['label']), 'url' => trim($link['url'])],
+                        $this->quickLinks,
+                    ),
+                    'color_primary' => strtoupper($this->colorPrimary),
+                    'color_accent' => strtoupper($this->colorAccent),
+                    'color_dark' => strtoupper($this->colorDark),
+                    'is_active' => $this->isActive,
+                    ...$new,
+                ])->save();
+            });
+        } catch (Throwable $e) {
+            // Never leave the just-written files behind when the save fails.
+            foreach ($new as $path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            throw $e;
+        }
 
         foreach ($new as $attribute => $path) {
             $assets->deleteReplaced($old[$attribute], $path);
