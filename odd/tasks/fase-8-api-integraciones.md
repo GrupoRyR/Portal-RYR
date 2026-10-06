@@ -72,7 +72,7 @@ Branch `feat/fase-8-api-integraciones` stacked on `feat/fase-7-soporte-configura
 
 ## Open questions for Jhon
 - ~~Should creating or rotating a token require a fresh Microsoft sign-in?~~ Yes (Jhon, 2026-10-06) → T4.
-- API status reports are accepted for hidden apps; the catalog leaves hidden apps out. Confirm.
+- ~~API status reports are accepted for hidden apps; the catalog leaves hidden apps out. Confirm.~~ Answered 2026-10-06: Jhon decided hidden apps reject reports (404 like unknown apps), branch `feat/api-sin-ocultas`.
 - Pending production steps: `composer install` (adds `laravel/sanctum`), `php artisan migrate` (tables `integrations`, `personal_access_tokens`, `app_status_events`), deploy `public/build`. No `.env` key is needed. `public/.htaccess` already forwards the `Authorization` header.
 
 - 2026-10-06: Parent spot check on `cd508f8`: `php artisan test` → 834 passed (4097 assertions); tree clean. Phase 8 closed. To confirm with Jhon: fresh Microsoft sign-in for creating/rotating tokens; status reports accepted for hidden apps. Production: `composer install`, `php artisan migrate`, deploy `public/build`.

@@ -158,7 +158,7 @@ Respuesta (`200`):
 - `degraded` y `down` ponen la tarjeta en **«Con fallas»**, en rojo, con el mensaje. La app se puede seguir abriendo, porque la falla puede ser parcial.
 - `operational` devuelve la tarjeta a normal.
 - **El mantenimiento manda.** Si TI puso la app en mantenimiento, el reporte se guarda en el historial pero la tarjeta sigue mostrando el mantenimiento (`current` es `maintenance`). Cuando termina el mantenimiento, se muestra el último reporte si sigue vigente.
-- Las apps ocultas también aceptan reportes; simplemente no se ven en el inicio.
+- Las apps **ocultas** no aceptan reportes: responden `404`, igual que una app que no existe. Si una app se vuelve a mostrar, los reportes se aceptan de nuevo.
 
 ### 3.2 Reportes repetidos
 
@@ -223,4 +223,4 @@ Todas las respuestas de error son JSON, aunque la llamada no envíe `Accept: app
 
 **¿Qué pasa si el token se filtra?** Rótelo en Integraciones. El token anterior deja de funcionar de inmediato; ponga el nuevo en su sistema.
 
-**¿Cómo pruebo sin afectar a las personas?** Reporte el estado de una app oculta, o envíe `operational`, que no cambia lo que se ve si la app ya está normal.
+**¿Cómo pruebo sin afectar a las personas?** Envíe `operational` a una app que esté normal: no cambia lo que se ve. Las apps ocultas no sirven para probar, porque responden `404`.
