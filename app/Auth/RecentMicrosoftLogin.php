@@ -8,8 +8,8 @@ use Illuminate\Contracts\Session\Session;
 /**
  * "Confirm it is really you" for sensitive company changes (creating a
  * company, changing a tenant): the signed-in user must have completed a
- * Microsoft sign-in with prompt=login, as the same (tid, oid), within the
- * last 10 minutes.
+ * Microsoft sign-in within the last 10 minutes — either the normal sign-in
+ * or a re-authentication with prompt=login as the same (tid, oid).
  */
 class RecentMicrosoftLogin
 {

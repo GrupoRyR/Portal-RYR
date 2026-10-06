@@ -77,6 +77,7 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 17 | `feat/fase-3-17-consentimiento-avisos` | slice 16 | T6c consent checker + admin notices (`19db99e`, `031a0b2`) | +521 (276 tests) |
 | 18 | `feat/fase-3-18-asistente` | slice 17 | T6c new-company wizard + PowerShell script + deploy doc (`c664b70`) | +1132/−9 (313 tests; one wizard → `size:exception`) |
 | 19 | `feat/fase-3-19-cambio-inquilino` | slice 18 | T6c tenant change + doc (`bbde3f0`) | +335/−2 (170 tests) |
+| 20 | `feat/fase-3-20-reauth-inicio` | slice 19 | Normal Microsoft sign-in counts as recent confirmation | small |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -287,5 +288,7 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 - 2026-10-05: **Phase 3 closed.** All tasks T1–T6 checked; acceptance criteria covered by tests (tenant gate, company resolution, no guest linking — supersedes brief §3, profile/groups sync, roles, cache invalidation). Not yet verified against a real Entra tenant (needs Jhon's app registration and `.env`). Open checks: 375px browser check of the companies editor and wizard.
 - To confirm with Jhon (T6c): tenant change deactivates the company until the new tenant consents; a normal sign-in never counts as recent re-auth; failed/cancelled re-auth signs out; re-activation requires verified consent; emergency account cannot create companies or change tenants.
 
+- 2026-10-05: Jhon confirmed: tenant change deactivates the company; re-activation requires verified consent; emergency account keeps no company-creation/tenant-change rights (its purpose: Microsoft sign-in broken — expired secret, revoked consent, outage, Conditional Access — while the rest of the portal works). Changed: a normal Microsoft sign-in now counts as the recent confirmation (10 min). RED: new test failed (session key null). GREEN: `php artisan test` → 319 passed. Route: inline (2 small files + tests).
+
 ## Next step
-Phase 3 close-out with Jhon (real Entra test, decisions above), then Phase 4 (catalog and home screen).
+Phase 4 (catalog, access rules, home screen) in `odd/tasks/fase-4-catalogo-inicio.md`.
