@@ -87,7 +87,7 @@ Se hace **un registro por aplicación**, en el inquilino de la empresa dueña. A
 Notas:
 
 - **Varios entornos.** Agregue en el mismo registro una URI por entorno (producción y `http://localhost:<puerto>/...` para desarrollo). Las URI deben coincidir exactamente, incluida la barra final. En Cuentas por pagar y Cartera, Microsoft solo ve la URL de Supabase: los entornos de la app (Vercel de producción, vistas previas y `localhost`) se configuran en Supabase (sección 5.2).
-- **Toma Pedidos:** el `.env.example` del repositorio usa el dominio `pedidos.segurex.com`, pero el catálogo del portal (tabla 1.1 del documento de especificación) dice `pedidos.segurex.com.co`. Confirme cuál es el real; la URI registrada en Entra debe ser la del dominio que atiende la app.
+- **Toma Pedidos:** el dominio real es `pedidos.segurex.com.co` (confirmado por Jhon el 2026-10-06). La URI de redirección registrada en Entra debe ser `https://pedidos.segurex.com.co/auth/callback`. El `.env.example` del repositorio de Toma Pedidos todavía dice `pedidos.segurex.com`; conviene corregirlo allí.
 - **Restringir quién puede iniciar sesión (opcional).** En **Enterprise apps → <la app> → Properties**, **Assignment required? = Yes** y luego asigne usuarios o grupos en **Users and groups**. Así Microsoft rechaza antes de llegar a la app a quien no esté asignado. Es una barrera adicional, no reemplaza a la tabla `usuarios`. Tenga en cuenta que un Administrador global entra igual, y que asignar grupos requiere licencia Entra ID P1 o P2.
 
 ### 3.4 Claims opcionales para Supabase (`email` y `xms_edov`)
