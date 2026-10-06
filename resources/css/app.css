@@ -35,6 +35,7 @@
     --color-status-active-dot: #22a06b;
     --color-status-failure: #b42318;
     --color-status-failure-bg: #feeeec;
+    --color-status-failure-line: #f0b9b2;
     --color-status-maintenance: #7a4f00;
     --color-status-maintenance-bg: #fff4db;
     --color-status-neutral: #45484e;
@@ -50,6 +51,9 @@
 
     /* Minimum touch target */
     --spacing-touch: 44px;
+
+    /* Raised app card (hover) */
+    --shadow-card: 0 10px 24px -14px rgb(23 25 28 / 0.35);
 }
 
 /* Brand colors come from the signed-in user's company, rendered inline in
@@ -80,6 +84,7 @@
         --color-status-active-dot: #3cc985;
         --color-status-failure: #ff8f84;
         --color-status-failure-bg: #3a1d1a;
+        --color-status-failure-line: #6b2a24;
         --color-status-maintenance: #f5d58a;
         --color-status-maintenance-bg: #2a2418;
         --color-status-neutral: #c9cbd0;

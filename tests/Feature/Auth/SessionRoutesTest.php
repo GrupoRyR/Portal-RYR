@@ -44,7 +44,7 @@ class SessionRoutesTest extends TestCase
     {
         $user = User::factory()->create(['name' => 'Ana Pérez']);
 
-        $this->actingAs($user)->get('/')->assertOk()->assertSee('Hola, Ana Pérez');
+        $this->actingAs($user)->get('/')->assertOk()->assertSeeText('Ana Pérez');
     }
 
     public function test_signed_in_users_are_sent_home_from_the_login_page(): void

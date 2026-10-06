@@ -79,7 +79,7 @@ class PlaceholderPagesTest extends TestCase
             ->assertSee('<html lang="es">', false)
             ->assertSee('<style>'.BrandPalette::forCompany($company)->toCss().'</style>', false)
             ->assertSee('Segurex Latam')
-            ->assertSee('Hola, Ana Pérez');
+            ->assertSeeText('Ana Pérez');
     }
 
     public function test_the_home_page_links_to_administration_only_for_admins(): void

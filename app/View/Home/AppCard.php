@@ -2,6 +2,7 @@
 
 namespace App\View\Home;
 
+use App\Branding\HexColor;
 use App\Catalog\AppSearch;
 use App\Models\App;
 use Illuminate\Support\Str;
@@ -46,7 +47,7 @@ final readonly class AppCard
             description: $app->description,
             iconUrl: $app->icon_path ? asset($app->icon_path) : null,
             iconDarkUrl: $app->icon_dark_path ? asset($app->icon_dark_path) : null,
-            accentColor: $app->accent_color,
+            accentColor: HexColor::tryFrom($app->accent_color)?->toHex() ?? '#334155',
             initial: Str::upper(mb_substr($app->name, 0, 1)),
             categorySlug: (string) $app->category?->slug,
             categoryName: (string) $app->category?->name,

@@ -20,7 +20,7 @@
     "src": "node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BVcIkAe9.css",
+    "file": "assets/app-cPvoNsqj.css",
     "name": "app",
     "names": [
       "app.css"
@@ -34,6 +34,12 @@
       "assets/figtree-latin-ext-wght-normal-DCwSJGxG.woff2",
       "assets/figtree-latin-wght-normal-D_ZTVpCC.woff2"
     ]
+  },
+  "resources/js/home.js": {
+    "file": "assets/home-ScrEdvnH.js",
+    "name": "home",
+    "src": "resources/js/home.js",
+    "isEntry": true
   },
   "resources/js/livewire.js": {
     "file": "assets/livewire-CJm6V6pB.js",
