@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
+use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
+use App\Http\Controllers\FavoriteController;
 use App\Models\Company;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +43,16 @@ Route::middleware('auth')->group(function () {
         ->name('auth.microsoft.confirm');
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
+
+    // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
+    Route::get('/apps/{app:slug}', AppLaunchController::class)
+        ->middleware('throttle:60,1')
+        ->name('apps.open');
+
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::post('/favoritos/{app:slug}', [FavoriteController::class, 'store'])->name('favorites.store');
+        Route::delete('/favoritos/{app:slug}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
+    });
 });
 
 // Administration: super_admin and portal_admin only (role names from

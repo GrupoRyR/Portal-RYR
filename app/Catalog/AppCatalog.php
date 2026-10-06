@@ -4,10 +4,13 @@ namespace App\Catalog;
 
 use App\Models\App;
 use App\Models\AppAccessRule;
+use App\Models\AppLaunch;
 use App\Models\User;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection as BaseCollection;
 
 /**
  * The one place that decides which apps a user gets (home, launch,
@@ -54,6 +57,74 @@ class AppCatalog
         $candidate = $this->candidates($user)->whereKey($app->getKey())->first();
 
         return $candidate !== null && $this->granted($candidate, $user, $this->groupNames($user));
+    }
+
+    /**
+     * Distinct apps the user opened in the last 30 days, newest first,
+     * limited to those still visible to them.
+     *
+     * @return Collection<int, App>
+     */
+    public function recentApps(User $user, int $limit = 5): Collection
+    {
+        if ($limit < 1 || ! $this->mayUseCatalog($user)) {
+            return new Collection;
+        }
+
+        $visible = $this->visibleApps($user)->keyBy('id');
+
+        if ($visible->isEmpty()) {
+            return new Collection;
+        }
+
+        return new Collection(
+            $this->latestLaunchedAppIds($user, now()->subDays(30), $visible->keys()->all())
+                ->take($limit)
+                ->map(fn (int $appId) => $visible->get($appId))
+                ->values()
+                ->all(),
+        );
+    }
+
+    /**
+     * The app the user opened most recently within the last minutes, if
+     * still visible. Soporte TI (Phase 7) uses it to preselect the app.
+     */
+    public function lastOpenedWithin(User $user, int $minutes = 30): ?App
+    {
+        if (! $this->mayUseCatalog($user)) {
+            return null;
+        }
+
+        $visible = $this->visibleApps($user)->keyBy('id');
+        $appId = $this->latestLaunchedAppIds($user, now()->subMinutes($minutes), $visible->keys()->all())->first();
+
+        return $appId === null ? null : $visible->get($appId);
+    }
+
+    /**
+     * Ids of the given apps the user launched since the date, ordered by
+     * their latest launch (newest first), each once.
+     *
+     * @param  list<int>  $appIds
+     * @return BaseCollection<int, int>
+     */
+    private function latestLaunchedAppIds(User $user, DateTimeInterface $since, array $appIds): BaseCollection
+    {
+        if ($appIds === []) {
+            return collect();
+        }
+
+        return AppLaunch::query()
+            ->where('user_id', $user->id)
+            ->where('launched_at', '>=', $since)
+            ->whereIn('app_id', $appIds)
+            ->groupBy('app_id')
+            ->selectRaw('app_id, MAX(launched_at) as last_launched_at')
+            ->orderByDesc('last_launched_at')
+            ->orderByDesc('app_id')
+            ->pluck('app_id')
+            ->map(fn ($id) => (int) $id);
     }
 
     private function mayUseCatalog(User $user): bool

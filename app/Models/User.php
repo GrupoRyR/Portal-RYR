@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -74,6 +75,24 @@ class User extends Authenticatable
     public function groups(): HasMany
     {
         return $this->hasMany(UserGroup::class);
+    }
+
+    /**
+     * Apps the user pinned to the top of the home screen.
+     *
+     * @return BelongsToMany<App, $this>
+     */
+    public function favoriteApps(): BelongsToMany
+    {
+        return $this->belongsToMany(App::class, 'user_favorites')->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<AppLaunch, $this>
+     */
+    public function launches(): HasMany
+    {
+        return $this->hasMany(AppLaunch::class);
     }
 
     /**
