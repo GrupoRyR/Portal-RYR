@@ -49,6 +49,11 @@ final class AuditPresenter
         'role.removed' => 'Quitó como editor de anuncios a',
         'settings.updated' => 'Cambió',
         'api.status_reported' => 'Reportó el estado de',
+        'integration.created' => 'Creó el token de',
+        'integration.rotated' => 'Rotó el token de',
+        'integration.revoked' => 'Revocó el token de',
+        'integration.abilities_changed' => 'Cambió los permisos de',
+        'integration.ips_changed' => 'Cambió las IP permitidas de',
     ];
 
     private const REJECTION_REASONS = [
@@ -112,6 +117,8 @@ final class AuditPresenter
         'companies' => 'Empresas',
         'position' => 'Posición',
         'role' => 'Rol',
+        'abilities' => 'Permisos',
+        'allowed_ips' => 'IP permitidas',
         PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
         PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
@@ -186,6 +193,7 @@ final class AuditPresenter
             (new AppCategory)->getMorphClass() => 'la categoría '.($name('name') ?? '(eliminada)'),
             (new Announcement)->getMorphClass() => 'el anuncio «'.($name('title') ?? '(eliminado)').'»',
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
+            (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
         };
     }

@@ -27,7 +27,7 @@ JSON errors for API routes (401/403/404/422/429), never HTML or redirects. No pe
 ## Tasks
 - [x] T1 — Sanctum + integration tokens (model, abilities, IP allowlist, last used, revoke/rotate) + `GET /api/v1/apps`; tests. Route: delegated writer.
 - [x] T2 — `PUT /api/v1/apps/{slug}/status`, `app_status_events`, maintenance precedence, idempotency, TTL at read time, audit entries; tests. Route: delegated writer (same).
-- [ ] T3 — Admin Integraciones (list, detail, create/«Token creado», rotate, revoke, IPs) + `docs/api.md`; tests. Route: delegated writer (same).
+- [x] T3 — Admin Integraciones (list, detail, create/«Token creado», rotate, revoke, IPs) + `docs/api.md`; tests. Route: delegated writer (same).
 
 ## Acceptance criteria
 - A token without `catalog:read` gets 403 on the catalog; a revoked or rotated-away token gets 401; a token used from a non-allowed IP gets 403.
@@ -54,11 +54,24 @@ Branch `feat/fase-8-api-integraciones` stacked on `feat/fase-7-soporte-configura
 - Expiry at read time everywhere: `App::hasCurrentReport()`/`hasReportedFailure()` and the `reportedFailing`/`notReportedFailing` scopes use `api_status_ttl_hours` (cutoff exclusive). A report without `external_status_at` counts as expired. The API shows `reported: null` once expired. No scheduled cleanup (not needed). Existing tests that set a failing status without a time now set `external_status_at`.
 - Audit: activity log `api` (event `api.status_reported`, causer = the integration, subject = the app, old/new status and message, source/reference; never the token). Auditoría «API» type is now a real filter (log `api` only; «Cambios» excludes it); rows show the system's name; the text filter also matches system names. `AuditFilters::TYPE_API`, `AuditEntry::CATEGORY_API`.
 - App editor «Estado reportado»: hint when a failure has expired and the last 5 reports (status, message, system, when) — brief §5.2 «se ve en la ficha de la app con su historial». Configuración note now: «Si un sistema deja de reportar una app con fallas, la tarjeta vuelve a verse normal después de este tiempo.»
+- Integraciones (`/admin/integraciones`, `can:manageIntegrations` = super_admin only, unchanged; Livewire `IntegrationManager` re-authorizes every action): list (name, masked `ryr_…xxxx`, abilities, last use or «Nunca», Activo/Revocado; revoked last), detail by `?sistema={id}` (creator and date, abilities as checkboxes editable on the live token, allowed IPs add/remove, last 5 status changes, Rotar/Revocar with confirmation). The «Apps (validar acceso)» tab is omitted (option A); the single «Sistemas externos · N» heading keeps the tab look.
+- The design has no create form: «Nuevo token» opens a panel in place of the detail (name ≤ 80, abilities, optional IPs separated by commas). Create and rotate show the «Token creado»/«Token nuevo» dialog of AdminTokenNew (copy button, example request, «Ya lo guardé…» enables «Listo»). The plaintext only lives in the Livewire component state until «Listo»; it is never stored or logged.
+- Token management is audited in the `api` log with the admin as causer and the integration as subject: `integration.created` (name, abilities, IPs), `rotated`, `revoked`, `abilities_changed`, `ips_changed` (before/after). Auditoría labels: «Creó el token de …», «Permisos», «IP permitidas».
+- Sidebar: «Integraciones» is a real link for super admins and hidden for everyone else (like Empresas); the unused `soon()` helper was removed. RoleMatrix row no longer «Próximamente».
+- No Microsoft re-authentication is required to create/rotate tokens (Empresas requires it); see open questions.
+- `docs/api.md` (Spanish, usted): token, endpoints with curl, fields, idempotency, expiry, errors, limits, FAQ.
+- Overflow fix found during the render check: the Auditoría type radios (now five) leaked an `sr-only` input past 375 px; labels are now `relative`.
 
 ## Progress
 - 2026-10-06: Document created. Jhon confirmed Configuración is super_admin only (Phase 7).
 - T1 (route: delegated writer): RED 20 of 21 new tests failing in `tests/Feature/Api` (no `Integration`, no API routes; the unknown-route JSON 404 already passed). GREEN 21/21; full suite 805 passed; pint clean; `route:list --path=api` → `GET api/v1/apps`.
 - T2 (route: delegated writer): RED 15 failing (`StatusApiTest` 404s, no `StatusReporter`, Auditoría still «API Próximamente»; then the expired-report hint and the Configuración note). GREEN: full suite 821 passed; pint clean; `route:list --path=api` → `GET api/v1/apps`, `PUT api/v1/apps/{app}/status`.
+- T3 (route: delegated writer): RED 15 failing (`IntegrationsPageTest` 13: no route/component; `AdminAccessTest` sidebar link; `RoleMatrixTest` «Próximamente»). GREEN: full suite 834 passed; pint clean; `npm run build` (public/build updated); `route:list --path=admin/integraciones` → `GET admin/integraciones`; `--path=api` → 2 routes. Static render (in-memory SQLite, seeded systems, events, «Token creado» dialog) of Integraciones, Integraciones with detail, Auditoría `tipo=api` and an app editor: no horizontal overflow at 1440 px and 375 px after the two fixes (Auditoría radios, token input height on mobile).
+
+## Open questions for Jhon
+- Should creating or rotating a token require a fresh Microsoft sign-in, like creating a company? Not added (tokens only read the catalog or report statuses).
+- API status reports are accepted for hidden apps; the catalog leaves hidden apps out. Confirm.
+- Pending production steps: `composer install` (adds `laravel/sanctum`), `php artisan migrate` (tables `integrations`, `personal_access_tokens`, `app_status_events`), deploy `public/build`. No `.env` key is needed. `public/.htaccess` already forwards the `Authorization` header.
 
 ## Next step
-T3.
+Phase 8 close-out.

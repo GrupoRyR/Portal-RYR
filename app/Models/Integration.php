@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
@@ -33,6 +34,13 @@ class Integration extends Model
 
     /** @use HasFactory<IntegrationFactory> */
     use HasFactory;
+
+    /**
+     * Activity log of everything done through or about the API: status
+     * reports (App\Api\StatusReporter) and token management. Shown in
+     * Auditoría under «API». Never holds a token.
+     */
+    public const AUDIT_LOG = 'api';
 
     public const CATALOG_READ = 'catalog:read';
 
@@ -101,6 +109,16 @@ class Integration extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Status changes this system reported.
+     *
+     * @return HasMany<AppStatusEvent, $this>
+     */
+    public function statusEvents(): HasMany
+    {
+        return $this->hasMany(AppStatusEvent::class);
+    }
+
     public function isRevoked(): bool
     {
         return $this->revoked_at !== null;
@@ -147,6 +165,44 @@ class Integration extends Model
             $this->tokens()->delete();
             $this->forceFill(['revoked_at' => now()])->save();
         });
+    }
+
+    /**
+     * New abilities for the integration and its live token, effective on
+     * the next request. Returns whether anything changed.
+     *
+     * @param  list<string>  $abilities
+     */
+    public function changeAbilities(array $abilities): bool
+    {
+        $abilities = self::knownAbilities($abilities);
+
+        if ($abilities === $this->abilities) {
+            return false;
+        }
+
+        DB::transaction(function () use ($abilities) {
+            $this->abilities = $abilities;
+            $this->save();
+            $this->tokens()->update(['abilities' => json_encode($abilities)]);
+        });
+
+        return true;
+    }
+
+    /**
+     * Writes a named audit entry about this integration (log `api`); the
+     * causer is the signed-in admin, if any.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    public function audit(string $event, array $properties = []): void
+    {
+        activity(self::AUDIT_LOG)
+            ->performedOn($this)
+            ->event($event)
+            ->withProperties($properties)
+            ->log($event);
     }
 
     /**

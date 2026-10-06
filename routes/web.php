@@ -144,6 +144,13 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             ->middleware('can:'.AdminSections::SETTINGS)
             ->name('settings.index');
 
+        // App\Policies\AdminSections::INTEGRATIONS (Integraciones, API tokens):
+        // super_admin only; App\Livewire\Admin\IntegrationManager
+        // re-authorizes each action.
+        Route::view('/integraciones', 'admin.integrations.index')
+            ->middleware('can:'.AdminSections::INTEGRATIONS)
+            ->name('integrations.index');
+
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
         Route::get('/empresas', [CompanyController::class, 'index'])

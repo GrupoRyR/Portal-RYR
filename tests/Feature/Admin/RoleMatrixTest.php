@@ -84,13 +84,13 @@ class RoleMatrixTest extends TestCase
         ], $grants);
     }
 
-    public function test_only_integrations_is_still_coming_soon(): void
+    public function test_no_section_is_coming_soon_any_more(): void
     {
         $soon = array_values(array_map(
             fn ($section) => $section->label,
             array_filter(RoleMatrix::sections(), fn ($section) => ! $section->available),
         ));
 
-        $this->assertSame(['Integraciones'], $soon);
+        $this->assertSame([], $soon);
     }
 }

@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 final class StatusReporter
 {
     /** Activity log name of everything done through or about the API. */
-    public const AUDIT_LOG = 'api';
+    public const AUDIT_LOG = Integration::AUDIT_LOG;
 
     /**
      * @param  array{status: string, message?: ?string, source?: ?string, reference?: ?string}  $report

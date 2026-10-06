@@ -42,7 +42,7 @@
             <fieldset class="flex min-w-0 max-w-full gap-1 overflow-x-auto max-sm:w-full rounded-[10px] bg-subtle p-[3px]">
                 <legend class="sr-only">Tipo de evento</legend>
                 @foreach (AuditFilters::TYPES as $value => $label)
-                    <label class="inline-flex h-[38px] cursor-pointer items-center rounded-lg px-3 text-[0.8125rem] font-semibold whitespace-nowrap text-fg-soft has-checked:bg-surface has-checked:font-bold has-checked:text-fg has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-fg">
+                    <label class="relative inline-flex h-[38px] cursor-pointer items-center rounded-lg px-3 text-[0.8125rem] font-semibold whitespace-nowrap text-fg-soft has-checked:bg-surface has-checked:font-bold has-checked:text-fg has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-fg">
                         <input type="radio" name="tipo" value="{{ $value }}" class="sr-only" @checked($filters->type === $value)
                                x-on:change="$el.form.requestSubmit()">
                         {{ $label }}
