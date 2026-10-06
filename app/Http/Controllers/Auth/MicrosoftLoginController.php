@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Auth\LoginFailed;
 use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
+use App\Auth\RecentMicrosoftLogin;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class MicrosoftLoginController extends Controller
@@ -32,8 +35,34 @@ class MicrosoftLoginController extends Controller
         return Socialite::driver('microsoft')->setScopes(self::SCOPES)->redirect();
     }
 
-    public function callback(Request $request, MicrosoftLogin $login): RedirectResponse
+    /**
+     * Re-authentication for sensitive actions: Microsoft must ask for the
+     * credentials again (prompt=login), whatever its own session says.
+     */
+    public function confirm(Request $request, RecentMicrosoftLogin $recent): SymfonyRedirect|Response
     {
+        $user = $request->user();
+
+        if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
+            return response()->view('errors.microsoft-required', [], 403);
+        }
+
+        $recent->start($user, (string) $request->query('return', '/'));
+
+        return Socialite::driver('microsoft')
+            ->setScopes(['openid', 'profile', 'email', 'User.Read'])
+            ->with(['prompt' => 'login', 'login_hint' => (string) $user->email])
+            ->redirect();
+    }
+
+    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse
+    {
+        // The callback is shared with the re-authentication flow, so it is
+        // not behind the guest middleware.
+        if ($request->user() instanceof User) {
+            return $this->confirmed($request, $request->user(), $recent);
+        }
+
         try {
             $driver = Socialite::driver('microsoft');
             $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
@@ -53,6 +82,41 @@ class MicrosoftLoginController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended('/');
+    }
+
+    private function confirmed(Request $request, User $user, RecentMicrosoftLogin $recent): RedirectResponse
+    {
+        $pending = $recent->pull($user);
+
+        if ($pending === null) {
+            return redirect('/');
+        }
+
+        try {
+            $driver = Socialite::driver('microsoft');
+            $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
+            $matches = $recent->matches($user, $identity);
+        } catch (Throwable $e) {
+            Log::warning('Microsoft re-authentication failed.', ['user_id' => $user->id, 'exception' => $e::class]);
+            $matches = false;
+        }
+
+        if (! $matches) {
+            // Someone else's Microsoft account (or a failed sign-in) answered
+            // for this session: end it rather than trust it.
+            Log::warning('Microsoft re-authentication did not confirm the signed-in user; signing out.', ['user_id' => $user->id]);
+
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return $this->failed(LoginFailed::RETRY);
+        }
+
+        $request->session()->regenerate();
+        $recent->confirm();
+
+        return redirect($pending['return']);
     }
 
     private function failed(string $message): RedirectResponse

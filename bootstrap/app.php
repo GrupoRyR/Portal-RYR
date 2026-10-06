@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequireRecentMicrosoftLogin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -30,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // spatie/laravel-permission route middleware ("role:a|b").
         $middleware->alias([
             'role' => RoleMiddleware::class,
+            // Recent Microsoft re-authentication (App\Auth\RecentMicrosoftLogin).
+            'microsoft.recent' => RequireRecentMicrosoftLogin::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
         ]);
