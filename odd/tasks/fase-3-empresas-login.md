@@ -25,7 +25,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 
 ## Tasks
 - [x] T1 — Companies domain: migration, `Company` model, seeder with the two real tenants, domains and brand colors; tests. Route: delegated writer (multi-file).
-- [ ] T2 — `TenantDirectory`: allowed tenant IDs from active companies (cached, invalidated on company save/delete), resolve company from `tid` + email domain (shared-tenant rule), reject unknown/inactive tenants; tests. Route: delegated writer (same as T1).
+- [x] T2 — `TenantDirectory`: allowed tenant IDs from active companies (cached, invalidated on company save/delete), resolve company from `tid` + email domain (shared-tenant rule), reject unknown/inactive tenants; tests. Route: delegated writer (same as T1).
 - [ ] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [ ] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
 - [ ] T5 — Emergency admin account. Blocked on Open question 1.
@@ -55,9 +55,12 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | Slice | Branch | Base | Holds | Budget |
 |---|---|---|---|---|
 | 0 | `feat/fase-2-base` | `main` | Phase 2 (generated skeleton → `size:exception`) | — |
-| 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 + T2 | ~350 |
-| 2 | `feat/fase-3-2-usuarios` | slice 1 | T3 | ~200 |
-| 3 | `feat/fase-3-3-login` | slice 2 | T4 | ~450 |
+| 1 | `feat/fase-3-1-empresas` | `feat/fase-2-base` | T1 (`8f8ee4b`) | 428 (≈half tests) |
+| 2 | `feat/fase-3-2-directorio` | slice 1 | T2 (`ff59d89`) | 467 (≈half tests) |
+| 3 | `feat/fase-3-3-usuarios` | slice 2 | T3 | ~200 |
+| 4 | `feat/fase-3-4-login` | slice 3 | T4 | ~450 |
+
+Slicing pass (2026-10-05): the original slice 1 came to ~895 authored lines, so it was split at the existing T1/T2 commit boundary. Both halves stay slightly above 400 because about half of each is tests; no cohesive smaller split exists → recommend `size:exception` for slices 1 and 2.
 
 Each slice states start, end, dependencies and out-of-scope in its PR body with the dependency diagram; tests and docs travel with their slice.
 
@@ -69,6 +72,16 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
   - RED: `php artisan test tests/Feature/Companies` → 10 errors (`Class "App\Models\Company" not found`, `Target class [Database\Seeders\CompanySeeder] does not exist`).
   - GREEN: `php artisan test` → 22 passed (62 assertions).
   - `php artisan migrate:fresh --seed` → companies migrated, `CompanySeeder` DONE; tinker shows segurex `97cd024c-…5816c8`, derivados `54f53029-…886468`.
+  - Commit: `8f8ee4b` feat(companies): add companies domain with seeded Segurex and Derivados tenants.
+- 2026-10-05: T2 done (route: delegated writer). `App\Tenancy\TenantDirectory` singleton: `allowedTenantIds()` (distinct lowercase tenants of active companies, `Cache::rememberForever` under `tenancy:allowed_tenant_ids`), `isAllowed()`, `resolveCompany()` (single company; shared tenant by exact email domain, else the single active primary, else null), `forget()`. `CompanyObserver` (`#[ObservedBy]`) forgets the cache on saved/deleted and rejects a second primary company per tenant with `DuplicatePrimaryCompanyException` (application-level check, no DB constraint). `CompanySeeder` forgets the cache explicitly because `DatabaseSeeder` mutes model events.
+  - RED: `php artisan test tests/Feature/Tenancy tests/Feature/Companies` → 34 tests, 12 passed, 18 errors (`Target class [App\Tenancy\TenantDirectory] does not exist`), 4 failures (expected `DuplicatePrimaryCompanyException` not thrown).
+  - GREEN: `php artisan test` → 46 passed (105 assertions). `vendor/bin/pint --test app database tests` → passed.
+  - `php artisan migrate:fresh --seed` → DONE; tinker `allowedTenantIds()` → `["54f53029-e6e2-4b5f-a862-3454ae886468", "97cd024c-cd7a-419b-b385-f47b5f5816c8"]`.
+  - `composer validate --no-check-publish` → valid.
+
+  - Commit: `ff59d89` feat(tenancy): add cached tenant directory with shared-tenant company resolution.
+- 2026-10-05: Parent spot check `php artisan test` → 46 passed. Review of `feat/fase-2-base..ff59d89`: assessed medium (`slice_budget_reached`, executable change in `app/Models/Company.php`), consent declined by Jhon. Next review base: `ff59d89`.
+- Writer decisions to confirm: exact-domain match only (subdomains not owned); second primary per tenant rejected (application check only); shared tenant without an active primary resolves to null; seeded colors follow the design canvas (Segurex dark `#8F360B` is not in the brief; Derivados extra blues `#6D94E8`, `#031D54` not stored).
 
 ## Next step
-Slice 1: T2 (`TenantDirectory`).
+Slice 3 on `feat/fase-3-3-usuarios` (T3 — users for Microsoft identities), branched from `feat/fase-3-2-directorio`.

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
+use App\Tenancy\TenantDirectory;
 use Illuminate\Database\Seeder;
 
 /**
@@ -38,5 +39,9 @@ class CompanySeeder extends Seeder
             'color_dark' => '#03256C',
             'is_active' => true,
         ]);
+
+        // DatabaseSeeder mutes model events, so the observer that normally
+        // drops the allowed-tenants cache does not run here.
+        app(TenantDirectory::class)->forget();
     }
 }
