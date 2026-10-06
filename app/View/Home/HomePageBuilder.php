@@ -7,6 +7,7 @@ use App\Catalog\AppSearch;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\User;
+use App\Settings\PortalSettings;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
@@ -20,7 +21,8 @@ use Illuminate\Support\Str;
  *   out (one emptied by favorites stays, empty, for the favorite toggle);
  * - up to five recent apps;
  * - Microsoft 365 quick links;
- * - up to three announcements for the user's company (one query).
+ * - up to three announcements for the user's company (one query);
+ * - the «Soporte TI» link when a support URL is configured.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents.
  * Runs a fixed number of queries whatever the size of the catalog.
@@ -34,7 +36,10 @@ final class HomePageBuilder
     /** Roles offered the «Administración» link (each lands on its own section). */
     public const ADMIN_ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
 
-    public function __construct(private readonly AppCatalog $catalog) {}
+    public function __construct(
+        private readonly AppCatalog $catalog,
+        private readonly PortalSettings $settings,
+    ) {}
 
     public function build(User $user, ?string $query = null, ?CarbonInterface $now = null): HomePage
     {
@@ -84,6 +89,7 @@ final class HomePageBuilder
             query: $search->isActive() ? $search->query() : '',
             resultCount: count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
             announcements: $this->announcements($user, $now),
+            supportHref: $this->settings->supportUrl() === null ? null : route('support'),
         );
     }
 

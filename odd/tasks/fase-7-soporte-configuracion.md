@@ -24,7 +24,7 @@ Home stays free of Livewire/Alpine; admin uses Livewire 4. Code in English, UI i
 
 ## Tasks
 - [x] T1 — Settings store + Configuración screen + apply idle timeout, Microsoft sign-out and allowed domains from it; sidebar link; tests. Route: delegated writer.
-- [ ] T2 — Soporte TI button + `/soporte` redirect with origin parameters; tests. Route: delegated writer (same).
+- [x] T2 — Soporte TI button + `/soporte` redirect with origin parameters; tests. Route: delegated writer (same).
 
 ## Acceptance criteria
 - Empty `support_url` → no button anywhere; set → button on home (phone and desktop), local app page and maintenance page.
@@ -46,6 +46,13 @@ Branch `feat/fase-7-soporte-configuracion` stacked on `feat/fase-6-guia-migracio
   - Idle-timeout proof: `AppliedSettingsTest` uses the database session driver with a stored signed-in session idle for 5 h: redirected to sign-in by default (120 min) and with 4 h, kept with 8 h; the session cookie lasts the saved 24 h.
   - Browser check (static render): 1440 px two columns as in the canvas (546 px cards, 248 px sidebar, «Configuración» current); 375 px one column, no horizontal scroll.
   - Design deviations: the add-domain control is an always-visible field plus «+ Agregar» (the canvas only shows the dashed button); each domain chip has a «×» remove button; the backup card shows «Próximamente» and «Aún no está disponible desde el portal.» instead of a last-backup line and «Respaldar ahora».
+  - Commit: `3123c8b` feat(admin): add portal settings and the Configuración screen.
+- 2026-10-06: **T2 done** (route: delegated writer).
+  - Route `GET /soporte` (`support`, auth, throttle 60/min) → `App\Http\Controllers\SupportController`: 404 without a support URL; otherwise a redirect away to `SupportLink::build()` = configured URL (query string and fragment kept, its own `origen`/`empresa`/`app` replaced) + `origen=portal&empresa={company slug}` + `app={slug}`. `app` is `?app=` when the person can open that app (`AppCatalog::canOpen`, so maintenance apps count), else `AppCatalog::lastOpenedWithin($user, 30)` (own launches, still visible), else omitted. Nothing personal is sent.
+  - Buttons (`target="_blank" rel="noopener"`, only when a support URL is set): home header, icon-only 44 px on phones with the label for screen readers, «Soporte TI» outlined button from 768 px (canvases PhoneHome, Tablet, Main), via `HomePage::$supportHref` (home stays without Livewire/Alpine; no change to `home.js`); local app page «Soporte TI» above «Volver al inicio» and maintenance page «Avisar a Soporte TI» under «Volver al inicio», both linking `/soporte?app={slug}`.
+  - RED: `tests/Feature/Support/SupportButtonTest.php` → 15 tests, 2 passed, 9 failed, 4 errors. GREEN: 15/15; full suite **784 passed** (3707 assertions); `vendor/bin/pint --test` passed; `npm run build`; `php artisan route:list --path=soporte` → `GET|HEAD soporte … support › SupportController`; `--path=admin/configuracion` → `admin.settings.index`.
+  - Browser check (static render with a support URL): home 1440 px button 127×44 left of the account avatar, 768 px labelled, 375 px icon 44×44; local and maintenance pages full-width buttons; no horizontal scroll at 375 px or 1440 px.
+  - Design deviations: the maintenance canvas shows «Entendido» + «Avisar a Soporte TI»; the existing «Volver al inicio» primary button was kept and the support link added under it. The local-app canvas has no «Volver al inicio»; it was kept under «Soporte TI».
 
 ## Next step
-T2.
+Phase 7 close-out.

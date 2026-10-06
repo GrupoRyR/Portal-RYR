@@ -43,6 +43,12 @@
                         Descargar instalador
                     </a>
                 @endif
+                @if ($supportHref)
+                    <a href="{{ $supportHref }}" target="_blank" rel="noopener" class="flex min-h-[52px] items-center justify-center gap-2.5 rounded-icon border border-line-strong bg-surface text-base font-semibold hover:bg-subtle">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>
+                        Soporte TI
+                    </a>
+                @endif
                 <a href="{{ route('home') }}" class="flex min-h-[52px] items-center justify-center rounded-icon border border-line-strong bg-surface text-base font-semibold hover:bg-subtle">Volver al inicio</a>
             </div>
         </main>

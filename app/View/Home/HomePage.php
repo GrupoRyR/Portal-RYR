@@ -15,6 +15,7 @@ final readonly class HomePage
      * @param  list<AppCard>  $recents
      * @param  list<QuickLink>  $quickLinks
      * @param  list<AnnouncementCard>  $announcements  Newest pinned first; at most HomePageBuilder::ANNOUNCEMENT_LIMIT.
+     * @param  string|null  $supportHref  «Soporte TI» link (`/soporte`); null hides the button.
      */
     public function __construct(
         public string $salutation,
@@ -35,6 +36,7 @@ final readonly class HomePage
         public string $query,
         public int $resultCount,
         public array $announcements = [],
+        public ?string $supportHref = null,
     ) {}
 
     /**
