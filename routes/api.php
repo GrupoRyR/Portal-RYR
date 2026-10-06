@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AppCatalogController;
+use App\Http\Controllers\Api\AppStatusController;
 use App\Models\Integration;
 use Illuminate\Support\Facades\Route;
 
@@ -20,4 +21,8 @@ Route::prefix('v1')
         Route::get('/apps', AppCatalogController::class)
             ->middleware('abilities:'.Integration::CATALOG_READ)
             ->name('apps.index');
+
+        Route::put('/apps/{app:slug}/status', AppStatusController::class)
+            ->middleware('abilities:'.Integration::STATUS_WRITE)
+            ->name('apps.status');
     });

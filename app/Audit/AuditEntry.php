@@ -21,10 +21,13 @@ final readonly class AuditEntry
 
     public const CATEGORY_SECURITY = 'security';
 
+    public const CATEGORY_API = 'api';
+
     public const CATEGORY_LABELS = [
         self::CATEGORY_CHANGE => 'Cambio',
         self::CATEGORY_LAUNCH => 'Abrió app',
         self::CATEGORY_SECURITY => 'Seguridad',
+        self::CATEGORY_API => 'API',
     ];
 
     public const DEVICE_LABELS = [
@@ -34,7 +37,7 @@ final readonly class AuditEntry
     ];
 
     /**
-     * @param  string  $who  Person's name, or «Sistema».
+     * @param  string  $who  Person's name, external system's name (API), or «Sistema».
      * @param  list<array{label: string, old: string, new: string}>  $changes  Before/after of a change.
      */
     public function __construct(

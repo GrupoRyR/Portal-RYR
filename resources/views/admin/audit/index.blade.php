@@ -8,6 +8,7 @@
         AuditEntry::CATEGORY_CHANGE => 'bg-status-scheduled-bg text-status-scheduled',
         AuditEntry::CATEGORY_LAUNCH => 'bg-status-neutral-bg text-status-neutral',
         AuditEntry::CATEGORY_SECURITY => 'bg-status-failure-bg text-status-failure',
+        AuditEntry::CATEGORY_API => 'bg-status-local-bg text-status-local',
     ];
     $control = 'h-11 rounded-[10px] border border-line-strong bg-surface px-3 text-sm text-fg';
     $pageLink = 'inline-flex min-h-touch items-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-subtle';
@@ -17,7 +18,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="flex flex-col gap-1">
             <h1 class="text-[2rem] leading-tight font-bold">Auditoría</h1>
-            <p class="max-w-[60ch] text-[0.9375rem] text-fg-muted">Cada cambio de configuración, cada app abierta y cada inicio de sesión.</p>
+            <p class="max-w-[60ch] text-[0.9375rem] text-fg-muted">Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que hacen los sistemas externos por la API.</p>
         </div>
         <div class="flex flex-col items-end gap-1 max-sm:w-full max-sm:items-stretch">
             <a href="{{ route('admin.audit.export', $filters->query()) }}"
@@ -47,9 +48,6 @@
                         {{ $label }}
                     </label>
                 @endforeach
-                <span aria-disabled="true" class="inline-flex h-[38px] items-center gap-1.5 px-3 text-[0.8125rem] font-semibold whitespace-nowrap text-fg-muted">
-                    API <span class="rounded-md bg-surface px-1.5 text-[10px] leading-5">Próximamente</span>
-                </span>
             </fieldset>
 
             <label for="au-co" class="sr-only">Empresa</label>

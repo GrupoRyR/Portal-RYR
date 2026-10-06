@@ -2,8 +2,10 @@
 
 namespace App\Audit;
 
+use App\Api\StatusReporter;
 use App\Models\App;
 use App\Models\AppLaunch;
+use App\Models\Integration;
 use App\Models\User;
 use App\Support\Like;
 use Carbon\CarbonImmutable;
@@ -57,7 +59,7 @@ final class AuditFeed
     {
         $branches = [];
 
-        if ($filters->includesChanges() || $filters->includesSecurity()) {
+        if ($filters->includesChanges() || $filters->includesSecurity() || $filters->includesApi()) {
             $branches[] = $this->activityKeys($filters, $after, $limit);
         }
 
@@ -86,10 +88,20 @@ final class AuditFeed
         $query = DB::table('activity_log')
             ->selectRaw('created_at as occurred_at, '.AuditEntry::KIND_ACTIVITY.' as kind, id');
 
-        if (! $filters->includesChanges()) {
-            $query->where('log_name', SecurityLog::LOG);
-        } elseif (! $filters->includesSecurity()) {
-            $query->where(fn (Builder $query) => $query->whereNull('log_name')->orWhere('log_name', '!=', SecurityLog::LOG));
+        // Each type is its own set of logs: «Seguridad» and «API» have one
+        // log each, «Cambios» is every other log.
+        if (! ($filters->includesChanges() && $filters->includesSecurity() && $filters->includesApi())) {
+            $query->where(function (Builder $query) use ($filters) {
+                if ($filters->includesChanges()) {
+                    $query->orWhere(fn (Builder $query) => $query->whereNull('log_name')->orWhereNotIn('log_name', [SecurityLog::LOG, StatusReporter::AUDIT_LOG]));
+                }
+                if ($filters->includesSecurity()) {
+                    $query->orWhere('log_name', SecurityLog::LOG);
+                }
+                if ($filters->includesApi()) {
+                    $query->orWhere('log_name', StatusReporter::AUDIT_LOG);
+                }
+            });
         }
 
         if ($filters->company) {
@@ -100,7 +112,9 @@ final class AuditFeed
         if ($filters->search !== '') {
             $query->where(fn (Builder $query) => $query
                 ->where(fn (Builder $query) => $query->where('causer_type', $user)->whereIn('causer_id', $this->matchingUsers($filters->search)))
+                ->orWhere(fn (Builder $query) => $query->where('causer_type', (new Integration)->getMorphClass())->whereIn('causer_id', $this->matchingIntegrations($filters->search)))
                 ->orWhere(fn (Builder $query) => $query->where('subject_type', $user)->whereIn('subject_id', $this->matchingUsers($filters->search)))
+                ->orWhere(fn (Builder $query) => $query->where('subject_type', (new Integration)->getMorphClass())->whereIn('subject_id', $this->matchingIntegrations($filters->search)))
                 ->orWhere(fn (Builder $query) => $query->where('subject_type', (new App)->getMorphClass())->whereIn('subject_id', $this->matchingApps($filters->search))));
         }
 
@@ -170,6 +184,11 @@ final class AuditFeed
         return DB::table('users')->select('id')->where(fn (Builder $query) => $query
             ->whereRaw('lower(name) like ? '.Like::ESCAPE, [$like])
             ->orWhereRaw('lower(email) like ? '.Like::ESCAPE, [$like]));
+    }
+
+    private function matchingIntegrations(string $search): Builder
+    {
+        return DB::table('integrations')->select('id')->whereRaw('lower(name) like ? '.Like::ESCAPE, [Like::contains($search)]);
     }
 
     private function matchingApps(string $search): Builder

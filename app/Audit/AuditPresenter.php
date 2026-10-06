@@ -2,12 +2,14 @@
 
 namespace App\Audit;
 
+use App\Api\StatusReporter;
 use App\Livewire\Admin\RoleManager;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\Integration;
 use App\Models\User;
 use App\Settings\PortalSettings;
 use Carbon\CarbonImmutable;
@@ -46,6 +48,7 @@ final class AuditPresenter
         'role.assigned' => 'Hizo editor de anuncios a',
         'role.removed' => 'Quitó como editor de anuncios a',
         'settings.updated' => 'Cambió',
+        'api.status_reported' => 'Reportó el estado de',
     ];
 
     private const REJECTION_REASONS = [
@@ -97,6 +100,7 @@ final class AuditPresenter
         'local_instructions' => 'Instrucciones',
         'download_url' => 'URL de descarga',
         'external_status' => 'Estado reportado',
+        'external_status_message' => 'Mensaje reportado',
         'title' => 'Título',
         'body' => 'Texto',
         'image_path' => 'Imagen',
@@ -120,15 +124,20 @@ final class AuditPresenter
     public function activity(Activity $activity): AuditEntry
     {
         $causer = $activity->causer instanceof User ? $activity->causer : null;
+        $system = $activity->causer instanceof Integration ? $activity->causer : null;
         $security = $activity->log_name === SecurityLog::LOG;
 
         return new AuditEntry(
             AuditEntry::KIND_ACTIVITY,
             (int) $activity->id,
             CarbonImmutable::instance($activity->created_at),
-            $causer?->name ?? self::SYSTEM,
+            $causer?->name ?? $system?->name ?? self::SYSTEM,
             $causer?->email,
-            $security ? AuditEntry::CATEGORY_SECURITY : AuditEntry::CATEGORY_CHANGE,
+            match (true) {
+                $security => AuditEntry::CATEGORY_SECURITY,
+                $activity->log_name === StatusReporter::AUDIT_LOG => AuditEntry::CATEGORY_API,
+                default => AuditEntry::CATEGORY_CHANGE,
+            },
             $security ? $this->security($activity) : $this->change($activity),
             $causer?->company?->short_name ?: $causer?->company?->name,
             null,

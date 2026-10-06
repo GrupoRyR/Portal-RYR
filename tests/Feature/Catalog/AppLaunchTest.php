@@ -87,7 +87,7 @@ class AppLaunchTest extends TestCase
     public function test_a_failing_app_still_opens(): void
     {
         $app = $this->openableApp();
-        $app->forceFill(['external_status' => 'down', 'external_status_message' => 'Estamos revisando'])->save();
+        $app->forceFill(['external_status_at' => now(), 'external_status' => 'down', 'external_status_message' => 'Estamos revisando'])->save();
 
         $this->actingAs($this->user)->get("/apps/{$app->slug}")->assertRedirect($app->url);
         $this->assertSame(1, AppLaunch::count());

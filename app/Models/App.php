@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Catalog\AppUrlPolicy;
+use App\Settings\PortalSettings;
+use Carbon\CarbonImmutable;
 use Database\Factories\AppFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -204,6 +207,16 @@ class App extends Model
         return $changed;
     }
 
+    /**
+     * Statuses reported through the API, oldest first.
+     *
+     * @return HasMany<AppStatusEvent, $this>
+     */
+    public function statusEvents(): HasMany
+    {
+        return $this->hasMany(AppStatusEvent::class);
+    }
+
     public function isWeb(): bool
     {
         return $this->type === self::TYPE_WEB;
@@ -220,11 +233,59 @@ class App extends Model
     }
 
     /**
-     * Whether an external system reported the app as degraded or down.
+     * Whether the status reported by an external system still counts: it
+     * is newer than the hours of Configuración (`api_status_ttl_hours`).
+     * Computed when read, so an app never stays «Con fallas» because a
+     * system stopped reporting, with or without the scheduler.
+     */
+    public function hasCurrentReport(): bool
+    {
+        return $this->external_status !== null
+            && $this->external_status_at !== null
+            && $this->external_status_at->greaterThan(self::reportCutoff());
+    }
+
+    /**
+     * Whether an external system reported the app as degraded or down, and
+     * that report has not expired.
      */
     public function hasReportedFailure(): bool
     {
-        return in_array($this->external_status, self::FAILING_EXTERNAL_STATUSES, true);
+        return in_array($this->external_status, self::FAILING_EXTERNAL_STATUSES, true) && $this->hasCurrentReport();
+    }
+
+    /**
+     * Apps with a current degraded/down report ({@see hasReportedFailure()}).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeReportedFailing(Builder $query): void
+    {
+        $query->whereIn('external_status', self::FAILING_EXTERNAL_STATUSES)
+            ->where('external_status_at', '>', self::reportCutoff()->format('Y-m-d H:i:s'));
+    }
+
+    /**
+     * Apps without a current degraded/down report (the complement of
+     * {@see scopeReportedFailing()}, NULLs included).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeNotReportedFailing(Builder $query): void
+    {
+        $query->where(fn (Builder $query) => $query
+            ->whereNull('external_status')
+            ->orWhereNotIn('external_status', self::FAILING_EXTERNAL_STATUSES)
+            ->orWhereNull('external_status_at')
+            ->orWhere('external_status_at', '<=', self::reportCutoff()->format('Y-m-d H:i:s')));
+    }
+
+    /**
+     * Reports at or before this moment have expired.
+     */
+    public static function reportCutoff(): CarbonImmutable
+    {
+        return CarbonImmutable::now(config('app.timezone'))->subHours(app(PortalSettings::class)->apiStatusTtlHours());
     }
 
     /**

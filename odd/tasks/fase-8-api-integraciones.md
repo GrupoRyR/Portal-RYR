@@ -26,7 +26,7 @@ JSON errors for API routes (401/403/404/422/429), never HTML or redirects. No pe
 
 ## Tasks
 - [x] T1 — Sanctum + integration tokens (model, abilities, IP allowlist, last used, revoke/rotate) + `GET /api/v1/apps`; tests. Route: delegated writer.
-- [ ] T2 — `PUT /api/v1/apps/{slug}/status`, `app_status_events`, maintenance precedence, idempotency, TTL at read time, audit entries; tests. Route: delegated writer (same).
+- [x] T2 — `PUT /api/v1/apps/{slug}/status`, `app_status_events`, maintenance precedence, idempotency, TTL at read time, audit entries; tests. Route: delegated writer (same).
 - [ ] T3 — Admin Integraciones (list, detail, create/«Token creado», rotate, revoke, IPs) + `docs/api.md`; tests. Route: delegated writer (same).
 
 ## Acceptance criteria
@@ -48,11 +48,17 @@ Branch `feat/fase-8-api-integraciones` stacked on `feat/fase-7-soporte-configura
 - Last use written on the integration at most once a minute (without touching `updated_at`), so it survives rotation and costs at most one write per minute per token.
 - Rate limit (`throttle:api`): 120 requests/minute per token; 30/minute per IP for calls reaching the limiter without a valid token.
 - JSON errors on `api/*` without `Accept` header (existing `shouldRenderJsonWhen`); 404s on `api/*` answer `{"message":"Not found."}` (no model class names). Messages stay Laravel's English defaults (machine-facing).
-- `GET /api/v1/apps`: hidden apps excluded; `updated_since` is inclusive (`>=`), any ISO 8601 offset, converted to Bogotá; 422 when unparseable. Apps for every company list the active companies. No pagination (small catalog). Changing an app's companies now touches `updated_at` (`App::syncCompanies`) so `updated_since` sees it.
+- `GET /api/v1/apps`: hidden apps excluded; `updated_since` is inclusive (`>=`), any ISO 8601 offset, converted to Bogotá; 422 when unparseable. Apps for every company list the active companies. No pagination (small catalog). Changing an app's companies now touches `updated_at` (`App::syncCompanies`) so `updated_since` sees it.- `PUT /api/v1/apps/{slug}/status`: form or JSON body; `status` required (operational|degraded|down), `message` ≤ 140, `source`/`reference` ≤ 100, all trimmed (empty → null). Answers `{data: {slug, changed, status}}`. Any existing app may be reported, hidden ones included (hiding only removes it from the home); unknown slug → 404.
+- Idempotency: same status + message as the current, unexpired report → `changed: false`, no event, no audit entry, `updated_at` untouched; only `external_status_at` is refreshed so a failure that keeps being reported does not expire. A different message, a different status, or any report after expiry is a change (event row + audit entry + `updated_at`).
+- Maintenance precedence is applied when drawing (card, admin list, API `current`); the report is still stored on the app, so a still-fresh failure shows once maintenance ends.
+- Expiry at read time everywhere: `App::hasCurrentReport()`/`hasReportedFailure()` and the `reportedFailing`/`notReportedFailing` scopes use `api_status_ttl_hours` (cutoff exclusive). A report without `external_status_at` counts as expired. The API shows `reported: null` once expired. No scheduled cleanup (not needed). Existing tests that set a failing status without a time now set `external_status_at`.
+- Audit: activity log `api` (event `api.status_reported`, causer = the integration, subject = the app, old/new status and message, source/reference; never the token). Auditoría «API» type is now a real filter (log `api` only; «Cambios» excludes it); rows show the system's name; the text filter also matches system names. `AuditFilters::TYPE_API`, `AuditEntry::CATEGORY_API`.
+- App editor «Estado reportado»: hint when a failure has expired and the last 5 reports (status, message, system, when) — brief §5.2 «se ve en la ficha de la app con su historial». Configuración note now: «Si un sistema deja de reportar una app con fallas, la tarjeta vuelve a verse normal después de este tiempo.»
 
 ## Progress
 - 2026-10-06: Document created. Jhon confirmed Configuración is super_admin only (Phase 7).
 - T1 (route: delegated writer): RED 20 of 21 new tests failing in `tests/Feature/Api` (no `Integration`, no API routes; the unknown-route JSON 404 already passed). GREEN 21/21; full suite 805 passed; pint clean; `route:list --path=api` → `GET api/v1/apps`.
+- T2 (route: delegated writer): RED 15 failing (`StatusApiTest` 404s, no `StatusReporter`, Auditoría still «API Próximamente»; then the expired-report hint and the Configuración note). GREEN: full suite 821 passed; pint clean; `route:list --path=api` → `GET api/v1/apps`, `PUT api/v1/apps/{app}/status`.
 
 ## Next step
-T2.
+T3.

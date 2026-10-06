@@ -113,9 +113,9 @@ class HomeScreenTest extends TestCase
         $this->openableApp(['login_type' => 'microsoft']);
         $this->openableApp(['status' => App::STATUS_MAINTENANCE]);
         $failing = $this->openableApp(['login_type' => 'microsoft']);
-        $failing->forceFill(['external_status' => 'down', 'external_status_message' => 'SAP no responde'])->save();
+        $failing->forceFill(['external_status_at' => now(), 'external_status' => 'down', 'external_status_message' => 'SAP no responde'])->save();
         $degraded = $this->openableApp(['login_type' => 'microsoft']);
-        $degraded->forceFill(['external_status' => 'degraded'])->save();
+        $degraded->forceFill(['external_status_at' => now(), 'external_status' => 'degraded'])->save();
         $this->openableApp(['login_type' => 'own']);
         $local = App::factory()->local()->forCompanies($this->company)->create();
         AppAccessRule::forCompany($local, $this->company);
@@ -133,7 +133,7 @@ class HomeScreenTest extends TestCase
     public function test_the_failure_chip_is_not_shown_for_healthy_apps(): void
     {
         $app = $this->openableApp(['login_type' => 'microsoft']);
-        $app->forceFill(['external_status' => 'operational'])->save();
+        $app->forceFill(['external_status_at' => now(), 'external_status' => 'operational'])->save();
 
         $this->home()->assertSeeText('Activa')->assertDontSeeText('Con fallas');
     }

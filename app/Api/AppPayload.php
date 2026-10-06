@@ -58,7 +58,8 @@ final class AppPayload
             'maintenance' => $app->inMaintenance()
                 ? ['message' => $app->maintenance_message, 'until' => self::date($app->maintenance_until)]
                 : null,
-            'reported' => $app->external_status === null
+            // An expired report no longer counts (App::hasCurrentReport()).
+            'reported' => ! $app->hasCurrentReport()
                 ? null
                 : [
                     'status' => $app->external_status,
