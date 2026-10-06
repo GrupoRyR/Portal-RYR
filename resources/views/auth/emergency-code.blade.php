@@ -1,23 +1,23 @@
-{{-- Placeholder emergency sign-in (step 2). --}}
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Acceso de emergencia · {{ config('app.name') }}</title>
-</head>
-<body>
-    <main>
-        <h1>Acceso de emergencia</h1>
+{{-- Emergency sign-in, step 2 (authenticator code). --}}
+<x-layouts.app title="Acceso de emergencia" noindex>
+    <main class="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12">
+        <div class="flex flex-col gap-2">
+            <h1 class="text-3xl font-bold">Acceso de emergencia</h1>
+            <p class="text-fg-soft">Escribe el código de 6 dígitos de tu aplicación de autenticación.</p>
+        </div>
 
-        <form method="POST" action="{{ route('emergency.verify') }}">
+        @error('emergency')
+            <p role="alert" class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">{{ $message }}</p>
+        @enderror
+
+        <form method="POST" action="{{ route('emergency.verify') }}" class="flex flex-col gap-5">
             @csrf
-            <label>Código de verificación
-                <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
-            </label>
-            <button type="submit">Entrar</button>
+            <div class="flex flex-col gap-1.5">
+                <label for="code" class="text-sm font-semibold">Código de verificación</label>
+                <input id="code" type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required
+                       class="h-12 rounded-[10px] border border-line-strong bg-surface px-3 text-xl tracking-[0.3em] tabular-nums">
+            </div>
+            <button type="submit" class="h-12 rounded-control bg-fg font-semibold text-on-fg hover:opacity-90">Entrar</button>
         </form>
     </main>
-</body>
-</html>
+</x-layouts.app>
