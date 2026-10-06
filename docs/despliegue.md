@@ -119,6 +119,14 @@ bash deploy/deploy.sh
 
 El script crea las tablas, genera las cachés y enlaza `public/storage`.
 
+Después cargue los datos iniciales (las dos empresas, los roles, las categorías, el catálogo de apps y sus reglas por grupo):
+
+```bash
+php artisan db:seed --force
+```
+
+Se puede repetir sin duplicar nada: actualiza lo que ya existe. No crea usuarios; las personas se crean al iniciar sesión con Microsoft.
+
 ### 1.8 HTTPS (AutoSSL)
 
 1. En cPanel, abra **SSL/TLS Status**.
