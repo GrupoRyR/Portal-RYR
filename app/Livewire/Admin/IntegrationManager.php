@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Admin;
 
+use App\Auth\RecentMicrosoftLogin;
 use App\Models\Integration;
+use App\Models\User;
 use App\Policies\AdminSections;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,12 +23,22 @@ use Livewire\Component;
  * A new or rotated token is shown once, in the «Token creado» dialog, and
  * only lives in this component until the dialog is closed: it is never
  * stored in plaintext nor written to the activity log.
+ *
+ * Creating or rotating a token hands out a new credential, so, like creating
+ * a company, it needs a Microsoft sign-in from the last 10 minutes
+ * (App\Auth\RecentMicrosoftLogin), checked again on every call. The create
+ * form only opens once that holds, so nothing typed is lost on the way to
+ * Microsoft. Revoking, abilities and IPs only take access away or narrow
+ * it, and stay one click (revoking a leaked token must never wait).
  */
 class IntegrationManager extends Component
 {
     use AuthorizesRequests;
 
     public const LATEST_CHANGES = 5;
+
+    /** Emergency accounts have no Microsoft identity to confirm with. */
+    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens requiere iniciar sesión con Microsoft.';
 
     /** The system shown in the detail panel (`?sistema=` in the address). */
     #[Url(as: 'sistema', history: true)]
@@ -75,9 +87,11 @@ class IntegrationManager extends Component
         $this->resetErrorBag();
     }
 
-    public function startCreating(): void
+    public function startCreating(RecentMicrosoftLogin $recent): void
     {
-        $this->authorize(AdminSections::INTEGRATIONS);
+        if (! $this->hasRecentLogin($recent)) {
+            return;
+        }
 
         $this->creating = true;
         $this->name = '';
@@ -93,9 +107,12 @@ class IntegrationManager extends Component
         $this->resetErrorBag();
     }
 
-    public function create(): void
+    public function create(RecentMicrosoftLogin $recent): void
     {
-        $this->authorize(AdminSections::INTEGRATIONS);
+        if (! $this->hasRecentLogin($recent)) {
+            return;
+        }
+
         $this->name = trim($this->name);
         $ips = [];
 
@@ -145,8 +162,12 @@ class IntegrationManager extends Component
         $this->rotated = false;
     }
 
-    public function rotate(): void
+    public function rotate(RecentMicrosoftLogin $recent): void
     {
+        if (! $this->hasRecentLogin($recent)) {
+            return;
+        }
+
         $integration = $this->liveSelection();
 
         if ($integration === null) {
@@ -260,6 +281,33 @@ class IntegrationManager extends Component
                 ->get(),
             'tokenOwner' => $this->plainToken === null ? null : $selected,
         ]);
+    }
+
+    /**
+     * Authorizes the action and tells whether the user confirmed their
+     * Microsoft sign-in within RecentMicrosoftLogin::TTL_SECONDS; when not,
+     * redirects to that confirmation (back to this page, with the selected
+     * system). Emergency accounts can never confirm.
+     */
+    private function hasRecentLogin(RecentMicrosoftLogin $recent): bool
+    {
+        $this->authorize(AdminSections::INTEGRATIONS);
+
+        $user = Auth::user();
+
+        if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
+            abort(403, self::EMERGENCY_MESSAGE);
+        }
+
+        if ($recent->isFresh()) {
+            return true;
+        }
+
+        $this->redirectRoute('auth.microsoft.confirm', [
+            'return' => route('admin.integrations.index', $this->selectedId === null ? [] : ['sistema' => $this->selectedId], false),
+        ]);
+
+        return false;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Api\StatusReporter;
+use App\Auth\RecentMicrosoftLogin;
 use App\Livewire\Admin\IntegrationManager;
 use App\Models\App;
 use App\Models\Company;
@@ -59,9 +60,23 @@ class IntegrationsPageTest extends TestCase
         return $integration->fresh();
     }
 
-    private function manager(): Testable
+    private function manager(bool $fresh = true): Testable
     {
+        if ($fresh) {
+            session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+        } else {
+            session()->forget(RecentMicrosoftLogin::SESSION_KEY);
+        }
+
         return Livewire::actingAs($this->admin)->test(IntegrationManager::class);
+    }
+
+    private function emergencyManager(): Testable
+    {
+        $emergency = User::factory()->emergency()->create();
+        $emergency->assignRole('super_admin');
+
+        return Livewire::actingAs($emergency)->test(IntegrationManager::class);
     }
 
     private function apiEntries(string $event)
@@ -212,6 +227,89 @@ class IntegrationsPageTest extends TestCase
             ->assertHasErrors(['abilities.0']);
 
         $this->assertSame(0, Integration::query()->count());
+    }
+
+    // --- Recent Microsoft sign-in ------------------------------------------
+
+    public function test_creating_needs_a_recent_microsoft_login(): void
+    {
+        $confirm = route('auth.microsoft.confirm', ['return' => '/admin/integraciones']);
+
+        // The form only opens after the confirmation, so nothing typed is lost.
+        $this->manager(fresh: false)
+            ->call('startCreating')
+            ->assertRedirect($confirm)
+            ->assertSet('creating', false);
+
+        // A crafted call straight to create() is refused as well.
+        $this->manager(fresh: false)
+            ->set('name', 'Monitor de disponibilidad')
+            ->set('abilities', [Integration::CATALOG_READ])
+            ->call('create')
+            ->assertRedirect($confirm)
+            ->assertSet('plainToken', null);
+
+        $this->assertSame(0, Integration::query()->count());
+        $this->assertSame(0, PersonalAccessToken::query()->count());
+    }
+
+    public function test_an_expired_confirmation_is_asked_again_on_create(): void
+    {
+        $component = $this->manager()
+            ->call('startCreating')
+            ->assertSet('creating', true)
+            ->set('name', 'Monitor de disponibilidad')
+            ->set('abilities', [Integration::CATALOG_READ]);
+
+        $this->travel(RecentMicrosoftLogin::TTL_SECONDS + 1)->seconds();
+
+        $component->call('create')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/admin/integraciones']));
+
+        $this->assertSame(0, Integration::query()->count());
+    }
+
+    public function test_rotating_needs_a_recent_microsoft_login(): void
+    {
+        $monitor = $this->integration();
+        $oldHash = PersonalAccessToken::query()->sole()->token;
+
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('rotate')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/admin/integraciones?sistema='.$monitor->id]))
+            ->assertSet('plainToken', null);
+
+        $this->assertSame($oldHash, PersonalAccessToken::query()->sole()->token);
+        $this->assertCount(0, $this->apiEntries('integration.rotated'));
+    }
+
+    public function test_emergency_accounts_cannot_create_or_rotate_tokens(): void
+    {
+        $monitor = $this->integration();
+        $oldHash = PersonalAccessToken::query()->sole()->token;
+        session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+
+        $this->emergencyManager()->call('startCreating')->assertForbidden()->assertSet('creating', false);
+
+        $this->emergencyManager()
+            ->set('name', 'Monitor 2')
+            ->set('abilities', [Integration::CATALOG_READ])
+            ->call('create')
+            ->assertForbidden();
+
+        $this->emergencyManager()->call('select', $monitor->id)->call('rotate')->assertForbidden();
+
+        $this->assertSame(1, Integration::query()->count());
+        $this->assertSame($oldHash, PersonalAccessToken::query()->sole()->token);
+    }
+
+    public function test_emergency_accounts_are_told_why(): void
+    {
+        $this->withoutExceptionHandling();
+        $this->expectExceptionMessage(IntegrationManager::EMERGENCY_MESSAGE);
+
+        $this->emergencyManager()->call('startCreating');
     }
 
     // --- Rotating and revoking ---------------------------------------------

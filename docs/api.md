@@ -26,6 +26,8 @@ Cada sistema tiene su propio token. Lo crea un súper administrador en **Adminis
 
 - **IP permitidas** (opcional): direcciones (`10.0.0.5`) o rangos (`192.168.1.0/24`) desde las que se acepta el token. Si la lista está vacía, se acepta desde cualquier IP. Se recomienda limitarla a la IP del servidor que hace las llamadas.
 
+Para crear o rotar un token, el portal pide confirmar de nuevo la sesión con Microsoft si la última confirmación tiene más de 10 minutos (igual que al crear una empresa). La cuenta de emergencia no puede crear ni rotar tokens.
+
 El token empieza por `ryr_` y **se muestra una sola vez**, al crearlo. Guárdelo en el gestor de secretos del sistema que lo va a usar; el portal solo conserva una huella del token y no puede volver a mostrarlo.
 
 - **Rotar:** genera un token nuevo y el anterior deja de funcionar de inmediato. Úselo si el token se pudo haber filtrado o si se perdió.
