@@ -65,7 +65,7 @@ class Admin extends Component
                 $this->user?->can('viewAny', Company::class)
                     ? ['label' => 'Empresas', 'icon' => 'building', 'route' => 'admin.companies.index', 'active' => 'admin.companies.*']
                     : null,
-                self::soon('Roles', 'user-check'),
+                ['label' => 'Roles', 'icon' => 'user-check', 'route' => 'admin.roles.index', 'active' => 'admin.roles.*'],
                 self::soon('Integraciones', 'plug'),
             ]))],
             ['label' => 'Seguimiento', 'items' => [

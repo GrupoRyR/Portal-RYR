@@ -26,7 +26,7 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 ## Tasks
 - [x] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
 - [x] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
-- [ ] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
+- [x] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
 - [ ] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
 - [ ] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
 
@@ -45,6 +45,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 | 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`) | +1062 (413 tests) → `size:exception` |
 | 2 | `feat/fase-5-2-anuncios-inicio` | slice 1 | T1 home display + /anuncios (`2a6a118`) | +465 −3 (167 tests) |
 | 3 | `feat/fase-5-3-admin-anuncios` | slice 2 | T2 list + access (`1b47fb7`) and editor (`48f6590`) — kept together: `1b47fb7` alone has a dead «Nuevo anuncio» link | +1701 −29 (≈840 tests) → `size:exception` |
+| 4 | `feat/fase-5-4-roles` | slice 3 | T3 roles page (one commit) | +982 −1 (404 tests) → `size:exception` |
 
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
@@ -62,5 +63,12 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice
 
 - 2026-10-06: Parent spot check on `feat/fase-5-3-admin-anuncios` (`48f6590`): `php artisan test` → 651 passed (3196 assertions). Jhon dismissed the review prompt and then disabled receipt-driven development globally (`gentle-ai review mode disable` → off). From now on: no review assessment or consent prompts; ordinary checks only.
 
+- 2026-10-06: T3 done (route: delegated writer, same as T1/T2).
+  - `App\Admin\RoleMatrix` is the single source of «Qué puede hacer cada rol»: each row carries its grants and the real check (`CompanyPolicy`, `AppPolicy`, `AppCategoryPolicy`, `AnnouncementPolicy`, the new `RolePolicy` on spatie `Role`, and new gates `viewActivity` / `manageIntegrations` / `manageSettings` in `App\Policies\AdminSections`). `RoleMatrixTest` asserts every cell against the check for each role, so the table cannot drift. Integraciones and Configuración show «Próximamente».
+  - `/admin/roles` (`App\Livewire\Admin\RoleManager`): super_admin and portal_admin only; members per role (super admins read-only with the configured-emails note, portal admins read-only «Se asigna solo… APP-PortalAdmin»), editors with add (search name/email, ≥ 2 chars, ≤ 8 results, never emergency accounts or current editors, `%`/`_` literal) and remove; every action re-authorized (`RolePolicy::assignEditor` / `removeEditor`), crafted calls by an editor get 403. Activity log `roles`: `role.assigned` / `role.removed` with causer, subject user and `role`.
+  - Emergency account card: exists or not, 2FA confirmed or not, last use or «nunca usada», hint `php artisan portal:emergency-account`; no secrets, no actions.
+  - Design deviations: «Roles» row reads «Solo editores» for both admin roles (both can only manage editors; the other roles are automatic); «Anuncios» reads «Solo de su empresa» for editors.
+  - RED: 23/23 new tests errored (missing class/route/component). GREEN: `php artisan test` → 674 passed.
+
 ## Next step
-T3 (Roles), T4 (Auditoría), T5 (Informe de uso) — one delegated writer, slices from `feat/fase-5-3-admin-anuncios`.
+T4 (Auditoría), then T5 (Informe de uso) — same delegated writer, stacked slices.
