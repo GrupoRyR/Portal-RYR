@@ -60,6 +60,7 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 3 | `feat/fase-3-3-usuarios` | slice 2 | T3 (`191377f`) | 511 (≈278 tests) |
 | 4 | `feat/fase-3-4-auth-base` | slice 3 | T4 packages, config, roles (`385e786`) | 529 (≈356 vendor-published config/migration) |
 | 5 | `feat/fase-3-5-login` | slice 4 | T4 login flow + security fix (`ed6453e`, `38da14b`) | 1369 (≈600 tests) |
+| 6 | `feat/fase-3-6-sin-vinculo-invitados` | slice 5 | No guest linking (Open question 3 decision) | 333 (+153/−180) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -114,8 +115,24 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
 - 2026-10-05: Parent spot check `php artisan test` → 120 passed (330 assertions). Review of `ac301d6..38da14b`: assessed high (auth hot path), consent declined by Jhon. Next review base: `38da14b`.
 - Env keys Jhon must add (names only): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (absolute), `MICROSOFT_TENANT` (optional, default `organizations`), `PORTAL_SUPER_ADMIN_EMAILS`. Server needs `php artisan storage:link` for avatars.
 
-## Open question 3 (product, raised 2026-10-05)
-Brief section 3 asks to link a Derivados guest in Segurex to their Derivados account by email. Microsoft's guidance is to treat guests as new users; even with the `idp` check, Segurex admins can edit a real guest's `mail` and redirect the link to another Derivados user. Options: keep verified-guest linking (current) or stop linking guests (separate user per tenant).
+## Open question 3 (product, raised 2026-10-05) — RESOLVED 2026-10-05
+Brief section 3 asks to link a Derivados guest in Segurex to their Derivados account by email. Microsoft's guidance is to treat guests as new users; even with the `idp` check, Segurex admins can edit a real guest's `mail` and redirect the link to another Derivados user. Options: keep verified-guest linking or stop linking guests (separate user per tenant).
+
+**Decision (Jhon, 2026-10-05): do NOT link guests.** Following https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference, a guest sign-in is a brand-new, separate portal user. Its privileges come only from the tenant it signed in to. This overrides brief section 3 ("se vincula por correo").
+
+- 2026-10-05: Slice 6 (`feat/fase-3-6-sin-vinculo-invitados`, from `feat/fase-3-5-login`; route: delegated writer) implements the decision.
+  - Identity is (`tenant_id` = `tid`, `azure_oid` = `oid`) only. No email matching anywhere.
+  - Company = `TenantDirectory::resolveCompany(tid, email)`, so a Derivados person signing in through Segurex becomes a Segurex user. The tenant gate is unchanged.
+  - Migration `2026_10_05_000005_relax_users_email_uniqueness` drops the unique index on `users.email` and keeps a plain index. Its `down()` fails if emails are duplicated. The "email already taken → reject" rule was removed, and the email from the token is stored at every sign-in (never an `#EXT#` UPN).
+  - `super_admin` is unchanged: the email must be listed, `idp` home tenant = `tid`, and the company owning the email domain must be in `tid`. Removed from the code: guest-company resolution, the `isGuest`/email-trust branches and the email-collision check. `MicrosoftIdentity::homeTenant()` stays because `super_admin` needs it.
+  - Tests:
+    - Replaced the linking tests with: a guest creates a separate Segurex user and leaves the home user's attributes, groups and roles intact; six spoofed-mail scenarios (four from another tenant, two guests inside the owning tenant) never touch Jhon's user or roles; repeated sign-ins of the same (`tid`, `oid`) update one row; a same-email user is never linked; an unowned email may be shared.
+    - Added: `super_admin` on a home sign-in with an issuer-style `idp`; the `users.email` index is not unique.
+  - RED: `php artisan test` → 120 tests, 109 passed, 11 not passing (10 failures, 1 error).
+  - GREEN: `php artisan test` → 120 passed (357 assertions). `php artisan migrate:fresh --seed` → DONE (`migrate:rollback --step=1` + `migrate` → DONE). `vendor/bin/pint --test` → passed.
+  - Authored lines (excluding `odd/`): 4 files, +153/−180.
+
+- 2026-10-05: Parent spot check on `feat/fase-3-6-sin-vinculo-invitados` (`f819492`): `php artisan test` → 120 passed (357 assertions). Review of `38da14b..f819492`: assessed high (auth hot path), consent declined by Jhon. Next review base: `f819492`. Note: brief section 3 (guest linking by email) is superseded by this decision.
 
 ## Next step
-Ask Jhon Open question 3, then T5 (blocked on Open question 1).
+Review/delivery decision for slice 6, then T5 (blocked on Open question 1).
