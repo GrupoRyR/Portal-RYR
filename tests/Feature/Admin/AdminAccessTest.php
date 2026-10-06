@@ -50,7 +50,8 @@ class AdminAccessTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('portal_admin');
 
-        $this->actingAs($user)->get('/admin')->assertRedirect(route('admin.companies.index'));
+        // Portal admins cannot manage companies: they land on the apps.
+        $this->actingAs($user)->get('/admin')->assertRedirect(route('admin.apps.index'));
     }
 
     public function test_portal_admins_cannot_manage_companies(): void

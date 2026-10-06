@@ -17,7 +17,8 @@ use Illuminate\Support\Collection as BaseCollection;
  * search). An app is visible when:
  *
  * 1. its status is not `hidden` (maintenance apps stay visible);
- * 2. it is linked to the user's company in `app_companies`;
+ * 2. it is linked to the user's company in `app_companies`, or it is
+ *    flagged `available_to_all_companies` (every active company);
  * 3. at least one access rule grants it (App\Models\AppAccessRule).
  *
  * Users without a company, users of an inactive company and emergency
@@ -148,7 +149,9 @@ class AppCatalog
 
         return App::query()
             ->where('status', '!=', App::STATUS_HIDDEN)
-            ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
+            ->where(fn (Builder $query) => $query
+                ->where('available_to_all_companies', true)
+                ->orWhereHas('companies', fn (Builder $query) => $query->whereKey($companyId)))
             ->with(['accessRules' => fn (HasMany $query) => $query->where(function (Builder $query) use ($user, $companyId) {
                 $query->where('company_id', $companyId)
                     ->orWhere(fn (Builder $query) => $query

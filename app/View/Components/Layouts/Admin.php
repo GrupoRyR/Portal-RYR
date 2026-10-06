@@ -46,7 +46,7 @@ class Admin extends Component
     {
         return [
             ['label' => 'Catálogo', 'items' => [
-                self::soon('Aplicaciones', 'apps'),
+                ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 self::soon('Categorías', 'tag'),
                 self::soon('Anuncios', 'megaphone'),
             ]],

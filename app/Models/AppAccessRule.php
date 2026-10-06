@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * - `user`: the user whose id is `value`;
  * - `company`: everyone in `company_id` (`value` is null).
  *
- * Rules only apply to companies the app is linked to (`app_companies`).
+ * Rules only apply to companies the app is linked to (`app_companies`, or
+ * every active company when the app is `available_to_all_companies`).
  */
 #[Fillable(['app_id', 'type', 'value', 'company_id'])]
 class AppAccessRule extends Model
