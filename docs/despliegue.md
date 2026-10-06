@@ -198,6 +198,27 @@ cd <carpeta-del-proyecto>\docs\scripts
 
 El script pide iniciar sesión, crea solo los grupos que falten (por ahora `APP-PortalAdmin`) e informa cuáles creó y cuáles ya existían. Se puede ejecutar varias veces. Si PowerShell bloquea el script, ejecute antes `Set-ExecutionPolicy -Scope Process RemoteSigned`.
 
+### 1.11 App instalable y modo sin conexión (PWA)
+
+El portal se puede instalar en celulares, tablets y computadores, y guarda una copia del inicio para mostrarla sin conexión. No hay que configurar nada en `.env`, pero sí revisar el servidor:
+
+1. **HTTPS obligatorio.** Los navegadores solo instalan el portal y activan el modo sin conexión con HTTPS (paso 1.8). Con `http://` el portal funciona, pero sin instalación ni copia guardada.
+2. **Direcciones que responde Laravel.** `/manifest.webmanifest` (nombre, colores e íconos de la empresa de quien inicia sesión) y `/sw.js` (el *service worker*) no son archivos: los responde la aplicación con sus propios encabezados (`application/manifest+json` y `text/javascript`, `Cache-Control: no-cache`, `Service-Worker-Allowed: /`). No cree archivos con esos nombres en `public/`, porque Apache los serviría en lugar de la aplicación. Compruébelo después del despliegue:
+
+   ```bash
+   curl -sI https://apps.segurexlatam.net/sw.js | grep -i -E "content-type|cache-control|service-worker-allowed"
+   curl -s https://apps.segurexlatam.net/manifest.webmanifest | head -c 200
+   ```
+
+3. **`public/.htaccess`** ya trae la compresión (`mod_deflate`), un año de caché para `public/build/assets` (sus nombres cambian con cada compilación) y `no-cache` para `offline.html`. Si el CSS o el JS llegan sin comprimir o sin caché, pida a GoDaddy que active `mod_deflate` y `mod_headers`:
+
+   ```bash
+   curl -sI -H "Accept-Encoding: gzip" https://apps.segurexlatam.net/build/assets/<archivo>.css | grep -i -E "content-encoding|cache-control"
+   ```
+
+4. **Íconos de cada empresa.** Se generan una sola vez a partir del ícono de la empresa (PNG de 512 × 512) en `storage/app/public/brand/<empresa>/pwa/`, con la extensión GD de PHP. Si GD no está instalada (`php -m | grep -i gd`), el portal usa el ícono neutro de `public/icons/portal-*.png`. Requiere el enlace `public/storage` (paso 1.10).
+5. **Actualizaciones.** No hay que borrar cachés a mano: cada `npm run build` cambia los nombres de los archivos y la versión del *service worker*; al abrir el portal con conexión, el navegador descarga la versión nueva y borra la anterior. Por eso `public/build` siempre debe ir en el commit.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)
@@ -284,3 +305,6 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | Sitio en mantenimiento | `php artisan up` |
 | Cambios en `.env` no se aplican | `php artisan optimize` (regenera la caché de configuración) |
 | Error de permisos | `chmod -R u+rwX storage bootstrap/cache` |
+| El celular no ofrece instalar el portal | Que el sitio abra con HTTPS y que `/manifest.webmanifest` y `/sw.js` respondan 200 (paso 1.11) |
+| Un equipo sigue viendo la versión anterior | Cerrar todas las pestañas o ventanas del portal y abrirlo de nuevo con conexión |
+| El ícono instalado es el neutro | Que la empresa tenga ícono (Administración › Empresas), que PHP tenga GD y que exista `public/storage` |

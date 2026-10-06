@@ -24,7 +24,7 @@ Home stays free of Livewire/Alpine. No new heavy JS libraries. Code in English, 
 - [x] T1 — Manifest per company + icons (192/512/maskable from brand icon, cached files) + meta tags; tests. Route: delegated writer.
 - [x] T2 — Service worker + offline notice + per-user cache privacy (sign-out purge); tests where deterministic (headers, routes, manifest, SW served with correct scope/headers) + browser check. Route: delegated writer (same).
 - [x] T3 — Lighthouse/device-emulation pass and fixes. Route: delegated writer (same).
-- [ ] T4 — `docs/manual-administracion.md` with the device test checklist. Route: delegated writer (same).
+- [x] T4 — `docs/manual-administracion.md` with the device test checklist. Route: delegated writer (same).
 
 ## Acceptance criteria
 - Chrome reports the portal installable; installed it opens standalone with the company's icon and colors.
@@ -52,5 +52,8 @@ Branch `feat/fase-9-pwa-manual` stacked on `feat/fase-8-api-integraciones` (`f3f
   - `public/.htaccess`: `mod_deflate` for text types (incl. `application/manifest+json`), `Cache-Control: public, max-age=31536000, immutable` for `/build/assets/*`, `no-cache` for `offline.html` (Apache 2.4 `<If>`; not testable locally — verify on the server). The worker version now also hashes `offline.html`.
   - Test-first exception: these are layout/CSS and server-config fixes without a meaningful deterministic PHPUnit RED; verified by the browser measurements above. `php artisan test` 861 passed; `pint --test` passed; build committed.
 
+- 2026-10-06: T4 done (route: delegated writer, same). `docs/manual-administracion.md` (Spanish, «usted»): access and roles, Microsoft re-confirmation, every admin screen as implemented (Empresas + ficha + asistente + cambio de inquilino, Aplicaciones + Quién la ve + estados + estado reportado, Categorías, Anuncios, Roles, Integraciones, Auditoría, Informe de uso, Configuración), emergency account (`portal:emergency-account`, `--reset-2fa`, `--disable`, what it cannot do), common tasks (add an app, access by group, maintenance, rotate a token, «una persona no ve una aplicación» checklist), the installed-app behaviour and its privacy limits, and the real-device checklist (Android Chrome, iPhone Safari «Agregar a inicio», tablet, desktop install, shared-device sign-out, after a deploy). `docs/despliegue.md` § 1.11 (HTTPS, `/sw.js` and `/manifest.webmanifest` answered by Laravel — no files with those names in `public/` —, `.htaccess` compression/caching with curl checks, GD for icons, updates without manual cache busting) plus three troubleshooting rows. Labels checked against the Blade/Livewire views. Test-first exception: documentation only (structural readback). `php artisan test` 861 passed; tree clean.
+  - Deviations: Lighthouse scores not produced (see T3); real-device testing left to Jhon (out of scope).
+
 ## Next step
-T4.
+Phase 9 close-out: parent spot check; Jhon runs the real-device checklist (manual § 6) on HTTPS and, if wanted, approves installing Lighthouse (`npx lighthouse`) to record mobile scores for home and sign-in; confirm the T1/T2 decisions.
