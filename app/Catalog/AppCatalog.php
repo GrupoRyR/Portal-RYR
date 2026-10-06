@@ -63,15 +63,17 @@ class AppCatalog
      * Distinct apps the user opened in the last 30 days, newest first,
      * limited to those still visible to them.
      *
+     * @param  Collection<int, App>|null  $visible  the result of visibleApps()
+     *                                              when the caller already has it
      * @return Collection<int, App>
      */
-    public function recentApps(User $user, int $limit = 5): Collection
+    public function recentApps(User $user, int $limit = 5, ?Collection $visible = null): Collection
     {
         if ($limit < 1 || ! $this->mayUseCatalog($user)) {
             return new Collection;
         }
 
-        $visible = $this->visibleApps($user)->keyBy('id');
+        $visible = ($visible ?? $this->visibleApps($user))->keyBy('id');
 
         if ($visible->isEmpty()) {
             return new Collection;
