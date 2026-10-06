@@ -71,9 +71,8 @@ final class RoleMatrix
             ),
             new RoleMatrixSection(
                 'Configuración',
-                ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => false],
+                ['super_admin' => true, 'portal_admin' => false, 'announcements_editor' => false],
                 fn (User $user) => $user->can(AdminSections::SETTINGS),
-                available: false,
             ),
         ];
     }

@@ -16,7 +16,7 @@ final class AdminSections
     /** Integraciones (Phase 8): API tokens open the portal to other systems. */
     public const INTEGRATIONS = 'manageIntegrations';
 
-    /** Configuración (Phase 7). */
+    /** Configuración (Phase 7): portal-wide settings, super admins only. */
     public const SETTINGS = 'manageSettings';
 
     public static function viewActivity(User $user): bool
@@ -31,6 +31,6 @@ final class AdminSections
 
     public static function manageSettings(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'portal_admin']);
+        return $user->hasRole('super_admin');
     }
 }

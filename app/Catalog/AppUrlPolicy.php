@@ -2,6 +2,8 @@
 
 namespace App\Catalog;
 
+use App\Settings\PortalSettings;
+
 /**
  * Decides which URLs a web app may point at: `https://` only, on a host
  * from the allowed list, with no user info and no explicit port.
@@ -36,9 +38,48 @@ final readonly class AppUrlPolicy
         $this->patterns = $normalized;
     }
 
-    public static function fromConfig(): self
+    /**
+     * The policy with the hosts of Configuración (App\Settings\PortalSettings,
+     * config portal.allowed_app_hosts until a super admin saves).
+     */
+    public static function current(): self
     {
-        return new self((array) config('portal.allowed_app_hosts', []));
+        return new self(app(PortalSettings::class)->allowedAppHosts());
+    }
+
+    /**
+     * Whether a lowercase host pattern may be added to the list: two or more
+     * DNS labels, and at most one `*` inside a label that also has a fixed
+     * part (`sgx-*`), never in the last two labels, so a pattern cannot
+     * open a whole domain or top-level domain to anyone's apps.
+     */
+    public static function isValidPattern(string $pattern): bool
+    {
+        if ($pattern === '' || strlen($pattern) > 253 || substr_count($pattern, '*') > 1) {
+            return false;
+        }
+
+        $labels = explode('.', $pattern);
+
+        if (count($labels) < 2) {
+            return false;
+        }
+
+        foreach ($labels as $index => $label) {
+            $wildcard = str_contains($label, '*');
+
+            if ($wildcard && ($label === '*' || $index >= count($labels) - 2)) {
+                return false;
+            }
+
+            $plain = str_replace('*', 'x', $label);
+
+            if (strlen($plain) > 63 || preg_match('/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/', $plain) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function allows(?string $url): bool

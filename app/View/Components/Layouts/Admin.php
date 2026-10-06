@@ -4,6 +4,7 @@ namespace App\View\Components\Layouts;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Policies\AdminSections;
 use App\Policies\AnnouncementPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -53,7 +54,7 @@ class Admin extends Component
             return [['label' => null, 'items' => [$announcements]]];
         }
 
-        return [
+        return array_values(array_filter([
             ['label' => 'Catálogo', 'items' => [
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
@@ -72,10 +73,13 @@ class Admin extends Component
                 ['label' => 'Auditoría', 'icon' => 'list', 'route' => 'admin.audit.index', 'active' => 'admin.audit.*'],
                 ['label' => 'Informe de uso', 'icon' => 'chart', 'route' => 'admin.usage.index', 'active' => 'admin.usage.*'],
             ]],
-            ['label' => null, 'items' => [
-                self::soon('Configuración', 'gear'),
-            ]],
-        ];
+            // Configuración is for super admins only (AdminSections::SETTINGS).
+            $this->user->can(AdminSections::SETTINGS)
+                ? ['label' => null, 'items' => [
+                    ['label' => 'Configuración', 'icon' => 'gear', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*'],
+                ]]
+                : null,
+        ]));
     }
 
     public function companyName(): string

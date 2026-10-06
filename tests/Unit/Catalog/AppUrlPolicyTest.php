@@ -68,4 +68,38 @@ class AppUrlPolicyTest extends TestCase
     {
         $this->assertFalse((new AppUrlPolicy([]))->allows('https://segurex.com.co'));
     }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function patterns(): array
+    {
+        return [
+            'plain domain' => ['segurex.com.co', true],
+            'subdomain' => ['pedidos.segurex.com.co', true],
+            'wildcard with prefix' => ['sgx-*.vercel.app', true],
+            'wildcard with suffix' => ['*-sgx.vercel.app', true],
+            'single label' => ['localhost', false],
+            'bare wildcard label' => ['*.vercel.app', false],
+            'wildcard in the domain' => ['sgx.*.app', false],
+            'wildcard in the top level' => ['segurex.*', false],
+            'two wildcards' => ['a-*-*.vercel.app', false],
+            'scheme' => ['https://segurex.com.co', false],
+            'path' => ['segurex.com.co/x', false],
+            'port' => ['segurex.com.co:443', false],
+            'uppercase' => ['Segurex.com.co', false],
+            'empty label' => ['segurex..co', false],
+            'leading hyphen' => ['-segurex.com.co', false],
+            'spaces' => ['segurex .com.co', false],
+            'empty' => ['', false],
+            'too long' => [implode('.', array_fill(0, 5, str_repeat('a', 60))).'.com', false],
+            'label too long' => [str_repeat('a', 64).'.com', false],
+        ];
+    }
+
+    #[DataProvider('patterns')]
+    public function test_it_validates_host_patterns(string $pattern, bool $valid): void
+    {
+        $this->assertSame($valid, AppUrlPolicy::isValidPattern($pattern));
+    }
 }

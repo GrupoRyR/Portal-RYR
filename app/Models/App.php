@@ -222,11 +222,11 @@ class App extends Model
     }
 
     /**
-     * Whether a web app may point at the URL (config portal.allowed_app_hosts).
+     * Whether a web app may point at the URL (allowed hosts of Configuración).
      */
     public static function urlIsAllowed(?string $url): bool
     {
-        return AppUrlPolicy::fromConfig()->allows($url);
+        return AppUrlPolicy::current()->allows($url);
     }
 
     /**

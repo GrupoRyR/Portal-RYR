@@ -9,6 +9,7 @@ use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
 use App\Models\User;
+use App\Settings\PortalSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -44,6 +45,7 @@ final class AuditPresenter
         'category.moved' => 'Movió',
         'role.assigned' => 'Hizo editor de anuncios a',
         'role.removed' => 'Quitó como editor de anuncios a',
+        'settings.updated' => 'Cambió',
     ];
 
     private const REJECTION_REASONS = [
@@ -106,6 +108,11 @@ final class AuditPresenter
         'companies' => 'Empresas',
         'position' => 'Posición',
         'role' => 'Rol',
+        PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
+        PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
+        PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
+        PortalSettings::ALLOWED_APP_HOSTS => 'Dominios permitidos',
+        PortalSettings::API_STATUS_TTL => 'Quitar «Con fallas» después de (horas)',
     ];
 
     private const MAX_VALUE = 300;
@@ -155,6 +162,10 @@ final class AuditPresenter
 
     private function subject(Activity $activity): string
     {
+        if ($activity->log_name === PortalSettings::AUDIT_LOG) {
+            return 'la configuración del portal';
+        }
+
         $model = $activity->subject;
         $name = fn (string $attribute) => $model?->getAttribute($attribute)
             ?? data_get($activity->properties, "attributes.{$attribute}")

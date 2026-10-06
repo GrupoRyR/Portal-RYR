@@ -131,6 +131,12 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             Route::get('/informe-uso', UsageController::class)->name('usage.index');
         });
 
+        // App\Policies\AdminSections::SETTINGS (Configuración): super_admin
+        // only; App\Livewire\Admin\SettingsEditor re-authorizes each action.
+        Route::view('/configuracion', 'admin.settings.index')
+            ->middleware('can:'.AdminSections::SETTINGS)
+            ->name('settings.index');
+
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
         Route::get('/empresas', [CompanyController::class, 'index'])
