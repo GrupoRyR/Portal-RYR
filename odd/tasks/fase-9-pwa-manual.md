@@ -29,7 +29,7 @@ Home stays free of Livewire/Alpine. No new heavy JS libraries. Code in English, 
 ## Acceptance criteria
 - Chrome reports the portal installable; installed it opens standalone with the company's icon and colors.
 - With the network off, a user who opened home before sees their cards and the offline notice; after signing out, nothing of theirs is served.
-- Lighthouse mobile ≥ 90 performance and accessibility on home and sign-in (local production build), or the gap is explained.
+- Lighthouse mobile ≥ 90 performance and accessibility on home and sign-in (local production build), or the gap is explained. — Met 2026-10-06: sign-in 96/100, home 99/100 (Lighthouse 13.5.0 medians, see Progress).
 - `php artisan test` passes.
 
 ## Delivery
@@ -57,5 +57,15 @@ Branch `feat/fase-9-pwa-manual` stacked on `feat/fase-8-api-integraciones` (`f3f
 
 - 2026-10-06: Parent spot check on `431568b`: `php artisan test` → 861 passed (4238 assertions); tree clean; `X-Portal-User` confirmed as a truncated HMAC of the user id with the app key (no id or email exposed). Phase 9 closed except the Lighthouse score (not installed; downloading it needs Jhon's approval) and the real-device checklist (manual §6, needs HTTPS).
 
+- 2026-10-06: Lighthouse run approved by Jhon («Sí, descárgalo y mide»). Lighthouse **13.5.0** via `npx` from the scratch folder (nothing added to the repo), system Chrome headless, default mobile preset (simulated throttling), categories performance / accessibility / best practices (13.x has no PWA category; installability was checked in T2 with CDP: no errors). Server: the scratch `php -S` router, now gzip-compressing HTML, CSS and JS like Apache `mod_deflate` and sending the `/build/assets` cache header, scratch SQLite, APP_DEBUG off; home measured signed in (session cookie via `--extra-headers`). Three runs each, medians:
+
+  | Page | Performance | Accessibility | Best practices | FCP | LCP | TBT | CLS |
+  |---|---|---|---|---|---|---|---|
+  | Sign-in (guest) | 96 (94, 96, 98) | 100 | 96 | 2.2 s | 2.2 s | 0 ms | 0.003 |
+  | Home (signed in) | 99 (99, 98, 99) | 100 | 100 | 1.7 s | 1.7 s | 0 ms | 0 |
+
+  - Everything ≥ 90, so no code change was made. Remaining Lighthouse notes: the only render-blocking request is `app.css`; on sign-in, «Browser errors» are the company logos answering 403 on the scratch server (no `public/storage` link there, an environment issue), and «Image elements do not have explicit width and height» is the company logos (the cause of CLS 0.003); server response time reflects the single-threaded dev server.
+  - Acceptance criterion «Lighthouse mobile ≥ 90 performance and accessibility on home and sign-in (local production build)»: **met**.
+
 ## Next step
-All brief phases delivered. Pending with Jhon: Lighthouse run, real-device checklist, push/PRs for the stacked branches, production deploy, backups decision.
+All brief phases delivered. Pending with Jhon: real-device checklist, push/PRs for the stacked branches, production deploy, backups decision.
