@@ -70,7 +70,8 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 10 | `feat/fase-3-10-admin-shell` | slice 9 | T6a Livewire 4, layouts, admin shell (`1ebd080`) | +626/−2 (207 tests) |
 | 11 | `feat/fase-3-11-ui-paginas` | slice 10 | T6a restyled placeholder pages (`b2aa517`) | +204/−73 |
 | 12 | `feat/fase-3-12-ajustes-ui` | slice 11 | T6a adjustments: 4.8:1 button, Livewire only where needed (`10eb654`, `eb10899`) | +68/−18 |
-| 13 | `feat/fase-3-13-empresas-admin` | slice 12 | T6b companies list + edit (`8af717d`) and logos (follow-up) | +1385/−21 (508 tests; over budget, two natural commits) |
+| 13 | `feat/fase-3-13-empresas-admin` | slice 12 | T6b companies list + edit (`8af717d`) | +984/−12 (339 tests; one editor, no cohesive smaller split → `size:exception`) |
+| 14 | `feat/fase-3-14-logos` | slice 13 | T6b sanitized logo uploads + sign-in logos (`3149ef4`) | +401/−9 (169 tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -233,5 +234,7 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
   3. «Nueva empresa» is shown disabled until the T6c wizard.
   4. Logos are stored under `/storage/brand/…`; production needs `php artisan storage:link` (already noted for avatars).
 
+- 2026-10-05: Parent spot check on `feat/fase-3-14-logos` (`3149ef4`): `php artisan test` → 253 passed (867 assertions). T6b split at its commit boundary into slices 13 and 14. Review of `1d399a4..3149ef4`: assessed high (auth view), consent declined by Jhon. Next review base: `3149ef4`. Open follow-ups: orphaned upload file if the DB save fails after writing it (fix in T6c); 375px phone layout of the editor not yet checked in a browser.
+
 ## Next step
-T6c (new-company wizard + tenant changes) on a new slice branched from `feat/fase-3-13-empresas-admin`.
+T6c (new-company wizard + tenant changes) on `feat/fase-3-15-asistente-empresa` branched from `feat/fase-3-14-logos`.
