@@ -26,7 +26,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 ## Tasks
 - [x] T1 — Companies domain: migration, `Company` model, seeder with the two real tenants, domains and brand colors; tests. Route: delegated writer (multi-file).
 - [x] T2 — `TenantDirectory`: allowed tenant IDs from active companies (cached, invalidated on company save/delete), resolve company from `tid` + email domain (shared-tenant rule), reject unknown/inactive tenants; tests. Route: delegated writer (same as T1).
-- [ ] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
+- [x] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [ ] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
 - [ ] T5 — Emergency admin account. Blocked on Open question 1.
 - [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Blocked on Open question 2.
@@ -83,5 +83,11 @@ Each slice states start, end, dependencies and out-of-scope in its PR body with 
 - 2026-10-05: Parent spot check `php artisan test` → 46 passed. Review of `feat/fase-2-base..ff59d89`: assessed medium (`slice_budget_reached`, executable change in `app/Models/Company.php`), consent declined by Jhon. Next review base: `ff59d89`.
 - Writer decisions to confirm: exact-domain match only (subdomains not owned); second primary per tenant rejected (application check only); shared tenant without an active primary resolves to null; seeded colors follow the design canvas (Segurex dark `#8F360B` is not in the brief; Derivados extra blues `#6D94E8`, `#031D54` not stored).
 
+- 2026-10-05: T3 done (route: delegated writer) on `feat/fase-3-3-usuarios`. Migration `add_microsoft_identity_to_users_table` (`azure_oid`/`tenant_id` string 36, `company_id` FK nullOnDelete, `job_title`, `photo_path`, `last_login_at`, nullable `password`, unique (`tenant_id`, `azure_oid`); NULL pairs allowed on SQLite and MySQL), `user_groups` table (FK cascade, unique (`user_id`, `group_id`)). `User`: `company()`, `groups()`, case-insensitive `isInGroup()`, `syncGroups()` (one transaction; deletes missing, renames changed, adds new; skips items without id, dedupes ids), lowercase GUID mutators. Group model placed at `App\Microsoft\UserGroup` because `app/Models/UserGroup.php` was outside the authorized edit surface (parent to confirm or move). `UserFactory::microsoft(?Company)` state.
+  - RED: `php artisan test tests/Feature/Users` → 20 tests, 0 passed, 2 failures (missing columns), 18 errors (`Call to undefined method User::syncGroups()`, `NOT NULL constraint failed: users.password`, `no column named azure_oid`, `UserFactory::microsoft()` undefined).
+  - GREEN: `php artisan test` → 66 passed (143 assertions). `php artisan migrate:fresh --seed` → DONE; `migrate:rollback --step=2` then `migrate` → DONE (down migration works on SQLite). `vendor/bin/pint` → passed.
+  - Authored lines: 511 insertions, 1 deletion (278 of them tests).
+  - Commit: see `git log feat/fase-3-2-directorio..feat/fase-3-3-usuarios` (feat(users): …).
+
 ## Next step
-Slice 3 on `feat/fase-3-3-usuarios` (T3 — users for Microsoft identities), branched from `feat/fase-3-2-directorio`.
+Slice 4 on `feat/fase-3-4-login` (T4 — Microsoft login flow), branched from `feat/fase-3-3-usuarios`.

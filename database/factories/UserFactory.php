@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -41,5 +42,22 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /**
+     * A user signed in with Microsoft: an object ID in the tenant of the
+     * given (or a new) company.
+     */
+    public function microsoft(?Company $company = null): static
+    {
+        return $this->state(function () use ($company) {
+            $company ??= Company::factory()->create();
+
+            return [
+                'azure_oid' => (string) Str::uuid(),
+                'tenant_id' => $company->tenant_id,
+                'company_id' => $company->id,
+            ];
+        });
     }
 }
