@@ -13,6 +13,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Pwa\ManifestController;
 use App\Http\Controllers\SupportController;
 use App\Models\Announcement;
 use App\Models\App;
@@ -22,6 +23,10 @@ use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
+
+// Installable app (PWA): the manifest of the signed-in user's company,
+// the neutral portal one for guests.
+Route::get('/manifest.webmanifest', ManifestController::class)->name('pwa.manifest');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [MicrosoftLoginController::class, 'show'])->name('login');

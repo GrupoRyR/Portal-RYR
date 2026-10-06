@@ -21,7 +21,7 @@ Push notifications, background sync, backups, real-device testing itself (Jhon r
 Home stays free of Livewire/Alpine. No new heavy JS libraries. Code in English, UI/docs in Spanish. Agent cannot touch `.env*`. HTTPS only in production (SW requires it; localhost works for checks).
 
 ## Tasks
-- [ ] T1 — Manifest per company + icons (192/512/maskable from brand icon, cached files) + meta tags; tests. Route: delegated writer.
+- [x] T1 — Manifest per company + icons (192/512/maskable from brand icon, cached files) + meta tags; tests. Route: delegated writer.
 - [ ] T2 — Service worker + offline notice + per-user cache privacy (sign-out purge); tests where deterministic (headers, routes, manifest, SW served with correct scope/headers) + browser check. Route: delegated writer (same).
 - [ ] T3 — Lighthouse/device-emulation pass and fixes. Route: delegated writer (same).
 - [ ] T4 — `docs/manual-administracion.md` with the device test checklist. Route: delegated writer (same).
@@ -38,5 +38,8 @@ Branch `feat/fase-9-pwa-manual` stacked on `feat/fase-8-api-integraciones` (`f3f
 ## Progress
 - 2026-10-06: Document created. Phase 8 T4 (re-auth for token create/rotate) committed as `f3f0587`.
 
+- 2026-10-06: T1 done (route: delegated writer; trigger: 2+ non-trivial files). `GET /manifest.webmanifest` (`App\Http\Controllers\Pwa\ManifestController`, `App\Pwa\WebManifest`) answers `application/manifest+json`, `Cache-Control: private, no-cache`, `Vary: Cookie`; the signed-in user's company gives name/short name, splash `background_color` = brand tint; guests get the neutral portal manifest. `App\Pwa\PwaIcons` makes 192, 512, maskable 512 and Apple 180 PNGs with GD from the company icon (always a 512 px PNG, so no SVG rasterizing is needed) under `brand/{slug}/pwa/{icon-name}-{variant}.png`, once; files of a replaced icon are deleted on the next generation; no GD / missing / broken icon → neutral portal icons in `public/icons/portal-*.png` (generated once with GD, committed). `<x-pwa-head />` in the app layout: manifest link with `crossorigin="use-credentials"` (browsers fetch manifests without cookies otherwise), `apple-touch-icon`, `mobile-web-app-capable`, Apple title/status bar metas. RED: 10 new tests in `tests/Feature/Pwa` failed (404 route, missing class, missing link). GREEN: `php artisan test` 849 passed; `pint --test` passed.
+  - Decisions to confirm: installed app name = company name, short name = company short name (guests: `APP_NAME`); `theme_color` stays the page ground `#F5F5F2` (same as the pages' theme-color meta) while the splash `background_color` is the brand tint; maskable/Apple icons fill the edge with the icon's own top-center color (white when transparent) and keep the icon in the 80 % safe zone.
+
 ## Next step
-T1.
+T2.
