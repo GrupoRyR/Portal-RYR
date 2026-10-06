@@ -7,7 +7,10 @@ use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
 use App\Policies\AdminSections;
 use App\Policies\RolePolicy;
+use App\Settings\ApplySessionLifetime;
+use App\Settings\PortalSettings;
 use App\Tenancy\TenantDirectory;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -25,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantDirectory::class);
+        $this->app->singleton(PortalSettings::class);
         $this->app->bind(GraphClient::class, HttpGraphClient::class);
     }
 
@@ -45,6 +49,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define(AdminSections::INTEGRATIONS, [AdminSections::class, 'manageIntegrations']);
         Gate::define(AdminSections::SETTINGS, [AdminSections::class, 'manageSettings']);
         Gate::policy(Role::class, RolePolicy::class);
+
+        // Idle timeout of Configuración, applied before the session starts.
+        Event::listen(RouteMatched::class, ApplySessionLifetime::class);
 
         // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
         Event::listen(function (SocialiteWasCalled $event) {

@@ -41,31 +41,40 @@
                 </form>
             @endif
 
-            <details id="cuenta" class="relative order-2 ml-auto md:order-3 md:shrink-0 xl:flex xl:w-[300px] xl:justify-end" data-account>
-                <summary class="flex size-touch cursor-pointer list-none items-center justify-center rounded-full bg-brand-tint text-[0.9375rem] font-bold text-brand-ink [&::-webkit-details-marker]:hidden">
-                    <span aria-hidden="true">{{ $page->userInitials }}</span>
-                    <span class="sr-only">Cuenta de {{ $page->userName }}</span>
-                </summary>
-                <div class="absolute top-full right-0 z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-card border border-line bg-surface p-2 shadow-card">
-                    <div class="flex flex-col px-3 py-2">
-                        <span class="font-semibold">{{ $page->userName }}</span>
-                        @if ($page->userEmail)
-                            <span class="truncate text-[0.8125rem] text-fg-muted">{{ $page->userEmail }}</span>
+            <div class="order-2 ml-auto flex items-center gap-3 md:order-3 md:shrink-0 xl:w-[300px] xl:justify-end">
+                @if ($page->supportHref)
+                    {{-- Icon only on phones (docs/diseno/PhoneHome), labelled from tablets up (Main, Tablet). --}}
+                    <a href="{{ $page->supportHref }}" target="_blank" rel="noopener" class="inline-flex size-touch items-center justify-center gap-2 rounded-control border border-line-strong bg-surface text-sm font-semibold hover:bg-subtle md:w-auto md:px-4">
+                        <x-home.icon name="lifebuoy" class="size-5 md:size-[18px]" />
+                        <span class="sr-only md:not-sr-only">Soporte TI</span>
+                    </a>
+                @endif
+                <details id="cuenta" class="relative" data-account>
+                    <summary class="flex size-touch cursor-pointer list-none items-center justify-center rounded-full bg-brand-tint text-[0.9375rem] font-bold text-brand-ink [&::-webkit-details-marker]:hidden">
+                        <span aria-hidden="true">{{ $page->userInitials }}</span>
+                        <span class="sr-only">Cuenta de {{ $page->userName }}</span>
+                    </summary>
+                    <div class="absolute top-full right-0 z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-card border border-line bg-surface p-2 shadow-card">
+                        <div class="flex flex-col px-3 py-2">
+                            <span class="font-semibold">{{ $page->userName }}</span>
+                            @if ($page->userEmail)
+                                <span class="truncate text-[0.8125rem] text-fg-muted">{{ $page->userEmail }}</span>
+                            @endif
+                        </div>
+                        @if ($page->canAdminister)
+                            <a href="{{ route('admin.index') }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
+                                <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
+                            </a>
                         @endif
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="flex min-h-touch w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-sm font-semibold hover:bg-subtle">
+                                <x-home.icon name="logout" class="size-[18px] text-fg-muted" />Cerrar sesión
+                            </button>
+                        </form>
                     </div>
-                    @if ($page->canAdminister)
-                        <a href="{{ route('admin.index') }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
-                            <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
-                        </a>
-                    @endif
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="flex min-h-touch w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-sm font-semibold hover:bg-subtle">
-                            <x-home.icon name="logout" class="size-[18px] text-fg-muted" />Cerrar sesión
-                        </button>
-                    </form>
-                </div>
-            </details>
+                </details>
+            </div>
         </div>
     </header>
 

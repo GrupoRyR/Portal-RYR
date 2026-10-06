@@ -13,6 +13,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\SupportController;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
@@ -63,6 +64,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/apps/{app:slug}', AppLaunchController::class)
         ->middleware('throttle:60,1')
         ->name('apps.open');
+
+    // Soporte TI: redirect to the ticket platform of Configuración with
+    // where the person comes from (404 when no support URL is set).
+    Route::get('/soporte', SupportController::class)
+        ->middleware('throttle:60,1')
+        ->name('support');
 
     Route::middleware('throttle:60,1')->group(function () {
         Route::post('/favoritos/{app:slug}', [FavoriteController::class, 'store'])->name('favorites.store');
@@ -130,6 +137,12 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
                 ->name('audit.export');
             Route::get('/informe-uso', UsageController::class)->name('usage.index');
         });
+
+        // App\Policies\AdminSections::SETTINGS (Configuración): super_admin
+        // only; App\Livewire\Admin\SettingsEditor re-authorizes each action.
+        Route::view('/configuracion', 'admin.settings.index')
+            ->middleware('can:'.AdminSections::SETTINGS)
+            ->name('settings.index');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).

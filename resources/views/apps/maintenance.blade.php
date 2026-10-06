@@ -21,7 +21,12 @@
                 </p>
             @endif
 
-            <a href="{{ route('home') }}" class="mt-1 flex min-h-[52px] items-center justify-center rounded-icon bg-brand-button text-base font-semibold text-white hover:opacity-90">Volver al inicio</a>
+            <div class="mt-1 flex flex-col gap-2.5">
+                <a href="{{ route('home') }}" class="flex min-h-[52px] items-center justify-center rounded-icon bg-brand-button text-base font-semibold text-white hover:opacity-90">Volver al inicio</a>
+                @if ($supportHref)
+                    <a href="{{ $supportHref }}" target="_blank" rel="noopener" class="flex min-h-[52px] items-center justify-center rounded-icon border border-line-strong bg-surface text-base font-semibold hover:bg-subtle">Avisar a Soporte TI</a>
+                @endif
+            </div>
         </section>
     </main>
 </x-layouts.app>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Catalog\AppCatalog;
 use App\Models\App;
 use App\Models\AppLaunch;
+use App\Settings\PortalSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,20 +24,23 @@ use Illuminate\View\View;
  */
 class AppLaunchController extends Controller
 {
-    public function __invoke(Request $request, App $app, AppCatalog $catalog): View|RedirectResponse
+    public function __invoke(Request $request, App $app, AppCatalog $catalog, PortalSettings $settings): View|RedirectResponse
     {
         $user = $request->user();
 
         abort_unless($catalog->canOpen($user, $app), 404);
 
+        // «Soporte TI» on these pages names the app shown (SupportController).
+        $supportHref = $settings->supportUrl() === null ? null : route('support', ['app' => $app->slug]);
+
         if ($app->inMaintenance()) {
-            return view('apps.maintenance', ['app' => $app]);
+            return view('apps.maintenance', ['app' => $app, 'supportHref' => $supportHref]);
         }
 
         if ($app->isLocal()) {
             AppLaunch::record($user, $app, $request->userAgent());
 
-            return view('apps.local', ['app' => $app]);
+            return view('apps.local', ['app' => $app, 'supportHref' => $supportHref]);
         }
 
         // The model only saves allowed URLs; checked again before leaving

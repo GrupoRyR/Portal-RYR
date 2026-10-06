@@ -50,8 +50,8 @@ return [
     |
     | Web apps of the catalog may only point at `https://` URLs on these
     | hosts (App\Catalog\AppUrlPolicy). A plain domain also covers its
-    | subdomains; `*` matches part of one DNS label only. Configuración
-    | (Phase 5) will manage this list.
+    | subdomains; `*` matches part of one DNS label only. Default of the
+    | list managed in Administración → Configuración.
     |
     */
 
@@ -60,5 +60,28 @@ return [
         'derivadoscol.com.co',
         'sgx-*.vercel.app',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Defaults of Configuración
+    |--------------------------------------------------------------------------
+    |
+    | App\Settings\PortalSettings uses these until a super admin saves
+    | Administración → Configuración; saved values live in the database.
+    | The idle timeout defaults to config('session.lifetime').
+    |
+    | - support_url: ticket platform of the «Soporte TI» button (none: the
+    |   button is hidden).
+    | - microsoft_logout: also end the Microsoft session when signing out.
+    | - api_status_ttl_hours: hours after which an app reported as failing
+    |   goes back to normal when no new report arrives (Integraciones).
+    |
+    */
+
+    'support_url' => env('PORTAL_SUPPORT_URL') ?: null,
+
+    'microsoft_logout' => false,
+
+    'api_status_ttl_hours' => 2,
 
 ];

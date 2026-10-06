@@ -80,7 +80,17 @@ class RoleMatrixTest extends TestCase
             'Anuncios' => [true, true, true],
             'Roles' => [true, true, false],
             'Auditoría e informe de uso' => [true, true, false],
-            'Configuración' => [true, true, false],
+            'Configuración' => [true, false, false],
         ], $grants);
+    }
+
+    public function test_only_integrations_is_still_coming_soon(): void
+    {
+        $soon = array_values(array_map(
+            fn ($section) => $section->label,
+            array_filter(RoleMatrix::sections(), fn ($section) => ! $section->available),
+        ));
+
+        $this->assertSame(['Integraciones'], $soon);
     }
 }

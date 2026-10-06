@@ -13,7 +13,7 @@ class AllowedAppUrl implements ValidationRule
 {
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! is_string($value) || ! AppUrlPolicy::fromConfig()->allows($value)) {
+        if (! is_string($value) || ! AppUrlPolicy::current()->allows($value)) {
             $fail('La dirección debe empezar por https:// y pertenecer a un dominio permitido.');
         }
     }
