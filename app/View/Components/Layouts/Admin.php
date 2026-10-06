@@ -50,11 +50,15 @@ class Admin extends Component
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
                 self::soon('Anuncios', 'megaphone'),
             ]],
-            ['label' => 'Organización', 'items' => [
-                ['label' => 'Empresas', 'icon' => 'building', 'route' => 'admin.companies.index', 'active' => 'admin.companies.*'],
+            ['label' => 'Organización', 'items' => array_values(array_filter([
+                // Only super admins manage companies (CompanyPolicy): nobody
+                // else is offered a link that ends in a 403.
+                $this->user?->can('viewAny', Company::class)
+                    ? ['label' => 'Empresas', 'icon' => 'building', 'route' => 'admin.companies.index', 'active' => 'admin.companies.*']
+                    : null,
                 self::soon('Roles', 'user-check'),
                 self::soon('Integraciones', 'plug'),
-            ]],
+            ]))],
             ['label' => 'Seguimiento', 'items' => [
                 self::soon('Auditoría', 'list'),
                 self::soon('Informe de uso', 'chart'),

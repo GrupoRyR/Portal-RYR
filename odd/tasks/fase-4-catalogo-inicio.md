@@ -58,11 +58,12 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
 | T3 launch, favorites, recents | `feat/fase-4-3-lanzamiento` | T2 (`fba3ae0`) | `84be060` | +919 / −0 (tests 511) | committed, not pushed |
 | T4 home model | `feat/fase-4-4-inicio-modelo` | T3 (`e9ea5ad`) | `8e9e912` | +1091 / −6 (tests 523) | committed, not pushed |
 | T4 home UI | `feat/fase-4-5-inicio-ui` | T4 model | `90a1ebb` | +786 / −25 excl. build (tests 335) | committed, not pushed |
-| T5 all-companies flag | `feat/fase-4-6-admin-apps` | T4 UI (`8f35e2d`) | `50ada19` | +138 / −4 (tests 98) | committed, not pushed |
-| T5 apps list + policy | `feat/fase-4-6-admin-apps` | `50ada19` | `5e4eb8a` | +712 / −3 excl. build (tests 242) | committed, not pushed |
-| T5 app editor | `feat/fase-4-6-admin-apps` | `5e4eb8a` | `3679a2e` | +1429 / −6 excl. build (tests 492) — over budget, one screen: recommend `size:exception` | committed, not pushed |
-| T5 access rules | `feat/fase-4-6-admin-apps` | `3679a2e` | `9c2a925` | ≈ +671 / −6 excl. build and `odd` (tests 247) | committed, not pushed |
-| T6 categories | `feat/fase-4-7-admin-categorias` | T5 (`9c2a925`) | this commit (see `git log`) | +683 / −1 excl. build and `odd` (tests 266) | committed, not pushed |
+| T5 all-companies flag | `feat/fase-4-6-admin-apps-lista` | T4 UI (`8f35e2d`) | `50ada19` | +138 / −4 (tests 98) | committed, not pushed |
+| T5 apps list + policy | `feat/fase-4-6-admin-apps-lista` | `50ada19` | `5e4eb8a` | +712 / −3 excl. build (tests 242) | committed, not pushed |
+| T5 app editor | `feat/fase-4-7-admin-apps-editor` | `5e4eb8a` | `3679a2e` | +1429 / −6 excl. build (tests 492) — over budget, one screen: recommend `size:exception` | committed, not pushed |
+| T5 access rules | `feat/fase-4-8-admin-apps-reglas` | `3679a2e` | `9c2a925` | ≈ +671 / −6 excl. build and `odd` (tests 247) | committed, not pushed |
+| T6 categories | `feat/fase-4-9-admin-categorias` | T5 (`9c2a925`) | `f95c790` | +683 / −1 excl. build and `odd` (tests 266) | committed, not pushed |
+| Close-out: hide «Empresas» for non-super-admins | `feat/fase-4-10-cierre` | T6 (`f95c790`) | this commit | small (+1 test) | committed, not pushed |
 
 ## Progress
 - 2026-10-05: Document created.
@@ -106,5 +107,9 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
   - Deviations from the canvas: a delete button on every row (the canvas shows none; the message explains why non-empty ones cannot go); the canvas shows one empty category on its own and the rest collapsed — here all empty ones are collapsed into one row and «Mostrar» reveals them in place with «Ocultar vacías»; no drag handle behaviour (the dots are decorative; ordering is by the up/down buttons).
 - Decisions by parent per brief: «Todas las empresas activas» = per-app flag (T5) so new companies are included automatically (brief §5.2); launches store only the device type (desktop/tablet/phone), no IP or user agent.
 
+- 2026-10-05: Parent spot check on `feat/fase-4-9-admin-categorias` (`f95c790`): `php artisan test` → 575 passed (2839 assertions). T5 sliced at commit boundaries into `feat/fase-4-6-admin-apps-lista` (`50ada19`+`5e4eb8a`), `feat/fase-4-7-admin-apps-editor` (`3679a2e`, `size:exception`), `feat/fase-4-8-admin-apps-reglas` (`9c2a925`); T6 on `feat/fase-4-9-admin-categorias`.
+- 2026-10-05: Close-out (inline): the admin sidebar no longer offers «Empresas» to users who cannot view companies (portal_admin used to get a 403 link). RED: new `AdminAccessTest` case failed; GREEN: `php artisan test` → 576 passed (2842 assertions).
+- **Phase 4 closed.** T1–T6 done. Open for Jhon: OneDrive default URL; T4/T5/T6 design deviations; hidden apps block category deletion; local-app download URL only requires https (not the allowed-host list).
+
 ## Next step
-Phase 4 close-out: parent spot check and review of the T5/T6 slices (`8f35e2d..9c2a925`, `9c2a925..` T6), `php artisan migrate:fresh --seed` on a clean database, then acceptance criteria. Open for Jhon: OneDrive default URL; T4, T5 and T6 design deviations; `size:exception` for the T5 editor commit (`3679a2e`).
+Phase 5 (announcements, roles, audit, usage report) — new feature document.
