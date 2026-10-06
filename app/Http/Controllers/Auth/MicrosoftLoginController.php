@@ -91,6 +91,11 @@ class MicrosoftLoginController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        // A completed Microsoft sign-in is itself a fresh confirmation: the
+        // sensitive company actions only ask Microsoft again once it is older
+        // than RecentMicrosoftLogin::TTL_SECONDS (decision 2026-10-05).
+        $recent->confirm();
+
         return redirect()->intended('/');
     }
 

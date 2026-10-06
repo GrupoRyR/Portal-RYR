@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Auth\RecentMicrosoftLogin;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
@@ -155,6 +156,24 @@ class MicrosoftLoginTest extends TestCase
         $this->withSession(['url.intended' => url('/apps')])
             ->hitCallback()
             ->assertRedirect(url('/apps'));
+    }
+
+    public function test_a_normal_sign_in_counts_as_a_recent_microsoft_confirmation(): void
+    {
+        $this->freezeTime();
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph();
+
+        $this->hitCallback()
+            ->assertRedirect('/')
+            ->assertSessionHas(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+    }
+
+    public function test_a_rejected_sign_in_does_not_count_as_a_recent_confirmation(): void
+    {
+        $this->signInAs(['tid' => '11111111-1111-1111-1111-111111111111', 'oid' => self::OID]);
+
+        $this->hitCallback()->assertSessionMissing(RecentMicrosoftLogin::SESSION_KEY);
     }
 
     public function test_an_unknown_tenant_is_rejected(): void
