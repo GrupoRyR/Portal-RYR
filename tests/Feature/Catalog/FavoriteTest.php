@@ -58,6 +58,43 @@ class FavoriteTest extends TestCase
         $this->assertSame(0, $this->user->favoriteApps()->count());
     }
 
+    public function test_the_form_without_javascript_adds_and_returns_to_the_card(): void
+    {
+        $app = $this->openableApp();
+
+        $this->actingAs($this->user)->post("/favoritos/{$app->slug}")
+            ->assertRedirect(route('home').'#app-'.$app->slug);
+
+        $this->assertTrue($this->user->favoriteApps()->whereKey($app->id)->exists());
+    }
+
+    public function test_the_form_without_javascript_removes_with_method_spoofing(): void
+    {
+        $app = $this->openableApp();
+        $this->user->favoriteApps()->attach($app);
+
+        $this->actingAs($this->user)->post("/favoritos/{$app->slug}", ['_method' => 'DELETE'])
+            ->assertRedirect(route('home').'#app-'.$app->slug);
+
+        $this->assertSame(0, $this->user->favoriteApps()->count());
+    }
+
+    public function test_the_form_keeps_the_current_search(): void
+    {
+        $app = $this->openableApp();
+
+        $this->actingAs($this->user)->post("/favoritos/{$app->slug}", ['q' => 'cámaras'])
+            ->assertRedirect(route('home', ['q' => 'cámaras']).'#app-'.$app->slug);
+    }
+
+    public function test_the_form_ignores_a_search_that_is_not_text(): void
+    {
+        $app = $this->openableApp();
+
+        $this->actingAs($this->user)->post("/favoritos/{$app->slug}", ['q' => ['x']])
+            ->assertRedirect(route('home').'#app-'.$app->slug);
+    }
+
     public function test_favorites_are_per_user(): void
     {
         $app = $this->openableApp();

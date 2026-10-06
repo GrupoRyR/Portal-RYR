@@ -1,0 +1,71 @@
+<?php
+
+namespace App\View\Home;
+
+/**
+ * The view model of the home screen (resources/views/home.blade.php). The
+ * view only prints it: every query and decision happens in
+ * HomePageBuilder.
+ */
+final readonly class HomePage
+{
+    /**
+     * @param  list<AppCard>  $favorites
+     * @param  list<CategoryGroup>  $categories
+     * @param  list<AppCard>  $recents
+     * @param  list<QuickLink>  $quickLinks
+     */
+    public function __construct(
+        public string $salutation,
+        public string $firstName,
+        public string $dateLine,
+        public string $companyName,
+        public string $companyInitial,
+        public ?string $companyIconUrl,
+        public string $userName,
+        public string $userInitials,
+        public ?string $userEmail,
+        public bool $canAdminister,
+        public int $appCount,
+        public array $favorites,
+        public array $categories,
+        public array $recents,
+        public array $quickLinks,
+        public string $query,
+        public int $resultCount,
+    ) {}
+
+    public function hasApps(): bool
+    {
+        return $this->appCount > 0;
+    }
+
+    public function isSearching(): bool
+    {
+        return $this->query !== '' && $this->hasApps();
+    }
+
+    /**
+     * «Buenos días, Ana» (just the salutation when the name is unknown).
+     */
+    public function greeting(): string
+    {
+        return $this->firstName === '' ? $this->salutation : "{$this->salutation}, {$this->firstName}";
+    }
+
+    public function availability(): string
+    {
+        return $this->appCount === 1
+            ? "Tienes 1 aplicación disponible en {$this->companyName}."
+            : "Tienes {$this->appCount} aplicaciones disponibles en {$this->companyName}.";
+    }
+
+    public function resultSummary(): string
+    {
+        return match ($this->resultCount) {
+            0 => "No encontramos aplicaciones para «{$this->query}».",
+            1 => '1 resultado',
+            default => "{$this->resultCount} resultados",
+        };
+    }
+}
