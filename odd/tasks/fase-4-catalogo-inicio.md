@@ -90,4 +90,4 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
 - Decisions by parent per brief: «Todas las empresas activas» = per-app flag (T5) so new companies are included automatically (brief §5.2); launches store only the device type (desktop/tablet/phone), no IP or user agent.
 
 ## Next step
-T5 (Admin Aplicaciones) on a new branch from `feat/fase-4-4-inicio`. To confirm with the user: the OneDrive default URL (consumer domain that redirects work accounts), the T4 design deviations above, plus the open T3 questions ("all companies" apps; device type without IP/User-Agent for the launch log).
+T5 (Admin Aplicaciones, incl. «Todas las empresas activas» flag) + T6 (Admin Categorías) on `feat/fase-4-6-admin-apps` / `feat/fase-4-7-admin-categorias`, branched from `feat/fase-4-5-inicio-ui`. Open for Jhon: OneDrive default URL; T4 design deviations.
