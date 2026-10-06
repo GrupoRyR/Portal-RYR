@@ -30,4 +30,17 @@ return [
 
     'admin_group' => 'APP-PortalAdmin',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Emergency access path
+    |--------------------------------------------------------------------------
+    |
+    | Unlinked path of the local emergency sign-in (password + TOTP), used
+    | only when Microsoft sign-in is unavailable. Not a secret by itself:
+    | the account is protected by its password, 2FA and throttling.
+    |
+    */
+
+    'emergency_path' => trim((string) env('PORTAL_EMERGENCY_PATH', 'acceso-emergencia'), '/'),
+
 ];

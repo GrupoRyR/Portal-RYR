@@ -75,6 +75,12 @@ class MicrosoftLogin
                 'azure_oid' => $identity->objectId,
             ]);
 
+        // Emergency accounts are local only; they never sign in through
+        // Microsoft, even if an identity was somehow attached to them.
+        if ($user->is_emergency) {
+            throw LoginFailed::retry();
+        }
+
         $user->email = $identity->email;
         $user->company_id = $company->id;
         $user->save();

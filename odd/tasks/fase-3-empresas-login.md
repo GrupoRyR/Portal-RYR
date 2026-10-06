@@ -28,7 +28,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - [x] T2 — `TenantDirectory`: allowed tenant IDs from active companies (cached, invalidated on company save/delete), resolve company from `tid` + email domain (shared-tenant rule), reject unknown/inactive tenants; tests. Route: delegated writer (same as T1).
 - [x] T3 — Users for Microsoft identities: `azure_oid`, `tenant_id`, `company_id`, job title, photo, last login, nullable password; `user_groups`; tests. Route: delegated writer (same as T1).
 - [x] T4 — Microsoft login flow: Socialite + Microsoft provider, redirect/callback routes, tenant gate, user upsert and guest linking by email, Graph sync of profile/photo/groups behind an interface, roles (`super_admin` from config, `portal_admin` from `APP-PortalAdmin`); tests with fakes. Route: delegated writer.
-- [ ] T5 — Emergency admin account. Blocked on Open question 1.
+- [x] T5 — Emergency admin account: local database user with password + TOTP 2FA (Open question 1 resolved). Route: delegated writer.
 - [ ] T6 — Companies administration UI (list, edit, new-company wizard with admin-consent link, super-admin-only tenant changes, audit + email notice). Blocked on Open question 2.
 
 ## Acceptance criteria
@@ -46,7 +46,7 @@ Catalog, access rules, cards (Phase 4). Real Entra app registration (done by Jho
 - `php artisan route:list --path=auth`
 
 ## Open questions (product decisions, ask one at a time when reached)
-1. Emergency account when the database is down: credentials (password hash + TOTP secret) in `.env` with a file-based session for that route only, or a regular database user with 2FA (simpler, but not usable if MySQL is down, which the brief requires).
+1. Emergency account when the database is down: credentials (password hash + TOTP secret) in `.env` with a file-based session for that route only, or a regular database user with 2FA (simpler, but not usable if MySQL is down, which the brief requires). **RESOLVED (Jhon, 2026-10-05):** regular database user with password + TOTP 2FA. Its purpose is signing in when Microsoft is down; it is NOT required to work when MySQL is down. The brief's sentence "Si la base de datos no responde, la cuenta de emergencia sigue funcionando" (section 3) is superseded.
 2. UI foundation for T6 and Phase 4: Livewire version and how the approved design tokens become CSS (frontend-design skill), before the first screen.
 
 ## Delivery
@@ -61,6 +61,8 @@ Strategy: `ask-on-risk`. Forecast T1–T4: ~900–1200 authored lines including 
 | 4 | `feat/fase-3-4-auth-base` | slice 3 | T4 packages, config, roles (`385e786`) | 529 (≈356 vendor-published config/migration) |
 | 5 | `feat/fase-3-5-login` | slice 4 | T4 login flow + security fix (`ed6453e`, `38da14b`) | 1369 (≈600 tests) |
 | 6 | `feat/fase-3-6-sin-vinculo-invitados` | slice 5 | No guest linking (Open question 3 decision) | 333 (+153/−180) |
+| 7 | `feat/fase-3-7-emergencia` | slice 6 | T5 schema + management command (`a202419`) | +459/−1 |
+| 8 | `feat/fase-3-8-emergencia-login` | slice 7 | T5 two-step sign-in (`cabacdb`) | ≈+611 (≈half tests) |
 
 Second slicing pass (2026-10-05): T4 split at its commit boundary into slices 4 and 5. Slice 5 stays well above budget: the flow and its fix are one cohesive unit and about half is tests → `size:exception` recommended.
 
@@ -134,5 +136,26 @@ Brief section 3 asks to link a Derivados guest in Segurex to their Derivados acc
 
 - 2026-10-05: Parent spot check on `feat/fase-3-6-sin-vinculo-invitados` (`f819492`): `php artisan test` → 120 passed (357 assertions). Review of `38da14b..f819492`: assessed high (auth hot path), consent declined by Jhon. Next review base: `f819492`. Note: brief section 3 (guest linking by email) is superseded by this decision.
 
+- 2026-10-05: T5 done on `feat/fase-3-7-emergencia` (route: delegated writer), two work-unit commits.
+  - Commit A `a202419`:
+    - `pragmarx/google2fa` ^9.1, read in `vendor/pragmarx/google2fa/src/Google2FA.php`: `verifyKeyNewer($secret, $code, $old)` returns the matched time step only when `$old` is not null; with null it returns `true`. So 0 stands for "never used". Steps ≤ `$old` are not searched, which rejects a replayed code. The default window is ±1 step.
+    - Migration `add_two_factor_to_users_table` adds `is_emergency`, `two_factor_secret` (encrypted cast, hidden), `two_factor_confirmed_at` and `two_factor_last_timestep`. `UserFactory::emergency()` state.
+    - `App\Auth\EmergencyTwoFactor` wraps google2fa.
+    - `portal:emergency-account {email} [--reset-2fa] [--disable]`: hidden password asked twice (≥16 characters, must match); prints the otpauth URI (issuer "Portal RYR") and the secret once; saves nothing until a code confirms the new secret. It assigns `super_admin`. `--disable` nulls the password and 2FA and removes `super_admin`, keeping the row. It refuses Microsoft emails and other local users' emails.
+    - Isolated check with commit A alone: `php artisan test` → 130 passed.
+  - Commit B (sign-in flow):
+    - `config('portal.emergency_path')` (env `PORTAL_EMERGENCY_PATH`, default `acceso-emergencia`). Guest-only routes `emergency.login`/`emergency.credentials` (`/acceso-emergencia`) and `emergency.code`/`emergency.verify` (`/acceso-emergencia/codigo`). Unlinked; `noindex` pages.
+    - `App\Auth\EmergencyLogin`: eligible only when `is_emergency`, no `azure_oid`/`tenant_id`, a password and confirmed 2FA. The pending user id sits in the session for at most 5 minutes; the session is regenerated on success. Every failure shows «Credenciales inválidas.».
+    - Throttling: 5 attempts per minute, counted inside the service so lockouts stay generic. Step 1 is keyed by IP + email. Step 2 is keyed by the pending account rather than the session, so restarting step 1 does not reset it (deviation, stricter than asked).
+    - `MicrosoftLogin` rejects an emergency user even if an identity was attached.
+    - Logs: `notice` on success, `warning` on each failure, with email, IP, user agent, step and reason; never the password, code or secret. A full audit trail comes in Phase 5.
+    - Found during verification: the unnamed POST routes inherited the duplicate name `emergency.`, which would break `route:cache`. They are now named, and a test asserts route names are unique.
+  - RED: `php artisan test` → 150 tests, 121 passed, 4 failed, 25 errors (`UserFactory::emergency()` undefined, command missing, routes 404, config null).
+  - GREEN: `php artisan test` → 151 passed (515 assertions). `php artisan migrate:fresh --seed` → DONE (rollback + migrate of the new migration → DONE). `route:list --path=acceso-emergencia` → 4 routes. `route:cache` → cached successfully (then cleared). `php artisan list portal` → `portal:emergency-account`. `composer validate` → valid. `vendor/bin/pint --test` → passed.
+  - Authored lines: commit A +459/−1 (excluding `composer.lock`), commit B ≈+611 (about half tests).
+- Env keys for T5 (names only): `PORTAL_EMERGENCY_PATH` (optional). Server: run `php artisan portal:emergency-account <email>` over SSH once and store the password and secret offline.
+
+- 2026-10-05: Parent spot check on `feat/fase-3-8-emergencia-login` (`cabacdb`): `php artisan test` → 151 passed (515 assertions). T5 split at its commit boundary into slices 7 and 8. Review of `6ee7a39..cabacdb`: assessed high (auth hot path), consent declined by Jhon. Next review base: `cabacdb`. To confirm with Jhon: code-step throttle is per account (stricter; a password holder can lock the owner out for ≤1 min).
+
 ## Next step
-Review/delivery decision for slice 6, then T5 (blocked on Open question 1).
+T6 (blocked on Open question 2: UI foundation).
