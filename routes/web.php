@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
@@ -64,17 +66,34 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-// Administration: super_admin and portal_admin only (role names from
-// Database\Seeders\RoleSeeder). Each section narrows access further.
-Route::middleware(['auth', 'role:super_admin|portal_admin'])
+// Administration: super_admin, portal_admin and announcements_editor (role
+// names from Database\Seeders\RoleSeeder). Each section narrows access
+// further; announcements editors only reach the announcements.
+Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         // Each role lands on the first section it may use: companies for
-        // the super admin, the app catalog for portal admins.
-        Route::get('/', fn () => redirect()->route(
-            Gate::allows('viewAny', Company::class) ? 'admin.companies.index' : 'admin.apps.index',
-        ))->name('index');
+        // the super admin, the app catalog for portal admins, announcements
+        // for announcements editors.
+        Route::get('/', fn () => redirect()->route(match (true) {
+            Gate::allows('viewAny', Company::class) => 'admin.companies.index',
+            Gate::allows('viewAny', App::class) => 'admin.apps.index',
+            default => 'admin.announcements.index',
+        }))->name('index');
+
+        // App\Policies\AnnouncementPolicy: admins any announcement,
+        // announcements editors only their own company's.
+        Route::get('/anuncios', [AdminAnnouncementController::class, 'index'])
+            ->can('viewAny', Announcement::class)
+            ->name('announcements.index');
+        Route::get('/anuncios/nuevo', [AdminAnnouncementController::class, 'create'])
+            ->can('create', Announcement::class)
+            ->name('announcements.create');
+        Route::get('/anuncios/{announcement}', [AdminAnnouncementController::class, 'edit'])
+            ->whereNumber('announcement')
+            ->can('update', 'announcement')
+            ->name('announcements.edit');
 
         // App\Policies\AppPolicy: super_admin and portal_admin.
         Route::get('/aplicaciones', [AppController::class, 'index'])

@@ -4,6 +4,7 @@ namespace App\View\Components\Layouts;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Policies\AnnouncementPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -44,11 +45,19 @@ class Admin extends Component
      */
     public function navigation(): array
     {
+        $announcements = ['label' => 'Anuncios', 'icon' => 'megaphone', 'route' => 'admin.announcements.index', 'active' => 'admin.announcements.*'];
+
+        // Announcements editors reach nothing else: the other sections are
+        // left out, not merely disabled.
+        if ($this->user === null || ! AnnouncementPolicy::manages($this->user)) {
+            return [['label' => null, 'items' => [$announcements]]];
+        }
+
         return [
             ['label' => 'Catálogo', 'items' => [
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
-                self::soon('Anuncios', 'megaphone'),
+                $announcements,
             ]],
             ['label' => 'Organización', 'items' => array_values(array_filter([
                 // Only super admins manage companies (CompanyPolicy): nobody

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Policies\AnnouncementPolicy;
 use Database\Factories\AnnouncementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -249,6 +250,32 @@ class Announcement extends Model
                 ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $now)),
             default => throw new InvalidArgumentException("Unknown announcement status [{$status}]."),
         };
+    }
+
+    /**
+     * Announcements the user may edit (App\Policies\AnnouncementPolicy):
+     * all of them for admins; for an announcements editor, those addressed
+     * to exactly their own company; none for anybody else.
+     *
+     * @param  Builder<Announcement>  $query
+     */
+    public function scopeManageableBy(Builder $query, User $user): void
+    {
+        if (AnnouncementPolicy::manages($user)) {
+            return;
+        }
+
+        if ($user->company_id === null || ! $user->hasRole(AnnouncementPolicy::EDITOR)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $companyId = (int) $user->company_id;
+
+        $query->where('audience', self::AUDIENCE_COMPANIES)
+            ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
+            ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
     }
 
     /**

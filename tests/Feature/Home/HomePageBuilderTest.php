@@ -241,12 +241,12 @@ class HomePageBuilderTest extends TestCase
         $this->assertSame(['Outlook', 'Teams', 'OneDrive', 'SharePoint'], $labels);
     }
 
-    public function test_only_portal_and_super_admins_may_administer(): void
+    public function test_admins_and_announcement_editors_may_administer(): void
     {
         $this->seed(RoleSeeder::class);
         $this->assertFalse($this->build()->canAdminister);
 
-        foreach (['super_admin', 'portal_admin'] as $role) {
+        foreach (['super_admin', 'portal_admin', 'announcements_editor'] as $role) {
             $user = User::factory()->microsoft($this->company)->create();
             $user->assignRole($role);
             $this->assertTrue(app(HomePageBuilder::class)->build($user->fresh())->canAdminister, $role);
