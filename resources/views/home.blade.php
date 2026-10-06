@@ -2,17 +2,25 @@
     Home screen (docs/diseno/Main, Tablet, PhoneHome, PhoneDark, PhoneSearch
     and PhoneEmpty). Announcements: a card in the desktop aside, a banner
     with the top one on phone and tablet. $page is an App\View\Home\HomePage: no queries here.
-    Works without JavaScript; resources/js/home.js adds instant search and
-    the favorite toggle. No Livewire or Alpine on this page.
+    Works without JavaScript; resources/js/home.js adds instant search, the
+    favorite toggle and the offline notice. No Livewire or Alpine on this page.
+    data-pwa-source turns to "cache" when the service worker (resources/js/sw.js)
+    answers with the saved copy of this page.
 --}}
 @php
     /** @var \App\View\Home\HomePage $page */
     $searching = $page->isSearching();
 @endphp
-<x-layouts.app title="Inicio" viewport-fit :data-server-search="$searching ? 'true' : 'false'">
+<x-layouts.app title="Inicio" viewport-fit :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
     <x-slot:head>
         @vite('resources/js/home.js')
     </x-slot:head>
+
+    {{-- docs/diseno/PhoneDark: shown by home.js without network or from the saved copy. --}}
+    <p role="status" data-offline-notice hidden class="flex items-center gap-2 bg-status-maintenance-bg px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-[0.8125rem] font-semibold text-status-maintenance md:px-8 lg:px-10">
+        <x-home.icon name="wifi-off" stroke-width="2" class="size-4" />
+        <span data-offline-text>Sin conexión · mostrando tus apps guardadas</span>
+    </p>
 
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
@@ -66,7 +74,7 @@
                                 <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
                             </a>
                         @endif
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout') }}" data-logout>
                             @csrf
                             <button type="submit" class="flex min-h-touch w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-sm font-semibold hover:bg-subtle">
                                 <x-home.icon name="logout" class="size-[18px] text-fg-muted" />Cerrar sesión

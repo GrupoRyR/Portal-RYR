@@ -7,6 +7,9 @@
 //   its category.
 // - "/" focuses the search; the bottom bar focuses search and opens the
 //   account menu.
+// - Installable app: registers the service worker (/sw.js, see
+//   resources/js/sw.js), shows the offline notice and asks the worker to
+//   forget this user's saved page when signing out.
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -146,3 +149,33 @@ account?.addEventListener('keydown', (event) => {
         $('summary', account).focus();
     }
 });
+
+// Offline notice (docs/diseno/PhoneDark): without network, or when the
+// service worker answered with the saved copy of this page.
+const notice = $('[data-offline-notice]');
+const fromCache = document.body.dataset.pwaSource === 'cache';
+
+function showConnection() {
+    if (!notice) return;
+
+    const offline = !navigator.onLine;
+    notice.hidden = !offline && !fromCache;
+    $('[data-offline-text]', notice).textContent = offline
+        ? 'Sin conexión · mostrando tus apps guardadas'
+        : 'Conexión lenta · mostrando tus apps guardadas';
+}
+
+showConnection();
+window.addEventListener('online', showConnection);
+window.addEventListener('offline', showConnection);
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    });
+
+    // Signing out also sends Clear-Site-Data; this covers browsers without it.
+    document.addEventListener('submit', (event) => {
+        if (event.target.matches('[data-logout]')) navigator.serviceWorker.controller?.postMessage('purge');
+    });
+}
