@@ -35,7 +35,7 @@ class CompanyEditor extends Component
     /** Lowercase host name: labels of 1–63 characters and a 2–63 letter TLD. */
     public const DOMAIN_PATTERN = '/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z/';
 
-    private const HEX_PATTERN = '/\A#[0-9A-Fa-f]{6}\z/';
+    public const HEX_PATTERN = '/\A#[0-9A-Fa-f]{6}\z/';
 
     private const PREVIEWS = ['light', 'dark', 'phone'];
 

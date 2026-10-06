@@ -7,6 +7,7 @@ use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
 use App\Auth\RecentMicrosoftLogin;
 use App\Http\Controllers\Controller;
+use App\Microsoft\ConsentChecker;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -55,8 +56,17 @@ class MicrosoftLoginController extends Controller
             ->redirect();
     }
 
-    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse
+    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse|View
     {
+        // A tenant administrator coming back from the admin-consent link.
+        // Nothing is trusted from these parameters: the wizard verifies the
+        // consent itself with ConsentChecker.
+        if ($request->query('state') === ConsentChecker::ADMIN_CONSENT_STATE) {
+            return view('auth.admin-consent', [
+                'granted' => $request->query('admin_consent') === 'True' && ! $request->has('error'),
+            ]);
+        }
+
         // The callback is shared with the re-authentication flow, so it is
         // not behind the guest middleware.
         if ($request->user() instanceof User) {

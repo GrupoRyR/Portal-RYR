@@ -5,18 +5,17 @@
             <h1 class="text-[2rem] leading-tight font-bold">Empresas</h1>
             <p class="text-[0.9375rem] text-fg-muted">Cada empresa entra con su propia organización de Microsoft y ve el portal con su marca.</p>
         </div>
-        <button type="button" disabled aria-describedby="new-company-help"
-                class="inline-flex h-11 cursor-not-allowed items-center gap-2 rounded-control border border-line-strong px-4 text-[0.9375rem] font-semibold text-fg-muted">
+        <a href="{{ route('admin.companies.create') }}"
+           class="inline-flex h-11 items-center gap-2 rounded-control bg-brand-button px-[18px] text-[0.9375rem] font-semibold text-white">
             <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Nueva empresa
-        </button>
-        <p id="new-company-help" class="sr-only">Próximamente: el asistente para agregar empresas.</p>
+        </a>
     </div>
 
     @if ($selected === null)
         <section class="mt-6 flex max-w-xl flex-col gap-2 rounded-card border border-line bg-surface p-6">
             <h2 class="font-sans text-lg font-bold tracking-normal">Todavía no hay empresas registradas.</h2>
-            <p class="text-fg-soft">Las empresas se agregan con el asistente de nueva empresa, que llega en la próxima versión.</p>
+            <p class="text-fg-soft">Agrega la primera con «Nueva empresa».</p>
         </section>
     @else
         <div class="mt-6 grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start">
@@ -52,6 +51,12 @@
                                     </span>
                                 </span>
                             </a>
+                            @if (! $company->is_active && $company->consent_verified_at === null)
+                                <p class="mt-1.5 flex items-center justify-between gap-2 px-1 text-[0.8125rem]">
+                                    <span class="text-fg-muted">Paso 2 de 4 · Consentimiento</span>
+                                    <a href="{{ route('admin.companies.wizard', $company) }}" class="inline-flex min-h-touch items-center font-semibold text-brand-ink underline-offset-4 hover:underline">Continuar<span class="sr-only"> el asistente de {{ $company->name }}</span></a>
+                                </p>
+                            @endif
                         </li>
                     @endforeach
                 </ul>

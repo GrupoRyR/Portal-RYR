@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
@@ -55,6 +56,16 @@ Route::middleware(['auth', 'role:super_admin|portal_admin'])
         Route::get('/empresas', [CompanyController::class, 'index'])
             ->can('viewAny', Company::class)
             ->name('companies.index');
+        // Creating a company opens the portal to a whole Microsoft
+        // organization: super_admin plus a fresh Microsoft re-authentication.
+        Route::middleware('microsoft.recent')->group(function () {
+            Route::get('/empresas/nueva', [CompanyWizardController::class, 'create'])
+                ->can('create', Company::class)
+                ->name('companies.create');
+            Route::get('/empresas/{company:slug}/asistente', [CompanyWizardController::class, 'resume'])
+                ->can('update', 'company')
+                ->name('companies.wizard');
+        });
         Route::get('/empresas/{company:slug}', [CompanyController::class, 'show'])
             ->can('update', 'company')
             ->name('companies.show');
