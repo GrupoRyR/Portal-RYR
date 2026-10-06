@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\HomeController;
 use App\Models\Company;
 use Illuminate\Support\Facades\Route;
 
@@ -35,7 +36,7 @@ Route::get('/auth/microsoft/callback', [MicrosoftLoginController::class, 'callba
     ->name('auth.microsoft.callback');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/', fn () => view('home'))->name('home');
+    Route::get('/', HomeController::class)->name('home');
 
     // Re-authentication before sensitive actions (middleware microsoft.recent).
     Route::get('/auth/microsoft/confirm', [MicrosoftLoginController::class, 'confirm'])
