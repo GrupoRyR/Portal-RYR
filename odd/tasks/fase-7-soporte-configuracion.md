@@ -54,5 +54,7 @@ Branch `feat/fase-7-soporte-configuracion` stacked on `feat/fase-6-guia-migracio
   - Browser check (static render with a support URL): home 1440 px button 127×44 left of the account avatar, 768 px labelled, 375 px icon 44×44; local and maintenance pages full-width buttons; no horizontal scroll at 375 px or 1440 px.
   - Design deviations: the maintenance canvas shows «Entendido» + «Avisar a Soporte TI»; the existing «Volver al inicio» primary button was kept and the support link added under it. The local-app canvas has no «Volver al inicio»; it was kept under «Soporte TI».
 
+- 2026-10-06: Parent spot check on `9b099ce`: `php artisan test` → 784 passed (3707 assertions); tree clean. Phase 7 closed. To confirm with Jhon: Configuración is super_admin only (portal_admin lost access); idle options 4/8/24 h plus the server value; register `{APP_URL}/login` as a front-channel logout/post-logout URL in Entra for the Microsoft sign-out switch; backups still out of scope.
+
 ## Next step
-Phase 7 close-out.
+Phase 8 (API for external systems + Integraciones) when Jhon asks for it.
