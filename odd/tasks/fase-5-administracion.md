@@ -1,0 +1,47 @@
+# Phase 5 — Announcements, roles, audit and usage report
+
+## Objective
+Admins can publish announcements that appear on the home screen of the right companies, see and assign portal roles, read a complete audit trail (configuration changes, app launches, security events) and a usage report built from real data.
+
+## Problem / why
+Phases 1–4 delivered identity, companies and the catalog with the home screen. The brief's remaining administration areas (§4 «Anuncios», §5.2 roles, «Registro de auditoría», «Informe de uso») are still «Próximamente» in the sidebar. Brief phase 9 list item 5.
+
+## Scope
+- Announcements domain, home display (desktop aside, tablet/phone banner) and administration (list + editor).
+- Roles screen: permission matrix, members per role, announcements editors management, emergency account status.
+- Audit screen over `activity_log` + `app_launches` (+ security events), filters, before/after diff, CSV export.
+- Usage report from `app_launches` and users (7/30/90 days), with a table view.
+
+## Out of scope
+Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Phase 8), PWA (Phase 9).
+
+## Constraints
+- Roles: `super_admin` (config emails), `portal_admin` (from `APP-PortalAdmin`), `announcements_editor` (assigned by hand; portal admins may assign it — decision 2026-10-05).
+- Identity is (`tenant_id`, `azure_oid`); never look users up by email alone.
+- Home stays free of Livewire/Alpine; admin uses Livewire 4.
+- Charts follow the dataviz skill; single-series charts; numbers always available as a table.
+- Personal data minimisation: launches keep only the device type.
+- Code in English, UI in Spanish. Agent cannot touch `.env*`.
+
+## Tasks
+- [ ] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
+- [ ] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
+- [ ] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
+- [ ] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
+- [ ] T5 — Admin Informe de uso per canvas from real data: active users per company, device split, most-opened apps, apps without use in 90 days, 7/30/90-day toggle, table view; tests. Route: delegated writer (dataviz).
+
+## Acceptance criteria
+- An announcement for Derivados never shows to a Segurex user; one for all companies shows to both; outside its window it shows to nobody; pinned ones come first.
+- An announcements editor cannot publish to another company and cannot reach other admin sections.
+- Every admin change and every app launch appears in Auditoría with who, what, when and from where (device type).
+- The usage report numbers match the underlying rows for the chosen period.
+- `php artisan test` passes.
+
+## Delivery
+Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice branches from `feat/fase-4-10-cierre`. Forecast ≈ 3000 authored lines incl. tests → slice per task/commit.
+
+## Progress
+- 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
+
+## Next step
+T1 + T2 (one delegated writer), then T3–T5.
