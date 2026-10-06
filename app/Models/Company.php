@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * A company of the group. Each one is bound to a Microsoft tenant; the
@@ -38,6 +40,69 @@ class Company extends Model
 {
     /** @use HasFactory<CompanyFactory> */
     use HasFactory;
+
+    use LogsActivity;
+
+    /** Activity log name for company changes (spatie/laravel-activitylog). */
+    public const AUDIT_LOG = 'companies';
+
+    /**
+     * Every change to a fillable attribute is logged with its causer and the
+     * before/after values of the changed fields only. Companies hold no
+     * secrets, so all fillable attributes may be stored.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName(self::AUDIT_LOG)
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+
+    /**
+     * Named events for the changes that open or close the portal to a
+     * Microsoft organization, on top of the generic created/updated entries.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $company) {
+            $company->audit('company.created', [
+                'attributes' => $company->only(['name', 'short_name', 'slug', 'tenant_id', 'domains', 'is_active']),
+            ]);
+        });
+
+        static::updated(function (self $company) {
+            if ($company->wasChanged('tenant_id')) {
+                $company->audit('company.tenant_changed', [
+                    'old' => ['tenant_id' => $company->getOriginal('tenant_id')],
+                    'attributes' => ['tenant_id' => $company->tenant_id],
+                ]);
+            }
+
+            if ($company->wasChanged('consent_verified_at') && $company->consent_verified_at !== null) {
+                $company->audit('company.consent_verified');
+            }
+
+            if ($company->wasChanged('is_active')) {
+                $company->audit($company->is_active ? 'company.activated' : 'company.deactivated');
+            }
+        });
+    }
+
+    /**
+     * Writes a named audit entry; the causer is the signed-in user, if any.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    public function audit(string $event, array $properties = []): void
+    {
+        activity(self::AUDIT_LOG)
+            ->performedOn($this)
+            ->event($event)
+            ->withProperties($properties)
+            ->log($event);
+    }
 
     /**
      * Defaults mirrored from the migration so new instances behave the same
