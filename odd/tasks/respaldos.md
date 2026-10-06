@@ -56,5 +56,7 @@ Branch `feat/respaldos` stacked on `feat/fase-9-pwa-manual` (`17c7f25`) → PR #
 - Manual local run (SQLite): plain `php artisan backup:run` fails because Windows has no `sqlite3` CLI (recorded as failed in `backup_runs`); with the PHP dumper of the tests (`Tests\Support\PhpSqliteDumper`, via tinker) it completed: zip 3.39 KB with `db-dumps/…sql` + `storage/app/public`, verified, copied to disk `backups`; `backup:list` → `portal-ryr | backups | ✅ | ✅ | 1 | 3.39 KB`. Local files and rows removed afterwards. The automated test `BackupRunTest` does the same real run in a temp dir.
 - Commits: `fefec3c` build(deps), `d049b36` feat(backups). ~1000 authored lines over the 400 heuristic: config, card, consumer and restore docs are one behavior; kept together with their tests.
 
+- 2026-10-06: Pushed and opened GrupoRyR/Portal-RYR#42. Jhon confirmed the settings as built: times 02:00/02:30/08:00, caps 2000/2500 MB, 3 manual requests per hour, unencrypted copies on the same server.
+
 ## Next step
-Push and open PR #42. In production: `which mysqldump` (set `DB_DUMP_BINARY_PATH` if not `/usr/bin`), first `php artisan backup:run` (docs/despliegue.md 1.12).
+Merge with the chain; first manual `php artisan backup:run` after the production deploy.
