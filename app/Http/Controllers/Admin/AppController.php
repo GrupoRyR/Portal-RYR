@@ -14,8 +14,9 @@ use Illuminate\Http\Request;
 
 /**
  * Apps administration (brief §5.2, docs/diseno/AdminApps.dc.html): summary
- * tiles and the filtered list. Filters are GET parameters so a filtered
- * view can be bookmarked.
+ * tiles and the filtered list, plus the pages of the editor
+ * (App\Livewire\Admin\AppEditor). Filters are GET parameters so a
+ * filtered view can be bookmarked.
  */
 class AppController extends Controller
 {
@@ -48,6 +49,16 @@ class AppController extends Controller
             'categories' => $categories,
             'statuses' => AppAdminStatus::cases(),
         ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.apps.edit', ['app' => null]);
+    }
+
+    public function edit(App $app): View
+    {
+        return view('admin.apps.edit', ['app' => $app]);
     }
 
     /**

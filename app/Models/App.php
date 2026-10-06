@@ -10,8 +10,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use LogicException;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * An application of the catalog. `web` apps open their URL; `local` apps
@@ -46,6 +49,17 @@ class App extends Model
 {
     /** @use HasFactory<AppFactory> */
     use HasFactory;
+
+    use LogsActivity;
+
+    /** Activity log name for catalog app changes (spatie/laravel-activitylog). */
+    public const AUDIT_LOG = 'apps';
+
+    /**
+     * Uploaded icons live on the "public" disk under {ICON_DIR}/{slug}/;
+     * the bundled ones (seeders) are files in public/{ICON_DIR}/.
+     */
+    public const ICON_DIR = 'icons/apps';
 
     public const TYPE_WEB = 'web';
 
@@ -103,6 +117,42 @@ class App extends Model
                 throw new LogicException('The slug of an app cannot change after creation.');
             }
         });
+
+        static::updated(function (self $app) {
+            if ($app->wasChanged('status')) {
+                $app->audit('app.status_changed', [
+                    'old' => ['status' => $app->getOriginal('status')],
+                    'attributes' => $app->only(['status', 'maintenance_message', 'maintenance_until']),
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Every change to a fillable attribute is logged with its causer and the
+     * before/after values of the changed fields only. Apps hold no secrets.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName(self::AUDIT_LOG)
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+
+    /**
+     * Writes a named audit entry; the causer is the signed-in user, if any.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    public function audit(string $event, array $properties = []): void
+    {
+        activity(self::AUDIT_LOG)
+            ->performedOn($this)
+            ->event($event)
+            ->withProperties($properties)
+            ->log($event);
     }
 
     /**
@@ -146,6 +196,29 @@ class App extends Model
     public function inMaintenance(): bool
     {
         return $this->status === self::STATUS_MAINTENANCE;
+    }
+
+    /**
+     * Public URL of the light (or dark) icon, uploaded or bundled.
+     */
+    public function iconUrl(bool $dark = false): ?string
+    {
+        $path = $dark ? $this->icon_dark_path : $this->icon_path;
+
+        if ($path === null) {
+            return null;
+        }
+
+        return $this->isUploadedIcon($path) ? Storage::disk('public')->url($path) : asset($path);
+    }
+
+    /**
+     * Whether the path is an upload of this app (as opposed to a bundled
+     * file under public/), so it may be deleted when replaced.
+     */
+    public function isUploadedIcon(?string $path): bool
+    {
+        return $path !== null && str_starts_with($path, self::ICON_DIR.'/'.$this->slug.'/');
     }
 
     /**
