@@ -50,4 +50,14 @@ class AppLaunch extends Model
     {
         return $this->belongsTo(App::class);
     }
+
+    /**
+     * The company the user belonged to when opening the app.
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 }

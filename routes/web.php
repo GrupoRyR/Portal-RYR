@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\AnnouncementController;
@@ -15,6 +16,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
@@ -117,6 +119,11 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/roles', 'admin.roles.index')
             ->can('viewAny', Role::class)
             ->name('roles.index');
+
+        // App\Policies\AdminSections::ACTIVITY: super_admin and portal_admin.
+        Route::middleware('can:'.AdminSections::ACTIVITY)->group(function () {
+            Route::get('/auditoria', [AuditController::class, 'index'])->name('audit.index');
+        });
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
