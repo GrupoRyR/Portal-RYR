@@ -70,7 +70,7 @@ class Admin extends Component
             ]))],
             ['label' => 'Seguimiento', 'items' => [
                 ['label' => 'Auditoría', 'icon' => 'list', 'route' => 'admin.audit.index', 'active' => 'admin.audit.*'],
-                self::soon('Informe de uso', 'chart'),
+                ['label' => 'Informe de uso', 'icon' => 'chart', 'route' => 'admin.usage.index', 'active' => 'admin.usage.*'],
             ]],
             ['label' => null, 'items' => [
                 self::soon('Configuración', 'gear'),
