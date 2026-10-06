@@ -47,6 +47,16 @@ return [
             'report' => false,
         ],
 
+        // Daily backups (config/backup.php). Private: never served, never
+        // under the public disk or the web root.
+        'backups' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/backups'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

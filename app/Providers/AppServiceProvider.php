@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Backups\RecordBackupOutcome;
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
+use Spatie\Backup\Events\BackupHasFailed;
+use Spatie\Backup\Events\BackupWasSuccessful;
 use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
@@ -72,6 +75,9 @@ class AppServiceProvider extends ServiceProvider
         // Every web response names its user for the service worker, which
         // drops a saved page as soon as someone else (or nobody) is signed in.
         Event::listen(RequestHandled::class, PortalUserKey::class);
+
+        // Outcome of every backup, for the «Respaldo diario» card.
+        Event::listen([BackupWasSuccessful::class, BackupHasFailed::class], RecordBackupOutcome::class);
 
         // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
         Event::listen(function (SocialiteWasCalled $event) {

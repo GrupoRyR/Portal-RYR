@@ -62,6 +62,12 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Daily backups (config/backup.php): folder of `mysqldump` and a
+            // consistent dump of InnoDB tables without locking them.
+            'dump' => [
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', '/usr/bin'),
+                'use_single_transaction' => true,
+            ],
         ],
 
         'mariadb' => [
@@ -82,6 +88,12 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Daily backups (config/backup.php): folder of `mysqldump` and a
+            // consistent dump of InnoDB tables without locking them.
+            'dump' => [
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', '/usr/bin'),
+                'use_single_transaction' => true,
+            ],
         ],
 
         'pgsql' => [
