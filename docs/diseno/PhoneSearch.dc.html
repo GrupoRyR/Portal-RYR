@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Portal RYR · Búsqueda</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+a:hover{color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F5F5F2; font-family: 'Figtree', system-ui, sans-serif; color: #17191C; display: flex; flex-direction: column; overflow: hidden">
+  <form role="search" style="flex-shrink: 0; padding: 20px 16px 12px; display: flex; gap: 8px; align-items: center">
+    <label for="qs" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Buscar aplicaciones</label>
+    <div style="flex: 1; height: 48px; box-sizing: border-box; border-radius: 14px; background: #FFFFFF; border: 2px solid #C4470F; display: flex; align-items: center; gap: 10px; padding: 0 12px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input id="qs" type="search" value="ca" style="flex: 1; border: 0; background: transparent; font: inherit; font-size: 16px; color: #17191C; outline: none">
+      <button type="button" aria-label="Borrar búsqueda" style="width: 32px; height: 32px; border: 0; border-radius: 50%; background: #ECECE7; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+    <button type="button" style="height: 44px; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #B23F0C; padding: 0 6px; cursor: pointer">Cancelar</button>
+  </form>
+
+  <div style="flex: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 13px; color: #5E6168">2 resultados</span>
+
+    <a href="#" style="display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 16px; background: #FFFFFF; border: 1px solid #F0B9B2">
+      <div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; background: #FDF3E3; display: flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"></path><rect x="4" y="8" width="16" height="11" rx="2.5"></rect><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"></path></svg></div>
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0">
+        <span style="font-weight: 700; font-size: 16px">Visualizador de <mark style="background: #FFE2D2; color: inherit; border-radius: 3px">ca</mark>rtera</span>
+        <span style="font-size: 13px; color: #5E6168">Contabilidad</span>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #B42318"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"></path><path d="M12 10v4M12 17.5v.01"></path></svg>Con fallas · se puede abrir</span>
+      </span>
+    </a>
+
+    <a href="#" style="display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E5E5E0">
+      <div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; background: #EDF0F4; display: flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="12" height="10" rx="2.5"></rect><path d="M15 10.5l6-3.5v10l-6-3.5"></path><circle cx="7" cy="10.5" r="0.6"></circle></svg></div>
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0">
+        <span style="font-weight: 700; font-size: 16px"><mark style="background: #FFE2D2; color: inherit; border-radius: 3px">Cá</mark>maras</span>
+        <span style="font-size: 13px; color: #5E6168">TI o Sistemas</span>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #5E6168"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>Instalada en tu equipo</span>
+      </span>
+    </a>
+
+    <span style="margin-top: 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #5E6168">Búsquedas recientes</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <a href="#" style="min-height: 40px; box-sizing: border-box; padding: 10px 14px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E2E2DC; font-size: 14px; font-weight: 500">pedidos</a>
+      <a href="#" style="min-height: 40px; box-sizing: border-box; padding: 10px 14px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E2E2DC; font-size: 14px; font-weight: 500">tesorería</a>
+    </div>
+  </div>
+
+  <nav aria-label="Navegación principal" style="flex-shrink: 0; height: 80px; box-sizing: border-box; padding-bottom: 12px; background: #FFFFFF; border-top: 1px solid #E5E5E0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: #5E6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V20h-5v-6H9v6H4z"></path></svg>Inicio</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: #5E6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"></path></svg>Favoritos</a>
+    <a href="#" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700; color: #B23F0C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>Buscar</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: #5E6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path></svg>Perfil</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -7,5 +7,8 @@ https://claude.ai/artifact/HUYm9EeRBiVGggusPWEMXy
 - `Main.dc.html`, `PhoneHome.dc.html`, `PhoneDark.dc.html`: inicio en escritorio, celular y modo oscuro.
 - `Login.dc.html`: inicio de sesión neutro.
 - `AdminCompanies.dc.html`, `AdminWizard.dc.html`: administración de empresas y asistente de nueva empresa.
+- `Icons.dc.html`: sistema de íconos de las apps (claro, oscuro, PWA).
+- `Tablet.dc.html`, `PhoneSearch.dc.html`, `PhoneLocal.dc.html`, `PhoneEmpty.dc.html`, `PhoneMaint.dc.html`: inicio en tablet, búsqueda, ficha de app local, sin apps y app en mantenimiento.
+- `AdminApps.dc.html`, `AdminAppEdit.dc.html`, `AdminCategories.dc.html`: administración de aplicaciones y categorías.
 
 Son archivos HTML de diseño (no código de la app). Si el lienzo cambia después de esta fecha, el lienzo manda.
