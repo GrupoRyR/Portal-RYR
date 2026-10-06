@@ -27,7 +27,7 @@ Announcements (Phase 5), audit screens and usage report (Phase 5), Soporte TI bu
 
 ## Tasks
 - [x] T1 — Catalog domain + seeders (categories, five apps, company links, SVG icons); tests. Route: delegated writer.
-- [ ] T2 — Access rules + `AppCatalog` resolver (visible apps per user, per company/groups/user rules; hidden excluded; maintenance kept visible); tests. Route: delegated writer.
+- [x] T2 — Access rules + `AppCatalog` resolver (visible apps per user, per company/groups/user rules; hidden excluded; maintenance kept visible); tests. Route: delegated writer.
 - [ ] T3 — Launch flow (`/apps/{slug}`): access check, maintenance page, local-app info page, `app_launches` record, redirect (same or new tab); favorites toggle endpoint; recents query; tests. Route: delegated writer.
 - [ ] T4 — Home screen UI (responsive per canvas, search, favorites, recents, status chips, empty state, quick links, dark mode); tests. Route: delegated writer (frontend-design).
 - [ ] T5 — Admin Aplicaciones (list + editor + access rules + maintenance + icon upload); tests. Route: delegated writer (frontend-design).
@@ -54,6 +54,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
 | Slice | Branch | Base | Commits | Authored lines (excl. `odd`) | Status |
 |---|---|---|---|---|---|
 | T1 catalog domain | `feat/fase-4-1-catalogo` | `06566f9` | `7059efe` | +1152 / −1 (tests 419, SVG 40) | committed, not pushed |
+| T2 access rules + resolver | `feat/fase-4-2-acceso` | T1 (`4bf4a95`) | `2e8b4e2` | +654 / −0 (tests 363) | committed, not pushed |
 
 ## Progress
 - 2026-10-05: Document created.
@@ -61,6 +62,10 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
   - Host patterns: a plain domain matches itself and its subdomains on a dot boundary; `*` matches one or more `[a-z0-9-]` characters of a single label. User info, explicit ports, trailing dots and non-`https` schemes are rejected (`App\Catalog\AppUrlPolicy`, rule `App\Rules\AllowedAppUrl`, model guard on save).
   - Seeded name for `cuentas-por-pagar` is «Cuentas por pagar» (canvas card) — brief §1.1 says «Cuentas por pagar (saldo y antigüedad)», which the description already covers. Camaras' third step reads «Si no aparece, pide ayuda a TI.» because there is no installer yet.
   - Icons are `public/icons/apps/{slug}.svg` / `{slug}-dark.svg`: 48×48 tile with `rx=14`, the 24-px pictogram nested at 26 px (same proportion as the canvas).
+- 2026-10-06 T2 (delegated writer; trigger: 2+ non-trivial files): RED `php artisan test tests/Feature/Catalog/AppCatalogTest.php tests/Feature/Catalog/AccessRuleSeederTest.php` → 21 tests, 0 passed (missing classes). GREEN `php artisan test tests/Feature/Catalog` → 39 passed (two test fixes: `fresh()` was inside the counted closure; a rule for a user without company now names a company explicitly). Full `php artisan test` → 393 passed; `migrate:fresh --seed` OK; `pint --test` passed. Commit `2e8b4e2`.
+  - `App\Catalog\AppCatalog::visibleApps()` runs 5 queries (company, groups, apps, rules, categories) regardless of catalog size; `canOpen()` uses the same rules.
+  - Every rule carries `company_id` (user rules are filed under the user's company); group rules only match users of that company. A user rule matches by user id alone, but the app must still be linked to the user's current company.
+  - MySQL/SQLite treat NULLs as distinct in unique indexes, so duplicate `company` rules (null `value`) are prevented by `AppAccessRule::forCompany()` (firstOrCreate), not by the index. The admin editor (T5) must use these helpers.
 
 ## Next step
-T2 (access rules + `AppCatalog` resolver) on `feat/fase-4-2-acceso`, then T3, then T4 (home UI).
+T3 (launch, favorites, recents) on `feat/fase-4-3-lanzamiento`, then T4 (home UI).

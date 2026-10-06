@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             AppCategorySeeder::class,
             AppCatalogSeeder::class,
+            AppAccessRuleSeeder::class,
         ]);
 
         // User::factory(10)->create();

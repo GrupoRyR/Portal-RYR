@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use InvalidArgumentException;
 use LogicException;
 
@@ -117,6 +118,14 @@ class App extends Model
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'app_companies')->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<AppAccessRule, $this>
+     */
+    public function accessRules(): HasMany
+    {
+        return $this->hasMany(AppAccessRule::class);
     }
 
     public function isWeb(): bool
