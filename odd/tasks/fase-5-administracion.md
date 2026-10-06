@@ -24,7 +24,7 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 - Code in English, UI in Spanish. Agent cannot touch `.env*`.
 
 ## Tasks
-- [ ] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
+- [x] T1 — Announcements domain + home display: table, audience (all companies / chosen companies), window (`starts_at`/`ends_at`), pinned, image (stored as WebP), withdraw; visible-announcements query; home aside/banner per canvas; activity log; tests. Route: delegated writer.
 - [ ] T2 — Admin Anuncios: list (status tabs Publicados / Programados / Vencidos / Retirados, company filter) + Livewire editor with live preview (desktop card / phone banner); `announcements_editor` limited to their own company's audience, admins any; tests. Route: delegated writer (same as T1).
 - [ ] T3 — Admin Roles per canvas: permission matrix, members per role, add/remove announcements editors, emergency account status card; tests. Route: delegated writer.
 - [ ] T4 — Admin Auditoría per canvas: unified event list, filters (person/app/token search, type, company, period), expanded before/after diff, CSV export (streamed), Microsoft and emergency sign-ins recorded as security events; tests. Route: delegated writer.
@@ -40,8 +40,17 @@ Configuración screen and Soporte TI (Phase 7), Integraciones and API events (Ph
 ## Delivery
 Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached). First slice branches from `feat/fase-4-10-cierre`. Forecast ≈ 3000 authored lines incl. tests → slice per task/commit.
 
+| Slice | Branch | Base | Holds | Budget |
+|---|---|---|---|---|
+| 1 | `feat/fase-5-1-anuncios` | `4b782c4` (plan) | T1 domain + images (`897ecea`), T1 home display + /anuncios (see Progress) | domain +1062 (413 tests); display see Progress |
+
 ## Progress
 - 2026-10-05: Document created; remaining admin design references copied to `docs/diseno/`.
+- 2026-10-06: T1 done (route: delegated writer, mapping + 2+ non-trivial files).
+  - Domain (`897ecea`): `announcements` + `announcement_company`; `Announcement` scopes `visibleTo`, `forCompany`, `inStatus`, `ordered`; `status` accessor (programado/publicado/vencido/retirado); `withdraw()`/`republish()` with named audit entries; created/updated logged dirty-only with causer.
+  - Images: `App\Announcements\AnnouncementImageStore` (PNG/JPEG/WebP ≤ 2 MB, ≤ 40 MP, GD → 16:9 center-crop WebP ≤ 1280×720, EXIF rotation for JPEG, SVG refused). `AnnouncementPublisher` saves companies + image in one transaction; new file deleted on failure, replaced file deleted only after commit.
+  - Home: up to 3 in the desktop aside card (≥1280 px) with «Ver todos» → `/anuncios` (auth, 10 per page, no Livewire); phone/tablet banner with the top one → `/anuncios#a-{id}`; nothing rendered without announcements. One extra query on home, constant with the number of announcements. Shared partials `x-announcements.card` / `x-announcements.banner` (reused by the T2 preview).
+  - RED: 36/36 new tests errored (missing model/store/route). GREEN: `php artisan test` → 612 passed (576 before).
 
 ## Next step
-T1 + T2 (one delegated writer), then T3–T5.
+T2 — Admin Anuncios (same delegated writer), branch `feat/fase-5-2-admin-anuncios` from slice 1.

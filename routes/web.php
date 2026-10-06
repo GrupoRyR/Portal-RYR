@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -48,6 +49,9 @@ Route::middleware('auth')->group(function () {
         ->name('auth.microsoft.confirm');
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
+
+    // Every announcement the user may see (the home shows the latest ones).
+    Route::get('/anuncios', [AnnouncementController::class, 'index'])->name('announcements.index');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
