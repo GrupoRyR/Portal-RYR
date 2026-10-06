@@ -152,6 +152,52 @@ php artisan tinker --execute="echo cache('scheduler:last_run');"
 - `schedule:list` debe mostrar `* * * * *  scheduler-heartbeat`.
 - El segundo comando debe mostrar una fecha y hora de hace menos de dos minutos (hora de Bogotá, `-05:00`). Si no muestra nada o la hora es antigua, el cron no está corriendo: revise la línea del cron y la ruta de PHP.
 
+### 1.10 Microsoft, correo y archivos de las empresas
+
+**Inicio de sesión con Microsoft y consentimiento.** Agregue a `.env` (los valores salen del registro de la app en Microsoft Entra):
+
+```dotenv
+MICROSOFT_CLIENT_ID=<id-de-la-aplicación>
+MICROSOFT_CLIENT_SECRET=<secreto-de-la-aplicación>
+MICROSOFT_REDIRECT_URI=https://apps.segurexlatam.net/auth/microsoft/callback
+PORTAL_SUPER_ADMIN_EMAILS=<correo1>,<correo2>
+```
+
+- `MICROSOFT_CLIENT_SECRET` también se usa para comprobar el consentimiento de una empresa nueva (paso 2 del asistente). Si falta o venció, el asistente muestra «No se pudo comprobar» y la empresa no se marca como verificada.
+- El enlace de consentimiento vuelve a la misma dirección de `MICROSOFT_REDIRECT_URI`, así que no hay que registrar otra en Entra.
+- Cuando venza el secreto, cree uno nuevo en Entra, cámbielo en `.env` y ejecute `php artisan config:cache`.
+
+**Correo (avisos a los administradores).** El portal envía un correo cuando se crea una empresa, cuando cambia su inquilino y cuando se activa. Se envía en el momento (no hay cola). Configure el buzón SMTP de cPanel:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtps
+MAIL_HOST=mail.<dominio>
+MAIL_PORT=465
+MAIL_USERNAME=<buzón>@<dominio>
+MAIL_PASSWORD=<contraseña-del-buzón>
+MAIL_FROM_ADDRESS=<buzón>@<dominio>
+MAIL_FROM_NAME="Portal RYR"
+```
+
+Si el correo falla, la acción se guarda igual y el error queda en `storage/logs` («Company notice could not be sent.»).
+
+**Logos de las empresas.** Se guardan en `storage/app/public/brand/<empresa>/` y se publican en `/storage/...`. El script de despliegue ya crea el enlace; si los logos no se ven, ejecútelo a mano:
+
+```bash
+php artisan storage:link
+```
+
+**Grupos APP-… de una empresa nueva.** En el paso 3 del asistente se indica el comando. Lo ejecuta un administrador de Microsoft 365 de esa empresa, en su equipo con Windows:
+
+```powershell
+Install-Module Microsoft.Graph -Scope CurrentUser   # solo la primera vez
+cd <carpeta-del-proyecto>\docs\scripts
+.\crear-grupos-app.ps1 -TenantId <id-de-inquilino>
+```
+
+El script pide iniciar sesión, crea solo los grupos que falten (por ahora `APP-PortalAdmin`) e informa cuáles creó y cuáles ya existían. Se puede ejecutar varias veces. Si PowerShell bloquea el script, ejecute antes `Set-ExecutionPolicy -Scope Process RemoteSigned`.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

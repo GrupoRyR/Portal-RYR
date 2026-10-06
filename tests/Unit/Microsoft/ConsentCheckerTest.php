@@ -163,7 +163,7 @@ class ConsentCheckerTest extends TestCase
         config(['services.microsoft.redirect' => 'https://portal.example.com/auth/microsoft/callback']);
 
         $this->assertSame(
-            'https://login.microsoftonline.com/'.self::TENANT.'/adminconsent?client_id=aaaabbbb-0000-cccc-1111-dddd2222eeee&redirect_uri=https%3A%2F%2Fportal.example.com%2Fauth%2Fmicrosoft%2Fcallback',
+            'https://login.microsoftonline.com/'.self::TENANT.'/adminconsent?client_id=aaaabbbb-0000-cccc-1111-dddd2222eeee&redirect_uri=https%3A%2F%2Fportal.example.com%2Fauth%2Fmicrosoft%2Fcallback&state=admin-consent',
             app(ConsentChecker::class)->adminConsentUrl(self::TENANT),
         );
     }
