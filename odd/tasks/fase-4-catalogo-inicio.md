@@ -28,7 +28,7 @@ Announcements (Phase 5), audit screens and usage report (Phase 5), Soporte TI bu
 ## Tasks
 - [x] T1 — Catalog domain + seeders (categories, five apps, company links, SVG icons); tests. Route: delegated writer.
 - [x] T2 — Access rules + `AppCatalog` resolver (visible apps per user, per company/groups/user rules; hidden excluded; maintenance kept visible); tests. Route: delegated writer.
-- [ ] T3 — Launch flow (`/apps/{slug}`): access check, maintenance page, local-app info page, `app_launches` record, redirect (same or new tab); favorites toggle endpoint; recents query; tests. Route: delegated writer.
+- [x] T3 — Launch flow (`/apps/{slug}`): access check, maintenance page, local-app info page, `app_launches` record, redirect (same or new tab); favorites toggle endpoint; recents query; tests. Route: delegated writer.
 - [ ] T4 — Home screen UI (responsive per canvas, search, favorites, recents, status chips, empty state, quick links, dark mode); tests. Route: delegated writer (frontend-design).
 - [ ] T5 — Admin Aplicaciones (list + editor + access rules + maintenance + icon upload); tests. Route: delegated writer (frontend-design).
 - [ ] T6 — Admin Categorías (order, rename, create, delete only when empty); tests. Route: delegated writer.
@@ -55,6 +55,7 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
 |---|---|---|---|---|---|
 | T1 catalog domain | `feat/fase-4-1-catalogo` | `06566f9` | `7059efe` | +1152 / −1 (tests 419, SVG 40) | committed, not pushed |
 | T2 access rules + resolver | `feat/fase-4-2-acceso` | T1 (`4bf4a95`) | `2e8b4e2` | +654 / −0 (tests 363) | committed, not pushed |
+| T3 launch, favorites, recents | `feat/fase-4-3-lanzamiento` | T2 (`fba3ae0`) | `84be060` | +919 / −0 (tests 511) | committed, not pushed |
 
 ## Progress
 - 2026-10-05: Document created.
@@ -66,6 +67,12 @@ Strategy `ask-on-risk`, chain strategy **stacked-to-main** (cached from Phase 3)
   - `App\Catalog\AppCatalog::visibleApps()` runs 5 queries (company, groups, apps, rules, categories) regardless of catalog size; `canOpen()` uses the same rules.
   - Every rule carries `company_id` (user rules are filed under the user's company); group rules only match users of that company. A user rule matches by user id alone, but the app must still be linked to the user's current company.
   - MySQL/SQLite treat NULLs as distinct in unique indexes, so duplicate `company` rules (null `value`) are prevented by `AppAccessRule::forCompany()` (firstOrCreate), not by the index. The admin editor (T5) must use these helpers.
+- 2026-10-06 T3 (delegated writer; trigger: 2+ non-trivial files): RED `php artisan test tests/Unit/Support tests/Feature/Catalog/AppLaunchTest.php tests/Feature/Catalog/FavoriteTest.php tests/Feature/Catalog/RecentAppsTest.php` → 40 tests, 2 passed (only the two 404 cases, trivially, because the routes did not exist). GREEN `php artisan test tests/Unit/Support tests/Feature/Catalog` → 79 passed. Full `php artisan test` → 434 passed; `migrate:fresh --seed` OK; `route:list --path=apps` → `apps.open`; `route:list --path=favoritos` → `favorites.store`, `favorites.destroy`; `pint --test` passed. Commit `84be060`.
+  - `GET /apps/{app:slug}` (auth, `throttle:60,1`): 404 without access or when hidden; maintenance → notice, nothing recorded; local → info page + launch; web → launch + 302 to the URL (URL re-checked against the allowed hosts first). Failing apps (`external_status`) still open.
+  - **`open_in = new` is honoured by the home card markup (`target="_blank" rel="noopener"`), not by this route** — T4 must do it.
+  - `app_launches` stores user, app, company, device (`desktop` | `tablet` | `phone`, `App\Support\DeviceClassifier`) and `launched_at`; no IP and no raw User-Agent (pending user confirmation against brief §5.2 «desde qué dispositivo»). iPadOS 13+ Safari reports a desktop User-Agent and counts as `desktop`.
+  - `POST`/`DELETE /favoritos/{app:slug}` → `{favorite: bool}`, 404 for apps the user cannot open. `AppCatalog::recentApps()` (30 days, distinct, newest first, still visible) and `lastOpenedWithin()` (default 30 min, for Soporte TI in Phase 7).
+  - Maintenance and local pages are minimal Blade pages on `x-layouts.app` (no Livewire); the Soporte TI button of the canvases arrives in Phase 7.
 
 ## Next step
-T3 (launch, favorites, recents) on `feat/fase-4-3-lanzamiento`, then T4 (home UI).
+T4 (home UI) on a new branch from `feat/fase-4-3-lanzamiento`: uses `AppCatalog::visibleApps()/recentApps()`, `User::favoriteApps()`, the favorite routes and `apps.open` (cards with `open_in = new` get `target="_blank" rel="noopener"`). Open questions for the user: "all companies" apps, and whether device type without IP/User-Agent is enough for the launch log.
