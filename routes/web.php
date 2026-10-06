@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\AppLaunchController;
@@ -8,7 +9,9 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Models\App;
 use App\Models\Company;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -62,7 +65,16 @@ Route::middleware(['auth', 'role:super_admin|portal_admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
-        Route::get('/', fn () => redirect()->route('admin.companies.index'))->name('index');
+        // Each role lands on the first section it may use: companies for
+        // the super admin, the app catalog for portal admins.
+        Route::get('/', fn () => redirect()->route(
+            Gate::allows('viewAny', Company::class) ? 'admin.companies.index' : 'admin.apps.index',
+        ))->name('index');
+
+        // App\Policies\AppPolicy: super_admin and portal_admin.
+        Route::get('/aplicaciones', [AppController::class, 'index'])
+            ->can('viewAny', App::class)
+            ->name('apps.index');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
