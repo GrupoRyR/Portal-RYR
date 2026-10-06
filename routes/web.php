@@ -13,8 +13,6 @@ Route::middleware('guest')->group(function () {
     Route::middleware('throttle:20,1')->group(function () {
         Route::get('/auth/microsoft/redirect', [MicrosoftLoginController::class, 'redirect'])
             ->name('auth.microsoft.redirect');
-        Route::get('/auth/microsoft/callback', [MicrosoftLoginController::class, 'callback'])
-            ->name('auth.microsoft.callback');
     });
 
     // Emergency local sign-in (password + TOTP) for when Microsoft is down.
@@ -28,8 +26,18 @@ Route::middleware('guest')->group(function () {
     });
 });
 
+// Shared by sign-in (guests) and re-authentication (signed-in users).
+Route::get('/auth/microsoft/callback', [MicrosoftLoginController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('auth.microsoft.callback');
+
 Route::middleware('auth')->group(function () {
     Route::get('/', fn () => view('home'))->name('home');
+
+    // Re-authentication before sensitive actions (middleware microsoft.recent).
+    Route::get('/auth/microsoft/confirm', [MicrosoftLoginController::class, 'confirm'])
+        ->middleware('throttle:20,1')
+        ->name('auth.microsoft.confirm');
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
 });
