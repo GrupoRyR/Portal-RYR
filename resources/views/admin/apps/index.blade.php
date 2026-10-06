@@ -98,7 +98,7 @@
                 {{ $filtered ? 'Ninguna aplicación coincide con los filtros.' : 'Todavía no hay aplicaciones.' }}
             </p>
         @else
-            <div class="overflow-x-auto" role="region" aria-labelledby="apps-list-title" tabindex="0">
+            <div class="relative overflow-x-auto" role="region" aria-labelledby="apps-list-title" tabindex="0">
                 <table class="w-full min-w-[960px] border-collapse text-sm">
                     <thead>
                         <tr class="text-left text-xs font-bold tracking-[0.06em] text-fg-muted uppercase">

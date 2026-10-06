@@ -73,13 +73,13 @@
         <p role="alert" class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Revisa los campos marcados.</p>
     @endif
 
-    <div class="grid gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1200px]:items-start">
+    <div class="grid grid-cols-1 gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1200px]:items-start">
         <div class="flex min-w-0 flex-col gap-5">
             <form id="app-form" wire:submit="save" class="flex flex-col gap-5" novalidate>
                 {{-- General --}}
                 <section class="{{ $card }}" aria-labelledby="e-general">
                     <h2 id="e-general" class="{{ $heading }}">General</h2>
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="flex flex-col gap-1.5">
                             <label for="e-name" class="{{ $label }}">Nombre</label>
                             <input id="e-name" type="text" maxlength="120" @if ($creating) wire:model.live.debounce.400ms="name" @else wire:model="name" @endif class="{{ $field }}" {!! $invalid('name', 'e-name-error') !!}>
@@ -103,7 +103,7 @@
                         <span id="e-desc-h" class="{{ $hint }}">Hasta 120 caracteres. Se ve debajo del nombre en el inicio.</span>
                         @error('description') <p id="e-desc-error" class="{{ $error }}">{{ $message }}</p> @enderror
                     </div>
-                    <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                         <div class="flex flex-col gap-1.5">
                             <label for="e-cat" class="{{ $label }}">Categoría</label>
                             <select id="e-cat" wire:model="categoryId" class="{{ $field }}" {!! $invalid('categoryId', 'e-cat-error') !!}>
@@ -139,7 +139,7 @@
                     <h2 id="e-open-title" class="{{ $heading }}">Cómo se abre</h2>
                     <fieldset>
                         <legend class="sr-only">Tipo</legend>
-                        <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             @foreach (['web' => ['Web', 'Abre una dirección https://'], 'local' => ['Instalada en el equipo', 'Muestra una ficha con instrucciones']] as $value => [$title, $text])
                                 <label @class([
                                     'flex cursor-pointer items-start gap-3 rounded-[14px] p-3.5',
@@ -163,7 +163,7 @@
                             <span id="e-url-h" class="{{ $hint }}">Solo https:// y dominios permitidos por TI.</span>
                             @error('url') <p id="e-url-error" class="{{ $error }}">{{ $message }}</p> @enderror
                         </div>
-                        <div class="grid gap-4 sm:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div class="flex flex-col gap-1.5">
                                 <label for="e-host" class="{{ $label }}">Alojamiento</label>
                                 <select id="e-host" wire:model="hosting" class="{{ $field }}">
@@ -213,6 +213,8 @@
                     <h2 id="e-rules" class="{{ $heading }}">Quién la ve</h2>
                     <p class="text-[0.9375rem] text-fg-soft">Crea la aplicación para elegir quién la ve.</p>
                 </section>
+            @else
+                <livewire:admin.app-access-rules :app="$app" :key="'rules-'.$app->id" />
             @endif
         </div>
 
