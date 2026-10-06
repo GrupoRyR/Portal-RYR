@@ -5,7 +5,7 @@
     text is plain and escaped here, with its line breaks kept by CSS.
 --}}
 @props(['card', 'heading' => 'h3', 'large' => false])
-<article {{ $attributes->merge(['class' => 'flex flex-col gap-2.5']) }}>
+<article data-announcement-card {{ $attributes->merge(['class' => 'flex flex-col gap-2.5']) }}>
     @if ($card->imageUrl)
         <img src="{{ $card->imageUrl }}" alt="" width="1280" height="720" loading="lazy" decoding="async"
              class="aspect-video w-full rounded-[12px] bg-brand-tint object-cover">
