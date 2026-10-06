@@ -67,5 +67,7 @@ Branch `feat/fase-9-pwa-manual` stacked on `feat/fase-8-api-integraciones` (`f3f
   - Everything ≥ 90, so no code change was made. Remaining Lighthouse notes: the only render-blocking request is `app.css`; on sign-in, «Browser errors» are the company logos answering 403 on the scratch server (no `public/storage` link there, an environment issue), and «Image elements do not have explicit width and height» is the company logos (the cause of CLS 0.003); server response time reflects the single-threaded dev server.
   - Acceptance criterion «Lighthouse mobile ≥ 90 performance and accessibility on home and sign-in (local production build)»: **met**.
 
+- 2026-10-06: Sign-in logos now declare `width`/`height` from the stored file (`Company::brandImageSize`: PNG/WebP via `getimagesizefromstring`, SVG via `viewBox` or width/height; cached by the unique upload path), removing the 0.003 CLS Lighthouse reported (route: inline, 2 files + test). RED: 2/3 new tests failed (third is the unreadable-file guard). GREEN: `php artisan test` → 864 passed; pint clean; no new CSS classes, so no rebuild.
+
 ## Next step
 All brief phases delivered. Pending with Jhon: real-device checklist, push/PRs for the stacked branches, production deploy, backups decision.

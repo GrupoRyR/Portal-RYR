@@ -41,7 +41,8 @@
                                         @if ($company->logo_dark_path)
                                             <source srcset="{{ $company->brandFileUrl($company->logo_dark_path) }}" media="(prefers-color-scheme: dark)">
                                         @endif
-                                        <img src="{{ $company->brandFileUrl($company->logo_light_path) }}" alt="{{ $company->name }}" class="h-7 w-auto max-w-32 object-contain" loading="lazy" decoding="async">
+                                        @php($logoSize = $company->brandImageSize($company->logo_light_path))
+                                        <img src="{{ $company->brandFileUrl($company->logo_light_path) }}" alt="{{ $company->name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-7 w-auto max-w-32 object-contain" loading="lazy" decoding="async">
                                     </picture>
                                 @else
                                     {{ $company->short_name ?: $company->name }}
