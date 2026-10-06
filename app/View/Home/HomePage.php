@@ -14,6 +14,7 @@ final readonly class HomePage
      * @param  list<CategoryGroup>  $categories
      * @param  list<AppCard>  $recents
      * @param  list<QuickLink>  $quickLinks
+     * @param  list<AnnouncementCard>  $announcements  Newest pinned first; at most HomePageBuilder::ANNOUNCEMENT_LIMIT.
      */
     public function __construct(
         public string $salutation,
@@ -33,7 +34,16 @@ final readonly class HomePage
         public array $quickLinks,
         public string $query,
         public int $resultCount,
+        public array $announcements = [],
     ) {}
+
+    /**
+     * The announcement of the phone and tablet banner.
+     */
+    public function topAnnouncement(): ?AnnouncementCard
+    {
+        return $this->announcements[0] ?? null;
+    }
 
     public function hasApps(): bool
     {

@@ -4,6 +4,7 @@ namespace App\View\Home;
 
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
+use App\Models\Announcement;
 use App\Models\App;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -18,7 +19,8 @@ use Illuminate\Support\Str;
  * - categories in their order; categories without visible apps are left
  *   out (one emptied by favorites stays, empty, for the favorite toggle);
  * - up to five recent apps;
- * - Microsoft 365 quick links.
+ * - Microsoft 365 quick links;
+ * - up to three announcements for the user's company (one query).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents.
  * Runs a fixed number of queries whatever the size of the catalog.
@@ -26,6 +28,8 @@ use Illuminate\Support\Str;
 final class HomePageBuilder
 {
     public const RECENT_LIMIT = 5;
+
+    public const ANNOUNCEMENT_LIMIT = 3;
 
     public const ADMIN_ROLES = ['super_admin', 'portal_admin'];
 
@@ -78,6 +82,7 @@ final class HomePageBuilder
             quickLinks: QuickLinks::for($company),
             query: $search->isActive() ? $search->query() : '',
             resultCount: count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
+            announcements: $this->announcements($user, $now),
         );
     }
 
@@ -137,6 +142,24 @@ final class HomePageBuilder
         }
 
         return $result;
+    }
+
+    /**
+     * @return list<AnnouncementCard>
+     */
+    private function announcements(User $user, ?CarbonInterface $now): array
+    {
+        if ($user->company_id === null) {
+            return [];
+        }
+
+        return Announcement::query()
+            ->visibleTo($user)
+            ->ordered()
+            ->limit(self::ANNOUNCEMENT_LIMIT)
+            ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned'])
+            ->map(fn (Announcement $announcement) => AnnouncementCard::from($announcement, now: $now))
+            ->all();
     }
 
     private static function initials(string $name): string

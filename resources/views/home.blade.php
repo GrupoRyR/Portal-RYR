@@ -1,6 +1,7 @@
 {{--
     Home screen (docs/diseno/Main, Tablet, PhoneHome, PhoneDark, PhoneSearch
-    and PhoneEmpty). $page is an App\View\Home\HomePage: no queries here.
+    and PhoneEmpty). Announcements: a card in the desktop aside, a banner
+    with the top one on phone and tablet. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search and
     the favorite toggle. No Livewire or Alpine on this page.
 --}}
@@ -82,6 +83,10 @@
                 @endif
             </div>
 
+            @if ($top = $page->topAnnouncement())
+                <x-announcements.banner :card="$top" data-announcement-banner class="xl:hidden" />
+            @endif
+
             @if (! $page->hasApps())
                 <section aria-labelledby="sin-apps" class="flex flex-col items-center gap-3.5 rounded-[20px] border border-line bg-surface px-6 py-7 text-center md:max-w-md md:self-start">
                     <span class="flex size-22 items-center justify-center rounded-full bg-brand-tint text-brand-ink">
@@ -144,8 +149,24 @@
             @endif
         </main>
 
-        {{-- Announcements (Phase 5) will join the Microsoft 365 links in this column. --}}
         <aside class="flex flex-col gap-5 xl:w-[340px] xl:shrink-0">
+            {{-- Desktop only; phones and tablets get the banner above. --}}
+            @if ($page->announcements !== [])
+                <section aria-labelledby="anuncios" data-announcements class="hidden flex-col gap-4 rounded-card border border-line bg-surface p-5 xl:flex">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="anuncios" class="text-xl font-bold">Anuncios</h2>
+                        <a href="{{ route('announcements.index') }}" class="-my-3 inline-flex min-h-touch items-center text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Ver todos<span class="sr-only"> los anuncios</span></a>
+                    </div>
+                    <ul class="flex flex-col divide-y divide-line">
+                        @foreach ($page->announcements as $announcement)
+                            <li class="py-4 first:pt-0 last:pb-0">
+                                <x-announcements.card :card="$announcement" />
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
             <section aria-labelledby="m365" class="flex flex-col gap-3 md:gap-3.5 xl:rounded-card xl:border xl:border-line xl:bg-surface xl:p-5">
                 <h2 id="m365" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">Microsoft 365</h2>
                 <ul class="grid grid-cols-4 gap-2 md:gap-3 xl:grid-cols-2 xl:gap-2">
