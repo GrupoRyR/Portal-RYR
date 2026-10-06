@@ -12,3 +12,6 @@ https://claude.ai/artifact/HUYm9EeRBiVGggusPWEMXy
 - `AdminApps.dc.html`, `AdminAppEdit.dc.html`, `AdminCategories.dc.html`: administración de aplicaciones y categorías.
 
 Son archivos HTML de diseño (no código de la app). Si el lienzo cambia después de esta fecha, el lienzo manda.
+- `AdminAnnouncements.dc.html`, `AdminAnnouncementEdit.dc.html`: anuncios.
+- `AdminRoles.dc.html`, `AdminAudit.dc.html`, `AdminUsage.dc.html`: roles, auditoría e informe de uso.
+- `AdminSettings.dc.html`, `AdminIntegrations.dc.html`, `AdminTokenNew.dc.html`: configuración e integraciones (fases 7 y 8).

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Portal RYR · Admin · Informe de uso</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+a:hover{color:inherit}
+a:focus-visible,button:focus-visible{outline:2px solid #17191C;outline-offset:2px}
+.nav:hover{background:#F5F5F2}
+.bar:hover .fill{background:#C4470F}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F5F5F2; font-family: 'Figtree', system-ui, sans-serif; color: #17191C; display: flex; overflow: hidden">
+  <nav aria-label="Administración" style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E5E5E0; padding: 20px 14px; display: flex; flex-direction: column; gap: 2px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px 24px">
+      <div style="width: 36px; height: 36px; border-radius: 10px; background: #C4470F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">S</div>
+      <div style="display: flex; flex-direction: column; line-height: 1.15"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 16px">Segurex Latam</span><span style="font-size: 12px; color: #5E6168">Administración</span></div>
+    </div>
+    <span style="padding: 12px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Catálogo</span>
+    <a href="AdminApps.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"></rect><rect x="13" y="4" width="7" height="7" rx="2"></rect><rect x="4" y="13" width="7" height="7" rx="2"></rect><rect x="13" y="13" width="7" height="7" rx="2"></rect></svg>Aplicaciones</a>
+    <a href="AdminCategories.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8z"></path><circle cx="8.5" cy="8.5" r="1.2"></circle></svg>Categorías</a>
+    <a href="AdminAnnouncements.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4a1 1 0 0 0 1 1h2l6 4V5L7 9H5a1 1 0 0 0-1 1z"></path><path d="M17 9a4 4 0 0 1 0 6"></path></svg>Anuncios</a>
+    <span style="padding: 16px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Organización</span>
+    <a href="AdminCompanies.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14M15 10h3a2 2 0 0 1 2 2v8M3 20h18M8 8h3M8 12h3M8 16h3"></path></svg>Empresas</a>
+    <a href="AdminRoles.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11l2 2 4-4"></path></svg>Roles</a>
+    <a href="AdminIntegrations.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5M15 4v5M7 9h10v3a5 5 0 0 1-10 0zM12 17v3"></path></svg>Integraciones</a>
+    <span style="padding: 16px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6E75">Seguimiento</span>
+    <a href="AdminAudit.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"></path></svg>Auditoría</a>
+    <a href="AdminUsage.dc.html" aria-current="page" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: #8F360B; background: #FFEFE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Informe de uso</a>
+    <a href="AdminSettings.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"></path></svg>Configuración</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid #ECECE7">
+      <a href="Main.dc.html" class="nav" style="min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #45484E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Volver al portal</a>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #FFEFE6; color: #8F360B; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">JC</div>
+        <div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14px">Jhon Castro</span><span style="font-size: 12px; color: #5E6168">Súper administrador</span></div>
+      </div>
+    </div>
+  </nav>
+  <div style="flex: 1; min-width: 0; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; display: flex; align-items: center; gap: 12px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em">Informe de uso <span style="font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #7A4F00; background: #FFF4DB; border-radius: 6px; padding: 3px 8px">DATOS DE EJEMPLO</span></h1>
+        <p style="margin: 0; font-size: 15px; color: #5E6168">Qué apps se usan, quién entra y qué se puede retirar.</p>
+      </div>
+      <div role="group" aria-label="Periodo" style="display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: #ECECE7">
+        <button type="button" aria-pressed="false" style="height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #45484E; cursor: pointer">7 días</button>
+        <button type="button" aria-pressed="true" style="height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">30 días</button>
+        <button type="button" aria-pressed="false" style="height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #45484E; cursor: pointer">90 días</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; color: #5E6168">Usuarios activos · Segurex</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 40px; line-height: 1.1">48</span>
+        <span style="font-size: 13px; color: #45484E">entraron al menos una vez en 30 días</span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; color: #5E6168">Usuarios activos · Derivados</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 40px; line-height: 1.1">12</span>
+        <span style="font-size: 13px; color: #45484E">entraron al menos una vez en 30 días</span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 14px; color: #5E6168">Desde dónde abren las apps</span>
+        <span style="display: flex; align-items: baseline; gap: 8px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 40px; line-height: 1.1">64%</span><span style="font-size: 14px; color: #45484E">escritorio</span></span>
+        <div role="img" aria-label="64% escritorio, 36% celular o tablet" style="height: 10px; border-radius: 5px; background: #E5E5E0; overflow: hidden"><div style="width: 64%; height: 10px; border-radius: 5px; background: #17191C"></div></div>
+        <span style="font-size: 13px; color: #45484E">36% celular o tablet</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: flex-start">
+      <section aria-labelledby="top-h" style="flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 id="top-h" style="margin: 0; font-size: 18px; font-weight: 700">Apps más abiertas</h2>
+          <button type="button" style="height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #45484E; cursor: pointer">Ver como tabla</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div class="bar" style="display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 14px"><span style="font-size: 14px; font-weight: 600">Toma Pedidos SAP</span><div style="height: 20px"><div class="fill" style="width: 100%; height: 20px; border-radius: 0 4px 4px 0; background: #45484E"></div></div><span style="font-size: 14px; font-weight: 700; text-align: right">612</span></div>
+          <div class="bar" style="display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 14px"><span style="font-size: 14px; font-weight: 600">Visualizador de cartera</span><div style="height: 20px"><div class="fill" style="width: 54%; height: 20px; border-radius: 0 4px 4px 0; background: #45484E"></div></div><span style="font-size: 14px; font-weight: 700; text-align: right">331</span></div>
+          <div class="bar" style="display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 14px"><span style="font-size: 14px; font-weight: 600">Portafolio de productos</span><div style="height: 20px"><div class="fill" style="width: 24%; height: 20px; border-radius: 0 4px 4px 0; background: #45484E"></div></div><span style="font-size: 14px; font-weight: 700; text-align: right">148</span></div>
+          <div class="bar" style="display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 14px"><span style="font-size: 14px; font-weight: 600">Cuentas por pagar</span><div style="height: 20px"><div class="fill" style="width: 15%; height: 20px; border-radius: 0 4px 4px 0; background: #45484E"></div></div><span style="font-size: 14px; font-weight: 700; text-align: right">93</span></div>
+          <div class="bar" style="display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 14px"><span style="font-size: 14px; font-weight: 600">Cámaras</span><div style="height: 20px"><div class="fill" style="width: 1.5%; height: 20px; border-radius: 0 4px 4px 0; background: #45484E"></div></div><span style="font-size: 14px; font-weight: 700; text-align: right">9</span></div>
+        </div>
+        <span style="font-size: 13px; color: #5E6168">Aperturas desde el portal en 30 días. En Cámaras cuenta las veces que se abrió su ficha.</span>
+      </section>
+
+      <section aria-labelledby="idle-h" style="width: 380px; flex-shrink: 0; background: #FFFFFF; border: 1px solid #E5E5E0; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 id="idle-h" style="margin: 0; font-size: 18px; font-weight: 700">Sin uso en 90 días</h2>
+        <div style="display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 12px; background: #E6F5EC; color: #1F5C3C">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          <span style="font-size: 14px; font-weight: 600">Todas las apps se usaron al menos una vez.</span>
+        </div>
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #45484E">Cuando aparezca alguna aquí, puedes ocultarla del portal o revisar si sus accesos están bien asignados.</p>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
