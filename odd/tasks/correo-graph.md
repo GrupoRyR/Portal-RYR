@@ -21,7 +21,7 @@ Receiving mail, delegated sending as the signed-in user.
 Agent cannot touch `.env*`. Code in English, docs Spanish «usted». Tests never call the network (Http::fake).
 
 ## Tasks
-- [x] T1 — Graph transport + config + test command + docs; tests. Route: delegated writer (writer trigger: 2+ non-trivial files — transport, token, provider, command, docs).
+- [x] T1 — Graph transport + config + test command + docs; tests. Route: delegated writer (writer trigger: 2+ non-trivial files — transport, token, provider, command, docs). Commit `86ea3b3`.
 
 ## Acceptance criteria
 - With `MAIL_MAILER=graph`, `Mail::to(...)->send(...)` results in exactly one token request (cached afterwards) and one `sendMail` request with the right sender, recipients, subject and body (Http::fake assertions).
