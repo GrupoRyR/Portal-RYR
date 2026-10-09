@@ -31,7 +31,7 @@ return [
     |
     | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
     |            "postmark", "resend", "log", "array",
-    |            "failover", "roundrobin"
+    |            "failover", "roundrobin", "graph" (App\Mail\GraphTransport)
     |
     */
 
@@ -47,6 +47,17 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        // Microsoft Graph sendMail with an app-only token (App\Mail\GraphTransport):
+        // the «Portal RYR» Entra app sends as MAIL_FROM_ADDRESS in the mail
+        // tenant. No mailbox password. See docs/despliegue.md §1.10.
+        'graph' => [
+            'transport' => 'graph',
+            'tenant' => env('MICROSOFT_MAIL_TENANT_ID'),
+            'client_id' => env('MICROSOFT_CLIENT_ID'),
+            'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+            'timeout' => 15,
         ],
 
         'ses' => [

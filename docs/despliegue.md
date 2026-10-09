@@ -167,20 +167,61 @@ PORTAL_SUPER_ADMIN_EMAILS=<correo1>,<correo2>
 - El enlace de consentimiento vuelve a la misma dirección de `MICROSOFT_REDIRECT_URI`, así que no hay que registrar otra en Entra.
 - Cuando venza el secreto, cree uno nuevo en Entra, cámbielo en `.env` y ejecute `php artisan config:cache`.
 
-**Correo (avisos a los administradores).** El portal envía un correo cuando se crea una empresa, cuando cambia su inquilino y cuando se activa. Se envía en el momento (no hay cola). Configure el buzón SMTP de cPanel:
+**Correo (avisos y alertas).** El portal envía un correo cuando se crea una empresa, cuando cambia su inquilino y cuando se activa, y las alertas de los respaldos (paso 1.12). Se envía en el momento (no hay cola), con Microsoft Graph, desde el buzón `segurex.info@segurex.com` de Microsoft 365 y con la misma app «Portal RYR» del inicio de sesión. No usa SMTP ni la contraseña de ningún buzón: Microsoft desactiva la autenticación básica de SMTP en Exchange Online a partir de finales de 2026.
 
-```dotenv
-MAIL_MAILER=smtp
-MAIL_SCHEME=smtps
-MAIL_HOST=mail.<dominio>
-MAIL_PORT=465
-MAIL_USERNAME=<buzón>@<dominio>
-MAIL_PASSWORD=<contraseña-del-buzón>
-MAIL_FROM_ADDRESS=<buzón>@<dominio>
-MAIL_FROM_NAME="Portal RYR"
-```
+1. **Datos de la app.** En el centro de administración de Microsoft Entra del inquilino de Segurex, abra **Aplicaciones empresariales** › **Portal RYR** y copie el **Id. de aplicación** y el **Id. de objeto**. Use los de *Aplicaciones empresariales*, no los de *Registros de aplicaciones* (el Id. de objeto es distinto). Copie también el **Id. de inquilino** (Entra › **Información general**).
 
-Si el correo falla, la acción se guarda igual y el error queda en `storage/logs` («Company notice could not be sent.»).
+2. **No agregue `Mail.Send` en Entra.** En **Registros de aplicaciones** › **Portal RYR** › **Permisos de API** no debe aparecer **Microsoft Graph › Mail.Send (Aplicación)**. Si ya está, pulse **Revocar el consentimiento del administrador** y quite el permiso. Ese consentimiento vale para *todos* los buzones de la organización y se suma al permiso de Exchange del paso 3, así que anularía la restricción.
+
+3. **Permiso de envío solo para `segurex.info@segurex.com`** (una sola vez; lo hace un administrador de Exchange de Segurex en PowerShell). Se usa el control de acceso basado en roles (RBAC) para aplicaciones de Exchange Online, que Microsoft indica como reemplazo de las directivas de acceso de aplicaciones (`New-ApplicationAccessPolicy`). El ámbito se define con un filtro sobre el buzón, así que no hace falta un grupo de seguridad habilitado para correo:
+
+   ```powershell
+   Install-Module ExchangeOnlineManagement -Scope CurrentUser   # solo la primera vez
+   Connect-ExchangeOnline -UserPrincipalName <administrador>@segurex.com
+
+   # Puntero en Exchange a la app de Entra (Id. de aplicación e Id. de objeto del paso 1)
+   New-ServicePrincipal -AppId <id-de-aplicación> -ObjectId <id-de-objeto> -DisplayName "Portal RYR"
+
+   # Ámbito con un solo buzón; la vista previa debe mostrar únicamente segurex.info
+   New-ManagementScope -Name "Portal RYR - buzon de envio" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'segurex.info@segurex.com'"
+   Get-Recipient -RecipientPreviewFilter "PrimarySmtpAddress -eq 'segurex.info@segurex.com'"
+
+   # Rol de envío de la app, limitado a ese ámbito
+   New-ManagementRoleAssignment -Name "Portal RYR - Mail.Send" -App <id-de-objeto> -Role "Application Mail.Send" -CustomResourceScope "Portal RYR - buzon de envio"
+
+   # Comprobación: InScope debe ser True para segurex.info y False para cualquier otro buzón
+   Test-ServicePrincipalAuthorization -Identity <id-de-objeto> -Resource segurex.info@segurex.com | Format-Table
+   Test-ServicePrincipalAuthorization -Identity <id-de-objeto> -Resource <otro-buzón>@segurex.com | Format-Table
+   ```
+
+   `Test-ServicePrincipalAuthorization` responde al instante, pero Exchange puede tardar entre 30 minutos y 2 horas en aplicar el permiso a los envíos reales. Si la prueba del paso 5 da `ErrorAccessDenied` justo después de este paso, espere y repítala.
+
+4. **Archivo `.env`.** Además de `MICROSOFT_CLIENT_ID` y `MICROSOFT_CLIENT_SECRET` (arriba), agregue estas claves y borre las antiguas de SMTP (`MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`) si existen:
+
+   ```dotenv
+   MAIL_MAILER=graph
+   MICROSOFT_MAIL_TENANT_ID=<id-de-inquilino-de-Segurex>
+   MAIL_FROM_ADDRESS=segurex.info@segurex.com
+   MAIL_FROM_NAME="Portal RYR"
+   ```
+
+   `MICROSOFT_MAIL_TENANT_ID` es siempre el inquilino de Segurex (dueño del buzón), aunque `MICROSOFT_TENANT` siga en `organizations` para el inicio de sesión.
+
+5. **Aplicar y probar:**
+
+   ```bash
+   php artisan optimize
+   php artisan portal:mail-test <su-correo>
+   ```
+
+   Debe decir «Correo de prueba enviado a …» y el correo debe llegar en unos minutos. Si falla, el comando muestra el código de error de Microsoft (vea la sección 5).
+
+- Los correos no se guardan en **Elementos enviados** del buzón.
+- Los adjuntos de un correo pueden sumar como máximo 3 MB; uno más grande no se envía y el error queda en el registro.
+- Si el correo falla, la acción se guarda igual y el error queda en `storage/logs` («Company notice could not be sent.»).
+- Cuando venza `MICROSOFT_CLIENT_SECRET`, el correo deja de salir con un error 401 hasta que se cambie (ver arriba).
+
+Referencias de Microsoft Learn: [user: sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [adjuntos de más de 3 MB](https://learn.microsoft.com/en-us/graph/outlook-large-attachments), [RBAC para aplicaciones en Exchange Online](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac), [flujo de credenciales de cliente](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow).
 
 **Logos de las empresas.** Se guardan en `storage/app/public/brand/<empresa>/` y se publican en `/storage/...`. El script de despliegue ya crea el enlace; si los logos no se ven, ejecútelo a mano:
 
@@ -365,6 +406,9 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | El ícono instalado es el neutro | Que la empresa tenga ícono (Administración › Empresas), que PHP tenga GD y que exista `public/storage` |
 | La tarjeta de respaldo dice «terminó con error» | El correo enviado a los súper administradores y `storage/logs/laravel-AAAA-MM-DD.log`; casi siempre es la ruta de `mysqldump` (paso 1.12) |
 | «Respaldar ahora» se queda en «Programado…» | Que el cron esté corriendo (paso 1.9); la copia empieza en el minuto siguiente |
+| `portal:mail-test` dice `HTTP 403 (ErrorAccessDenied)` | Que la app tenga el rol `Application Mail.Send` con el ámbito del buzón (`Test-ServicePrincipalAuthorization` debe dar `InScope True`), que `MAIL_FROM_ADDRESS` sea ese buzón y que hayan pasado hasta 2 horas desde el cambio (paso 1.10) |
+| `portal:mail-test` dice `HTTP 401`, `invalid_client`, `AADSTS7000215` o `AADSTS7000222` | El secreto de la app es incorrecto o venció: cree uno nuevo en Entra, cámbielo en `MICROSOFT_CLIENT_SECRET` y ejecute `php artisan optimize` |
+| `portal:mail-test` dice «The graph mailer is not configured» | Falta la clave de `.env` que nombra el mensaje (paso 1.10); luego `php artisan optimize` |
 
 ---
 

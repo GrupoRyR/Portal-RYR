@@ -21,7 +21,7 @@ Receiving mail, delegated sending as the signed-in user.
 Agent cannot touch `.env*`. Code in English, docs Spanish «usted». Tests never call the network (Http::fake).
 
 ## Tasks
-- [ ] T1 — Graph transport + config + test command + docs; tests. Route: delegated writer.
+- [x] T1 — Graph transport + config + test command + docs; tests. Route: delegated writer (writer trigger: 2+ non-trivial files — transport, token, provider, command, docs).
 
 ## Acceptance criteria
 - With `MAIL_MAILER=graph`, `Mail::to(...)->send(...)` results in exactly one token request (cached afterwards) and one `sendMail` request with the right sender, recipients, subject and body (Http::fake assertions).
@@ -31,8 +31,22 @@ Agent cannot touch `.env*`. Code in English, docs Spanish «usted». Tests never
 ## Delivery
 Branch `feat/correo-graph` from `main` (`a34781b`) → PR to `main`.
 
+## Decisions
+- No new package: `App\Mail\GraphTransport` (Symfony `AbstractTransport`, JSON `sendMail`) + `App\Mail\GraphAccessToken` (client credentials, cached as `microsoft:mail-token:{tenant}:{client_id}` for `expires_in - 300` s). `ConsentChecker` is not reused: it is an uncached probe that needs raw AADSTS codes.
+- JSON format (not MIME) so Bcc survives: envelope recipients not in To/Cc are sent as `bccRecipients`, like Symfony's API transports.
+- Attachments: total raw size above 3 MB is refused before calling Graph (larger files need an upload session on a draft and `Mail.ReadWrite`).
+- 401 from Graph drops the cached token. Errors carry HTTP status + Graph `error.code` (+ message, max 200 chars) or token `error` + AADSTS codes; no previous exception is chained (its message could echo the request).
+- Mailbox restriction: RBAC for Applications in Exchange Online (Microsoft: it *replaces* Application Access Policies). Consequence: **no** `Mail.Send` application permission/admin consent in Entra — an Entra grant is org-wide and additive, so it would void the scope. The plan's «Entra Mail.Send + admin consent» step was replaced by this; docs tell the admin to revoke it if present. Scope: management scope `PrimarySmtpAddress -eq 'segurex.info@segurex.com'` (no mail-enabled group needed), role `Application Mail.Send`, checked with `Test-ServicePrincipalAuthorization`.
+
+## Sources (verified 2026-10-09)
+- https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0 — `POST /users/{id|UPN}/sendMail`, Application `Mail.Send`, `saveToSentItems`, `fileAttachment` example, `202 Accepted`.
+- https://learn.microsoft.com/en-us/graph/outlook-large-attachments — files under 3 MB in one request; 3–150 MB need an upload session.
+- https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac — RBAC for Applications replaces Application Access Policies; `New-ServicePrincipal`, `New-ManagementScope`, `New-ManagementRoleAssignment -App -Role "Application Mail.Send" -CustomResourceScope`, `Test-ServicePrincipalAuthorization`; Entra grants are additive (remove them); 30 min–2 h cache. (`/graph/auth-limit-mailbox-access` now redirects there.)
+- https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow — token request.
+
 ## Progress
 - 2026-10-09: Document created after Jhon chose Graph over SMTP.
+- 2026-10-09 T1: RED — `php artisan test tests/Feature/Mail` → 13 errors («Unsupported mail transport []», «command portal:mail-test does not exist»). GREEN — 13 passed (61 assertions). Full suite `php artisan test` → 901 passed (baseline 888 + 13). `vendor/bin/pint --test` passed. `php artisan list portal` shows `portal:mail-test`. Docs: `docs/despliegue.md` §1.10 (SMTP block replaced) and §5 (3 rows); `docs/manual-administracion.md` has no SMTP mention, unchanged. Not verified against a real tenant (needs the Exchange steps and `.env` on the server).
 
 ## Next step
-T1.
+Push and open PR.

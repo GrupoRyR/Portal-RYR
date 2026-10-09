@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Backups\RecordBackupOutcome;
+use App\Mail\GraphAccessToken;
+use App\Mail\GraphTransport;
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
@@ -15,10 +17,12 @@ use App\Settings\PortalSettings;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Events\RequestHandled;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -78,6 +82,34 @@ class AppServiceProvider extends ServiceProvider
 
         // Outcome of every backup, for the «Respaldo diario» card.
         Event::listen([BackupWasSuccessful::class, BackupHasFailed::class], RecordBackupOutcome::class);
+
+        // `MAIL_MAILER=graph`: mail through Microsoft Graph sendMail
+        // (config/mail.php, docs/despliegue.md §1.10). Missing settings are
+        // reported when a message is sent, so callers' error handling and
+        // logs still apply.
+        Mail::extend('graph', function (array $config) {
+            $settings = [
+                'MICROSOFT_MAIL_TENANT_ID' => (string) ($config['tenant'] ?? ''),
+                'MICROSOFT_CLIENT_ID' => (string) ($config['client_id'] ?? ''),
+                'MICROSOFT_CLIENT_SECRET' => (string) ($config['client_secret'] ?? ''),
+            ];
+            $timeout = (int) ($config['timeout'] ?? 15);
+            $http = $this->app->make(HttpFactory::class);
+
+            return new GraphTransport(
+                $http,
+                new GraphAccessToken(
+                    $http,
+                    $this->app->make('cache.store'),
+                    $settings['MICROSOFT_MAIL_TENANT_ID'],
+                    $settings['MICROSOFT_CLIENT_ID'],
+                    $settings['MICROSOFT_CLIENT_SECRET'],
+                    $timeout,
+                ),
+                array_keys(array_filter($settings, fn (string $value) => trim($value) === '')),
+                $timeout,
+            );
+        });
 
         // Laravel 11+ registration of the SocialiteProviders Microsoft driver.
         Event::listen(function (SocialiteWasCalled $event) {
