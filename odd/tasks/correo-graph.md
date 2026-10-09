@@ -48,5 +48,7 @@ Branch `feat/correo-graph` from `main` (`a34781b`) → PR to `main`.
 - 2026-10-09: Document created after Jhon chose Graph over SMTP.
 - 2026-10-09 T1: RED — `php artisan test tests/Feature/Mail` → 13 errors («Unsupported mail transport []», «command portal:mail-test does not exist»). GREEN — 13 passed (61 assertions). Full suite `php artisan test` → 901 passed (baseline 888 + 13). `vendor/bin/pint --test` passed. `php artisan list portal` shows `portal:mail-test`. Docs: `docs/despliegue.md` §1.10 (SMTP block replaced) and §5 (3 rows); `docs/manual-administracion.md` has no SMTP mention, unchanged. Not verified against a real tenant (needs the Exchange steps and `.env` on the server).
 
+- 2026-10-09: Accepted risk (Jhon): for now `Mail.Send` (Application) is consented in Entra, unscoped, so the app can send as any Segurex mailbox; the Exchange RBAC for Applications scope (despliegue §1.10) is postponed. Follow-up: run the §1.10 Exchange commands and then remove the Entra `Mail.Send` grant; meanwhile rotate the client secret regularly and review the app's service principal sign-ins in Entra.
+
 ## Next step
 Push and open PR.
