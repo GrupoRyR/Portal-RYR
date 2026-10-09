@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -11,7 +10,10 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Initial portal data: companies, roles, categories, the app catalog and
+     * its group rules. Safe for production (`php artisan db:seed --force`):
+     * no factories (Faker is a dev package), no users (people come from
+     * Microsoft), and every seeder can run again without duplicating.
      */
     public function run(): void
     {
@@ -21,13 +23,6 @@ class DatabaseSeeder extends Seeder
             AppCategorySeeder::class,
             AppCatalogSeeder::class,
             AppAccessRuleSeeder::class,
-        ]);
-
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
         ]);
     }
 }

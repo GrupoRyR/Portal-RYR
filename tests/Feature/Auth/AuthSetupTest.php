@@ -70,6 +70,18 @@ class AuthSetupTest extends TestCase
         $this->assertEqualsCanonicalizing(self::ROLES, Role::pluck('name')->all());
     }
 
+    public function test_database_seeder_is_safe_for_production(): void
+    {
+        // Production runs `db:seed --force` without dev packages (no Faker),
+        // so it must not use factories nor create any user; running it twice
+        // changes nothing.
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(0, User::count());
+        $this->assertSame(3, Role::count());
+    }
+
     public function test_users_can_hold_roles(): void
     {
         $this->seed(RoleSeeder::class);
