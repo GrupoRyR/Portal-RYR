@@ -1,6 +1,8 @@
 {{-- Maintenance notice (docs/diseno/PhoneMaint.dc.html): shown instead of opening the app. --}}
-<x-layouts.app :title="$app->name" noindex class="bg-ground">
-    <main id="contenido" class="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10 sm:px-6">
+<x-layouts.app :title="$app->name" noindex class="flex flex-col bg-ground">
+    <x-brand-bar />
+
+    <main id="contenido" class="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <section aria-labelledby="titulo-mantenimiento" class="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 sm:p-6">
             <div class="flex items-center gap-3.5">
                 <span aria-hidden="true" class="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-status-maintenance-bg text-status-maintenance">
