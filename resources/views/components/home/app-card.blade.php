@@ -2,6 +2,9 @@
     One app card (docs/diseno/Main.dc.html). The whole card opens the app
     through a stretched link; the star is a separate form so it works
     without JavaScript (resources/js/home.js submits it with fetch).
+    The logo container (.app-logo) carries the motion of resources/css/app.css,
+    whatever it holds; data-enter asks for the entrance on a plain page load
+    and home.js drops it once the entrance is over.
 --}}
 @props(['card', 'query' => ''])
 @use('App\View\Home\AppCardStatus')
@@ -11,22 +14,24 @@
     data-category="{{ $card->categorySlug }}"
     data-position="{{ $card->position }}"
     data-search="{{ $card->searchText }}"
+    data-status="{{ $card->status->value }}"
+    @if ($query === '') data-enter @endif
     @class([
-        'relative flex min-h-[168px] flex-col gap-2.5 rounded-card border bg-surface p-4 transition-[border-color,box-shadow] duration-150 hover:shadow-card md:min-h-[188px] md:w-[200px] md:gap-3 md:p-[18px] lg:w-52',
+        'relative flex min-h-[168px] flex-col gap-2.5 rounded-card border bg-surface p-4 transition-[border-color,box-shadow,translate] duration-200 hover:shadow-card md:min-h-[188px] md:w-[200px] md:gap-3 md:p-[18px] lg:w-52',
         'border-status-failure-line' => $card->status === AppCardStatus::Failing,
         'border-line hover:border-line-strong' => $card->status !== AppCardStatus::Failing,
     ])
 >
     <div class="flex items-start justify-between">
         @if ($card->iconUrl)
-            <picture class="shrink-0">
+            <picture class="app-logo block shrink-0">
                 @if ($card->iconDarkUrl)
                     <source srcset="{{ $card->iconDarkUrl }}" media="(prefers-color-scheme: dark)">
                 @endif
                 <img src="{{ $card->iconUrl }}" alt="" width="48" height="48" class="size-12 rounded-icon">
             </picture>
         @else
-            <span aria-hidden="true" class="flex size-12 shrink-0 items-center justify-center rounded-icon bg-(--app-accent) font-display text-xl font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
+            <span aria-hidden="true" class="app-logo flex size-12 shrink-0 items-center justify-center rounded-icon bg-(--app-accent) font-display text-xl font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
         @endif
 
         <form method="POST" action="{{ route($card->favorite ? 'favorites.destroy' : 'favorites.store', $card->slug) }}" class="relative z-10 -mt-2.5 -mr-2.5" data-favorite>

@@ -7,6 +7,7 @@
 //   its category.
 // - "/" focuses the search; the bottom bar focuses search and opens the
 //   account menu.
+// - Animated logos: ends the entrance, pops the star when it gets pressed.
 // - Installable app: registers the service worker (/sw.js, see
 //   resources/js/sw.js), shows the offline notice and asks the worker to
 //   forget this user's saved page when signing out.
@@ -25,6 +26,18 @@ const account = $('#cuenta');
 const serverSearch = document.body.dataset.serverSearch === 'true';
 
 const searching = () => !serverSearch && !!input && normalize(input.value) !== '';
+
+// Logo entrance (resources/css/app.css): once, on page load. A card that
+// moves or comes back from a search would replay it, so the flag goes when
+// the entrance is over or as soon as the list changes, whichever is first.
+const ENTRANCE_MS = 1500;
+const endEntrance = () => $$('[data-enter]').forEach((card) => delete card.dataset.enter);
+setTimeout(endEntrance, ENTRANCE_MS);
+
+const motion = window.matchMedia('(prefers-reduced-motion: no-preference)');
+
+// iOS Safari only applies :active (the logo press) with a touch listener.
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 // Hide sections without visible cards. Favoritos stays, with its hint, when
 // it is merely empty and no search is running.
@@ -48,6 +61,7 @@ function filter() {
     const query = input.value.trim();
     const terms = normalize(query).split(' ').filter(Boolean);
     let shown = 0;
+    endEntrance();
 
     for (const card of $$('[data-app]')) {
         card.hidden = !terms.every((term) => card.dataset.search.includes(term));
@@ -113,11 +127,19 @@ document.addEventListener('submit', async (event) => {
         button.setAttribute('aria-pressed', String(favorite));
         form.elements._method.value = favorite ? 'DELETE' : 'POST';
 
+        endEntrance();
         if (favorite) $('#favoritos [data-list]').append(card);
         else placeInCategory(card);
 
         refreshSections();
         button.focus();
+
+        if (favorite && motion.matches) {
+            $('svg', button).animate([{ transform: 'scale(0.5) rotate(-30deg)' }, { transform: 'none' }], {
+                duration: 450,
+                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            });
+        }
     } catch {
         // Let the plain form do it (it reloads the page).
         form.submit();
