@@ -32,21 +32,12 @@
 
             @if ($companies->isNotEmpty())
                 <div class="flex flex-col items-center gap-2.5 border-t border-line pt-[18px]">
-                    <p class="text-xs font-semibold tracking-[0.06em] text-fg-muted uppercase">Grupo Empresarial RYR</p>
+                    <p class="text-xs font-semibold text-fg-muted">Grupo Empresarial RYR</p>
                     <ul role="list" class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
                         @foreach ($companies as $company)
-                            <li class="font-display text-base font-bold tracking-[0.04em] text-fg-soft uppercase">
-                                @if ($company->logo_light_path)
-                                    <picture>
-                                        @if ($company->logo_dark_path)
-                                            <source srcset="{{ $company->brandFileUrl($company->logo_dark_path) }}" media="(prefers-color-scheme: dark)">
-                                        @endif
-                                        @php($logoSize = $company->brandImageSize($company->logo_light_path))
-                                        <img src="{{ $company->brandFileUrl($company->logo_light_path) }}" alt="{{ $company->name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-7 w-auto max-w-32 object-contain" loading="lazy" decoding="async">
-                                    </picture>
-                                @else
-                                    {{ $company->short_name ?: $company->name }}
-                                @endif
+                            {{-- Same mark as the headers: dark logo on a dark chip, light logo on white, or the name. --}}
+                            <li class="text-fg-soft">
+                                <x-brand-logo :company="$company" compact />
                             </li>
                         @endforeach
                     </ul>

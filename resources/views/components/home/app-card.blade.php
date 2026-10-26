@@ -35,7 +35,7 @@
             @if ($query !== '')
                 <input type="hidden" name="q" value="{{ $query }}">
             @endif
-            <button type="submit" aria-pressed="{{ $card->favorite ? 'true' : 'false' }}" aria-label="Marcar {{ $card->name }} como favorita" class="group flex size-touch cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle aria-pressed:text-brand-button dark:aria-pressed:text-brand-primary">
+            <button type="submit" aria-pressed="{{ $card->favorite ? 'true' : 'false' }}" aria-label="Marcar {{ $card->name }} como favorita" class="group flex size-touch cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle aria-pressed:text-brand-ink">
                 <x-home.icon name="star" stroke-width="1.6" class="size-5 group-aria-pressed:fill-current" />
             </button>
         </form>

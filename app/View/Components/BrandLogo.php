@@ -17,6 +17,7 @@ use Illuminate\View\Component;
  *   pill and is never inverted;
  * - without logos (or when the file is missing): the icon or the initial,
  *   plus the name as text.
+ * On a --brand-dark band (onBand) the dark logo goes straight on it.
  * The slot is a caption shown after the mark (e.g. "Portal de aplicaciones").
  */
 class BrandLogo extends Component
@@ -24,6 +25,9 @@ class BrandLogo extends Component
     public readonly string $name;
 
     public readonly string $initial;
+
+    /** Short name for compact lists (the full name when there is none). */
+    public readonly string $shortName;
 
     public readonly ?string $iconUrl;
 
@@ -35,7 +39,13 @@ class BrandLogo extends Component
     /** @var array{0: int, 1: int}|null */
     public readonly ?array $logoSize;
 
-    public function __construct(?Company $company = null)
+    /**
+     * @param  bool  $onBand  Drawn on a --brand-dark band (.brand-band): the
+     *                        dark logo needs no chip of its own there.
+     * @param  bool  $compact  For lists of several companies (sign-in): without
+     *                         a logo, a small icon and the short name.
+     */
+    public function __construct(?Company $company = null, public bool $onBand = false, public bool $compact = false)
     {
         $user = Auth::user();
 
@@ -45,6 +55,7 @@ class BrandLogo extends Component
 
         $this->name = Company::displayName($company);
         $this->initial = Company::displayInitial($company);
+        $this->shortName = $company?->short_name ?: $this->name;
         $this->iconUrl = $company?->brandFileUrl($company->icon_path);
         $this->logoUrl = $company?->brandFileUrl($logoPath);
         $this->onDark = $darkPath !== null;
