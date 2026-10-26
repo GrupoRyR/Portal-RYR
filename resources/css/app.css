@@ -1,10 +1,5 @@
 @import 'tailwindcss';
 
-/* Self-hosted variable fonts (no third-party font requests). Each file is
-   split by unicode-range, so browsers only download the Latin subset. */
-@import '@fontsource-variable/bricolage-grotesque';
-@import '@fontsource-variable/figtree';
-
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 /* Compiled views (storage/framework/views) are not scanned: their content
    depends on the local view cache and made builds differ between runs.
@@ -15,8 +10,12 @@
  * Neutral colors are redefined for the dark scheme below (not inverted).
  */
 @theme {
-    --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-    --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+    /* Official brand manual SGX/SDC (2026-10-23): Helvetica/Arial for the
+       whole interface, system fonts only (nothing is downloaded). Display
+       keeps its own name so headings can diverge again without touching
+       every view. */
+    --font-sans: Helvetica, Arial, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: Helvetica, Arial, 'Helvetica Neue', sans-serif;
 
     /* Neutral base (light) */
     --color-ground: #f5f5f2;
@@ -65,7 +64,10 @@
 }
 
 /* Brand colors come from the signed-in user's company, rendered inline in
-   the page <head> by App\Branding\BrandPalette (neutral when signed out). */
+   the page <head> by App\Branding\BrandPalette (neutral when signed out).
+   Manual tokens: accent (icons, borders, large text only), button (white
+   text on it), ink (brand text on white or tint), text (long text) and dark
+   (header behind the logo). Primary and tint stay for existing screens. */
 @theme inline {
     --color-brand-primary: var(--brand-primary, #17191c);
     --color-brand-accent: var(--brand-accent, #5e6168);
@@ -73,6 +75,7 @@
     --color-brand-button: var(--brand-button, #17191c);
     --color-brand-tint: var(--brand-tint, #f0f0ec);
     --color-brand-ink: var(--brand-ink, #17191c);
+    --color-brand-text: var(--brand-text, #17191c);
 }
 
 @media (prefers-color-scheme: dark) {
