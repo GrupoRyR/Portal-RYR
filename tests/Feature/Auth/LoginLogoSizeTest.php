@@ -53,12 +53,12 @@ class LoginLogoSizeTest extends TestCase
     public function test_an_unreadable_logo_falls_back_to_the_company_name(): void
     {
         // Same fallback as the headers (<x-brand-logo>): no broken image.
-        Company::factory()->create(['name' => 'Andina Química', 'logo_light_path' => 'brand/missing/logo-light-abc.png', 'logo_dark_path' => null]);
+        Company::factory()->create(['name' => 'Andina Química S.A.S.', 'short_name' => 'Andina', 'logo_light_path' => 'brand/missing/logo-light-abc.png', 'logo_dark_path' => null]);
 
         $response = $this->get(route('login'))->assertOk();
 
         $response->assertDontSee('brand/missing/logo-light-abc.png', false);
-        $response->assertSee('Andina Química');
+        $response->assertSee('Andina');
         $response->assertDontSee('width="0"', false);
     }
 
