@@ -131,6 +131,22 @@ class AppAccessRulesTest extends TestCase
         $this->assertSame([AppAccessRule::TYPE_USER, (string) $ana->id, $this->segurex->id], [$rule->type, $rule->value, $rule->company_id]);
     }
 
+    public function test_an_empty_user_search_explains_who_appears_and_what_to_do(): void
+    {
+        User::factory()->microsoft($this->segurex)->create(['name' => 'Ana María Pérez', 'email' => 'ana@segurex.com']);
+
+        $component = $this->rules()->call('open', 'user')->set('companyId', (string) $this->segurex->id);
+
+        $component->set('userSearch', 'zz')
+            ->assertSee('Nadie con ese nombre ha entrado al portal en esta empresa.')
+            ->assertSee('Solo aparecen las personas que ya iniciaron sesión al menos una vez.')
+            ->assertSeeHtml('use <strong>+ Grupo de Microsoft</strong> o pídale que entre una vez.');
+
+        $component->set('userSearch', 'ana')
+            ->assertSee('ana@segurex.com')
+            ->assertDontSee('Nadie con ese nombre ha entrado al portal en esta empresa.');
+    }
+
     public function test_a_user_of_another_company_cannot_be_added(): void
     {
         $outsider = User::factory()->microsoft($this->derivados)->create();
