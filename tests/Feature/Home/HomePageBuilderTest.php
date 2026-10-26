@@ -265,6 +265,21 @@ class HomePageBuilderTest extends TestCase
         $this->assertCount(3, $page->quickLinks);
     }
 
+    public function test_the_company_mark_comes_from_one_place(): void
+    {
+        $company = new Company(['name' => 'Soluciones y Derivados', 'short_name' => 'derivados']);
+
+        $this->assertSame('Soluciones y Derivados', Company::displayName($company));
+        $this->assertSame('D', Company::displayInitial($company));
+        $this->assertSame(config('app.name'), Company::displayName(null));
+        $this->assertSame(mb_strtoupper(mb_substr((string) config('app.name'), 0, 1)), Company::displayInitial(null));
+
+        // The header draws the mark with <x-brand-logo>: the page no longer
+        // carries its own copy of the initial and the icon.
+        $this->assertFalse(property_exists(HomePage::class, 'companyInitial'));
+        $this->assertFalse(property_exists(HomePage::class, 'companyIconUrl'));
+    }
+
     private function build(?string $query = null, ?CarbonImmutable $now = null): HomePage
     {
         return app(HomePageBuilder::class)->build($this->user->fresh(), $query, $now);

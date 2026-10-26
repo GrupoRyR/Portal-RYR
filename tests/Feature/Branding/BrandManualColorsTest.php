@@ -7,6 +7,7 @@ use App\Models\Company;
 use Database\Seeders\CompanySeeder;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 /**
@@ -93,21 +94,45 @@ class BrandManualColorsTest extends TestCase
         $this->assertStringContainsString('--brand-ink:#F26522;--brand-text:#A8A9AA;}}', $css);
     }
 
-    public function test_changing_only_the_primary_color_drops_the_manual_colors(): void
+    public function test_changing_only_the_primary_color_keeps_the_manual_colors(): void
     {
-        // The admin editor only edits primary, accent and dark: manual colors
-        // picked for another primary would no longer match it.
+        // Dropping them is an explicit choice in the company editor, never a
+        // side effect of saving another color.
         $company = Company::factory()->create(self::SEGUREX);
 
         $company->update(['color_primary' => '#0F8A7E']);
 
         $company = $company->fresh();
         $this->assertSame('#0F8A7E', $company->color_primary);
-        $this->assertNull($company->color_button);
-        $this->assertNull($company->color_ink);
-        $this->assertNull($company->color_text);
-        $this->assertNull($company->color_ink_dark_mode);
-        $this->assertNull($company->color_text_dark_mode);
+        $this->assertSame('#C6531C', $company->color_button);
+        $this->assertSame('#A8A9AA', $company->color_text_dark_mode);
+    }
+
+    public function test_the_migration_records_the_change_in_the_audit_log(): void
+    {
+        $segurex = Company::factory()->create(['slug' => 'segurex', 'color_primary' => '#FF671F', 'color_accent' => '#666666', 'color_dark' => '#8F360B']);
+        Company::factory()->create(['slug' => 'derivados', 'color_primary' => '#183F94']);
+        Activity::query()->delete();
+
+        $this->manualColorsMigration()->up();
+
+        $entries = Activity::query()->where('log_name', Company::AUDIT_LOG)->get();
+        $this->assertCount(2, $entries);
+
+        $entry = $entries->firstWhere('subject_id', $segurex->id);
+        $this->assertSame('updated', $entry->event);
+        $this->assertSame($segurex->getMorphClass(), $entry->subject_type);
+        $this->assertNull($entry->causer_id);
+        $this->assertSame('#FF671F', $entry->properties['old']['color_primary']);
+        $this->assertSame('#F26522', $entry->properties['attributes']['color_primary']);
+        $this->assertSame('#C6531C', $entry->properties['attributes']['color_button']);
+    }
+
+    public function test_the_migration_logs_nothing_without_the_companies(): void
+    {
+        $this->manualColorsMigration()->up();
+
+        $this->assertSame(0, Activity::query()->count());
     }
 
     public function test_other_changes_keep_the_manual_colors(): void

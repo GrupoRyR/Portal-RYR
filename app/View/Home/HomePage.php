@@ -22,8 +22,6 @@ final readonly class HomePage
         public string $firstName,
         public string $dateLine,
         public string $companyName,
-        public string $companyInitial,
-        public ?string $companyIconUrl,
         public string $userName,
         public string $userInitials,
         public ?string $userEmail,

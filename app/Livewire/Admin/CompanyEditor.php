@@ -72,6 +72,13 @@ class CompanyEditor extends Component
 
     public ?TemporaryUploadedFile $icon = null;
 
+    /**
+     * Brand manual colors (Company::MANUAL_COLORS) win over the derived ones
+     * and survive a new primary; they are only dropped when the admin ticks
+     * «Quitar colores del manual».
+     */
+    public bool $dropManualColors = false;
+
     public string $preview = 'light';
 
     #[Locked]
@@ -321,11 +328,24 @@ class CompanyEditor extends Component
 
     public function render(): View
     {
-        $palette = BrandPalette::fromColors($this->colorPrimary, $this->colorAccent, $this->colorDark);
+        $company = $this->company;
+        $manualColors = $company->hasManualColors();
+        // The preview paints what saving would store: the manual colors stay
+        // unless the admin drops them.
+        $manual = $manualColors && ! $this->dropManualColors ? [
+            'button' => $company->color_button,
+            'ink' => $company->color_ink,
+            'text' => $company->color_text,
+            'darkInk' => $company->color_ink_dark_mode,
+            'darkText' => $company->color_text_dark_mode,
+        ] : [];
+        $palette = BrandPalette::fromColors($this->colorPrimary, $this->colorAccent, $this->colorDark, ...$manual);
         $primaryIsValid = preg_match(self::HEX_PATTERN, $this->colorPrimary) === 1;
 
         return view('livewire.admin.company-editor', [
             'palette' => $palette,
+            'manualColors' => $manualColors,
+            'primaryChanged' => strtoupper($this->colorPrimary) !== strtoupper((string) $company->color_primary),
             'primaryRatio' => $primaryIsValid ? Contrast::ratio('#FFFFFF', $this->colorPrimary) : null,
             'buttonRatio' => Contrast::ratio('#FFFFFF', $palette->button),
         ]);
@@ -359,6 +379,7 @@ class CompanyEditor extends Component
                     'color_primary' => strtoupper($this->colorPrimary),
                     'color_accent' => strtoupper($this->colorAccent),
                     'color_dark' => strtoupper($this->colorDark),
+                    ...($this->dropManualColors ? array_fill_keys(Company::MANUAL_COLORS, null) : []),
                     'is_active' => $this->isActive,
                     ...$new,
                 ])->save();

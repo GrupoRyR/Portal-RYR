@@ -6,7 +6,7 @@ use App\Models\Company;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\Component;
 
 /**
@@ -15,7 +15,8 @@ use Illuminate\View\Component;
  * - "Logo oscuro" (e.g. the white Segurex logo) sits on --brand-dark;
  * - a "Logo claro" only (e.g. SDC, opaque white background) sits on a white
  *   pill and is never inverted;
- * - without logos: the icon or the initial, plus the name as text.
+ * - without logos (or when the file is missing): the icon or the initial,
+ *   plus the name as text.
  * The slot is a caption shown after the mark (e.g. "Portal de aplicaciones").
  */
 class BrandLogo extends Component
@@ -39,14 +40,26 @@ class BrandLogo extends Component
         $user = Auth::user();
 
         $company ??= $user instanceof User ? $user->company : null;
-        $logoPath = $company?->logo_dark_path ?? $company?->logo_light_path;
+        $darkPath = self::storedPath($company?->logo_dark_path);
+        $logoPath = $darkPath ?? self::storedPath($company?->logo_light_path);
 
-        $this->name = $company?->name ?? (string) config('app.name');
-        $this->initial = Str::upper(mb_substr($company?->short_name ?: $this->name, 0, 1));
+        $this->name = Company::displayName($company);
+        $this->initial = Company::displayInitial($company);
         $this->iconUrl = $company?->brandFileUrl($company->icon_path);
         $this->logoUrl = $company?->brandFileUrl($logoPath);
-        $this->onDark = $company?->logo_dark_path !== null;
+        $this->onDark = $darkPath !== null;
+        // Only asked once the file exists, so its cached size is never a
+        // "missing" null for a fixed path uploaded later (seeded paths).
         $this->logoSize = $company?->brandImageSize($logoPath);
+    }
+
+    /**
+     * The path when its file is on the "public" disk. Seeded companies point
+     * at brand/logo-*.png before anyone uploads them: those show the name.
+     */
+    private static function storedPath(?string $path): ?string
+    {
+        return $path !== null && Storage::disk('public')->exists($path) ? $path : null;
     }
 
     public function render(): View

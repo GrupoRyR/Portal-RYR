@@ -226,6 +226,25 @@
                 @endforeach
             </div>
 
+            @if ($manualColors)
+                <div class="flex flex-col gap-2 rounded-[14px] border border-line bg-subtle p-4 text-sm leading-relaxed">
+                    <p>
+                        <strong>Colores del manual de marca:</strong>
+                        botón <span class="font-mono">{{ $company->color_button ?? '—' }}</span>,
+                        texto de marca <span class="font-mono">{{ $company->color_ink ?? '—' }}</span> y
+                        texto largo <span class="font-mono">{{ $company->color_text ?? '—' }}</span>.
+                        Mandan sobre los que se calculan del principal.
+                    </p>
+                    @if ($primaryChanged && ! $dropManualColors)
+                        <p class="font-semibold text-status-maintenance" aria-live="polite">Cambiaste el principal, pero los colores del manual siguen mandando. Quítalos si quieres que se calculen del nuevo principal.</p>
+                    @endif
+                    <label class="flex min-h-touch items-center gap-3 font-semibold">
+                        <input type="checkbox" wire:model.live="dropManualColors" class="size-[18px] shrink-0 accent-fg">
+                        Quitar colores del manual
+                    </label>
+                </div>
+            @endif
+
             <div aria-live="polite">
                 @if ($primaryRatio !== null && $primaryRatio < \App\Branding\Contrast::AA_NORMAL)
                     <div class="flex gap-3 rounded-[14px] bg-status-maintenance-bg p-4 text-sm leading-relaxed text-status-maintenance">

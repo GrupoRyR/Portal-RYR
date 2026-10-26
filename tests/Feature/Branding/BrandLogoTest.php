@@ -45,6 +45,7 @@ class BrandLogoTest extends TestCase
     public function test_a_light_logo_only_goes_on_a_white_pill(): void
     {
         // The SDC logo has an opaque white background: never inverted.
+        $this->storePng('brand/derivados/logo-light.png', 220, 54);
         $company = Company::factory()->create([
             'name' => 'Soluciones y Derivados de Colombia S.A.S.',
             'logo_dark_path' => null,
@@ -76,8 +77,47 @@ class BrandLogoTest extends TestCase
             ->assertSeeInOrder(['>A</span>', 'Andina Química', 'Portal de aplicaciones'], false);
     }
 
+    public function test_a_logo_whose_file_is_missing_falls_back_to_the_name(): void
+    {
+        // The seeder points at brand/logo-*.png, which only exist once uploaded.
+        $company = Company::factory()->create([
+            'name' => 'Segurex Latam',
+            'short_name' => 'Segurex',
+            'logo_dark_path' => null,
+            'logo_light_path' => 'brand/logo-segurex.png',
+            'icon_path' => null,
+        ]);
+
+        $this->blade('<x-brand-logo :company="$company" />', ['company' => $company])
+            ->assertDontSee('<img', false)
+            ->assertSeeInOrder(['>S</span>', 'Segurex Latam'], false);
+
+        // Uploaded later at the same fixed path: shown from then on.
+        $this->storePng('brand/logo-segurex.png', 220, 54);
+
+        $this->blade('<x-brand-logo :company="$company" />', ['company' => $company])
+            ->assertSee('alt="Segurex Latam"', false)
+            ->assertSee('width="220" height="54"', false)
+            ->assertSee('bg-white', false);
+    }
+
+    public function test_a_missing_dark_logo_falls_back_to_the_light_one(): void
+    {
+        $this->storePng('brand/derivados/logo-light.png', 220, 54);
+        $company = Company::factory()->create([
+            'logo_dark_path' => 'brand/derivados/missing-dark.png',
+            'logo_light_path' => 'brand/derivados/logo-light.png',
+        ]);
+
+        $this->blade('<x-brand-logo :company="$company" />', ['company' => $company])
+            ->assertSee('logo-light.png', false)
+            ->assertSee('bg-white', false)
+            ->assertDontSee('bg-brand-dark', false);
+    }
+
     public function test_it_uses_the_signed_in_users_company_by_default(): void
     {
+        $this->storePng('brand/segurex/logo-dark.png', 598, 96);
         $company = Company::factory()->create(['name' => 'Segurex Latam', 'logo_dark_path' => 'brand/segurex/logo-dark.png']);
         $this->actingAs(User::factory()->create(['company_id' => $company->id]));
 

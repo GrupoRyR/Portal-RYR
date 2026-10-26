@@ -6,6 +6,7 @@ use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
 use App\Models\Announcement;
 use App\Models\App;
+use App\Models\Company;
 use App\Models\User;
 use App\Settings\PortalSettings;
 use Carbon\CarbonInterface;
@@ -68,15 +69,12 @@ final class HomePageBuilder
 
         $greeting = Greeting::at($now ?? now());
         $company = $user->company;
-        $companyName = $company?->name ?? (string) config('app.name');
 
         return new HomePage(
             salutation: $greeting->salutation,
             firstName: Greeting::firstName($user->name),
             dateLine: $greeting->dateLine,
-            companyName: $companyName,
-            companyInitial: Str::upper(mb_substr($company?->short_name ?: $companyName, 0, 1)),
-            companyIconUrl: $company?->brandFileUrl($company->icon_path),
+            companyName: Company::displayName($company),
             userName: (string) $user->name,
             userInitials: self::initials((string) $user->name),
             userEmail: $user->email,
