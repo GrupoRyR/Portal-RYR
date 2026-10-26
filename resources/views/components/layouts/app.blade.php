@@ -12,8 +12,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1{{ $viewportFit ? ', viewport-fit=cover' : '' }}">
-    <meta name="theme-color" content="#F5F5F2" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#121315" media="(prefers-color-scheme: dark)">
     @if ($noindex)
         <meta name="robots" content="noindex, nofollow">
     @endif

@@ -12,10 +12,17 @@ use App\Models\Company;
 final class WebManifest
 {
     /**
-     * Status/title bar color while the app starts; the same light ground as
-     * the pages' theme-color meta, so it does not jump once a page loads.
+     * Status/title bar color while the app starts without a company: the
+     * light ground of the signed-out pages. A company gets its --brand-dark,
+     * the band behind its logo (see self::themeColor()).
      */
     public const THEME_COLOR = '#F5F5F2';
+
+    /** Bar color of the pages and the installed app of a company. */
+    public static function themeColor(?Company $company): string
+    {
+        return $company === null ? self::THEME_COLOR : BrandPalette::forCompany($company)->dark;
+    }
 
     /**
      * @return array<string, mixed>
@@ -36,7 +43,7 @@ final class WebManifest
             'display' => 'standalone',
             // Splash screen: the company's light tint behind its icon.
             'background_color' => BrandPalette::forCompany($company)->tint,
-            'theme_color' => self::THEME_COLOR,
+            'theme_color' => self::themeColor($company),
             'icons' => [
                 ['src' => $icons->any192, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
                 ['src' => $icons->any512, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
