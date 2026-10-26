@@ -48,6 +48,35 @@ class BrandedMailTest extends TestCase
         $this->assertStringNotContainsString('Segoe UI', $html);
     }
 
+    public function test_the_logo_declares_its_size_at_28px_tall(): void
+    {
+        // Outlook ignores CSS sizes: without attributes it shows the file at
+        // its natural size. A 400×100 logo is 112×28 in the band.
+        $image = imagecreatetruecolor(400, 100);
+        ob_start();
+        imagepng($image);
+        Storage::disk('public')->put('brand/segurex/logo-dark.png', (string) ob_get_clean());
+        $company = Company::factory()->create(['logo_dark_path' => 'brand/segurex/logo-dark.png']);
+
+        $html = (string) $this->mail(MailBrand::for($company))->render();
+
+        $this->assertStringContainsString('width="112" height="28"', $html);
+    }
+
+    public function test_the_greeting_and_the_fallback_link_use_the_brand_ink(): void
+    {
+        $company = Company::factory()->create([
+            'color_primary' => '#F26522',
+            'color_dark' => '#58595B',
+            'color_ink' => '#943E15',
+        ]);
+
+        $html = (string) $this->mail(MailBrand::for($company))->render();
+
+        $this->assertMatchesRegularExpression('/<h1 style="[^"]*color: #943E15;[^"]*">Hola:<\/h1>/', $html);
+        $this->assertMatchesRegularExpression('/<a href="https:\/\/apps\.example\.com\/admin\/empresas\/segurex" style="[^"]*color: #943E15;/', $html);
+    }
+
     public function test_a_light_only_logo_goes_on_white(): void
     {
         Storage::disk('public')->put('brand/derivados/logo-light.png', 'png');

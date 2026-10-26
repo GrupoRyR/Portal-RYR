@@ -1,14 +1,11 @@
 {{-- Laravel's notification email; `brand` (App\Branding\MailBrand) paints the company logo and colors. --}}
 <x-mail::message :brand="$brand ?? null">
-{{-- Greeting --}}
-@if (! empty($greeting))
-# {{ $greeting }}
+{{-- Greeting, in the brand ink (AA on white) when there is a brand --}}
+@php($heading = ! empty($greeting) ? $greeting : ($level === 'error' ? __('Whoops!') : __('Hello!')))
+@if ($brand ?? null)
+<h1 style="color: {{ $brand->ink }};">{{ $heading }}</h1>
 @else
-@if ($level === 'error')
-# @lang('Whoops!')
-@else
-# @lang('Hello!')
-@endif
+# {{ $heading }}
 @endif
 
 {{-- Intro Lines --}}
@@ -47,7 +44,7 @@
 {{-- Subcopy --}}
 @isset($actionText)
 <x-slot:subcopy>
-Si el botón «{{ $actionText }}» no funciona, copia y pega esta dirección en tu navegador: <span class="break-all">[{{ $displayableActionUrl }}]({{ $actionUrl }})</span>
+Si el botón «{{ $actionText }}» no funciona, copia y pega esta dirección en tu navegador: <span class="break-all">@if ($brand ?? null)<a href="{{ $actionUrl }}" style="color: {{ $brand->ink }};">{{ $displayableActionUrl }}</a>@else[{{ $displayableActionUrl }}]({{ $actionUrl }})@endif</span>
 </x-slot:subcopy>
 @endisset
 </x-mail::message>
