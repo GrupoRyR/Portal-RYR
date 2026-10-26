@@ -27,15 +27,9 @@
     <header class="md:border-b md:border-line md:bg-surface">
         <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-8 gap-y-3 px-4 pt-5 pb-3 md:h-[72px] md:flex-nowrap md:px-8 md:py-0 lg:px-10">
             <a href="{{ route('home') }}" class="order-1 flex min-h-touch min-w-0 flex-1 items-center gap-3 md:flex-none md:shrink-0 xl:w-[300px]">
-                @if ($page->companyIconUrl)
-                    <img src="{{ $page->companyIconUrl }}" alt="" width="36" height="36" class="size-9 shrink-0 rounded-[10px] object-contain">
-                @else
-                    <span aria-hidden="true" class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-button font-display text-lg font-bold text-white">{{ $page->companyInitial }}</span>
-                @endif
-                <span class="flex min-w-0 flex-col leading-tight">
-                    <span class="truncate font-display text-lg font-bold">{{ $page->companyName }}</span>
+                <x-brand-logo>
                     <span class="hidden text-xs text-fg-muted md:block">Portal de aplicaciones</span>
-                </span>
+                </x-brand-logo>
             </a>
 
             @if ($page->hasApps())

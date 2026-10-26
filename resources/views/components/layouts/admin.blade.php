@@ -26,8 +26,7 @@
                 <x-admin.nav-icon name="menu" class="size-6" />
                 <span class="sr-only">Abrir menú de administración</span>
             </button>
-            <span class="flex size-8 items-center justify-center rounded-[10px] bg-brand-button font-display text-base font-bold text-white" aria-hidden="true">{{ $companyInitial() }}</span>
-            <span class="truncate font-display text-base font-bold">{{ $companyName() }}</span>
+            <x-brand-logo :company="$company" />
         </header>
 
         <div x-on:click="open = false; $nextTick(() => $refs.toggle.focus())"
@@ -40,11 +39,9 @@
              class="fixed inset-y-0 left-0 z-40 flex w-[248px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line bg-surface px-3.5 py-5 transition-[translate] duration-200 max-lg:invisible max-lg:-translate-x-full group-data-[menu=open]/shell:max-lg:visible group-data-[menu=open]/shell:max-lg:translate-x-0 lg:sticky lg:top-0 lg:h-dvh">
 
             <div class="flex items-center gap-2.5 px-2 pt-1 pb-6">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-button font-display text-lg font-bold text-white" aria-hidden="true">{{ $companyInitial() }}</span>
-                <span class="flex min-w-0 flex-col leading-tight">
-                    <span class="truncate font-display text-base font-bold">{{ $companyName() }}</span>
+                <x-brand-logo :company="$company">
                     <span class="text-xs text-fg-muted">Administración</span>
-                </span>
+                </x-brand-logo>
                 <button type="button"
                         x-ref="close"
                         x-on:click="open = false; $nextTick(() => $refs.toggle.focus())"
