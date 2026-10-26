@@ -113,7 +113,7 @@
                             <p class="text-sm text-fg-muted">
                                 Nadie con ese nombre ha entrado al portal en esta empresa.
                                 Solo aparecen las personas que ya iniciaron sesión al menos una vez.
-                                Para dar acceso a alguien que aún no entra, use <strong>+ Grupo de Microsoft</strong> o pídale que entre una vez.
+                                Para dar acceso a alguien que aún no entra, usa <strong>+ Grupo de Microsoft</strong> o pídele que entre una vez.
                             </p>
                         @else
                             <ul role="list" class="flex flex-col divide-y divide-line rounded-[12px] border border-line">
