@@ -50,13 +50,32 @@ class LoginLogoSizeTest extends TestCase
             ->assertSee('width="730" height="180"', false);
     }
 
-    public function test_an_unreadable_logo_still_renders_without_a_size(): void
+    public function test_an_unreadable_logo_falls_back_to_the_company_name(): void
     {
-        Company::factory()->create(['logo_light_path' => 'brand/missing/logo-light-abc.png']);
+        // Same fallback as the headers (<x-brand-logo>): no broken image.
+        Company::factory()->create(['name' => 'Andina Química', 'logo_light_path' => 'brand/missing/logo-light-abc.png', 'logo_dark_path' => null]);
 
         $response = $this->get(route('login'))->assertOk();
 
-        $response->assertSee('brand/missing/logo-light-abc.png', false);
+        $response->assertDontSee('brand/missing/logo-light-abc.png', false);
+        $response->assertSee('Andina Química');
         $response->assertDontSee('width="0"', false);
+    }
+
+    public function test_a_company_with_only_a_dark_logo_shows_it(): void
+    {
+        // Segurex: only the white "Logo oscuro", on a dark chip.
+        $image = imagecreatetruecolor(598, 96);
+        ob_start();
+        imagepng($image);
+        Storage::disk('public')->put('brand/segurex/logo-dark-abc.png', ob_get_clean());
+
+        Company::factory()->create(['name' => 'Segurex Latam', 'logo_light_path' => null, 'logo_dark_path' => 'brand/segurex/logo-dark-abc.png']);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(Storage::disk('public')->url('brand/segurex/logo-dark-abc.png'), false)
+            ->assertSee('alt="Segurex Latam"', false)
+            ->assertSee('width="598" height="96"', false);
     }
 }
