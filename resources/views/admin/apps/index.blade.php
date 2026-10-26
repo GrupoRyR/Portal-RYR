@@ -101,7 +101,7 @@
             <div class="relative overflow-x-auto" role="region" aria-labelledby="apps-list-title" tabindex="0">
                 <table class="w-full min-w-[960px] border-collapse text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-bold tracking-[0.06em] text-fg-muted uppercase">
+                        <tr class="text-left text-xs font-bold text-fg-muted">
                             <th scope="col" class="border-b border-line px-4 py-3">Aplicación</th>
                             <th scope="col" class="border-b border-line px-4 py-3">Empresa</th>
                             <th scope="col" class="border-b border-line px-4 py-3">Categoría</th>

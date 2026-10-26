@@ -39,7 +39,7 @@
             @else
                 <table class="w-full border-collapse text-sm max-md:block">
                     <thead class="max-md:sr-only">
-                        <tr class="border-b border-line text-left text-xs font-bold tracking-[0.06em] text-fg-muted uppercase">
+                        <tr class="border-b border-line text-left text-xs font-bold text-fg-muted">
                             <th scope="col" class="px-4 py-3">Sistema</th>
                             <th scope="col" class="px-4 py-3">Permisos</th>
                             <th scope="col" class="px-4 py-3">Último uso</th>
@@ -248,7 +248,7 @@
                         <input id="tk" x-ref="token" type="text" readonly value="{{ $plainToken }}" autocomplete="off" spellcheck="false"
                                class="h-12 w-full min-w-0 rounded-[10px] border border-line-strong bg-ground px-3.5 font-mono sm:flex-1 text-sm text-fg">
                         <button type="button" x-on:click="navigator.clipboard.writeText($refs.token.value).then(() => { copied = true; setTimeout(() => copied = false, 2500) })"
-                                class="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-fg px-[18px] text-[0.9375rem] font-semibold text-on-fg">
+                                class="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-brand-button px-[18px] text-[0.9375rem] font-semibold text-white">
                             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
                             <span x-text="copied ? 'Copiado' : 'Copiar'">Copiar</span>
                         </button>
@@ -271,7 +271,7 @@ Authorization: Bearer &lt;token&gt;
 
                 <div class="flex justify-end">
                     <button type="button" wire:click="dismissToken" x-bind:disabled="! saved" disabled
-                            class="inline-flex h-12 items-center rounded-control bg-fg px-[22px] text-[0.9375rem] font-semibold text-on-fg disabled:cursor-not-allowed disabled:bg-line disabled:text-fg-muted">
+                            class="inline-flex h-12 items-center rounded-control bg-brand-button px-[22px] text-[0.9375rem] font-semibold text-white disabled:cursor-not-allowed disabled:bg-line disabled:text-fg-muted">
                         Listo
                     </button>
                 </div>

@@ -4,7 +4,7 @@
     $label = 'text-[0.8125rem] font-semibold';
     $error = 'text-[0.8125rem] font-semibold text-status-failure';
     $secondary = 'inline-flex min-h-touch items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-subtle';
-    $primary = 'inline-flex min-h-touch items-center justify-center rounded-control bg-fg px-4 text-sm font-semibold text-on-fg';
+    $primary = 'inline-flex min-h-touch items-center justify-center rounded-control bg-brand-button px-4 text-sm font-semibold text-white';
     $companyLabel = fn ($company) => $company ? ($company->short_name ?: $company->name) : 'empresa borrada';
 @endphp
 <section class="flex flex-col gap-[18px] rounded-card border border-line bg-surface p-5 sm:p-6" aria-labelledby="e-rules">

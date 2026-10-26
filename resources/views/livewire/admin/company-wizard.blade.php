@@ -19,14 +19,14 @@
             <li @if ($number === $step) aria-current="step" @endif
                 @class([
                     'flex items-center gap-2.5 rounded-control px-3.5 py-3',
-                    'border-2 border-fg bg-surface' => $number === $step,
+                    'border-2 border-brand-accent bg-surface' => $number === $step,
                     'border border-line bg-surface' => $done && $number !== $step,
                     'border border-dashed border-line-strong' => ! $done && $number !== $step,
                 ])>
                 <span @class([
                     'flex size-7 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-bold',
                     'bg-status-active-dot text-white' => $done && $number !== $step,
-                    'bg-fg text-on-fg' => $number === $step,
+                    'bg-brand-button text-white' => $number === $step,
                     'bg-subtle text-fg-muted' => ! $done && $number !== $step,
                 ])>
                     @if ($done && $number !== $step)

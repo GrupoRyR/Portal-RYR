@@ -168,7 +168,7 @@
         {{-- Live preview: the same partials as the home screen. --}}
         <aside aria-labelledby="n-preview" x-data="{ device: 'desktop' }" class="flex flex-col gap-3 min-[1200px]:sticky min-[1200px]:top-8">
             <div class="flex items-center justify-between gap-3">
-                <h2 id="n-preview" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">Vista previa</h2>
+                <h2 id="n-preview" class="font-sans text-sm font-bold tracking-normal text-fg-muted">Vista previa</h2>
                 <div role="group" aria-label="Dispositivo" class="flex gap-1 rounded-[10px] bg-subtle p-[3px]">
                     @foreach (['desktop' => 'Escritorio', 'phone' => 'Celular'] as $device => $deviceLabel)
                         <button type="button" x-on:click="device = '{{ $device }}'"

@@ -73,7 +73,7 @@
                 <input id="au-to" type="date" name="hasta" value="{{ $filters->to?->toDateString() }}" class="{{ $control }}">
             </span>
 
-            <button type="submit" class="inline-flex h-11 items-center rounded-[10px] bg-fg px-4 text-sm font-semibold text-on-fg">Filtrar</button>
+            <button type="submit" class="inline-flex h-11 items-center rounded-[10px] bg-brand-button px-4 text-sm font-semibold text-white">Filtrar</button>
         </form>
 
         @if ($count === 0)
@@ -81,7 +81,7 @@
         @else
             <table class="w-full border-collapse text-sm max-md:block">
                 <thead class="max-md:sr-only">
-                    <tr class="border-b border-line text-left text-xs font-bold tracking-[0.06em] text-fg-muted uppercase">
+                    <tr class="border-b border-line text-left text-xs font-bold text-fg-muted">
                         <th scope="col" class="w-[150px] px-4 py-3">Cuándo</th>
                         <th scope="col" class="px-4 py-3">Quién</th>
                         <th scope="col" class="px-4 py-3">Qué hizo</th>
