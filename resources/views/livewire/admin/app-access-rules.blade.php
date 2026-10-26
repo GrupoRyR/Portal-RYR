@@ -110,7 +110,11 @@
                 <div id="rule-user-results" aria-live="polite">
                     @if (mb_strlen(trim($userSearch)) >= 2)
                         @if ($matches->isEmpty())
-                            <p class="text-sm text-fg-muted">Nadie coincide en esa empresa.</p>
+                            <p class="text-sm text-fg-muted">
+                                Nadie con ese nombre ha entrado al portal en esta empresa.
+                                Solo aparecen las personas que ya iniciaron sesión al menos una vez.
+                                Para dar acceso a alguien que aún no entra, use <strong>+ Grupo de Microsoft</strong> o pídale que entre una vez.
+                            </p>
                         @else
                             <ul role="list" class="flex flex-col divide-y divide-line rounded-[12px] border border-line">
                                 @foreach ($matches as $match)
