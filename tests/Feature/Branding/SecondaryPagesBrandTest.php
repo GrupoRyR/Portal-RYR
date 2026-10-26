@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Branding;
 
+use App\Branding\BrandPalette;
 use App\Models\App;
 use App\Models\AppAccessRule;
 use App\Models\Company;
@@ -78,8 +79,10 @@ class SecondaryPagesBrandTest extends TestCase
 
     private function assertBand(TestResponse $response): void
     {
+        // The browser bar runs into the band.
         $response->assertSee('<header class="brand-band', false)
-            ->assertSee('alt="Segurex Latam"', false);
+            ->assertSee('alt="Segurex Latam"', false)
+            ->assertSee('<meta name="theme-color" content="'.BrandPalette::forCompany($this->company)->dark.'">', false);
     }
 
     /**

@@ -3,7 +3,7 @@
     Desktop (≥1024px): fixed 248px sidebar. Below: off-canvas menu opened by
     a real button; Escape, the close button or the backdrop close it.
 --}}
-<x-layouts.app :title="$title ? $title.' · Administración' : 'Administración'" noindex livewire>
+<x-layouts.app :title="$title ? $title.' · Administración' : 'Administración'" noindex livewire brand-band>
     <a href="#contenido"
        class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-fg focus:px-4 focus:py-3 focus:font-semibold focus:text-on-fg">
         Saltar al contenido

@@ -11,7 +11,7 @@
     /** @var \App\View\Home\HomePage $page */
     $searching = $page->isSearching();
 @endphp
-<x-layouts.app title="Inicio" viewport-fit :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
+<x-layouts.app title="Inicio" viewport-fit brand-band :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
     <x-slot:head>
         @vite('resources/js/home.js')
     </x-slot:head>

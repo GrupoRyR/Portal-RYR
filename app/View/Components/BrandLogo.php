@@ -2,11 +2,11 @@
 
 namespace App\View\Components;
 
+use App\Branding\CompanyLogo;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\Component;
 
 /**
@@ -50,27 +50,18 @@ class BrandLogo extends Component
         $user = Auth::user();
 
         $company ??= $user instanceof User ? $user->company : null;
-        $darkPath = self::storedPath($company?->logo_dark_path);
-        $logoPath = $darkPath ?? self::storedPath($company?->logo_light_path);
+        $logo = CompanyLogo::for($company);
+        $logoPath = $logo?->path;
 
         $this->name = Company::displayName($company);
         $this->initial = Company::displayInitial($company);
         $this->shortName = $company?->short_name ?: $this->name;
         $this->iconUrl = $company?->brandFileUrl($company->icon_path);
         $this->logoUrl = $company?->brandFileUrl($logoPath);
-        $this->onDark = $darkPath !== null;
+        $this->onDark = $logo?->onDark ?? false;
         // Only asked once the file exists, so its cached size is never a
         // "missing" null for a fixed path uploaded later (seeded paths).
         $this->logoSize = $company?->brandImageSize($logoPath);
-    }
-
-    /**
-     * The path when its file is on the "public" disk. Seeded companies point
-     * at brand/logo-*.png before anyone uploads them: those show the name.
-     */
-    private static function storedPath(?string $path): ?string
-    {
-        return $path !== null && Storage::disk('public')->exists($path) ? $path : null;
     }
 
     public function render(): View

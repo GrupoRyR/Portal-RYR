@@ -99,6 +99,26 @@ class BrandPaletteTest extends TestCase
         $this->assertSame('#03256C', $palette->dark);
     }
 
+    public function test_a_palette_is_derived_once_for_the_same_colors(): void
+    {
+        $company = new Company(['color_primary' => '#0B5FA5', 'color_dark' => '#073B66']);
+
+        // BrandStyle and PwaHead both ask for it on every page.
+        $this->assertSame(BrandPalette::forCompany($company), BrandPalette::forCompany($company));
+        $this->assertSame(BrandPalette::forCompany($company), BrandPalette::forCompany(new Company($company->getAttributes())));
+    }
+
+    public function test_a_color_change_derives_a_new_palette(): void
+    {
+        $company = new Company(['color_primary' => '#0B5FA5', 'color_dark' => '#073B66']);
+        $before = BrandPalette::forCompany($company);
+
+        $company->color_dark = '#03256C';
+
+        $this->assertNotSame($before, BrandPalette::forCompany($company));
+        $this->assertSame('#03256C', BrandPalette::forCompany($company)->dark);
+    }
+
     public function test_an_invalid_primary_falls_back_to_the_neutral_palette(): void
     {
         $palette = BrandPalette::fromColors('#fff;}body{background:url(x)}', '#3E60A8', '#03256C');

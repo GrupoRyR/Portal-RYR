@@ -95,6 +95,11 @@ final readonly class BrandPalette
      * Button, ink, text, darkInk and darkText are the manual's colors: each
      * one is used only when it is a valid color that meets AA where it is
      * painted, otherwise the derived color is.
+     *
+     * Deriving walks OKLCH in small steps and every page asks for the same
+     * palette more than once (BrandStyle, PwaHead), so each set of colors is
+     * derived once per process. The result depends on the colors alone, so
+     * a changed color is simply a new entry, never a stale one.
      */
     public static function fromColors(
         mixed $primary,
@@ -105,6 +110,24 @@ final readonly class BrandPalette
         mixed $text = null,
         mixed $darkInk = null,
         mixed $darkText = null,
+    ): self {
+        /** @var array<string, self> $derived */
+        static $derived = [];
+
+        $colors = [$primary, $accent, $dark, $button, $ink, $text, $darkInk, $darkText];
+
+        return $derived[serialize($colors)] ??= self::derive(...$colors);
+    }
+
+    private static function derive(
+        mixed $primary,
+        mixed $accent,
+        mixed $dark,
+        mixed $button,
+        mixed $ink,
+        mixed $text,
+        mixed $darkInk,
+        mixed $darkText,
     ): self {
         $primaryColor = HexColor::tryFrom($primary);
 
