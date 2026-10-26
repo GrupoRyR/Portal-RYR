@@ -24,18 +24,18 @@
 
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
-    <header class="md:border-b md:border-line md:bg-surface">
-        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-8 gap-y-3 px-4 pt-5 pb-3 md:h-[72px] md:flex-nowrap md:px-8 md:py-0 lg:px-10">
+    <header class="brand-band">
+        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-8 gap-y-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 md:h-[72px] md:flex-nowrap md:px-8 md:py-0 lg:px-10">
             <a href="{{ route('home') }}" class="order-1 flex min-h-touch min-w-0 flex-1 items-center gap-3 md:flex-none md:shrink-0 xl:w-[300px]">
-                <x-brand-logo>
-                    <span class="hidden text-xs text-fg-muted md:block">Portal de aplicaciones</span>
+                <x-brand-logo on-band>
+                    <span class="hidden text-xs text-white/80 md:block">Portal de aplicaciones</span>
                 </x-brand-logo>
             </a>
 
             @if ($page->hasApps())
                 <form role="search" method="GET" action="{{ route('home') }}" class="order-3 min-w-0 basis-full md:order-2 md:mx-auto md:max-w-[560px] md:flex-1 md:basis-auto" data-search-form>
                     <label for="buscar" class="sr-only">Buscar aplicaciones</label>
-                    <div class="flex h-12 items-center gap-2.5 rounded-[14px] border border-line bg-surface pr-2 pl-3.5 focus-within:border-brand-button focus-within:ring-1 focus-within:ring-brand-button md:h-11 md:rounded-control md:bg-subtle">
+                    <div class="flex h-12 items-center gap-2.5 rounded-[14px] bg-surface pr-2 pl-3.5 text-fg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white md:h-11 md:rounded-control">
                         <x-home.icon name="search" stroke-width="2" class="size-[18px] text-fg-muted" />
                         <input id="buscar" name="q" type="search" value="{{ $page->query }}" maxlength="{{ \App\Catalog\AppSearch::MAX_LENGTH }}" placeholder="Buscar aplicaciones" autocomplete="off" enterkeyhint="search" aria-describedby="resultados" class="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted md:text-[0.9375rem]">
                         <kbd class="hidden rounded-md border border-line-strong bg-surface px-2 py-0.5 font-sans text-xs text-fg-muted md:inline" title="Pulsa / para buscar">/</kbd>
@@ -46,7 +46,7 @@
             <div class="order-2 ml-auto flex items-center gap-3 md:order-3 md:shrink-0 xl:w-[300px] xl:justify-end">
                 @if ($page->supportHref)
                     {{-- Icon only on phones (docs/diseno/PhoneHome), labelled from tablets up (Main, Tablet). --}}
-                    <a href="{{ $page->supportHref }}" target="_blank" rel="noopener" class="inline-flex size-touch items-center justify-center gap-2 rounded-control border border-line-strong bg-surface text-sm font-semibold hover:bg-subtle md:w-auto md:px-4">
+                    <a href="{{ $page->supportHref }}" target="_blank" rel="noopener" class="inline-flex size-touch items-center justify-center gap-2 rounded-control border border-white/40 text-sm font-semibold hover:bg-white/10 md:w-auto md:px-4">
                         <x-home.icon name="lifebuoy" class="size-5 md:size-[18px]" />
                         <span class="sr-only md:not-sr-only">Soporte TI</span>
                     </a>
@@ -56,7 +56,7 @@
                         <span aria-hidden="true">{{ $page->userInitials }}</span>
                         <span class="sr-only">Cuenta de {{ $page->userName }}</span>
                     </summary>
-                    <div class="absolute top-full right-0 z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-card border border-line bg-surface p-2 shadow-card">
+                    <div class="absolute top-full right-0 z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
                         <div class="flex flex-col px-3 py-2">
                             <span class="font-semibold">{{ $page->userName }}</span>
                             @if ($page->userEmail)
@@ -110,7 +110,7 @@
 
                 <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
                     <section id="favoritos" aria-labelledby="favoritos-titulo" data-section class="flex min-w-0 scroll-mt-6 flex-col gap-3 md:gap-3.5 lg:shrink" @if ($searching && $page->favorites === []) hidden @endif>
-                        <h2 id="favoritos-titulo" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">Favoritos</h2>
+                        <h2 id="favoritos-titulo" class="font-sans text-sm font-bold tracking-normal text-brand-text">Favoritos</h2>
                         <p data-favorites-hint class="max-w-xs text-sm text-fg-muted" @if ($page->favorites !== []) hidden @endif>Toca la estrella de una aplicación para fijarla aquí.</p>
                         <ul data-list class="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-4">
                             @foreach ($page->favorites as $card)
@@ -121,7 +121,7 @@
 
                     @if ($page->recents !== [])
                         <section id="recientes" aria-labelledby="recientes-titulo" class="flex min-w-0 flex-col gap-3 md:gap-3.5 lg:min-w-[280px] lg:flex-1">
-                            <h2 id="recientes-titulo" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">Recientes</h2>
+                            <h2 id="recientes-titulo" class="font-sans text-sm font-bold tracking-normal text-brand-text">Recientes</h2>
                             <ul class="flex flex-col rounded-card border border-line bg-surface p-1.5">
                                 @foreach ($page->recents as $card)
                                     <li>
@@ -148,7 +148,7 @@
                 <div class="flex flex-col gap-8 md:flex-row md:flex-wrap md:gap-x-10 md:gap-y-7">
                     @foreach ($page->categories as $group)
                         <section aria-labelledby="categoria-{{ $group->slug }}" data-section data-category="{{ $group->slug }}" class="flex min-w-0 max-w-full flex-col gap-3 md:gap-3.5" @if ($group->isEmpty()) hidden @endif>
-                            <h2 id="categoria-{{ $group->slug }}" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">{{ $group->name }}</h2>
+                            <h2 id="categoria-{{ $group->slug }}" class="font-sans text-sm font-bold tracking-normal text-brand-text">{{ $group->name }}</h2>
                             <ul data-list class="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-4">
                                 @foreach ($group->cards as $card)
                                     <x-home.app-card :card="$card" :query="$page->query" />
@@ -179,7 +179,7 @@
             @endif
 
             <section aria-labelledby="m365" class="flex flex-col gap-3 md:gap-3.5 xl:rounded-card xl:border xl:border-line xl:bg-surface xl:p-5">
-                <h2 id="m365" class="font-sans text-[0.8125rem] font-bold tracking-[0.06em] text-fg-muted uppercase">Microsoft 365</h2>
+                <h2 id="m365" class="font-sans text-sm font-bold tracking-normal text-brand-text">Microsoft 365</h2>
                 <ul class="grid grid-cols-4 gap-2 md:gap-3 xl:grid-cols-2 xl:gap-2">
                     @foreach ($page->quickLinks as $link)
                         <li class="min-w-0">

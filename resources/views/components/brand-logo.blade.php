@@ -2,7 +2,7 @@
     @if ($logoUrl)
         <span @class([
             'flex h-11 shrink-0 items-center',
-            'rounded-control bg-brand-dark px-3' => $onDark,
+            'rounded-control bg-brand-dark px-3' => $onDark && ! $onBand,
             'rounded-full bg-white px-4 ring-1 ring-line' => ! $onDark,
         ])>
             <img src="{{ $logoUrl }}" alt="{{ $name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-7 w-auto max-w-48 object-contain" decoding="async">

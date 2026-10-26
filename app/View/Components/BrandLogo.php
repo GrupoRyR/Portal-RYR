@@ -17,6 +17,7 @@ use Illuminate\View\Component;
  *   pill and is never inverted;
  * - without logos (or when the file is missing): the icon or the initial,
  *   plus the name as text.
+ * On a --brand-dark band (onBand) the dark logo goes straight on it.
  * The slot is a caption shown after the mark (e.g. "Portal de aplicaciones").
  */
 class BrandLogo extends Component
@@ -35,7 +36,11 @@ class BrandLogo extends Component
     /** @var array{0: int, 1: int}|null */
     public readonly ?array $logoSize;
 
-    public function __construct(?Company $company = null)
+    /**
+     * @param  bool  $onBand  Drawn on a --brand-dark band (.brand-band): the
+     *                        dark logo needs no chip of its own there.
+     */
+    public function __construct(?Company $company = null, public bool $onBand = false)
     {
         $user = Auth::user();
 

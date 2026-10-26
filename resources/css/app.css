@@ -141,6 +141,20 @@
     [x-cloak] {
         display: none !important;
     }
+}
+
+/* Header band behind the company logo (brand manual: --brand-dark). White
+   text holds AA on every manual dark (#58595B 7:1, #073B66 11.5:1); white
+   panels inside it set their own text and focus colors. */
+@layer components {
+    .brand-band {
+        background-color: var(--color-brand-dark);
+        color: #fff;
+    }
+
+    .brand-band :focus-visible {
+        outline-color: #fff;
+    }
 
     @media (prefers-reduced-motion: reduce) {
         *,
