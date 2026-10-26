@@ -24,7 +24,7 @@
                             <input id="cat-edit" type="text" maxlength="60" wire:model="renameValue" x-init="$el.focus(); $el.select()"
                                    class="h-11 min-w-0 flex-1 rounded-[10px] border-2 border-fg bg-surface px-3 text-[0.9375rem] text-fg"
                                    @error('renameValue') aria-invalid="true" aria-describedby="cat-edit-error" @enderror>
-                            <button type="submit" class="inline-flex min-h-touch items-center rounded-control bg-fg px-4 text-sm font-semibold text-on-fg">Guardar</button>
+                            <button type="submit" class="inline-flex min-h-touch items-center rounded-control bg-brand-button px-4 text-sm font-semibold text-white">Guardar</button>
                             <button type="button" wire:click="cancelRename" class="{{ $secondary }}">Cancelar</button>
                             @error('renameValue') <p id="cat-edit-error" class="{{ $error }} basis-full">{{ $message }}</p> @enderror
                         </form>
