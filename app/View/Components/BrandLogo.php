@@ -26,6 +26,9 @@ class BrandLogo extends Component
 
     public readonly string $initial;
 
+    /** Short name for compact lists (the full name when there is none). */
+    public readonly string $shortName;
+
     public readonly ?string $iconUrl;
 
     public readonly ?string $logoUrl;
@@ -39,8 +42,10 @@ class BrandLogo extends Component
     /**
      * @param  bool  $onBand  Drawn on a --brand-dark band (.brand-band): the
      *                        dark logo needs no chip of its own there.
+     * @param  bool  $compact  For lists of several companies (sign-in): without
+     *                         a logo, a small icon and the short name.
      */
-    public function __construct(?Company $company = null, public bool $onBand = false)
+    public function __construct(?Company $company = null, public bool $onBand = false, public bool $compact = false)
     {
         $user = Auth::user();
 
@@ -50,6 +55,7 @@ class BrandLogo extends Component
 
         $this->name = Company::displayName($company);
         $this->initial = Company::displayInitial($company);
+        $this->shortName = $company?->short_name ?: $this->name;
         $this->iconUrl = $company?->brandFileUrl($company->icon_path);
         $this->logoUrl = $company?->brandFileUrl($logoPath);
         $this->onDark = $darkPath !== null;

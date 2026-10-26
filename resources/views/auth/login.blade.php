@@ -37,7 +37,7 @@
                         @foreach ($companies as $company)
                             {{-- Same mark as the headers: dark logo on a dark chip, light logo on white, or the name. --}}
                             <li class="text-fg-soft">
-                                <x-brand-logo :company="$company" />
+                                <x-brand-logo :company="$company" compact />
                             </li>
                         @endforeach
                     </ul>
