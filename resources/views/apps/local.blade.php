@@ -1,8 +1,10 @@
 {{-- Info page of an app installed on the computer (docs/diseno/PhoneLocal.dc.html). --}}
 @php($steps = collect(preg_split('/\R/u', (string) $app->local_instructions))->map(fn ($step) => trim($step))->filter()->values())
 @php($downloadUrl = is_string($app->download_url) && str_starts_with(strtolower($app->download_url), 'https://') ? $app->download_url : null)
-<x-layouts.app :title="$app->name" class="bg-ground">
-    <div class="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
+<x-layouts.app :title="$app->name" class="flex flex-col bg-ground">
+    <x-brand-bar />
+
+    <div class="mx-auto flex w-full max-w-lg flex-1 flex-col">
         <header class="flex shrink-0 items-center px-2 pt-4 pb-2">
             <a href="{{ route('home') }}" aria-label="Volver al inicio" class="flex size-touch items-center justify-center rounded-control hover:bg-subtle">
                 <svg class="size-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>
@@ -28,7 +30,7 @@
                     <ol class="flex flex-col gap-3.5">
                         @foreach ($steps as $step)
                             <li class="flex items-start gap-3 text-[0.9375rem] leading-[1.45]">
-                                <span aria-hidden="true" class="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-fg text-[0.8125rem] font-bold text-on-fg">{{ $loop->iteration }}</span>
+                                <span aria-hidden="true" class="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-brand-button text-[0.8125rem] font-bold text-white">{{ $loop->iteration }}</span>
                                 <span>{{ $step }}</span>
                             </li>
                         @endforeach
