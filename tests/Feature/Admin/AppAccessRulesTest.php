@@ -140,7 +140,7 @@ class AppAccessRulesTest extends TestCase
         $component->set('userSearch', 'zz')
             ->assertSee('Nadie con ese nombre ha entrado al portal en esta empresa.')
             ->assertSee('Solo aparecen las personas que ya iniciaron sesión al menos una vez.')
-            ->assertSeeHtml('use <strong>+ Grupo de Microsoft</strong> o pídale que entre una vez.');
+            ->assertSeeHtml('usa <strong>+ Grupo de Microsoft</strong> o pídele que entre una vez.');
 
         $component->set('userSearch', 'ana')
             ->assertSee('ana@segurex.com')
