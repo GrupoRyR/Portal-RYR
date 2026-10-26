@@ -51,19 +51,29 @@ class HomeBrandTest extends TestCase
         $app = App::factory()->forCompanies($this->company)->create(['app_category_id' => $category->id]);
         AppAccessRule::forCompany($app, $this->company);
 
-        $this->home()
+        $html = $this->home()
             ->assertSeeText('Favoritos')
             ->assertSeeText('Microsoft 365')
-            ->assertDontSee('uppercase', false);
+            ->getContent();
+
+        preg_match_all('/<h2 id="(favoritos-titulo|m365|categoria-[^"]+)" class="([^"]*)"/', $html, $headings);
+        $this->assertCount(3, $headings[0]);
+        foreach ($headings[2] as $classes) {
+            $this->assertStringNotContainsString('uppercase', $classes);
+            $this->assertStringContainsString('text-brand-text', $classes);
+        }
     }
 
-    public function test_the_favorite_star_uses_the_brand_accent(): void
+    public function test_the_pressed_favorite_star_uses_the_brand_ink(): void
     {
+        // The accent (#F26522) is only 3.15:1 on white: too light for a
+        // state shown by color alone. The ink holds AA in both schemes.
         $app = App::factory()->forCompanies($this->company)->create();
         AppAccessRule::forCompany($app, $this->company);
 
         $this->home()
-            ->assertSee('aria-pressed:text-brand-accent', false)
+            ->assertSee('aria-pressed:text-brand-ink', false)
+            ->assertDontSee('aria-pressed:text-brand-accent', false)
             ->assertDontSee('text-brand-primary', false);
     }
 
