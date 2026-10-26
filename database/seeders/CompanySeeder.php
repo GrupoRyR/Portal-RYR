@@ -21,9 +21,15 @@ class CompanySeeder extends Seeder
             'is_primary_for_tenant' => true,
             'domains' => ['segurex.com'],
             'logo_light_path' => 'brand/logo-segurex.png',
-            'color_primary' => '#FF671F',
-            'color_accent' => '#666666',
-            'color_dark' => '#8F360B',
+            // Official brand manual SGX/SDC (2026-10-23).
+            'color_primary' => '#F26522',
+            'color_accent' => '#F26522',
+            'color_dark' => '#58595B',
+            'color_button' => '#C6531C',
+            'color_ink' => '#943E15',
+            'color_text' => '#58595B',
+            'color_ink_dark_mode' => '#F26522',
+            'color_text_dark_mode' => '#A8A9AA',
             'is_active' => true,
         ]);
 
@@ -34,9 +40,14 @@ class CompanySeeder extends Seeder
             'is_primary_for_tenant' => true,
             'domains' => ['derivadoscol.com'],
             'logo_light_path' => 'brand/logo-derivados.png',
-            'color_primary' => '#183F94',
-            'color_accent' => '#3E60A8',
-            'color_dark' => '#03256C',
+            'color_primary' => '#0B5FA5',
+            'color_accent' => '#0B5FA5',
+            'color_dark' => '#073B66',
+            'color_button' => '#0B5FA5',
+            'color_ink' => '#073B66',
+            'color_text' => '#073B66',
+            'color_ink_dark_mode' => '#4D8ABD',
+            'color_text_dark_mode' => '#4D8ABD',
             'is_active' => true,
         ]);
 

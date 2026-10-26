@@ -11,8 +11,8 @@ use App\Settings\PortalSettings;
  * - version: tied to the Vite build manifest, the worker's own code and the
  *   offline page, so every deploy that changes them gets new caches and
  *   drops the old ones;
- * - precache: the built CSS/JS of the home screen and its Latin fonts, read
- *   from public/build/manifest.json, plus the offline page;
+ * - precache: the built CSS/JS of the home screen, read from
+ *   public/build/manifest.json, plus the offline page;
  * - maxAgeMs: the idle timeout of Configuración; a saved home page older
  *   than a session could live is never shown.
  */
@@ -48,9 +48,7 @@ final class ServiceWorkerScript
     }
 
     /**
-     * Built files of the home entries and the chunks they import. Of the
-     * fonts, only the Latin subset: the latin-ext and vietnamese files are
-     * only downloaded for characters Spanish does not use (unicode-range).
+     * Built files of the home entries and the chunks they import.
      *
      * @param  array<string, array<string, mixed>>  $manifest
      * @return list<string>
@@ -78,8 +76,6 @@ final class ServiceWorkerScript
 
             array_push($pending, ...($chunk['imports'] ?? []));
         }
-
-        $files = array_filter($files, fn (string $file) => ! str_ends_with($file, '.woff2') || str_contains($file, '-latin-wght-'));
 
         return array_values(array_unique(array_map(fn (string $file) => '/build/'.$file, $files)));
     }

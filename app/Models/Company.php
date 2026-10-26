@@ -33,6 +33,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'color_primary',
     'color_accent',
     'color_dark',
+    'color_button',
+    'color_ink',
+    'color_text',
+    'color_ink_dark_mode',
+    'color_text_dark_mode',
     'quick_links',
     'is_active',
     'consent_verified_at',
@@ -47,6 +52,12 @@ class Company extends Model
 
     /** Activity log name for company changes (spatie/laravel-activitylog). */
     public const AUDIT_LOG = 'companies';
+
+    /**
+     * Colors fixed by the official brand manual on top of the primary. They
+     * stay until an admin drops them in the company editor.
+     */
+    public const MANUAL_COLORS = ['color_button', 'color_ink', 'color_text', 'color_ink_dark_mode', 'color_text_dark_mode'];
 
     /**
      * Every change to a fillable attribute is logged with its causer and the
@@ -191,6 +202,30 @@ class Company extends Model
             ->when($exceptId !== null, fn (Builder $query) => $query->whereKeyNot($exceptId))
             ->get(['id', 'name', 'domains'])
             ->first(fn (self $company) => in_array($domain, $company->domains ?? [], true));
+    }
+
+    /**
+     * Name shown for the company of a page; the portal's name without one.
+     */
+    public static function displayName(?self $company): string
+    {
+        return $company?->name ?? (string) config('app.name');
+    }
+
+    /**
+     * Letter that stands in for a missing icon: short name first.
+     */
+    public static function displayInitial(?self $company): string
+    {
+        return mb_strtoupper(mb_substr($company?->short_name ?: self::displayName($company), 0, 1));
+    }
+
+    /**
+     * Whether the official brand manual fixes any color of this company.
+     */
+    public function hasManualColors(): bool
+    {
+        return array_filter($this->only(self::MANUAL_COLORS)) !== [];
     }
 
     /**

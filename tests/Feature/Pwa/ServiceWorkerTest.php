@@ -50,12 +50,9 @@ class ServiceWorkerTest extends TestCase
         $this->assertContains('/offline.html', $precache);
         $this->assertNotContains('/build/'.$vite['resources/js/livewire.js']['file'], $precache);
 
-        // Latin fonts only: the other subsets load for characters Spanish does not use.
+        // No web fonts: the brand manual uses the system Helvetica/Arial.
         $fonts = array_values(array_filter($precache, fn (string $url) => str_ends_with($url, '.woff2')));
-        $this->assertNotEmpty($fonts);
-        foreach ($fonts as $font) {
-            $this->assertMatchesRegularExpression('/-latin-wght-/', $font);
-        }
+        $this->assertSame([], $fonts);
     }
 
     public function test_the_cache_version_follows_the_build(): void

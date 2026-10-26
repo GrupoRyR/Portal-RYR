@@ -119,9 +119,113 @@ class BrandPaletteTest extends TestCase
         $variables = BrandPalette::fromColors('#FF671F', '#666666', '#8F360B')->cssVariables();
 
         $this->assertSame(
-            ['--brand-primary', '--brand-accent', '--brand-dark', '--brand-button', '--brand-tint', '--brand-ink'],
+            ['--brand-primary', '--brand-accent', '--brand-dark', '--brand-button', '--brand-tint', '--brand-ink', '--brand-text'],
             array_keys($variables),
         );
+    }
+
+    public function test_dark_css_variables_cover_the_tokens_that_change_at_night(): void
+    {
+        $variables = BrandPalette::fromColors('#FF671F', '#666666', '#8F360B')->darkCssVariables();
+
+        $this->assertSame(['--brand-tint', '--brand-ink', '--brand-text'], array_keys($variables));
+    }
+
+    public function test_the_segurex_manual_palette_is_used_as_given(): void
+    {
+        $palette = BrandPalette::fromColors('#F26522', '#F26522', '#58595B',
+            button: '#C6531C', ink: '#943E15', text: '#58595B', darkInk: '#F26522', darkText: '#A8A9AA');
+
+        $this->assertSame('#F26522', $palette->accent);
+        $this->assertSame('#C6531C', $palette->button);
+        $this->assertSame('#943E15', $palette->ink);
+        $this->assertSame('#58595B', $palette->text);
+        $this->assertSame('#58595B', $palette->dark);
+        $this->assertSame('#F26522', $palette->darkInk);
+        $this->assertSame('#A8A9AA', $palette->darkText);
+    }
+
+    public function test_the_derivados_manual_palette_is_used_as_given(): void
+    {
+        $palette = BrandPalette::fromColors('#0B5FA5', '#0B5FA5', '#073B66',
+            button: '#0B5FA5', ink: '#073B66', text: '#073B66', darkInk: '#4D8ABD', darkText: '#4D8ABD');
+
+        $this->assertSame('#0B5FA5', $palette->button);
+        $this->assertSame('#073B66', $palette->ink);
+        $this->assertSame('#073B66', $palette->text);
+        $this->assertSame('#073B66', $palette->dark);
+        $this->assertSame('#4D8ABD', $palette->darkInk);
+        $this->assertSame('#4D8ABD', $palette->darkText);
+    }
+
+    /**
+     * @return array<string, array{string, string, string, string, string}>
+     */
+    public static function manualPalettes(): array
+    {
+        return [
+            'Segurex' => ['#F26522', '#C6531C', '#943E15', '#F26522', '#A8A9AA'],
+            'Derivados' => ['#0B5FA5', '#0B5FA5', '#073B66', '#4D8ABD', '#4D8ABD'],
+        ];
+    }
+
+    #[DataProvider('manualPalettes')]
+    public function test_manual_palettes_meet_aa_in_both_schemes(string $primary, string $button, string $ink, string $darkInk, string $darkText): void
+    {
+        $palette = BrandPalette::fromColors($primary, $primary, null,
+            button: $button, ink: $ink, text: $ink, darkInk: $darkInk, darkText: $darkText);
+
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio(self::WHITE, $palette->button), 'white on button');
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio($palette->tint, $palette->ink), 'ink on tint');
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio(self::WHITE, $palette->text), 'text on white');
+        // The dark tint is deepened until the manual's dark ink keeps AA on it.
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio($palette->darkTint, $palette->darkInk), 'ink on tint (dark mode)');
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio(BrandPalette::DARK_SURFACE, $palette->darkInk), 'ink on surface (dark mode)');
+        $this->assertGreaterThanOrEqual(4.5, Contrast::ratio(BrandPalette::DARK_SURFACE, $palette->darkText), 'text on surface (dark mode)');
+    }
+
+    public function test_manual_colors_below_aa_are_replaced_by_derived_ones(): void
+    {
+        // White on #F26522 is only 3.15:1, and #F26522 is too light as text.
+        $palette = BrandPalette::fromColors('#F26522', '#F26522', '#58595B',
+            button: '#F26522', ink: '#F26522', text: '#F26522', darkInk: '#58595B', darkText: '#0B5FA5');
+        $derived = BrandPalette::fromColors('#F26522', '#F26522', '#58595B');
+
+        $this->assertSame($derived->button, $palette->button);
+        $this->assertSame($derived->ink, $palette->ink);
+        $this->assertSame($derived->text, $palette->text);
+        $this->assertSame($derived->darkInk, $palette->darkInk);
+        $this->assertSame($derived->darkText, $palette->darkText);
+    }
+
+    public function test_without_manual_colors_text_follows_the_ink(): void
+    {
+        $palette = BrandPalette::fromColors('#183F94', '#3E60A8', '#03256C');
+
+        $this->assertSame($palette->ink, $palette->text);
+        $this->assertSame($palette->darkInk, $palette->darkText);
+    }
+
+    public function test_a_company_fills_the_palette_from_its_manual_colors(): void
+    {
+        $company = new Company([
+            'color_primary' => '#F26522',
+            'color_accent' => '#F26522',
+            'color_dark' => '#58595B',
+            'color_button' => '#c6531c',
+            'color_ink' => '#943E15',
+            'color_text' => '#58595B',
+            'color_ink_dark_mode' => '#F26522',
+            'color_text_dark_mode' => '#A8A9AA',
+        ]);
+
+        $palette = BrandPalette::forCompany($company);
+
+        $this->assertSame('#C6531C', $palette->button);
+        $this->assertSame('#943E15', $palette->ink);
+        $this->assertSame('#58595B', $palette->text);
+        $this->assertSame('#F26522', $palette->darkInk);
+        $this->assertSame('#A8A9AA', $palette->darkText);
     }
 
     public function test_the_css_declares_light_and_dark_values(): void
