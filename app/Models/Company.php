@@ -33,6 +33,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'color_primary',
     'color_accent',
     'color_dark',
+    'color_button',
+    'color_ink',
+    'color_text',
+    'color_ink_dark_mode',
+    'color_text_dark_mode',
     'quick_links',
     'is_active',
     'consent_verified_at',
@@ -47,6 +52,9 @@ class Company extends Model
 
     /** Activity log name for company changes (spatie/laravel-activitylog). */
     public const AUDIT_LOG = 'companies';
+
+    /** Colors fixed by the official brand manual on top of the primary. */
+    public const MANUAL_COLORS = ['color_button', 'color_ink', 'color_text', 'color_ink_dark_mode', 'color_text_dark_mode'];
 
     /**
      * Every change to a fillable attribute is logged with its causer and the
@@ -68,6 +76,15 @@ class Company extends Model
      */
     protected static function booted(): void
     {
+        // Manual colors (button, ink, text) were chosen for one primary. The
+        // admin editor only edits primary, accent and dark, so a new primary
+        // sent without them drops them and BrandPalette derives new ones.
+        static::saving(function (self $company) {
+            if ($company->exists && $company->isDirty('color_primary') && ! $company->isDirty(self::MANUAL_COLORS)) {
+                $company->fill(array_fill_keys(self::MANUAL_COLORS, null));
+            }
+        });
+
         static::created(function (self $company) {
             $company->audit('company.created', [
                 'attributes' => $company->only(['name', 'short_name', 'slug', 'tenant_id', 'domains', 'is_active']),

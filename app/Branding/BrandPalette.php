@@ -13,7 +13,13 @@ use App\Models\Company;
  *   (WCAG AA 4.5:1 plus a margin, decision 2026-10-05);
  * - tint: a very light primary for active/selected backgrounds;
  * - ink: a dark primary for text on the tint (AAA target, AA guaranteed);
- * - darkTint/darkInk: the same pair for the dark color scheme.
+ * - darkTint/darkInk: the same pair for the dark color scheme;
+ * - text/darkText: long text on white and on the dark surface (the ink).
+ *
+ * The official brand manual (SGX/SDC, 2026-10-23) fixes button, ink and
+ * text per company. Those manual colors win over the derived ones as long
+ * as they still meet AA; a manual color below AA is ignored, and the dark
+ * tint is deepened until the manual dark ink keeps AA on it.
  *
  * Without a company (signed out) or with an invalid primary, the neutral
  * palette is used: the portal never shows a half-broken brand.
@@ -35,6 +41,9 @@ final readonly class BrandPalette
 
     private const DARK_TINT_MAX_CHROMA = 0.05;
 
+    /** Card surface of the dark color scheme (--color-surface, app.css). */
+    public const DARK_SURFACE = '#1C1D20';
+
     public function __construct(
         public string $primary,
         public string $accent,
@@ -44,6 +53,8 @@ final readonly class BrandPalette
         public string $ink,
         public string $darkTint,
         public string $darkInk,
+        public string $text,
+        public string $darkText,
     ) {}
 
     public static function forCompany(?Company $company): self
@@ -52,7 +63,16 @@ final readonly class BrandPalette
             return self::neutral();
         }
 
-        return self::fromColors($company->color_primary, $company->color_accent, $company->color_dark);
+        return self::fromColors(
+            $company->color_primary,
+            $company->color_accent,
+            $company->color_dark,
+            button: $company->color_button,
+            ink: $company->color_ink,
+            text: $company->color_text,
+            darkInk: $company->color_ink_dark_mode,
+            darkText: $company->color_text_dark_mode,
+        );
     }
 
     public static function neutral(): self
@@ -66,31 +86,58 @@ final readonly class BrandPalette
             ink: '#17191C',
             darkTint: '#2C2E33',
             darkInk: '#F2F2EF',
+            text: '#17191C',
+            darkText: '#F2F2EF',
         );
     }
 
-    public static function fromColors(mixed $primary, mixed $accent, mixed $dark): self
-    {
+    /**
+     * Button, ink, text, darkInk and darkText are the manual's colors: each
+     * one is used only when it is a valid color that meets AA where it is
+     * painted, otherwise the derived color is.
+     */
+    public static function fromColors(
+        mixed $primary,
+        mixed $accent,
+        mixed $dark,
+        mixed $button = null,
+        mixed $ink = null,
+        mixed $text = null,
+        mixed $darkInk = null,
+        mixed $darkText = null,
+    ): self {
         $primaryColor = HexColor::tryFrom($primary);
 
         if ($primaryColor === null) {
             return self::neutral();
         }
 
+        $white = HexColor::from(self::WHITE);
+        $darkSurface = HexColor::from(self::DARK_SURFACE);
         $base = Oklch::fromHex($primaryColor);
         $tint = $base->withLightness(self::TINT_LIGHTNESS)->withChroma(min($base->chroma, self::TINT_MAX_CHROMA))->toHex();
         $darkTint = $base->withLightness(self::DARK_TINT_LIGHTNESS)->withChroma(min($base->chroma, self::DARK_TINT_MAX_CHROMA))->toHex();
-        $ink = self::darkenUntil($primaryColor, $tint, Contrast::AAA_NORMAL);
+
+        $inkColor = self::readable($ink, [$white, $tint]) ?? self::darkenUntil($primaryColor, $tint, Contrast::AAA_NORMAL);
+        $darkInkColor = self::readable($darkInk, [$darkSurface]);
+
+        if ($darkInkColor === null) {
+            $darkInkColor = self::lightenUntil($primaryColor, $darkTint, Contrast::AAA_NORMAL);
+        } else {
+            $darkTint = self::deepenUntil($darkTint, $darkInkColor, Contrast::AA_NORMAL);
+        }
 
         return new self(
             primary: $primaryColor->toHex(),
             accent: (HexColor::tryFrom($accent) ?? $primaryColor)->toHex(),
-            dark: (HexColor::tryFrom($dark) ?? $ink)->toHex(),
-            button: self::darkenUntil($primaryColor, HexColor::from(self::WHITE), self::BUTTON_CONTRAST)->toHex(),
+            dark: (HexColor::tryFrom($dark) ?? $inkColor)->toHex(),
+            button: (self::readable($button, [$white]) ?? self::darkenUntil($primaryColor, $white, self::BUTTON_CONTRAST))->toHex(),
             tint: $tint->toHex(),
-            ink: $ink->toHex(),
+            ink: $inkColor->toHex(),
             darkTint: $darkTint->toHex(),
-            darkInk: self::lightenUntil($primaryColor, $darkTint, Contrast::AAA_NORMAL)->toHex(),
+            darkInk: $darkInkColor->toHex(),
+            text: (self::readable($text, [$white]) ?? $inkColor)->toHex(),
+            darkText: (self::readable($darkText, [$darkSurface]) ?? $darkInkColor)->toHex(),
         );
     }
 
@@ -108,6 +155,7 @@ final readonly class BrandPalette
             '--brand-button' => $this->button,
             '--brand-tint' => $this->tint,
             '--brand-ink' => $this->ink,
+            '--brand-text' => $this->text,
         ];
     }
 
@@ -121,6 +169,7 @@ final readonly class BrandPalette
         return [
             '--brand-tint' => $this->darkTint,
             '--brand-ink' => $this->darkInk,
+            '--brand-text' => $this->darkText,
         ];
     }
 
@@ -146,6 +195,42 @@ final readonly class BrandPalette
         }
 
         return $css;
+    }
+
+    /**
+     * The color when it is valid and reaches AA against every background.
+     *
+     * @param  list<HexColor>  $backgrounds
+     */
+    private static function readable(mixed $value, array $backgrounds): ?HexColor
+    {
+        $color = HexColor::tryFrom($value);
+
+        foreach ($backgrounds as $background) {
+            if ($color === null || Contrast::ratio($color, $background) < Contrast::AA_NORMAL) {
+                return null;
+            }
+        }
+
+        return $color;
+    }
+
+    /**
+     * Lower the OKLCH lightness of a dark background (chroma kept) until the
+     * foreground reaches the target ratio on it. Black is the floor.
+     */
+    private static function deepenUntil(HexColor $background, HexColor $foreground, float $target): HexColor
+    {
+        $base = Oklch::fromHex($background);
+        $candidate = $background;
+        $lightness = $base->lightness;
+
+        while (Contrast::ratio($foreground, $candidate) < $target && $lightness > 0) {
+            $lightness = max(0.0, $lightness - self::STEP);
+            $candidate = $base->withLightness($lightness)->toHex();
+        }
+
+        return $candidate;
     }
 
     /**
