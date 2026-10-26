@@ -204,25 +204,12 @@
     }
 
     @media (prefers-reduced-motion: no-preference) {
-        /* 1. Entrance on a plain page load: one logo after another in each
-           list, 60 ms apart, capped so the last one starts before 1 s. */
+        /* 1. Entrance on a plain page load: one logo after another, 60 ms
+           apart, in catalog order (--logo-order, set by the card). */
         [data-enter] .app-logo {
             animation: logo-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
             animation-delay: calc(var(--logo-order, 0) * 60ms + 120ms);
         }
-
-        [data-enter]:nth-child(2) { --logo-order: 1; }
-        [data-enter]:nth-child(3) { --logo-order: 2; }
-        [data-enter]:nth-child(4) { --logo-order: 3; }
-        [data-enter]:nth-child(5) { --logo-order: 4; }
-        [data-enter]:nth-child(6) { --logo-order: 5; }
-        [data-enter]:nth-child(7) { --logo-order: 6; }
-        [data-enter]:nth-child(8) { --logo-order: 7; }
-        [data-enter]:nth-child(9) { --logo-order: 8; }
-        [data-enter]:nth-child(10) { --logo-order: 9; }
-        [data-enter]:nth-child(11) { --logo-order: 10; }
-        [data-enter]:nth-child(12) { --logo-order: 11; }
-        [data-enter]:nth-child(n + 13) { --logo-order: 12; }
 
         /* 2. Hover (pointer devices) and keyboard focus: the card lifts and
            the logo wiggles once. */

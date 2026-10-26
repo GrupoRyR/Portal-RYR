@@ -4,9 +4,11 @@
     without JavaScript (resources/js/home.js submits it with fetch).
     The logo container (.app-logo) carries the motion of resources/css/app.css,
     whatever it holds; data-enter asks for the entrance on a plain page load
-    and home.js drops it once the entrance is over.
+    and home.js drops it once the entrance is over. `order` is the card's place
+    on the page (home.blade.php), capped at 14 so the last logo starts within
+    a second (14 × 60 ms + 120 ms) however large the catalog.
 --}}
-@props(['card', 'query' => ''])
+@props(['card', 'query' => '', 'order' => 0])
 @use('App\View\Home\AppCardStatus')
 <li
     id="app-{{ $card->slug }}"
@@ -15,7 +17,7 @@
     data-position="{{ $card->position }}"
     data-search="{{ $card->searchText }}"
     data-status="{{ $card->status->value }}"
-    @if ($query === '') data-enter @endif
+    @if ($query === '') data-enter style="--logo-order: {{ min($order, 14) }}" @endif
     @class([
         'relative flex min-h-[168px] flex-col gap-2.5 rounded-card border bg-surface p-4 transition-[border-color,box-shadow,translate] duration-200 hover:shadow-card md:min-h-[188px] md:w-[200px] md:gap-3 md:p-[18px] lg:w-52',
         'border-status-failure-line' => $card->status === AppCardStatus::Failing,
