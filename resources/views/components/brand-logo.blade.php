@@ -5,7 +5,7 @@
             'rounded-control bg-brand-dark px-3' => $onDark,
             'rounded-full bg-white px-4 ring-1 ring-line' => ! $onDark,
         ])>
-            <img src="{{ $logoUrl }}" alt="{{ $name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-6 w-auto max-w-40 object-contain" decoding="async">
+            <img src="{{ $logoUrl }}" alt="{{ $name }}" @if ($logoSize) width="{{ $logoSize[0] }}" height="{{ $logoSize[1] }}" @endif class="h-7 w-auto max-w-48 object-contain" decoding="async">
         </span>
         @if ($slot->isNotEmpty())
             <span class="min-w-0 leading-none">{{ $slot }}</span>
