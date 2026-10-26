@@ -6,6 +6,9 @@
     // Lets the page draw under the notch and home indicator; it must then
     // pad fixed bars with env(safe-area-inset-*) itself (home bottom bar).
     'viewportFit' => false,
+    // The page opens with the --brand-dark band (.brand-band) behind the
+    // company logo: the browser bar takes the same color and runs into it.
+    'brandBand' => false,
 ])
 <!DOCTYPE html>
 <html lang="es">
@@ -18,7 +21,7 @@
     <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }}</title>
 
     <x-brand-style />
-    <x-pwa-head />
+    <x-pwa-head :brand-band="$brandBand" />
 
     @if ($livewire)
         @vite(['resources/css/app.css', 'resources/js/livewire.js'])

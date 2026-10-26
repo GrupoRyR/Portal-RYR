@@ -21,17 +21,20 @@ class PwaHead extends Component
 
     public readonly string $title;
 
-    /** --brand-dark of the company; null keeps the neutral grounds per scheme. */
+    /**
+     * --brand-dark of the company on pages that open with its band; null
+     * keeps the neutral grounds per scheme.
+     */
     public readonly ?string $themeColor;
 
-    public function __construct(PwaIcons $icons)
+    public function __construct(PwaIcons $icons, bool $brandBand = false)
     {
         $user = Auth::user();
         $company = $user instanceof User ? $user->company : null;
 
         $this->icons = $icons->for($company);
         $this->title = $company?->short_name ?: ($company?->name ?: (string) config('app.name'));
-        $this->themeColor = $company === null ? null : WebManifest::themeColor($company);
+        $this->themeColor = $brandBand && $company !== null ? WebManifest::themeColor($company) : null;
     }
 
     public function render(): View
