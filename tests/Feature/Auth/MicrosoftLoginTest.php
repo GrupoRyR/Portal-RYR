@@ -390,7 +390,7 @@ class MicrosoftLoginTest extends TestCase
         $this->assertTrue($user->company->is($this->derivados));
     }
 
-    public function test_profile_photo_and_groups_are_updated_from_graph(): void
+    public function test_profile_and_groups_are_updated_from_graph(): void
     {
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         $this->fakeGraph(
@@ -405,26 +405,24 @@ class MicrosoftLoginTest extends TestCase
         $this->assertSame('Ana María Pérez', $user->name);
         $this->assertSame('Jefe de Ventas', $user->job_title);
         $this->assertTrue($user->isInGroup('APP-TomaPedidos'));
-        $this->assertSame("avatars/{$user->id}.jpg", $user->photo_path);
-        Storage::disk('public')->assertExists("avatars/{$user->id}.jpg");
-        $this->assertSame('jpeg-bytes', Storage::disk('public')->get("avatars/{$user->id}.jpg"));
 
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer graph-access-token'));
     }
 
-    public function test_a_missing_photo_keeps_the_previous_one(): void
+    /**
+     * No page shows the photo, and the public disk would serve it to anyone
+     * at a guessable address (avatars/{id}.jpg).
+     */
+    public function test_the_profile_photo_is_neither_downloaded_nor_stored(): void
     {
-        $user = User::factory()->microsoft($this->segurex)->create([
-            'email' => 'ana@segurex.com',
-            'azure_oid' => self::OID,
-            'photo_path' => 'avatars/previous.jpg',
-        ]);
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
-        $this->fakeGraph(photoStatus: 404);
+        $this->fakeGraph();
 
         $this->hitCallback()->assertRedirect('/');
 
-        $this->assertSame('avatars/previous.jpg', $user->fresh()->photo_path);
+        $this->assertNull(User::sole()->photo_path);
+        $this->assertSame([], Storage::disk('public')->allFiles());
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/me/photo'));
     }
 
     public function test_a_graph_failure_does_not_block_sign_in_and_keeps_previous_data(): void
