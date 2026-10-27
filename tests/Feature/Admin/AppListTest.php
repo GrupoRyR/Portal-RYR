@@ -153,6 +153,17 @@ class AppListTest extends TestCase
             ->assertSeeInOrder(['Sin reglas', 'Nadie todavía']);
     }
 
+    public function test_who_sees_it_with_only_whole_company_rules(): void
+    {
+        $app = $this->app(['name' => 'Solo empresas'], companies: [$this->segurex, $this->derivados]);
+        AppAccessRule::forCompany($app, $this->segurex);
+        AppAccessRule::forCompany($app, $this->derivados);
+
+        $this->list()
+            ->assertOk()
+            ->assertSeeInOrder(['Solo empresas', 'Toda la empresa (Segurex)', 'Toda la empresa (Derivados)']);
+    }
+
     // --- Filters ----------------------------------------------------------
 
     public function test_the_search_matches_name_or_slug(): void

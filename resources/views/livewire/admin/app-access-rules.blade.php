@@ -4,7 +4,7 @@
     $label = 'text-[0.8125rem] font-semibold';
     $error = 'text-[0.8125rem] font-semibold text-status-failure';
     $secondary = 'inline-flex min-h-touch items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-subtle';
-    $primary = 'inline-flex min-h-touch items-center justify-center rounded-control bg-fg px-4 text-sm font-semibold text-on-fg';
+    $primary = 'inline-flex min-h-touch items-center justify-center rounded-control bg-brand-button px-4 text-sm font-semibold text-white';
     $companyLabel = fn ($company) => $company ? ($company->short_name ?: $company->name) : 'empresa borrada';
 @endphp
 <section class="flex flex-col gap-[18px] rounded-card border border-line bg-surface p-5 sm:p-6" aria-labelledby="e-rules">
@@ -110,7 +110,11 @@
                 <div id="rule-user-results" aria-live="polite">
                     @if (mb_strlen(trim($userSearch)) >= 2)
                         @if ($matches->isEmpty())
-                            <p class="text-sm text-fg-muted">Nadie coincide en esa empresa.</p>
+                            <p class="text-sm text-fg-muted">
+                                Nadie con ese nombre ha entrado al portal en esta empresa.
+                                Solo aparecen las personas que ya iniciaron sesión al menos una vez.
+                                Para dar acceso a alguien que aún no entra, usa <strong>+ Grupo de Microsoft</strong> o pídele que entre una vez.
+                            </p>
                         @else
                             <ul role="list" class="flex flex-col divide-y divide-line rounded-[12px] border border-line">
                                 @foreach ($matches as $match)

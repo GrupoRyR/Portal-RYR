@@ -83,7 +83,10 @@ final readonly class AppAdminRow
             ? ' ('.($rule->company->short_name ?: $rule->company->name).')'
             : '';
 
-        $parts = $rules->where('type', AppAccessRule::TYPE_GROUP)
+        // toBase(): with no group rules an empty Eloquent collection stays
+        // Eloquent and its merge() calls getKey() on the strings below.
+        $parts = $rules->toBase()
+            ->where('type', AppAccessRule::TYPE_GROUP)
             ->sortBy('value')
             ->map(fn (AppAccessRule $rule) => $rule->value.$suffix($rule))
             ->merge($rules->where('type', AppAccessRule::TYPE_COMPANY)

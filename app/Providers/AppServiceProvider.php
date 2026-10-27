@@ -116,9 +116,16 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('microsoft', MicrosoftProvider::class);
         });
 
-        // The neutral sign-in page names the active companies of the group.
+        // The neutral sign-in page names the active companies of the group;
+        // the colors give each dark logo its own company's chip. The support
+        // URL is linked directly: the /soporte route needs a session.
         View::composer('auth.login', function (\Illuminate\View\View $view) {
-            $view->with('companies', Company::active()->orderBy('name')->get(['name', 'short_name', 'logo_light_path', 'logo_dark_path']));
+            $view->with('companies', Company::active()->orderBy('name')->get([
+                'name', 'short_name', 'logo_light_path', 'logo_dark_path', 'icon_path',
+                'color_primary', 'color_accent', 'color_dark', 'color_button', 'color_ink',
+                'color_text', 'color_ink_dark_mode', 'color_text_dark_mode',
+            ]));
+            $view->with('supportUrl', app(PortalSettings::class)->supportUrl());
         });
     }
 }

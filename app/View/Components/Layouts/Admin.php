@@ -85,16 +85,6 @@ class Admin extends Component
         ]));
     }
 
-    public function companyName(): string
-    {
-        return $this->company?->name ?? config('app.name');
-    }
-
-    public function companyInitial(): string
-    {
-        return Str::upper(Str::substr($this->company?->short_name ?: $this->companyName(), 0, 1));
-    }
-
     public function userInitials(): string
     {
         $words = preg_split('/\s+/u', trim((string) $this->user?->name), -1, PREG_SPLIT_NO_EMPTY) ?: ['?'];

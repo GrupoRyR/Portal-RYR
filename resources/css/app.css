@@ -1,10 +1,5 @@
 @import 'tailwindcss';
 
-/* Self-hosted variable fonts (no third-party font requests). Each file is
-   split by unicode-range, so browsers only download the Latin subset. */
-@import '@fontsource-variable/bricolage-grotesque';
-@import '@fontsource-variable/figtree';
-
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 /* Compiled views (storage/framework/views) are not scanned: their content
    depends on the local view cache and made builds differ between runs.
@@ -15,8 +10,12 @@
  * Neutral colors are redefined for the dark scheme below (not inverted).
  */
 @theme {
-    --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-    --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+    /* Official brand manual SGX/SDC (2026-10-23): Helvetica/Arial for the
+       whole interface, system fonts only (nothing is downloaded). Display
+       keeps its own name so headings can diverge again without touching
+       every view. */
+    --font-sans: Helvetica, Arial, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: Helvetica, Arial, 'Helvetica Neue', sans-serif;
 
     /* Neutral base (light) */
     --color-ground: #f5f5f2;
@@ -65,7 +64,10 @@
 }
 
 /* Brand colors come from the signed-in user's company, rendered inline in
-   the page <head> by App\Branding\BrandPalette (neutral when signed out). */
+   the page <head> by App\Branding\BrandPalette (neutral when signed out).
+   Manual tokens: accent (icons, borders, large text only), button (white
+   text on it), ink (brand text on white or tint), text (long text) and dark
+   (header behind the logo). Primary and tint stay for existing screens. */
 @theme inline {
     --color-brand-primary: var(--brand-primary, #17191c);
     --color-brand-accent: var(--brand-accent, #5e6168);
@@ -73,6 +75,7 @@
     --color-brand-button: var(--brand-button, #17191c);
     --color-brand-tint: var(--brand-tint, #f0f0ec);
     --color-brand-ink: var(--brand-ink, #17191c);
+    --color-brand-text: var(--brand-text, #17191c);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -150,5 +153,336 @@
             transition-duration: 0s !important;
             scroll-behavior: auto !important;
         }
+    }
+}
+
+/* Header band behind the company logo (brand manual: --brand-dark). White
+   text holds AA on every manual dark (#58595B 7:1, #073B66 11.5:1); white
+   panels inside it set their own text and focus colors. */
+@layer components {
+    .brand-band {
+        background-color: var(--color-brand-dark);
+        color: #fff;
+    }
+
+    .brand-band :focus-visible {
+        outline-color: #fff;
+    }
+}
+
+/*
+ * Animated app logos on the home cards (docs/diseno/LogosAnimados.html).
+ * The motion lives on the logo container (.app-logo, components/home/
+ * app-card.blade.php), so it works for uploaded icons and initials alike.
+ * Only transform, translate, opacity and box-shadow move: no layout shift.
+ * Every movement sits behind prefers-reduced-motion: no-preference; with
+ * "reduce" the logos are simply there and the failure dot stays still.
+ */
+@layer components {
+    /* Maintenance: grey and still (it never wiggles, see below). */
+    [data-status='maintenance'] .app-logo {
+        filter: grayscale(1);
+        opacity: 0.6;
+    }
+
+    /* Failure: a small dot on the logo corner, ringed with the card color. */
+    [data-status='failing'] .app-logo {
+        position: relative;
+    }
+
+    [data-status='failing'] .app-logo::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        z-index: 1;
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        background-color: var(--color-status-failure);
+        box-shadow: 0 0 0 2px var(--color-surface);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        /* 1. Entrance on a plain page load: one logo after another in page
+           order (--logo-order, set by the card). This rule is the only
+           source of its timing: home.js ends each card's entrance on the
+           pop's animationend, and the order is capped here so the last
+           logo starts within a second however large the catalog. */
+        [data-enter] .app-logo {
+            --logo-step: 60ms;
+            --logo-start: 120ms;
+            --logo-last: 14;
+            animation: logo-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+            animation-delay: calc(min(var(--logo-order, 0), var(--logo-last)) * var(--logo-step) + var(--logo-start));
+        }
+
+        /* 2. Hover (pointer devices) and keyboard focus: the card lifts and
+           the logo wiggles once, after its entrance (the wiggle would
+           replace the pop half-way). */
+        @media (hover: hover) {
+            [data-app]:hover {
+                translate: 0 -3px;
+            }
+
+            [data-app]:not([data-enter], [data-status='maintenance']):hover .app-logo {
+                animation: logo-wiggle 0.7s ease;
+            }
+        }
+
+        [data-app]:has(a:focus-visible) {
+            translate: 0 -3px;
+        }
+
+        [data-app]:not([data-enter], [data-status='maintenance']):has(a:focus-visible) .app-logo {
+            animation: logo-wiggle 0.7s ease;
+        }
+
+        /* 3. Tap on a phone: a brief press before the app opens. */
+        .app-logo {
+            transition: transform 80ms ease-out;
+        }
+
+        @media (hover: none) {
+            [data-app]:active .app-logo {
+                transform: scale(0.88);
+            }
+        }
+
+        /* 4. The failure dot pulses calmly. */
+        [data-status='failing'] .app-logo::before {
+            animation: logo-alert 2s ease-out infinite;
+        }
+    }
+}
+
+/* No "to" frame: the logo lands on its own resting state (maintenance
+   keeps its lower opacity). */
+@keyframes logo-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.4) rotate(-12deg);
+    }
+}
+
+@keyframes logo-wiggle {
+    20% {
+        transform: rotate(-10deg);
+    }
+    40% {
+        transform: rotate(8deg);
+    }
+    60% {
+        transform: rotate(-5deg);
+    }
+    80% {
+        transform: rotate(3deg);
+    }
+}
+
+@keyframes logo-alert {
+    from {
+        box-shadow:
+            0 0 0 2px var(--color-surface),
+            0 0 0 0 color-mix(in srgb, var(--color-status-failure) 60%, transparent);
+    }
+    70%,
+    to {
+        box-shadow:
+            0 0 0 2px var(--color-surface),
+            0 0 0 8px transparent;
+    }
+}
+
+/*
+ * Sign-in stage (docs/diseno/LoginOpcionB.html): the apps cross a neutral
+ * stage like comets, behind a glass card with the sign-in. The page is shown
+ * before the company is known, so everything here is neutral grey; brand
+ * color lives only inside each company's logo chip.
+ */
+@layer components {
+    .signin-stage {
+        --stage: #e8e8e3;
+        --stage-glow: rgb(255 255 255 / 0.9);
+        --stage-dots: rgb(23 25 28 / 0.07);
+        --trail: rgb(23 25 28 / 0.12);
+        --trail-head: rgb(23 25 28 / 0.24);
+        --glass: rgb(255 255 255 / 0.94);
+        --glass-edge: rgb(255 255 255 / 0.5);
+        --glass-shadow: rgb(23 25 28 / 0.18);
+
+        background:
+            radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%),
+            radial-gradient(var(--stage-dots) 1px, transparent 1.6px) 0 0 / 28px 28px,
+            var(--stage);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .signin-stage {
+            --stage: #0c0d0f;
+            --stage-glow: rgb(255 255 255 / 0.07);
+            --stage-dots: rgb(255 255 255 / 0.06);
+            --trail: rgb(255 255 255 / 0.1);
+            --trail-head: rgb(255 255 255 / 0.22);
+            --glass: rgb(28 29 32 / 0.94);
+            --glass-edge: rgb(255 255 255 / 0.08);
+            --glass-shadow: rgb(0 0 0 / 0.6);
+        }
+    }
+
+    /* An app tile, shared by the comets and the still layout. */
+    .signin-tile {
+        display: grid;
+        place-items: center;
+        width: var(--s);
+        height: var(--s);
+        border-radius: calc(var(--s) * 0.28);
+        background: var(--color-surface);
+        color: var(--color-fg);
+        box-shadow:
+            0 1px 2px rgb(0 0 0 / 0.06),
+            0 18px 40px rgb(23 25 28 / 0.14);
+    }
+
+    .signin-tile svg {
+        width: 44%;
+        height: 44%;
+    }
+
+    .signin-tile-dark {
+        background: var(--color-fg);
+        color: var(--color-surface);
+    }
+
+    /* Comets: each starts just off the left edge at its height (--y) and
+       crosses along a shallow diagonal (--angle), head first with a tapered
+       trail. Shown only when motion is welcome (see below). Only transform
+       moves and nothing that moves is blurred, so the browser composites the
+       comets without repainting them; depth comes from size and opacity. */
+    .signin-comets {
+        --angle: 16deg;
+        --scale: 1;
+        display: none;
+    }
+
+    .signin-comet {
+        --s: calc(var(--size) * var(--scale));
+        position: absolute;
+        top: var(--y);
+        left: 0;
+        display: flex;
+        align-items: center;
+        transform-origin: 0 50%;
+        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+    }
+
+    .signin-comet-tail {
+        width: calc(var(--tail) * var(--scale));
+        height: calc(var(--s) * 0.7);
+        margin-right: calc(var(--s) * -0.4);
+        background: linear-gradient(90deg, transparent, var(--trail) 70%, var(--trail-head));
+        clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
+    }
+
+    .signin-comet .signin-tile {
+        position: relative;
+        rotate: calc(var(--r) - var(--angle));
+    }
+
+    .signin-comet-far {
+        opacity: 0.4;
+    }
+
+    /* Still layout: tiles placed around the card (reduced motion). */
+    .signin-float {
+        position: absolute;
+        top: var(--y);
+        left: var(--x);
+        rotate: var(--r);
+    }
+
+    .signin-float-far {
+        filter: blur(2px);
+        opacity: 0.55;
+    }
+
+    .signin-phone {
+        display: none;
+    }
+
+    /* Nearly opaque, without a backdrop blur: a blur behind moving comets
+       would be redone on every frame. The still layout keeps the glass. */
+    .signin-card {
+        background: var(--glass);
+        box-shadow:
+            inset 0 0 0 1px var(--glass-edge),
+            0 40px 90px var(--glass-shadow);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .signin-card {
+            -webkit-backdrop-filter: blur(22px) saturate(1.15);
+            backdrop-filter: blur(22px) saturate(1.15);
+        }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .signin-comets {
+            display: block;
+        }
+
+        .signin-floats {
+            display: none;
+        }
+
+        .signin-comet {
+            animation: signin-comet var(--d) linear var(--delay) infinite;
+        }
+
+        .signin-card {
+            animation: signin-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+    }
+
+    /* Phone: fewer, smaller and steeper comets, and with reduced motion
+       only three still tiles, above the card. */
+    @media (max-width: 767px) {
+        .signin-comets {
+            --angle: 24deg;
+            --scale: 0.62;
+        }
+
+        .signin-desk {
+            display: none;
+        }
+
+        .signin-phone {
+            display: grid;
+        }
+
+        .signin-float {
+            --s: var(--phone-s) !important;
+            top: var(--phone-y);
+            left: var(--phone-x);
+        }
+    }
+}
+
+/* From just off the left edge (its own length back) to just past the right
+   one. The crossing takes 65% of the period; the rest is the wait. */
+@keyframes signin-comet {
+    0% {
+        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+    }
+    65%,
+    100% {
+        transform: rotate(var(--angle)) translateX(112vw);
+    }
+}
+
+@keyframes signin-rise {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
     }
 }

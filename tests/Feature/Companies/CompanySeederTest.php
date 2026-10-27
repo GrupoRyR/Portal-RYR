@@ -20,9 +20,9 @@ class CompanySeederTest extends TestCase
         $this->assertSame('Segurex', $segurex->short_name);
         $this->assertSame('97cd024c-cd7a-419b-b385-f47b5f5816c8', $segurex->tenant_id);
         $this->assertSame(['segurex.com'], $segurex->domains);
-        $this->assertSame('#FF671F', $segurex->color_primary);
-        $this->assertSame('#666666', $segurex->color_accent);
-        $this->assertSame('#8F360B', $segurex->color_dark);
+        $this->assertSame('#F26522', $segurex->color_primary);
+        $this->assertSame('#F26522', $segurex->color_accent);
+        $this->assertSame('#58595B', $segurex->color_dark);
         $this->assertSame('brand/logo-segurex.png', $segurex->logo_light_path);
         $this->assertTrue($segurex->is_active);
         $this->assertTrue($segurex->is_primary_for_tenant);
@@ -33,9 +33,9 @@ class CompanySeederTest extends TestCase
         $this->assertSame('Derivados', $derivados->short_name);
         $this->assertSame('54f53029-e6e2-4b5f-a862-3454ae886468', $derivados->tenant_id);
         $this->assertSame(['derivadoscol.com'], $derivados->domains);
-        $this->assertSame('#183F94', $derivados->color_primary);
-        $this->assertSame('#3E60A8', $derivados->color_accent);
-        $this->assertSame('#03256C', $derivados->color_dark);
+        $this->assertSame('#0B5FA5', $derivados->color_primary);
+        $this->assertSame('#0B5FA5', $derivados->color_accent);
+        $this->assertSame('#073B66', $derivados->color_dark);
         $this->assertSame('brand/logo-derivados.png', $derivados->logo_light_path);
         $this->assertTrue($derivados->is_active);
         $this->assertTrue($derivados->is_primary_for_tenant);

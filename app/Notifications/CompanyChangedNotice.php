@@ -2,7 +2,9 @@
 
 namespace App\Notifications;
 
+use App\Branding\MailBrand;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -38,6 +40,10 @@ class CompanyChangedNotice extends Notification
         $name = $this->company->name;
 
         $mail = (new MailMessage)
+            // Painted with the recipient's company (one company per screen).
+            ->markdown('notifications::email', [
+                'brand' => MailBrand::for($notifiable instanceof User ? $notifiable->company : null),
+            ])
             ->subject(match ($this->event) {
                 self::CREATED => "Nueva empresa en el portal: {$name}",
                 self::TENANT_CHANGED => "Cambió el inquilino de {$name}",
