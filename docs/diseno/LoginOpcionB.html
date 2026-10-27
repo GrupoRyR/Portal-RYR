@@ -180,7 +180,7 @@ body { background: var(--stage); }
   background: var(--float);
   color: var(--float-fg);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 40px rgb(23 25 28 / 0.14);
-  transform: rotate(var(--r));
+  rotate: var(--r);
 }
 .float svg { width: 44%; height: 44%; }
 .float-dark { background: var(--float-fg); color: var(--float); }
@@ -203,20 +203,7 @@ body { background: var(--stage); }
   :root:not([data-theme="light"]) .card { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 40px 90px rgb(0 0 0 / 0.6); }
 }
 
-.group { display: flex; align-items: center; gap: 12px; color: var(--fg-soft); font-size: 14px; font-weight: 700; }
-.group-mark {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--fg);
-  color: var(--bg);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-h1 { margin-top: 28px; font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
+h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
 .copy { margin-top: 14px; color: var(--fg-soft); font-size: 17px; }
 .card .btn { width: 100%; margin-top: 32px; }
 .card .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgb(23 25 28 / 0.25); }
@@ -227,10 +214,29 @@ h1 { margin-top: 28px; font-size: 40px; line-height: 1.04; letter-spacing: -0.03
 .note { margin-top: 18px; color: var(--fg-muted); font-size: 13px; text-align: center; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .float { animation: bob var(--d, 9s) ease-in-out infinite alternate; }
+  /* Like kites: three slow swings at different rhythms (drift sideways,
+     rise and fall, lean), so each tile traces its own soft, never-repeating
+     path. Far tiles move less and slower. */
+  .float {
+    animation:
+      kite-drift var(--d) ease-in-out var(--delay) infinite alternate,
+      kite-lift calc(var(--d) * 0.57) ease-in-out var(--delay) infinite alternate,
+      kite-lean calc(var(--d) * 0.79) ease-in-out var(--delay) infinite alternate;
+  }
   .card { animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 }
-@keyframes bob { to { transform: rotate(var(--r)) translateY(-12px); } }
+@keyframes kite-drift {
+  from { translate: calc(var(--a) * -1 * var(--k)) 0; }
+  to { translate: calc(var(--a) * var(--k)) 0; }
+}
+@keyframes kite-lift {
+  from { transform: translateY(calc(var(--a) * 0.55)); }
+  to { transform: translateY(calc(var(--a) * -0.55)); }
+}
+@keyframes kite-lean {
+  from { rotate: calc(var(--r) - 7deg * var(--k)); }
+  to { rotate: calc(var(--r) + 7deg * var(--k)); }
+}
 @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
 
 /* Phone: the card fills the width; only the tiles near the edges stay. */
@@ -238,7 +244,7 @@ h1 { margin-top: 28px; font-size: 40px; line-height: 1.04; letter-spacing: -0.03
   .stage { place-items: end center; padding: 168px 16px 24px; }
   .float-desk { display: none; }
   .card { padding: 32px 24px 28px; border-radius: 24px; }
-  h1 { margin-top: 22px; font-size: 32px; }
+  h1 { font-size: 32px; }
   .chip { height: 42px; padding: 0 12px; }
   .chip-sgx img { height: 17px; }
   .chip-sdc img { height: 26px; }
@@ -247,6 +253,8 @@ h1 { margin-top: 28px; font-size: 40px; line-height: 1.04; letter-spacing: -0.03
 .float-phone { display: none; }
 @media (max-width: 767px) {
   .float-phone { display: grid; }
+  /* A narrower swing, so the kites stay on screen. */
+  .float { --a: 14px !important; }
   .floats .float:nth-child(1) { --x: 6% !important; --y: 32px !important; --s: 88px !important; }
   .floats .float:nth-child(5) { --x: 70% !important; --y: 20px !important; --s: 92px !important; }
   .floats .float:nth-child(11) { --x: 40% !important; --y: 64px !important; --s: 64px !important; }
@@ -257,11 +265,10 @@ h1 { margin-top: 28px; font-size: 40px; line-height: 1.04; letter-spacing: -0.03
 <body>
 <main class="stage">
   <ul class="floats" aria-hidden="true">
-    <li class="float" style="--x: 9%; --y: 14%; --s: 112px; --r: -8deg; --d: 10s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></li><li class="float float-desk" style="--x: 22%; --y: 60%; --s: 88px; --r: 6deg; --d: 8s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li><li class="float float-dark float-desk" style="--x: 5%; --y: 72%; --s: 120px; --r: -4deg; --d: 11s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="12" height="10" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></svg></li><li class="float float-far float-desk" style="--x: 27%; --y: 6%; --s: 64px; --r: 10deg; --d: 9s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M10 16l4.5-4.5M11.5 11.5h3v3"/></svg></li><li class="float float-dark" style="--x: 78%; --y: 10%; --s: 120px; --r: 7deg; --d: 12s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></li><li class="float float-desk" style="--x: 86%; --y: 48%; --s: 84px; --r: -9deg; --d: 9s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></li><li class="float float-desk" style="--x: 70%; --y: 74%; --s: 108px; --r: 5deg; --d: 10s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 20h18"/><path d="M6 20v-7M11 20V5M16 20v-10M21 20v-4"/></svg></li><li class="float float-far float-desk" style="--x: 72%; --y: 36%; --s: 60px; --r: -12deg; --d: 8s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.8.8 3 2.6 3 4.7"/></svg></li><li class="float float-far float-desk" style="--x: 14%; --y: 40%; --s: 56px; --r: 14deg; --d: 7s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></li><li class="float float-far float-desk" style="--x: 90%; --y: 82%; --s: 64px; --r: -6deg; --d: 9s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></li><li class="float float-phone" style="--x: 44%; --y: 4%; --s: 72px; --r: -5deg; --d: 10s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li>
+    <li class="float" style="--x: 9%; --y: 14%; --s: 112px; --r: -8deg; --d: 14s; --a: 40px; --k: 1; --delay: -0.0s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></li><li class="float float-desk" style="--x: 22%; --y: 60%; --s: 88px; --r: 6deg; --d: 12s; --a: 40px; --k: -1; --delay: -2.3s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li><li class="float float-dark float-desk" style="--x: 5%; --y: 72%; --s: 120px; --r: -4deg; --d: 16s; --a: 40px; --k: 1; --delay: -4.6s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="12" height="10" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></svg></li><li class="float float-far float-desk" style="--x: 27%; --y: 6%; --s: 64px; --r: 10deg; --d: 20s; --a: 20px; --k: -1; --delay: -6.9s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M10 16l4.5-4.5M11.5 11.5h3v3"/></svg></li><li class="float float-dark" style="--x: 78%; --y: 10%; --s: 120px; --r: 7deg; --d: 16s; --a: 40px; --k: 1; --delay: -9.2s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></li><li class="float float-desk" style="--x: 86%; --y: 48%; --s: 84px; --r: -9deg; --d: 13s; --a: 40px; --k: -1; --delay: -11.5s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></li><li class="float float-desk" style="--x: 70%; --y: 74%; --s: 108px; --r: 5deg; --d: 15s; --a: 40px; --k: 1; --delay: -13.8s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 20h18"/><path d="M6 20v-7M11 20V5M16 20v-10M21 20v-4"/></svg></li><li class="float float-far float-desk" style="--x: 72%; --y: 36%; --s: 60px; --r: -12deg; --d: 21s; --a: 20px; --k: -1; --delay: -16.1s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.8.8 3 2.6 3 4.7"/></svg></li><li class="float float-far float-desk" style="--x: 14%; --y: 40%; --s: 56px; --r: 14deg; --d: 18s; --a: 20px; --k: 1; --delay: -18.4s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></li><li class="float float-far float-desk" style="--x: 90%; --y: 82%; --s: 64px; --r: -6deg; --d: 20s; --a: 20px; --k: -1; --delay: -20.7s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></li><li class="float float-phone" style="--x: 44%; --y: 4%; --s: 72px; --r: -5deg; --d: 14s; --a: 40px; --k: 1; --delay: -23.0s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li>
   </ul>
 
   <section class="card" aria-labelledby="titulo">
-    <p class="group"><span class="group-mark" aria-hidden="true">RYR</span>Grupo Empresarial RYR</p>
     <h1 id="titulo">Todas tus aplicaciones en un solo lugar</h1>
     <p class="copy">Entra con la misma cuenta de Microsoft que usas para tu correo de trabajo.</p>
     <a class="btn" href="#"><svg class="ms" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><rect x="3" y="3" width="8.5" height="8.5"/><rect x="12.5" y="3" width="8.5" height="8.5"/><rect x="3" y="12.5" width="8.5" height="8.5"/><rect x="12.5" y="12.5" width="8.5" height="8.5"/></svg>Entrar con Microsoft</a>
