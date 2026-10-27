@@ -241,13 +241,12 @@ class MicrosoftLoginTest extends TestCase
         $this->assertSame('luis@derivados.com', $guest->email);
         $this->assertSame(self::SEGUREX_TENANT, $guest->tenant_id);
         $this->assertTrue($guest->company->is($this->segurex));
-        $this->assertTrue($guest->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-Cartera'], $guest->groups()->pluck('display_name')->all());
         $this->assertFalse($guest->hasRole('portal_admin'));
 
         $home->refresh();
         $this->assertSame($before, $home->getAttributes());
-        $this->assertTrue($home->isInGroup('APP-PortalAdmin'));
-        $this->assertFalse($home->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-PortalAdmin'], $home->groups()->pluck('display_name')->all());
         $this->assertSame(['portal_admin'], $home->getRoleNames()->all());
     }
 
@@ -404,7 +403,7 @@ class MicrosoftLoginTest extends TestCase
         $user = User::sole();
         $this->assertSame('Ana María Pérez', $user->name);
         $this->assertSame('Jefe de Ventas', $user->job_title);
-        $this->assertTrue($user->isInGroup('APP-TomaPedidos'));
+        $this->assertSame(['APP-TomaPedidos'], $user->groups()->pluck('display_name')->all());
         $this->assertSame("avatars/{$user->id}.jpg", $user->photo_path);
         Storage::disk('public')->assertExists("avatars/{$user->id}.jpg");
         $this->assertSame('jpeg-bytes', Storage::disk('public')->get("avatars/{$user->id}.jpg"));
@@ -446,7 +445,7 @@ class MicrosoftLoginTest extends TestCase
         $user->refresh();
         $this->assertSame('Ana Anterior', $user->name);
         $this->assertSame('Analista', $user->job_title);
-        $this->assertTrue($user->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-Cartera'], $user->groups()->pluck('display_name')->all());
         Log::shouldHaveReceived('warning')->atLeast()->once();
     }
 

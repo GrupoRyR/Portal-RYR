@@ -45,6 +45,9 @@
                     <span class="flex min-w-0 flex-1 flex-col">
                         <span class="truncate text-[0.9375rem] font-semibold">{{ $title }}</span>
                         <span class="text-[0.8125rem] break-words text-fg-muted">{{ $detail }}</span>
+                        @if (in_array((int) $rule->id, $microsoft365Only, true))
+                            <span class="text-[0.8125rem] font-semibold text-status-failure">Este grupo es de Microsoft 365 y no da acceso: debe ser un grupo de seguridad.</span>
+                        @endif
                         @unless ($applies)
                             <span class="text-[0.8125rem] font-semibold text-status-maintenance">La app no está activa en {{ $companyLabel($rule->company) }}: esta regla no aplica.</span>
                         @endunless

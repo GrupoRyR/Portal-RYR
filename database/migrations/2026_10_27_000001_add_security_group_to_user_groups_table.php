@@ -8,13 +8,14 @@ return new class extends Migration
 {
     /**
      * Whether the group is a security group (securityEnabled, not a
-     * Microsoft 365 "Unified" group). Only those grant apps. Stored groups
-     * start as false and are refreshed at the user's next sign-in.
+     * Microsoft 365 "Unified" group). Only `true` grants apps. Groups
+     * stored before this column are null (unknown, grants nothing) until
+     * the user's next sign-in refreshes them.
      */
     public function up(): void
     {
         Schema::table('user_groups', function (Blueprint $table) {
-            $table->boolean('security_group')->default(false)->after('display_name');
+            $table->boolean('security_group')->nullable()->after('display_name');
         });
     }
 

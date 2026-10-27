@@ -170,6 +170,7 @@ class AppAccessRules extends Component
             'linked' => $linked,
             'companies' => Company::query()->orderBy('name')->get(['id', 'name', 'short_name']),
             'suggestions' => $this->mode === AppAccessRule::TYPE_GROUP && $company ? $this->groupSuggestions($company) : collect(),
+            'microsoft365Only' => $this->microsoft365OnlyRules($rules),
             'matches' => $this->mode === AppAccessRule::TYPE_USER && $company ? $this->userMatches($company) : new Collection,
         ]);
     }
@@ -224,6 +225,38 @@ class AppAccessRules extends Component
     private function companyUsers(Company $company): Builder
     {
         return User::query()->where('company_id', $company->id)->where('is_emergency', false);
+    }
+
+    /**
+     * Ids of the group rules whose name is seen among the rule company's
+     * users only as a non-security group (a Microsoft 365 group or Team):
+     * such a rule grants nothing. Names not seen, or only seen before the
+     * flag was known, are not flagged.
+     *
+     * @param  Collection<int, AppAccessRule>  $rules
+     * @return list<int>
+     */
+    private function microsoft365OnlyRules(Collection $rules): array
+    {
+        $flagged = [];
+
+        foreach ($rules->where('type', AppAccessRule::TYPE_GROUP)->groupBy('company_id') as $companyId => $companyRules) {
+            $seen = UserGroup::query()
+                ->whereIn('user_id', User::query()->where('company_id', $companyId)->select('id'))
+                ->whereNotNull('security_group')
+                ->get(['display_name', 'security_group'])
+                ->groupBy(fn (UserGroup $group) => mb_strtolower(trim($group->display_name)));
+
+            foreach ($companyRules as $rule) {
+                $flags = $seen->get(mb_strtolower(trim((string) $rule->value)));
+
+                if ($flags !== null && ! $flags->contains('security_group', true)) {
+                    $flagged[] = (int) $rule->id;
+                }
+            }
+        }
+
+        return $flagged;
     }
 
     /**

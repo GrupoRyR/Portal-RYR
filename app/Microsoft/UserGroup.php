@@ -10,8 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A Microsoft group the user belonged to at their last sign-in.
- * `security_group`: a security group (securityEnabled and not a Microsoft
- * 365 group); only those count for app access rules.
+ * `security_group`: true for a security group (securityEnabled and not a
+ * Microsoft 365 group), false for any other, null when not known (stored
+ * before the flag existed). Only true counts for app access rules.
  */
 #[Fillable(['group_id', 'display_name', 'security_group'])]
 class UserGroup extends Model

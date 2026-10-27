@@ -178,7 +178,7 @@ class AppCatalog
     private function groupNames(User $user): array
     {
         return $user->groups
-            ->filter(fn ($group) => $group->security_group)
+            ->filter(fn ($group) => $group->security_group === true)
             ->map(fn ($group) => mb_strtolower(trim((string) $group->display_name)))
             ->filter()
             ->unique()
