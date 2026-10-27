@@ -7,7 +7,8 @@
 <title>Login opción B</title>
 <!-- Option B: the apps cross the stage like comets behind an elevated glass card.
      Static prototype for review: self-contained (inline CSS, logos as data URIs,
-     Helvetica/Arial only). The "Prototipo" switch in the corner is not part of the design. -->
+     Helvetica/Arial only). Reference for resources/views/auth/login.blade.php; light or dark
+     follows the system setting. -->
 <style>
 :root {
   --bg: #FAFAF8;
@@ -31,7 +32,7 @@
   --card: rgb(255 255 255 / 0.86);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
   --bg: #121315;
   --surface: #1C1D20;
   --fg: #F2F2EF;
@@ -52,27 +53,6 @@
   --trail-head: rgb(255 255 255 / 0.22);
   --card: rgb(28 29 32 / 0.84);
   }
-}
-:root[data-theme="dark"] {
-  --bg: #121315;
-  --surface: #1C1D20;
-  --fg: #F2F2EF;
-  --fg-soft: #C9CBD0;
-  --fg-muted: #A4A7AE;
-  --line: #2F3136;
-  --tile: #26282C;
-  --btn: #F2F2EF;
-  --btn-hover: #FFFFFF;
-  --btn-fg: #17191C;
-  --focus: #F2F2EF;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.45);
-  --stage: #0C0D0F;
-  --stage-glow: rgb(255 255 255 / 0.07);
-  --float: #1F2023;
-  --float-fg: #E4E5E8;
-  --trail: rgb(255 255 255 / 0.1);
-  --trail-head: rgb(255 255 255 / 0.22);
-  --card: rgb(28 29 32 / 0.84);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -120,36 +100,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline
 .chip-sdc { background: #FFFFFF; box-shadow: inset 0 0 0 1px rgb(23 25 28 / 0.1); }
 .chip-sdc img { width: auto; height: 34px; }
 
-/* Prototype only: lets the reviewer switch the theme. Not part of the design. */
-.proto {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 4px 4px 10px;
-  border-radius: 999px;
-  background: #17191C;
-  color: #F2F2EF;
-  font-size: 12px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
-}
-.proto button {
-  border: 0;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.proto button[aria-pressed="true"] { background: #F2F2EF; color: #17191C; font-weight: 700; }
-.proto button:focus-visible { outline: 2px solid #F2F2EF; outline-offset: 1px; }
-@media (max-width: 767px) {
-  .proto { position: static; width: max-content; margin: 16px auto; }
-}
 
 
 /* Option B: a full-bleed stage where the apps cross like comets, leaving a
@@ -166,9 +116,8 @@ body { background: var(--stage); }
     radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%),
     radial-gradient(rgb(23 25 28 / 0.07) 1px, transparent 1.6px) 0 0 / 28px 28px;
 }
-:root[data-theme="dark"] .stage { background: radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%), radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.6px) 0 0 / 28px 28px; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stage { background: radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%), radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.6px) 0 0 / 28px 28px; }
+  :root .stage { background: radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%), radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.6px) 0 0 / 28px 28px; }
 }
 
 /* The app tile, shared by the comets and the still layout. */
@@ -228,9 +177,8 @@ body { background: var(--stage); }
   backdrop-filter: blur(22px) saturate(1.15);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.5), 0 2px 4px rgb(0 0 0 / 0.04), 0 40px 90px rgb(23 25 28 / 0.18);
 }
-:root[data-theme="dark"] .card { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 40px 90px rgb(0 0 0 / 0.6); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .card { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 40px 90px rgb(0 0 0 / 0.6); }
+  :root .card { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 40px 90px rgb(0 0 0 / 0.6); }
 }
 
 h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
@@ -305,23 +253,5 @@ h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
     <p class="note">Solo para colaboradores del grupo. ¿Problemas para entrar? Escribe a soporte de TI.</p>
   </section>
 </main>
-<div class="proto" role="group" aria-label="Tema del prototipo">
-  <span>Prototipo</span>
-  <button type="button" data-t="">Sistema</button>
-  <button type="button" data-t="light">Claro</button>
-  <button type="button" data-t="dark">Oscuro</button>
-</div>
-<script>
-  // Prototype only: ?tema=claro|oscuro, or the buttons, override the system theme.
-  const root = document.documentElement;
-  const buttons = [...document.querySelectorAll('.proto button')];
-  const setTheme = (theme) => {
-    if (theme) root.dataset.theme = theme; else delete root.dataset.theme;
-    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === theme)));
-  };
-  const asked = new URLSearchParams(location.search).get('tema');
-  setTheme(asked === 'oscuro' ? 'dark' : asked === 'claro' ? 'light' : '');
-  buttons.forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.t)));
-</script>
 </body>
 </html>
