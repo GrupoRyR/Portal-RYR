@@ -32,6 +32,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Re-authentication age
+    |--------------------------------------------------------------------------
+    |
+    | Seconds within which the id_token `auth_time` of a "confirm it is
+    | really you" sign-in must fall (App\Auth\RecentMicrosoftLogin). Needs
+    | the `auth_time` optional claim on the app registration's ID token.
+    |
+    */
+
+    'reauth_max_age_seconds' => (int) env('PORTAL_REAUTH_MAX_AGE_SECONDS', 300),
+
+    /*
+    |--------------------------------------------------------------------------
     | Emergency access path
     |--------------------------------------------------------------------------
     |

@@ -10,6 +10,10 @@ use Illuminate\Contracts\Session\Session;
  * company, changing a tenant): the signed-in user must have completed a
  * Microsoft sign-in within the last 10 minutes — either the normal sign-in
  * or a re-authentication with prompt=login as the same (tid, oid).
+ *
+ * prompt=login is only a request to Microsoft, so a re-authentication also
+ * needs the id_token `auth_time` (an optional claim of the app registration)
+ * to show the credentials were entered moments ago.
  */
 class RecentMicrosoftLogin
 {
@@ -20,6 +24,12 @@ class RecentMicrosoftLogin
     public const PENDING_KEY = 'auth.microsoft_confirming';
 
     public const TTL_SECONDS = 600;
+
+    /** Default of config('portal.reauth_max_age_seconds'). */
+    public const DEFAULT_MAX_AUTH_AGE_SECONDS = 300;
+
+    /** Tolerated clock difference with Microsoft for an `auth_time` ahead of us. */
+    private const CLOCK_SKEW_SECONDS = 60;
 
     public const EMERGENCY_MESSAGE = 'Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.';
 
@@ -54,7 +64,8 @@ class RecentMicrosoftLogin
     }
 
     /**
-     * Only the same Microsoft identity the user signed in with may confirm.
+     * Only the same Microsoft identity the user signed in with may confirm,
+     * and only with credentials entered just now.
      */
     public function matches(User $user, MicrosoftIdentity $identity): bool
     {
@@ -62,7 +73,24 @@ class RecentMicrosoftLogin
             && $user->tenant_id !== null
             && $user->azure_oid !== null
             && hash_equals($user->tenant_id, strtolower($identity->tenantId))
-            && hash_equals($user->azure_oid, strtolower($identity->objectId));
+            && hash_equals($user->azure_oid, strtolower($identity->objectId))
+            && $this->authenticatedRecently($identity);
+    }
+
+    /**
+     * Whether `auth_time` falls within config('portal.reauth_max_age_seconds')
+     * of now. A missing claim never passes.
+     */
+    private function authenticatedRecently(MicrosoftIdentity $identity): bool
+    {
+        if ($identity->authTime === null) {
+            return false;
+        }
+
+        $maxAge = (int) config('portal.reauth_max_age_seconds', self::DEFAULT_MAX_AUTH_AGE_SECONDS);
+        $age = now()->getTimestamp() - $identity->authTime;
+
+        return $age <= $maxAge && $age >= -self::CLOCK_SKEW_SECONDS;
     }
 
     public function confirm(): void
