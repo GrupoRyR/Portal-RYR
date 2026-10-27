@@ -27,6 +27,8 @@ final class SecurityLog
 
     public const REAUTH_FAILED = 'reauth.failed';
 
+    public const ROLES_SYNCED = 'roles.synced';
+
     /**
      * @param  array{added: list<string>, removed: list<string>}  $roleChanges  Roles synced at this sign-in.
      */
@@ -79,15 +81,35 @@ final class SecurityLog
     }
 
     /**
+     * Roles the system changed outside a sign-in (`portal:sync-portal-admins`).
+     * No causer: Auditoría shows «Sistema»; the user is the subject.
+     *
+     * @param  array{added: list<string>, removed: list<string>}  $roleChanges
+     */
+    public static function rolesSynced(User $user, array $roleChanges): void
+    {
+        self::write(self::ROLES_SYNCED, null, [
+            'name' => $user->name,
+            'email' => $user->email,
+            'roles_added' => $roleChanges['added'],
+            'roles_removed' => $roleChanges['removed'],
+        ], $user);
+    }
+
+    /**
      * @param  array<string, mixed>  $properties
      */
-    private static function write(string $event, ?User $causer, array $properties): void
+    private static function write(string $event, ?User $causer, array $properties, ?User $subject = null): void
     {
         $logger = activity(self::LOG)->event($event)->withProperties($properties);
 
         // Without a causer the entry stays anonymous even if someone else is
         // signed in on this session (e.g. a rejected attempt).
         $causer === null ? $logger->causedByAnonymous() : $logger->causedBy($causer)->performedOn($causer);
+
+        if ($subject !== null) {
+            $logger->performedOn($subject);
+        }
 
         $logger->log($event);
     }

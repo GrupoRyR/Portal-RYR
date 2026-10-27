@@ -241,13 +241,12 @@ class MicrosoftLoginTest extends TestCase
         $this->assertSame('luis@derivados.com', $guest->email);
         $this->assertSame(self::SEGUREX_TENANT, $guest->tenant_id);
         $this->assertTrue($guest->company->is($this->segurex));
-        $this->assertTrue($guest->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-Cartera'], $guest->groups()->pluck('display_name')->all());
         $this->assertFalse($guest->hasRole('portal_admin'));
 
         $home->refresh();
         $this->assertSame($before, $home->getAttributes());
-        $this->assertTrue($home->isInGroup('APP-PortalAdmin'));
-        $this->assertFalse($home->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-PortalAdmin'], $home->groups()->pluck('display_name')->all());
         $this->assertSame(['portal_admin'], $home->getRoleNames()->all());
     }
 
@@ -404,7 +403,7 @@ class MicrosoftLoginTest extends TestCase
         $user = User::sole();
         $this->assertSame('Ana María Pérez', $user->name);
         $this->assertSame('Jefe de Ventas', $user->job_title);
-        $this->assertTrue($user->isInGroup('APP-TomaPedidos'));
+        $this->assertSame(['APP-TomaPedidos'], $user->groups()->pluck('display_name')->all());
         $this->assertSame("avatars/{$user->id}.jpg", $user->photo_path);
         Storage::disk('public')->assertExists("avatars/{$user->id}.jpg");
         $this->assertSame('jpeg-bytes', Storage::disk('public')->get("avatars/{$user->id}.jpg"));
@@ -446,17 +445,28 @@ class MicrosoftLoginTest extends TestCase
         $user->refresh();
         $this->assertSame('Ana Anterior', $user->name);
         $this->assertSame('Analista', $user->job_title);
-        $this->assertTrue($user->isInGroup('APP-Cartera'));
+        $this->assertSame(['APP-Cartera'], $user->groups()->pluck('display_name')->all());
         Log::shouldHaveReceived('warning')->atLeast()->once();
+    }
+
+    /**
+     * The portal admins group is pinned by object ID in the Segurex tenant.
+     */
+    private function pinAdminGroup(): void
+    {
+        config([
+            'portal.admin_group_id' => strtoupper(self::ADMIN_GROUP),
+            'portal.admin_tenant_id' => self::SEGUREX_TENANT,
+        ]);
     }
 
     public function test_portal_admin_group_membership_grants_and_later_revokes_the_role(): void
     {
+        $this->pinAdminGroup();
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         Http::fake([
-            'graph.microsoft.com/v1.0/me/photo/*' => Http::response([], 404),
             'graph.microsoft.com/v1.0/me/transitiveMemberOf/*' => Http::sequence()
-                ->push(['value' => [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin']]])
+                ->push(['value' => [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin', 'securityEnabled' => true, 'groupTypes' => []]]])
                 ->push(['value' => []]),
             'graph.microsoft.com/v1.0/me*' => Http::response(['displayName' => 'Ana Pérez']),
         ]);
@@ -472,6 +482,75 @@ class MicrosoftLoginTest extends TestCase
         $user = $user->fresh();
         $this->assertFalse($user->hasRole('portal_admin'));
         $this->assertTrue($user->hasRole('announcements_editor'));
+    }
+
+    /**
+     * Anyone who can create a group (a Team, say) can give it any name.
+     */
+    public function test_a_group_with_the_admin_name_but_another_id_grants_nothing(): void
+    {
+        $this->pinAdminGroup();
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph(groups: [['id' => 'cccccccc-0000-0000-0000-000000000001', 'displayName' => 'APP-PortalAdmin']]);
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse(User::sole()->hasRole('portal_admin'));
+    }
+
+    /**
+     * Groups are read from the tenant the user signed in to, whose admins
+     * decide what they contain: only the Segurex tenant is trusted.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function foreignAdminGroups(): array
+    {
+        return [
+            'same name' => ['cccccccc-0000-0000-0000-000000000002'],
+            'same id' => [self::ADMIN_GROUP],
+        ];
+    }
+
+    #[DataProvider('foreignAdminGroups')]
+    public function test_the_admin_group_of_another_tenant_grants_nothing(string $groupId): void
+    {
+        $this->pinAdminGroup();
+        $this->signInAs(
+            ['tid' => self::DERIVADOS_TENANT, 'oid' => self::GUEST_OID],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis@derivados.com'],
+        );
+        $this->fakeGraph(groups: [['id' => $groupId, 'displayName' => 'APP-PortalAdmin']]);
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse(User::sole()->hasRole('portal_admin'));
+    }
+
+    /**
+     * @return array<string, array{array<string, string|null>}>
+     */
+    public static function unpinnedAdminGroups(): array
+    {
+        return [
+            'nothing configured' => [['portal.admin_group_id' => null, 'portal.admin_tenant_id' => null]],
+            'no group' => [['portal.admin_group_id' => '', 'portal.admin_tenant_id' => self::SEGUREX_TENANT]],
+            'no tenant' => [['portal.admin_group_id' => self::ADMIN_GROUP, 'portal.admin_tenant_id' => '']],
+        ];
+    }
+
+    #[DataProvider('unpinnedAdminGroups')]
+    public function test_without_a_pinned_group_nobody_is_portal_admin(array $settings): void
+    {
+        config($settings);
+        $user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana@segurex.com', 'azure_oid' => self::OID]);
+        $user->assignRole('portal_admin');
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph(groups: [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin']]);
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse($user->fresh()->hasRole('portal_admin'));
     }
 
     public function test_configured_super_admin_emails_get_the_super_admin_role(): void
@@ -556,6 +635,7 @@ class MicrosoftLoginTest extends TestCase
     public function test_a_successful_sign_in_is_recorded_as_a_security_event(): void
     {
         config(['portal.super_admin_emails' => ['ana@segurex.com']]);
+        $this->pinAdminGroup();
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         $this->fakeGraph(groups: [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin']]);
 

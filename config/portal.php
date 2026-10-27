@@ -23,12 +23,19 @@ return [
     | Portal administrators group
     |--------------------------------------------------------------------------
     |
-    | Members of this Microsoft 365 group (in any company tenant) get the
-    | `portal_admin` role at sign-in and lose it when they leave the group.
+    | Members of this Microsoft group get the `portal_admin` role at sign-in
+    | and lose it when they leave it (App\Auth\PortalAdminGroup). The group
+    | is identified by its object ID inside one tenant (Segurex), never by
+    | its name; with either ID missing nobody is a portal admin. The name is
+    | only shown in the admin pages.
     |
     */
 
     'admin_group' => 'APP-PortalAdmin',
+
+    'admin_group_id' => strtolower(trim((string) env('PORTAL_ADMIN_GROUP_ID', ''))) ?: null,
+
+    'admin_tenant_id' => strtolower(trim((string) env('PORTAL_ADMIN_TENANT_ID', ''))) ?: null,
 
     /*
     |--------------------------------------------------------------------------
