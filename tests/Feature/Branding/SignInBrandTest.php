@@ -23,15 +23,17 @@ class SignInBrandTest extends TestCase
         Storage::fake('public');
     }
 
-    public function test_the_group_label_is_in_sentence_case(): void
+    public function test_the_companies_label_is_in_sentence_case(): void
     {
         Company::factory()->create();
 
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<p class="([^"]*)">Grupo Empresarial RYR<\/p>/', $html);
-        preg_match('/<p class="([^"]*)">Grupo Empresarial RYR<\/p>/', $html, $label);
+        $this->assertMatchesRegularExpression('/<p class="([^"]*)">Empresas del grupo<\/p>/', $html);
+        preg_match('/<p class="([^"]*)">Empresas del grupo<\/p>/', $html, $label);
         $this->assertStringNotContainsString('uppercase', $label[1]);
+        // The group row above the headline was removed on request (option B).
+        $this->assertStringNotContainsString('Grupo Empresarial RYR', $html);
     }
 
     public function test_a_company_without_logo_shows_its_icon(): void

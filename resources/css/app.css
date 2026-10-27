@@ -293,3 +293,188 @@
             0 0 0 8px transparent;
     }
 }
+
+/*
+ * Sign-in stage (docs/diseno/LoginOpcionB.html): the apps cross a neutral
+ * stage like comets, behind a glass card with the sign-in. The page is shown
+ * before the company is known, so everything here is neutral grey; brand
+ * color lives only inside each company's logo chip.
+ */
+@layer components {
+    .signin-stage {
+        --stage: #e8e8e3;
+        --stage-glow: rgb(255 255 255 / 0.9);
+        --stage-dots: rgb(23 25 28 / 0.07);
+        --trail: rgb(23 25 28 / 0.12);
+        --trail-head: rgb(23 25 28 / 0.24);
+        --glass: rgb(255 255 255 / 0.86);
+        --glass-edge: rgb(255 255 255 / 0.5);
+        --glass-shadow: rgb(23 25 28 / 0.18);
+
+        background:
+            radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%),
+            radial-gradient(var(--stage-dots) 1px, transparent 1.6px) 0 0 / 28px 28px,
+            var(--stage);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .signin-stage {
+            --stage: #0c0d0f;
+            --stage-glow: rgb(255 255 255 / 0.07);
+            --stage-dots: rgb(255 255 255 / 0.06);
+            --trail: rgb(255 255 255 / 0.1);
+            --trail-head: rgb(255 255 255 / 0.22);
+            --glass: rgb(28 29 32 / 0.84);
+            --glass-edge: rgb(255 255 255 / 0.08);
+            --glass-shadow: rgb(0 0 0 / 0.6);
+        }
+    }
+
+    /* An app tile, shared by the comets and the still layout. */
+    .signin-tile {
+        display: grid;
+        place-items: center;
+        width: var(--s);
+        height: var(--s);
+        border-radius: calc(var(--s) * 0.28);
+        background: var(--color-surface);
+        color: var(--color-fg);
+        box-shadow:
+            0 1px 2px rgb(0 0 0 / 0.06),
+            0 18px 40px rgb(23 25 28 / 0.14);
+    }
+
+    .signin-tile svg {
+        width: 44%;
+        height: 44%;
+    }
+
+    .signin-tile-dark {
+        background: var(--color-fg);
+        color: var(--color-surface);
+    }
+
+    /* Comets: each starts just off the left edge at its height (--y) and
+       crosses along a shallow diagonal (--angle), head first with a tapered
+       trail. Shown only when motion is welcome (see below). */
+    .signin-comets {
+        --angle: 16deg;
+        --scale: 1;
+        display: none;
+    }
+
+    .signin-comet {
+        --s: calc(var(--size) * var(--scale));
+        position: absolute;
+        top: var(--y);
+        left: 0;
+        display: flex;
+        align-items: center;
+        transform-origin: 0 50%;
+        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+    }
+
+    .signin-comet-tail {
+        width: calc(var(--tail) * var(--scale));
+        height: calc(var(--s) * 0.7);
+        margin-right: calc(var(--s) * -0.4);
+        background: linear-gradient(90deg, transparent, var(--trail) 70%, var(--trail-head));
+        clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
+        filter: blur(1px);
+    }
+
+    .signin-comet .signin-tile {
+        position: relative;
+        rotate: calc(var(--r) - var(--angle));
+    }
+
+    .signin-comet-far {
+        opacity: 0.5;
+        filter: blur(1.5px);
+    }
+
+    /* Still layout: tiles placed around the card (reduced motion). */
+    .signin-float {
+        position: absolute;
+        top: var(--y);
+        left: var(--x);
+        rotate: var(--r);
+    }
+
+    .signin-float-far {
+        filter: blur(2px);
+        opacity: 0.55;
+    }
+
+    .signin-phone {
+        display: none;
+    }
+
+    .signin-card {
+        background: var(--glass);
+        -webkit-backdrop-filter: blur(22px) saturate(1.15);
+        backdrop-filter: blur(22px) saturate(1.15);
+        box-shadow:
+            inset 0 0 0 1px var(--glass-edge),
+            0 40px 90px var(--glass-shadow);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .signin-comets {
+            display: block;
+        }
+
+        .signin-floats {
+            display: none;
+        }
+
+        .signin-comet {
+            animation: signin-comet var(--d) linear var(--delay) infinite;
+        }
+
+        .signin-card {
+            animation: signin-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+    }
+
+    /* Phone: fewer, smaller and steeper comets; three still tiles on top. */
+    @media (max-width: 767px) {
+        .signin-comets {
+            --angle: 24deg;
+            --scale: 0.62;
+        }
+
+        .signin-desk {
+            display: none;
+        }
+
+        .signin-phone {
+            display: grid;
+        }
+
+        .signin-float {
+            --s: var(--phone-s) !important;
+            top: var(--phone-y);
+            left: var(--phone-x);
+        }
+    }
+}
+
+/* From just off the left edge (its own length back) to just past the right
+   one. The crossing takes 65% of the period; the rest is the wait. */
+@keyframes signin-comet {
+    0% {
+        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+    }
+    65%,
+    100% {
+        transform: rotate(var(--angle)) translateX(112vw);
+    }
+}
+
+@keyframes signin-rise {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+    }
+}
