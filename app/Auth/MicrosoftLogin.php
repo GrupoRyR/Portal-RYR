@@ -9,14 +9,13 @@ use App\Models\User;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
 /**
  * Turns a Microsoft identity into a portal user: gate the tenant, pick the
  * signing tenant's company, find or create the user by (tenant, object ID)
- * only, refresh the profile, photo and groups from Graph, and align the
+ * only, refresh the profile and groups from Graph, and align the
  * managed roles. A successful sign-in is recorded as a security event
  * (App\Audit\SecurityLog) with the role changes it applied.
  *
@@ -128,17 +127,9 @@ class MicrosoftLogin
             $user->save();
         });
 
-        $this->attempt($user, 'photo', function () use ($user, $accessToken) {
-            $photo = $this->graph->photo($accessToken);
-
-            if ($photo === null) {
-                return;
-            }
-
-            $path = "avatars/{$user->id}.jpg";
-            Storage::disk('public')->put($path, $photo);
-            $user->forceFill(['photo_path' => $path])->save();
-        });
+        // The profile photo is not read: no page shows it, and on the public
+        // disk anyone could fetch it at a guessable address. Photos stored
+        // by earlier versions are removed by `portal:purge-public-avatars`.
 
         $this->attempt($user, 'groups', function () use ($user, $accessToken) {
             $user->syncGroups($this->graph->groups($accessToken));

@@ -29,6 +29,8 @@ final class SecurityLog
 
     public const ROLES_SYNCED = 'roles.synced';
 
+    public const REAUTH_UNAVAILABLE = 'reauth.unavailable';
+
     /**
      * @param  array{added: list<string>, removed: list<string>}  $roleChanges  Roles synced at this sign-in.
      */
@@ -94,6 +96,18 @@ final class SecurityLog
             'roles_added' => $roleChanges['added'],
             'roles_removed' => $roleChanges['removed'],
         ], $user);
+    }
+
+    /**
+     * The signed-in user answered, but the confirmation could not be checked
+     * (a configuration problem, e.g. reason `missing_auth_time`).
+     */
+    public static function reauthenticationUnavailable(User $user, string $reason, ?string $userAgent): void
+    {
+        self::write(self::REAUTH_UNAVAILABLE, $user, [
+            'reason' => $reason,
+            'device' => DeviceClassifier::classify($userAgent),
+        ]);
     }
 
     /**

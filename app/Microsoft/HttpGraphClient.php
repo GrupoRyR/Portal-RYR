@@ -32,19 +32,6 @@ class HttpGraphClient implements GraphClient
         ];
     }
 
-    public function photo(string $accessToken): ?string
-    {
-        $response = $this->request($accessToken)
-            ->accept('image/*')
-            ->get(self::BASE_URL.'/me/photo/$value');
-
-        if ($response->notFound()) {
-            return null;
-        }
-
-        return $response->throw()->body();
-    }
-
     public function groups(string $accessToken): array
     {
         $groups = [];

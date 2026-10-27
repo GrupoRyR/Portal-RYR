@@ -6,6 +6,7 @@ use App\Auth\RecentMicrosoftLogin;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -54,15 +55,25 @@ class RecentMicrosoftLoginTest extends TestCase
         Socialite::shouldReceive('driver')->with('microsoft')->andReturn($provider);
     }
 
-    private function mockCallback(string $tenant, string $oid): void
+    /**
+     * @param  int|false|null  $authTime  The id_token `auth_time`: null for a
+     *                                    sign-in that just happened, false to leave the claim out.
+     */
+    private function mockCallback(string $tenant, string $oid, int|false|null $authTime = null): void
     {
+        $claims = ['tid' => $tenant, 'oid' => $oid];
+
+        if ($authTime !== false) {
+            $claims['auth_time'] = $authTime ?? now()->subSeconds(20)->getTimestamp();
+        }
+
         $user = (new MicrosoftUser)->setRaw(['id' => $oid, 'displayName' => 'Jhon', 'mail' => 'jhon@segurex.com'])
             ->map(['id' => $oid, 'name' => 'Jhon', 'email' => 'jhon@segurex.com']);
         $user->setToken('graph-access-token');
 
         $provider = Mockery::mock(MicrosoftProvider::class);
         $provider->shouldReceive('user')->andReturn($user);
-        $provider->shouldReceive('getClaims')->andReturn((object) ['tid' => $tenant, 'oid' => $oid]);
+        $provider->shouldReceive('getClaims')->andReturn((object) $claims);
 
         Socialite::shouldReceive('driver')->with('microsoft')->andReturn($provider);
     }
@@ -139,6 +150,88 @@ class RecentMicrosoftLoginTest extends TestCase
 
         $this->assertAuthenticatedAs($this->user);
         $this->get('/_pruebas/sensible')->assertOk();
+    }
+
+    /**
+     * @return array<string, array{int|false}>
+     */
+    public static function staleAuthentications(): array
+    {
+        return [
+            'stale auth_time' => [-(RecentMicrosoftLogin::DEFAULT_MAX_AUTH_AGE_SECONDS + 60)],
+            'auth_time in the future' => [600],
+        ];
+    }
+
+    /**
+     * prompt=login is only a request: Microsoft (or a tampered flow) may
+     * still answer from an existing session, so the id_token must prove the
+     * credentials were entered just now.
+     */
+    #[DataProvider('staleAuthentications')]
+    public function test_a_callback_without_a_recent_authentication_logs_the_user_out(int|false $offset): void
+    {
+        $this->mockCallback(self::TENANT, self::OID, $offset === false ? false : now()->getTimestamp() + $offset);
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz')
+            ->assertRedirect(route('login'))
+            ->assertSessionMissing(RecentMicrosoftLogin::SESSION_KEY);
+
+        $this->assertGuest();
+        $this->assertSame('reauth.failed', Activity::query()->where('log_name', 'security')->sole()->event);
+    }
+
+    /**
+     * Without the `auth_time` optional claim on the app registration no
+     * re-authentication can be proven: that is a configuration problem, not
+     * an attack, so the session stays and TI is told what to fix.
+     */
+    public function test_a_missing_auth_time_keeps_the_session_and_explains_it(): void
+    {
+        Log::spy();
+        $this->mockCallback(self::TENANT, self::OID, false);
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz')
+            ->assertStatus(503)
+            ->assertSee(RecentMicrosoftLogin::UNAVAILABLE_MESSAGE)
+            ->assertSee('auth_time')
+            ->assertSessionMissing(RecentMicrosoftLogin::SESSION_KEY);
+
+        $this->assertAuthenticatedAs($this->user);
+        $entry = Activity::query()->where('log_name', 'security')->sole();
+        $this->assertSame('reauth.unavailable', $entry->event);
+        $this->assertSame('missing_auth_time', $entry->properties['reason']);
+        Log::shouldHaveReceived('error')->withArgs(fn (string $message) => str_contains($message, 'auth_time'))->once();
+    }
+
+    public function test_another_account_without_auth_time_still_logs_the_user_out(): void
+    {
+        $this->mockCallback(self::TENANT, '99999999-2222-3333-4444-555555555555', false);
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz')
+            ->assertRedirect(route('login'));
+
+        $this->assertGuest();
+        $this->assertSame('reauth.failed', Activity::query()->where('log_name', 'security')->sole()->event);
+    }
+
+    public function test_the_allowed_authentication_age_is_configurable(): void
+    {
+        config(['portal.reauth_max_age_seconds' => 60]);
+        $this->mockCallback(self::TENANT, self::OID, now()->subSeconds(120)->getTimestamp());
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz')
+            ->assertRedirect(route('login'));
+
+        $this->assertGuest();
     }
 
     public function test_a_different_microsoft_account_logs_the_user_out(): void

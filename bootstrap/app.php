@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthorizeIntegrationRequest;
 use App\Http\Middleware\RequireRecentMicrosoftLogin;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -32,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PORT
                 | Request::HEADER_X_FORWARDED_PROTO,
         );
+
+        // Browser hardening headers on every response, errors and API too.
+        $middleware->append(SecurityHeaders::class);
 
         // spatie/laravel-permission route middleware ("role:a|b").
         $middleware->alias([

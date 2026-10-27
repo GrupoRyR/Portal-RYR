@@ -44,20 +44,6 @@ class HttpGraphClientTest extends TestCase
             && str_contains(urldecode($request->url()), '$select=displayName,jobTitle,mail'));
     }
 
-    public function test_photo_returns_the_image_bytes(): void
-    {
-        Http::fake(['graph.microsoft.com/v1.0/me/photo/$value' => Http::response('jpeg-bytes', 200)]);
-
-        $this->assertSame('jpeg-bytes', $this->client()->photo('token'));
-    }
-
-    public function test_photo_returns_null_when_the_user_has_none(): void
-    {
-        Http::fake(['graph.microsoft.com/v1.0/me/photo/$value' => Http::response(['error' => []], 404)]);
-
-        $this->assertNull($this->client()->photo('token'));
-    }
-
     public function test_groups_follow_every_page(): void
     {
         $next = 'https://graph.microsoft.com/v1.0/me/transitiveMemberOf/microsoft.graph.group?$skiptoken=page2';

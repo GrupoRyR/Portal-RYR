@@ -7,7 +7,7 @@ use stdClass;
 
 /**
  * Who signed in with Microsoft, taken from the validated id_token claims
- * (`tid`, `oid`, `idp`) and the Graph profile Socialite fetched.
+ * (`tid`, `oid`, `idp`, `auth_time`) and the Graph profile Socialite fetched.
  *
  * `email` comes from attributes the signing tenant's admins control, so it
  * is only a hint: it proves nothing outside that tenant.
@@ -21,6 +21,7 @@ final readonly class MicrosoftIdentity
         public string $name,
         public string $accessToken,
         public ?string $homeTenantId = null,
+        public ?int $authTime = null,
     ) {}
 
     /**
@@ -65,6 +66,7 @@ final readonly class MicrosoftIdentity
             $name !== '' ? $name : (string) $email,
             $accessToken,
             self::homeTenant($claims->idp ?? null, $tenantId),
+            self::timestamp($claims->auth_time ?? null),
         );
     }
 
@@ -106,6 +108,15 @@ final readonly class MicrosoftIdentity
         }
 
         return null;
+    }
+
+    /**
+     * `auth_time` (optional claim, Unix seconds): when the user last entered
+     * their credentials. Null when absent or not a number.
+     */
+    private static function timestamp(mixed $value): ?int
+    {
+        return is_int($value) || (is_string($value) && ctype_digit($value)) ? (int) $value : null;
     }
 
     private static function guid(mixed $value): string

@@ -57,7 +57,7 @@ class MicrosoftLoginController extends Controller
             ->redirect();
     }
 
-    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse|View
+    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse|View|Response
     {
         // A tenant administrator coming back from the admin-consent link.
         // Nothing is trusted from these parameters: the wizard verifies the
@@ -107,7 +107,7 @@ class MicrosoftLoginController extends Controller
         return redirect()->intended('/');
     }
 
-    private function confirmed(Request $request, User $user, RecentMicrosoftLogin $recent): RedirectResponse
+    private function confirmed(Request $request, User $user, RecentMicrosoftLogin $recent): RedirectResponse|Response
     {
         $pending = $recent->pull($user);
 
@@ -118,17 +118,29 @@ class MicrosoftLoginController extends Controller
         try {
             $driver = Socialite::driver('microsoft');
             $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
-            $matches = $recent->matches($user, $identity);
+            $outcome = $recent->verify($user, $identity);
         } catch (Throwable $e) {
             Log::warning('Microsoft re-authentication failed.', ['user_id' => $user->id, 'exception' => $e::class]);
-            $matches = false;
+            $outcome = RecentMicrosoftLogin::REJECTED;
         }
+
+        if ($outcome === RecentMicrosoftLogin::MISSING_AUTH_TIME) {
+            // A setup problem, not an attack: the signed-in user answered,
+            // so the session stays; nothing is confirmed.
+            Log::error('Microsoft re-authentication cannot be checked: the id_token has no auth_time. Add the auth_time optional claim (ID token) to the app registration.', ['user_id' => $user->id]);
+            SecurityLog::reauthenticationUnavailable($user, RecentMicrosoftLogin::MISSING_AUTH_TIME, $request->userAgent());
+
+            return response()->view('errors.reauth-unavailable', [], 503);
+        }
+
+        $matches = $outcome === RecentMicrosoftLogin::CONFIRMED;
 
         SecurityLog::reauthentication($user, $matches, $request->userAgent());
 
         if (! $matches) {
-            // Someone else's Microsoft account (or a failed sign-in) answered
-            // for this session: end it rather than trust it.
+            // Someone else's Microsoft account, a sign-in that was not just
+            // made, or a failed one answered for this session: end it rather
+            // than trust it.
             Log::warning('Microsoft re-authentication did not confirm the signed-in user; signing out.', ['user_id' => $user->id]);
 
             Auth::guard('web')->logout();
