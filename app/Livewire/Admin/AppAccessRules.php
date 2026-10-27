@@ -227,8 +227,8 @@ class AppAccessRules extends Component
     }
 
     /**
-     * Distinct APP-… group names seen among the company's users, matching
-     * what was typed so far. Free text stays allowed.
+     * Distinct APP-… security group names seen among the company's users,
+     * matching what was typed so far. Free text stays allowed.
      *
      * @return BaseCollection<int, string>
      */
@@ -238,6 +238,7 @@ class AppAccessRules extends Component
 
         return UserGroup::query()
             ->whereIn('user_id', $this->companyUsers($company)->select('id'))
+            ->where('security_group', true)
             ->where('display_name', 'like', self::GROUP_PREFIX.'%')
             ->distinct()
             ->orderBy('display_name')

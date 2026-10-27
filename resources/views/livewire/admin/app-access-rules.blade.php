@@ -92,7 +92,7 @@
                             <option value="{{ $suggestion }}">
                         @endforeach
                     </datalist>
-                    <span id="rule-group-h" class="text-[0.8125rem] text-fg-muted">Tal como se llama en Microsoft 365. Se sugieren los grupos APP-… que ya tienen personas de esta empresa.</span>
+                    <span id="rule-group-h" class="text-[0.8125rem] text-fg-muted">Tal como se llama en Microsoft 365. Solo cuentan los grupos de seguridad (no los de Teams ni los grupos de Microsoft 365). Se sugieren los grupos APP-… de seguridad que ya tienen personas de esta empresa.</span>
                     @error('groupName') <p class="{{ $error }}" role="alert">{{ $message }}</p> @enderror
                 </div>
                 <div class="flex flex-wrap gap-2.5">

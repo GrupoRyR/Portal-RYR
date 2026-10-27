@@ -21,8 +21,9 @@ interface GraphClient
 
     /**
      * Every group the user belongs to, directly or through nested groups.
+     * `security_group`: a security group, not a Microsoft 365 group.
      *
-     * @return list<array{id: string, display_name: string}>
+     * @return list<array{id: string, display_name: string, security_group: bool}>
      */
     public function groups(string $accessToken): array;
 }

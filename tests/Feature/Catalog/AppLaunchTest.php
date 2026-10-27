@@ -161,7 +161,7 @@ class AppLaunchTest extends TestCase
         $this->seed();
         $segurex = Company::where('slug', 'segurex')->firstOrFail();
         $user = User::factory()->microsoft($segurex)->create();
-        $user->syncGroups([['id' => 'aaaaaaaa-0000-0000-0000-000000000001', 'display_name' => 'APP-Camaras']]);
+        $user->syncGroups([['id' => 'aaaaaaaa-0000-0000-0000-000000000001', 'display_name' => 'APP-Camaras', 'security_group' => true]]);
 
         $this->actingAs($user)->get('/apps/camaras')
             ->assertOk()

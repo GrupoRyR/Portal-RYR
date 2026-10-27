@@ -111,8 +111,9 @@ class User extends Authenticatable
     /**
      * Replace the stored groups with the given set, in one transaction.
      * Items without an ID are skipped; repeated IDs keep the first item.
+     * A group is a security group only when the item says so.
      *
-     * @param  iterable<array{id?: string|null, display_name?: string|null}>  $groups
+     * @param  iterable<array{id?: string|null, display_name?: string|null, security_group?: bool|null}>  $groups
      */
     public function syncGroups(iterable $groups): void
     {
@@ -120,6 +121,7 @@ class User extends Authenticatable
             ->map(fn (array $group) => [
                 'group_id' => strtolower(trim((string) ($group['id'] ?? ''))),
                 'display_name' => trim((string) ($group['display_name'] ?? '')),
+                'security_group' => ($group['security_group'] ?? false) === true,
             ])
             ->filter(fn (array $group) => $group['group_id'] !== '')
             ->unique('group_id')
@@ -135,8 +137,8 @@ class User extends Authenticatable
 
                 if ($stored === null) {
                     $this->groups()->create($group);
-                } elseif ($stored->display_name !== $group['display_name']) {
-                    $stored->update(['display_name' => $group['display_name']]);
+                } else {
+                    $stored->update($group);
                 }
             }
         });

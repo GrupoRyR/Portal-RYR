@@ -57,7 +57,7 @@ class HomeScreenTest extends TestCase
         AppAccessRule::forGroup($groupApp, $this->company, 'APP-Cartera');
         $otherGroup = App::factory()->forCompanies($this->company)->create(['name' => 'App de gerencia']);
         AppAccessRule::forGroup($otherGroup, $this->company, 'APP-Gerencia');
-        $this->user->syncGroups([['id' => 'g-1', 'display_name' => 'APP-Cartera']]);
+        $this->user->syncGroups([['id' => 'g-1', 'display_name' => 'APP-Cartera', 'security_group' => true]]);
 
         $other = Company::factory()->create();
         $foreign = App::factory()->forCompanies($other)->create(['name' => 'App de otra empresa']);

@@ -67,6 +67,38 @@ class AppCatalogTest extends TestCase
         $this->assertVisible($app, $this->userOf($this->segurex, [' APP-CARTERA ']));
     }
 
+    /**
+     * Anyone allowed to create a Team (a Microsoft 365 group) can give it
+     * any name; only security groups, which IT manages, grant apps.
+     */
+    public function test_only_security_groups_grant_access(): void
+    {
+        $app = $this->appFor($this->segurex);
+        AppAccessRule::forGroup($app, $this->segurex, 'APP-Cartera');
+        $team = User::factory()->microsoft($this->segurex)->create();
+        $team->syncGroups([['id' => (string) Str::uuid(), 'display_name' => 'APP-Cartera', 'security_group' => false]]);
+        $unknown = User::factory()->microsoft($this->segurex)->create();
+        $unknown->syncGroups([['id' => (string) Str::uuid(), 'display_name' => 'APP-Cartera']]);
+
+        $this->assertNotVisible($app, $team->fresh());
+        $this->assertNotVisible($app, $unknown->fresh());
+        $this->assertVisible($app, $this->userOf($this->segurex, ['APP-Cartera']));
+    }
+
+    public function test_a_group_that_stops_being_a_security_group_stops_granting(): void
+    {
+        $app = $this->appFor($this->segurex);
+        AppAccessRule::forGroup($app, $this->segurex, 'APP-Cartera');
+        $user = User::factory()->microsoft($this->segurex)->create();
+        $groupId = (string) Str::uuid();
+
+        $user->syncGroups([['id' => $groupId, 'display_name' => 'APP-Cartera', 'security_group' => true]]);
+        $this->assertVisible($app, $user->fresh());
+
+        $user->syncGroups([['id' => $groupId, 'display_name' => 'APP-Cartera', 'security_group' => false]]);
+        $this->assertNotVisible($app, $user->fresh());
+    }
+
     public function test_a_group_rule_only_applies_to_users_of_its_company(): void
     {
         // Same group name in another tenant: a Derivados user in
@@ -251,7 +283,7 @@ class AppCatalogTest extends TestCase
     private function userOf(Company $company, array $groups = []): User
     {
         $user = User::factory()->microsoft($company)->create();
-        $user->syncGroups(array_map(fn (string $name) => ['id' => (string) Str::uuid(), 'display_name' => $name], $groups));
+        $user->syncGroups(array_map(fn (string $name) => ['id' => (string) Str::uuid(), 'display_name' => $name, 'security_group' => true], $groups));
 
         return $user->fresh();
     }
