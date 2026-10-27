@@ -92,6 +92,7 @@ class BrandThemeColorTest extends TestCase
     {
         $this->assertStringContainsString(self::NEUTRAL_LIGHT_META, $html);
         $this->assertStringContainsString(self::NEUTRAL_DARK_META, $html);
-        $this->assertStringNotContainsString('#58595B">', $html);
+        // The bar only: the sign-in logo chip may use the company's dark color.
+        $this->assertStringNotContainsString('content="#58595B"', $html);
     }
 }
