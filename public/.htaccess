@@ -36,6 +36,13 @@
     Header always unset X-Powered-By
     Header unset X-Powered-By
 
+    # HSTS when Apache itself serves TLS (mod_ssl sets HTTPS=on), so the
+    # header is sent even if Laravel does not see HTTPS. Laravel sends it too
+    # when it does (App\Http\Middleware\SecurityHeaders); the unset keeps a
+    # single copy. Plain HTTP never gets it and nothing here redirects.
+    Header unset Strict-Transport-Security env=HTTPS
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+
     # Uploaded files (company logos, announcement images) are served as they
     # are: never sniffed into another type, and an SVG or HTML opened
     # directly runs no script and cannot act as the portal (CSP sandbox).

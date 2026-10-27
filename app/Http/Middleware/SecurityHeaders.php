@@ -22,8 +22,9 @@ use Symfony\Component\HttpFoundation\Response;
  * X-Forwarded-Proto from the trusted local proxy (bootstrap/app.php). This
  * holds whichever layer of the hosting terminates TLS, and the app never
  * redirects, so it cannot loop; the redirect from HTTP is the hosting's
- * Force HTTPS Redirect. One HTTPS page is enough: browsers apply HSTS to
- * the whole host, including the files Apache serves without Laravel.
+ * Force HTTPS Redirect. public/.htaccess also sends HSTS when Apache itself
+ * serves TLS, for the case where Laravel does not see HTTPS. One HTTPS page
+ * is enough: browsers apply HSTS to the whole host.
  */
 class SecurityHeaders
 {

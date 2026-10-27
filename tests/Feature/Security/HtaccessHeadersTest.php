@@ -21,6 +21,14 @@ class HtaccessHeadersTest extends TestCase
         $this->assertStringContainsString('Header unset X-Powered-By', $this->htaccess());
     }
 
+    public function test_apache_sends_hsts_only_over_its_own_tls(): void
+    {
+        $this->assertStringContainsString(
+            'Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS',
+            $this->htaccess(),
+        );
+    }
+
     public function test_uploaded_files_are_never_sniffed_or_run(): void
     {
         $this->assertMatchesRegularExpression(
