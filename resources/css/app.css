@@ -169,3 +169,127 @@
         outline-color: #fff;
     }
 }
+
+/*
+ * Animated app logos on the home cards (docs/diseno/LogosAnimados.html).
+ * The motion lives on the logo container (.app-logo, components/home/
+ * app-card.blade.php), so it works for uploaded icons and initials alike.
+ * Only transform, translate, opacity and box-shadow move: no layout shift.
+ * Every movement sits behind prefers-reduced-motion: no-preference; with
+ * "reduce" the logos are simply there and the failure dot stays still.
+ */
+@layer components {
+    /* Maintenance: grey and still (it never wiggles, see below). */
+    [data-status='maintenance'] .app-logo {
+        filter: grayscale(1);
+        opacity: 0.6;
+    }
+
+    /* Failure: a small dot on the logo corner, ringed with the card color. */
+    [data-status='failing'] .app-logo {
+        position: relative;
+    }
+
+    [data-status='failing'] .app-logo::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        z-index: 1;
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        background-color: var(--color-status-failure);
+        box-shadow: 0 0 0 2px var(--color-surface);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        /* 1. Entrance on a plain page load: one logo after another in page
+           order (--logo-order, set by the card). This rule is the only
+           source of its timing: home.js ends each card's entrance on the
+           pop's animationend, and the order is capped here so the last
+           logo starts within a second however large the catalog. */
+        [data-enter] .app-logo {
+            --logo-step: 60ms;
+            --logo-start: 120ms;
+            --logo-last: 14;
+            animation: logo-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+            animation-delay: calc(min(var(--logo-order, 0), var(--logo-last)) * var(--logo-step) + var(--logo-start));
+        }
+
+        /* 2. Hover (pointer devices) and keyboard focus: the card lifts and
+           the logo wiggles once, after its entrance (the wiggle would
+           replace the pop half-way). */
+        @media (hover: hover) {
+            [data-app]:hover {
+                translate: 0 -3px;
+            }
+
+            [data-app]:not([data-enter], [data-status='maintenance']):hover .app-logo {
+                animation: logo-wiggle 0.7s ease;
+            }
+        }
+
+        [data-app]:has(a:focus-visible) {
+            translate: 0 -3px;
+        }
+
+        [data-app]:not([data-enter], [data-status='maintenance']):has(a:focus-visible) .app-logo {
+            animation: logo-wiggle 0.7s ease;
+        }
+
+        /* 3. Tap on a phone: a brief press before the app opens. */
+        .app-logo {
+            transition: transform 80ms ease-out;
+        }
+
+        @media (hover: none) {
+            [data-app]:active .app-logo {
+                transform: scale(0.88);
+            }
+        }
+
+        /* 4. The failure dot pulses calmly. */
+        [data-status='failing'] .app-logo::before {
+            animation: logo-alert 2s ease-out infinite;
+        }
+    }
+}
+
+/* No "to" frame: the logo lands on its own resting state (maintenance
+   keeps its lower opacity). */
+@keyframes logo-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.4) rotate(-12deg);
+    }
+}
+
+@keyframes logo-wiggle {
+    20% {
+        transform: rotate(-10deg);
+    }
+    40% {
+        transform: rotate(8deg);
+    }
+    60% {
+        transform: rotate(-5deg);
+    }
+    80% {
+        transform: rotate(3deg);
+    }
+}
+
+@keyframes logo-alert {
+    from {
+        box-shadow:
+            0 0 0 2px var(--color-surface),
+            0 0 0 0 color-mix(in srgb, var(--color-status-failure) 60%, transparent);
+    }
+    70%,
+    to {
+        box-shadow:
+            0 0 0 2px var(--color-surface),
+            0 0 0 8px transparent;
+    }
+}

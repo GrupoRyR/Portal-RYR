@@ -107,6 +107,9 @@
                     <p class="text-[0.9375rem] leading-normal text-fg-soft">Solicítalas a TI. Cuando te den acceso, aparecerán aquí.</p>
                 </section>
             @else
+                {{-- Page order of the cards, for the logo entrance (app-card). It moves on
+                     in its own statement: Blade evaluates component attributes twice. --}}
+                @php($order = 0)
 
                 <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
                     <section id="favoritos" aria-labelledby="favoritos-titulo" data-section class="flex min-w-0 scroll-mt-6 flex-col gap-3 md:gap-3.5 lg:shrink" @if ($searching && $page->favorites === []) hidden @endif>
@@ -114,7 +117,8 @@
                         <p data-favorites-hint class="max-w-xs text-sm text-fg-muted" @if ($page->favorites !== []) hidden @endif>Toca la estrella de una aplicación para fijarla aquí.</p>
                         <ul data-list class="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-4">
                             @foreach ($page->favorites as $card)
-                                <x-home.app-card :card="$card" :query="$page->query" />
+                                <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
+                                @php($order++)
                             @endforeach
                         </ul>
                     </section>
@@ -151,7 +155,8 @@
                             <h2 id="categoria-{{ $group->slug }}" class="font-sans text-sm font-bold tracking-normal text-brand-text">{{ $group->name }}</h2>
                             <ul data-list class="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-4">
                                 @foreach ($group->cards as $card)
-                                    <x-home.app-card :card="$card" :query="$page->query" />
+                                    <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
+                                    @php($order++)
                                 @endforeach
                             </ul>
                         </section>
