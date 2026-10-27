@@ -242,10 +242,12 @@ php artisan storage:link
 ```powershell
 Install-Module Microsoft.Graph -Scope CurrentUser   # solo la primera vez
 cd <carpeta-del-proyecto>\docs\scripts
-.\crear-grupos-app.ps1 -TenantId <id-de-inquilino>
+.\crear-grupos-app.ps1 -TenantId <id-de-inquilino> -Grupos 'APP-Cartera'
 ```
 
-El script pide iniciar sesión, crea solo los grupos que falten (por ahora `APP-PortalAdmin`) e informa cuáles creó y cuáles ya existían. Se puede ejecutar varias veces. Si PowerShell bloquea el script, ejecute antes `Set-ExecutionPolicy -Scope Process RemoteSigned`.
+Cambie `APP-Cartera` por los grupos de las apps que use esa empresa, separados por comas (`-Grupos 'APP-Cartera','APP-TomaPedidos'`).
+
+El script pide iniciar sesión, crea solo los grupos de seguridad que falten e informa cuáles creó y cuáles ya existían. Hay que indicar cada grupo con `-Grupos` (por ejemplo `-Grupos 'APP-Cartera','APP-TomaPedidos'`): no tiene un valor por defecto. `APP-PortalAdmin` solo se crea en el inquilino de Segurex, y no hace falta crearlo en las demás empresas. Se puede ejecutar varias veces. Si PowerShell bloquea el script, ejecute antes `Set-ExecutionPolicy -Scope Process RemoteSigned`.
 
 ### 1.11 App instalable y modo sin conexión (PWA)
 
@@ -364,6 +366,105 @@ Si Composer no está disponible como `composer`, indique el comando así:
 ```bash
 COMPOSER_BIN="php ~/composer.phar" bash deploy/deploy.sh
 ```
+
+### 2.3 Seguridad: administradores, grupos y cabeceras (una sola vez)
+
+Cambios de las PR #56 y #57 (fusionadas el 2026-10-27). Hágalos en este orden: los pasos 1 a 5 **antes** de `deploy.sh`; los pasos 6 a 12, **después**.
+
+**Antes del despliegue**
+
+1. **Revisar los grupos de las reglas.** Después del despliegue, un grupo `APP-…` que sea de Microsoft 365 o de Teams deja de dar acceso. Este comando solo lee y muestra `Empresa | Grupo` de cada regla:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   php artisan tinker --execute='App\Models\AppAccessRule::where("type", "group")->with("company")->get()->map(fn ($r) => $r->company?->short_name." | ".$r->value)->unique()->values()->dump();'
+   ```
+
+   Para cada grupo, en el Entra admin center (https://entra.microsoft.com) del inquilino de esa empresa › **Groups** › **All groups** › busque el nombre. La columna **Group type** debe decir **Security**. Si dice **Microsoft 365**, cree un grupo de **seguridad** con el mismo nombre, pase los miembros y quite o renombre el de Microsoft 365.
+
+2. **ID del grupo de administradores.** En el inquilino de Segurex: Entra admin center › **Groups** › **All groups** › busque `APP-PortalAdmin` › copie **Object ID**. Debe ser un grupo de **seguridad**.
+
+3. **ID del inquilino de Segurex.** Entra admin center › **Overview** › copie **Tenant ID**.
+
+4. **Dato `auth_time` en la app.** Entra admin center › **App registrations** › *Portal RYR* › **Token configuration** › **Add optional claim** › tipo **ID** › marque **auth_time** › **Add**. Se configura una sola vez, en el registro de la app (es multiinquilino). Sin este dato, las acciones que piden confirmar con Microsoft muestran «No pudimos confirmar tu identidad con Microsoft» (manual, sección 1.3).
+
+5. **Variables en `.env`** del servidor. Sin las dos primeras, nadie queda como administrador del portal:
+
+   ```dotenv
+   PORTAL_ADMIN_GROUP_ID=<Object ID del paso 2>
+   PORTAL_ADMIN_TENANT_ID=<Tenant ID del paso 3>
+   PORTAL_REAUTH_MAX_AGE_SECONDS=300
+   ```
+
+   La tercera es opcional: 300 segundos (5 minutos) es el valor por defecto. Después, ejecute `bash deploy/deploy.sh`.
+
+**Después del despliegue** (`deploy.sh` ya corrió las migraciones)
+
+6. **Aplicar la configuración y los administradores:**
+
+   ```bash
+   php artisan config:cache
+   php artisan portal:sync-portal-admins
+   ```
+
+   Revise la lista que imprime: `-` son quienes salen del rol y `+` quienes entran. Solo deben quedar los miembros del grupo de Segurex. Cada cambio queda en Auditoría › Seguridad como «Sistema».
+
+7. **Cerrar todas las sesiones**, para que todos vuelvan a entrar una vez y el portal lea de nuevo sus grupos. Revise qué driver usa el servidor:
+
+   ```bash
+   grep SESSION_DRIVER .env
+   ```
+
+   - Si es `database` (o la línea no existe, porque ese es el valor por defecto):
+
+     ```bash
+     php artisan tinker --execute='dump(DB::table(config("session.table"))->delete());'
+     ```
+
+     Imprime cuántas sesiones se cerraron.
+   - Si es `file`:
+
+     ```bash
+     find storage/framework/sessions -type f ! -name .gitignore -delete
+     ```
+
+   Qué ve la gente: en su siguiente clic llega a la página de inicio de sesión. Si estaba en un formulario de Administración, puede aparecer antes un aviso de «página expirada»; al recargar, llega al inicio de sesión. Entra con Microsoft como siempre (normalmente sin escribir la contraseña) y vuelve a ver sus apps. No se pierde nada, salvo un formulario que no se había guardado. Mejor hacerlo fuera de las horas de más uso.
+
+8. **Borrar las fotos públicas** que guardaban versiones anteriores (una sola vez):
+
+   ```bash
+   php artisan portal:purge-public-avatars --force
+   ```
+
+   Borra `storage/app/public/avatars` y pone en blanco `users.photo_path`. Se puede repetir sin riesgo. Después, `https://apps.segurexlatam.net/storage/avatars/1.jpg` debe responder 404.
+
+9. **Forzar HTTPS en cPanel.** cPanel › **Domains** › `apps.segurexlatam.net` › active **Force HTTPS Redirect**.
+
+10. **Comprobar cabeceras** (por SSH, desde cualquier equipo):
+
+    ```bash
+    curl -sI http://apps.segurexlatam.net/login
+    ```
+
+    Esperado: `301` con `Location: https://apps.segurexlatam.net/login`.
+
+    ```bash
+    curl -sI https://apps.segurexlatam.net/login | grep -i strict-transport
+    ```
+
+    Esperado: `strict-transport-security: max-age=31536000; includeSubDomains`, una sola línea. Si no aparece, el TLS termina antes de Apache y fuera de 127.0.0.1: avise al equipo de desarrollo. **No** agregue una redirección en `.htaccess`: puede hacer un bucle.
+
+    ```bash
+    curl -sI https://apps.segurexlatam.net/login
+    ```
+
+    Esperado: `x-frame-options: DENY`, `x-content-type-options: nosniff`, `referrer-policy`, `permissions-policy`, y **sin** `x-powered-by`.
+
+11. **Dejar de crear grupos de seguridad a los usuarios.** En cada inquilino (Segurex, Derivados y cada empresa que se agregue): Entra admin center › **Groups** › **General** › **Users can create security groups in Azure portals, API or PowerShell** = **No** › **Save**. Hasta hacerlo, la regla de los grupos de seguridad no queda cerrada del todo.
+
+12. **Probar:**
+    - Confirmar una acción sensible (por ejemplo, Integraciones › crear token): debe pedir la contraseña y volver a la página.
+    - Un usuario con un grupo `APP-…` de seguridad ve su app después de volver a entrar. Un Team con el mismo nombre no da acceso, y en Administración › Aplicaciones › «Quién la ve» la regla de un grupo de Microsoft 365 aparece marcada.
 
 ---
 

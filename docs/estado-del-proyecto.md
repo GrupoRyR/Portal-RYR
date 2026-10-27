@@ -23,6 +23,9 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 - Producción configurada y probada el 2026-10-09: inicio de sesión con Microsoft, correo por Graph (`portal:mail-test` OK), MySQL, respaldo manual OK, cron cada minuto (heartbeat OK).
 - Lighthouse móvil, medido el 2026-10-09 antes de los cambios de marca (no es la medición actual): inicio de sesión 96/100/96, inicio 99/100/100 (rendimiento/accesibilidad/buenas prácticas).
 - #47 (fusionada el 2026-10-22): lista de aplicaciones que solo tienen reglas de empresa completa.
+- #56 y #57 (fusionadas el 2026-10-27), resultado de la auditoría de seguridad de `main`. Aún no están en producción:
+  - #57: el rol de administrador del portal sale solo del grupo `APP-PortalAdmin` de la organización de Segurex, por ID de objeto (nunca por nombre). Las reglas de «Quién la ve» solo cuentan los grupos de seguridad.
+  - #56: cabeceras de seguridad, HSTS solo en HTTPS, `X-Powered-By` fuera, la confirmación de acciones sensibles exige `auth_time` reciente, y las fotos de perfil ya no se guardan (`portal:purge-public-avatars`).
 - **Marca SGX/SDC y pantallas de entrada** (manual de marca de 2026-10-23), fusionadas en `main` el 2026-10-26 y 2026-10-27. Aún no están en producción:
   - #48: tokens del manual (Helvetica/Arial, logo de la empresa en los encabezados, columnas de colores del manual por empresa y migraciones de datos con entrada en Auditoría).
   - #49 y #53: mensaje más claro cuando «+ Usuario» no encuentra a nadie.
@@ -44,6 +47,11 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 8. **Subir los logos (Jhon):** en Administración › Empresas, el logo blanco de Segurex como «Logo oscuro» y el de Derivados como «Logo claro». Sin ellos aparece solo el nombre.
 9. **Lighthouse en producción:** medir `/login` y el inicio. En local, `/login` dio móvil 99/100/96 y escritorio 100/100/96; el 96 de buenas prácticas viene de errores 404 de `sw.js` y del manifiesto en el servidor local (`odd/tasks/marca-sgx-sydc-y-entrada.md`, F5).
 10. **Prueba en celular real:** tocar un logo animado del inicio (se encoge y la app abre) y comprobar que, con «Reducir movimiento» activo, nada se mueve (`docs/lista-de-chequeo.md`, sección D).
+11. **Desplegar la seguridad (#56 y #57):** pasos en `docs/despliegue.md`, sección 2.3. Antes del despliegue: revisar que los grupos de las reglas sean de seguridad, tomar los IDs del grupo `APP-PortalAdmin` y del inquilino de Segurex, y agregar el dato `auth_time` al registro de la app. Después: `portal:sync-portal-admins`, cerrar sesiones, `portal:purge-public-avatars --force`, Force HTTPS Redirect en cPanel, comprobar cabeceras con `curl` y desactivar «Users can create security groups» en cada inquilino.
+12. **Decisiones abiertas de la auditoría:**
+    - Invitados B2B del inquilino de Segurex: si entran con la pertenencia a `APP-PortalAdmin` del inquilino, quedan como administradores. Hoy es una decisión de Segurex sobre quién puede estar en ese grupo; no hay cambio en el código.
+    - Respaldos sin cifrar: el `.zip` de cada respaldo (base de datos y archivos) no tiene contraseña, a propósito (`config/backup.php`, `password` en `null`). Decidir si se cifra, con quién se guarda la clave y cómo se recupera (`docs/despliegue.md`, sección 6).
+    - `Mail.Send` podría estar concedido en otros inquilinos por consentimiento de administrador. Revisar en cada inquilino (ver el punto 1).
 
 ## 4. Cómo publicar cambios
 
@@ -57,7 +65,10 @@ El servidor descarga de GitHub con una llave de despliegue de solo lectura (alia
 
 - Laravel 13 (no 11, que ya no tiene soporte), Livewire 4 solo en Administración; el inicio no usa Livewire ni Alpine.
 - Identidad = inquilino + `oid` de Microsoft; los invitados no se vinculan. Inicio de sesión multiinquilino («Allow all tenants»); el portal filtra por las empresas activas.
-- Roles: `super_admin` (correos de `PORTAL_SUPER_ADMIN_EMAILS`), `portal_admin` (grupo `APP-PortalAdmin`), `announcements_editor` (manual). Configuración e Integraciones: solo súper administrador.
+- Roles: `super_admin` (correos de `PORTAL_SUPER_ADMIN_EMAILS`), `portal_admin` (grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, por ID de objeto: `PORTAL_ADMIN_GROUP_ID` + `PORTAL_ADMIN_TENANT_ID`; sin ellos nadie es administrador; `app/Auth/PortalAdminGroup.php`), `announcements_editor` (manual). Configuración e Integraciones: solo súper administrador.
+- Las reglas de «Quién la ve» por grupo solo cuentan con grupos de seguridad (no Microsoft 365 ni Teams). Se guarda `securityEnabled`/`groupTypes` por grupo; un dato desconocido no da acceso (`app/Microsoft/HttpGraphClient.php`, `app/Catalog/AppCatalog.php`).
+- Las fotos de perfil de Microsoft no se guardan: el portal muestra iniciales.
+- Cabeceras de seguridad en todas las respuestas (`App\Http\Middleware\SecurityHeaders`, `public/.htaccess`): `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, Referrer-Policy, Permissions-Policy, HSTS solo en HTTPS. Sin CSP completa por ahora: Livewire y Alpine necesitan `unsafe-eval` y estilos en línea; se revisará cuando se adopte la build de CSP de Alpine.
 - Cada app decide su propio acceso con su tabla `usuarios` (opción A); no existe `/api/access/{app}`. Registro en Entra de un solo inquilino por app.
 - Crear o rotar tokens de la API exige confirmar con Microsoft (10 min). Las apps ocultas responden 404 a la API.
 - Respaldos solo en el mismo servidor: 02:00 limpieza, 02:30 respaldo, 08:00 monitor; 7 diarios + 4 semanales; tope 2000 MB; correo solo si falla.

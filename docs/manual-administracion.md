@@ -26,20 +26,26 @@ Los roles no se reparten a mano, salvo el de editor de anuncios:
 | Rol | Quién lo recibe | Qué puede hacer |
 |---|---|---|
 | **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, roles, auditoría, informe de uso, integraciones y configuración. |
-| **Administrador** (`portal_admin`) | Quien esté en el grupo `APP-PortalAdmin` del Microsoft 365 de su empresa. Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
+| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
 | **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, y solo para su propia empresa. |
+
+Un grupo con el nombre `APP-PortalAdmin` en otra empresa, o en un Team, no da ningún rol. Si `PORTAL_ADMIN_GROUP_ID` o `PORTAL_ADMIN_TENANT_ID` no están configurados, nadie es administrador del portal. Solo hay un grupo de administradores, el de Segurex: las empresas no tienen grupo propio.
 
 La tabla «Qué puede hacer cada rol» de la pantalla **Roles** siempre muestra los permisos reales.
 
 ### 1.3 Confirmar con Microsoft
 
-Las acciones que abren el portal a una organización entera o entregan llaves a otros sistemas piden **volver a confirmar con Microsoft** si pasaron más de 10 minutos desde su último inicio de sesión:
+Las acciones que abren el portal a una organización entera o entregan llaves a otros sistemas piden **volver a confirmar con Microsoft**:
 
 - Crear una empresa o seguir su asistente.
 - Cambiar el inquilino (organización de Microsoft) de una empresa.
 - Crear o rotar un token de Integraciones.
 
-El portal lo lleva a Microsoft y lo devuelve a la misma pantalla. Si la confirmación falla o se cancela, el portal cierra la sesión por seguridad.
+El portal lo lleva a Microsoft y lo devuelve a la misma pantalla. Microsoft debe haber registrado el inicio de sesión hace menos de 5 minutos: por eso pide la contraseña otra vez. Después de confirmar, la confirmación vale 10 minutos.
+
+Si la confirmación no es de la misma cuenta o llega con una hora antigua, el portal cierra la sesión por seguridad.
+
+Si Microsoft no envía la hora del inicio de sesión (dato `auth_time`), aparece la página **«No pudimos confirmar tu identidad con Microsoft»**. En ese caso no se confirma nada y **no se cierra la sesión**. Quien debe corregirlo es TI: agregar el dato opcional `auth_time` al token de identificación de la app en Microsoft Entra (`docs/despliegue.md`, sección 2.3).
 
 ### 1.4 Todo queda en Auditoría
 
@@ -72,7 +78,7 @@ Pulse **Guardar cambios**. Cada cambio llega a Auditoría.
 
 1. **Datos de la empresa:** nombre, nombre corto, identificador (va en las direcciones del portal y no se puede cambiar después), ID de inquilino (Microsoft Entra › Información general › ID de inquilino), dominios y colores. Si el inquilino ya lo usa otra empresa, elija si esta es la **principal** de ese inquilino (solo puede haber una). Pulse **Guardar y continuar**. La empresa queda inactiva: nadie de esa organización puede entrar todavía.
 2. **Consentimiento:** copie el **Enlace de consentimiento** y envíelo a un administrador de Microsoft 365 de esa empresa. El portal comprueba cada minuto (o pulse **Comprobar ahora**). Si aparece «No se pudo comprobar», revise que el secreto de la app de Microsoft esté vigente en el servidor. Puede pulsar **Terminar más tarde** y volver con **Continuar** desde la lista.
-3. **Grupos:** el administrador de esa empresa crea los grupos `APP-…` con el script `docs/scripts/crear-grupos-app.ps1` (vea `docs/despliegue.md`, sección 1.10).
+3. **Grupos:** el administrador de esa empresa crea un grupo de **seguridad** `APP-<App>` por cada aplicación que use la empresa (por ejemplo `APP-Cartera`), con el script `docs/scripts/crear-grupos-app.ps1` (vea `docs/despliegue.md`, sección 1.10). No se crea un grupo de administradores por empresa: los administradores del portal vienen solo del grupo de Segurex.
 4. **Activar:** **Activar empresa** solo se habilita con el consentimiento verificado. Desde ese momento todos los usuarios de esa organización pueden entrar. El portal avisa por correo a los administradores.
 
 ### 2.2 Aplicaciones
@@ -88,7 +94,7 @@ Lo que cada persona ve en su portal sale de aquí.
   - **Web:** dirección `https://` en un dominio permitido (vea Configuración), alojamiento, tipo de inicio de sesión (Microsoft / Propio) y **Abrir en** pestaña nueva o misma pestaña.
   - **Instalada en el equipo:** instrucciones (un paso por línea) y, opcional, una dirección de descarga. La tarjeta abre una ficha con esas instrucciones.
 - **Quién la ve** (aparece después de crear la aplicación). Basta con cumplir **una** regla:
-  - **+ Grupo de Microsoft:** el nombre del grupo tal como está en Microsoft 365 (por ejemplo `APP-Cartera`). El portal sugiere los grupos `APP-…` que ya tienen personas de esa empresa.
+  - **+ Grupo de Microsoft:** el nombre del grupo tal como está en Microsoft 365 (por ejemplo `APP-Cartera`). Solo cuentan los **grupos de seguridad**: los grupos de Microsoft 365 y los de Teams no dan acceso. El portal sugiere solo los grupos `APP-…` de seguridad que ya tienen personas de esa empresa. Si una regla apunta a un grupo que es de Microsoft 365, la lista la marca con «Este grupo es de Microsoft 365 y no da acceso: debe ser un grupo de seguridad».
   - **+ Usuario:** una persona concreta. Escriba al menos 2 letras del nombre o del correo. Solo aparecen las personas de la empresa elegida que ya entraron al portal alguna vez: la búsqueda se hace en el portal, no en el directorio de Microsoft, y no muestra la cuenta de emergencia. Si nadie coincide, el portal dice: «Nadie con ese nombre ha entrado al portal en esta empresa. Solo aparecen las personas que ya iniciaron sesión al menos una vez.» Para dar acceso a alguien que aún no entra, use **+ Grupo de Microsoft** o pídale que entre una vez.
   - **+ Toda la empresa:** todas las personas de la empresa elegida.
   - Una regla para una empresa a la que la app no está asignada se marca «esta regla no aplica».
@@ -130,7 +136,7 @@ Un editor de anuncios solo publica para su propia empresa. Los anuncios no se bo
 ### 2.5 Roles
 
 - **Qué puede hacer cada rol:** la tabla de permisos (siempre la real).
-- **Súper administrador** y **Administradores:** solo lectura. Para quitar a un administrador, sáquelo del grupo `APP-PortalAdmin` en Microsoft; pierde el rol en su siguiente inicio de sesión.
+- **Súper administrador** y **Administradores:** solo lectura. Para quitar a un administrador, sáquelo del grupo `APP-PortalAdmin` de la organización de Segurex en Microsoft; pierde el rol en su siguiente inicio de sesión. Después de cambiar la configuración del grupo, TI puede ejecutar `php artisan portal:sync-portal-admins` para aplicar la regla a todas las personas de una vez, según sus grupos guardados.
 - **Editores de anuncios:** **+ Agregar persona**, busque por nombre o correo (al menos 2 letras; solo personas que ya entraron al portal) y pulse **Agregar**. **Quitar** pide confirmación.
 - **Cuenta de emergencia:** muestra si existe, si tiene el segundo factor confirmado y su último uso. Se gestiona solo desde el servidor (sección 3).
 
@@ -218,7 +224,7 @@ Sirve para entrar a Administración **cuando el inicio de sesión con Microsoft 
 
 ### 4.2 Dar acceso a un grupo de Microsoft
 
-1. En Microsoft 365 (centro de administración o Entra), cree el grupo de seguridad `APP-<NombreApp>` en la empresa correspondiente (o use el script `crear-grupos-app.ps1`) y agregue a las personas.
+1. En Microsoft 365 (centro de administración o Entra), cree el grupo de **seguridad** `APP-<NombreApp>` en la empresa correspondiente (o use el script `crear-grupos-app.ps1`) y agregue a las personas. En Entra, la columna **Group type** debe decir **Security**; un grupo de Microsoft 365 o de Teams no da acceso.
 2. En el portal: **Aplicaciones › Editar › Quién la ve › + Grupo de Microsoft**, elija la empresa, escriba el nombre exacto del grupo y pulse **Agregar grupo**.
 3. Las personas del grupo ven la app **la próxima vez que inicien sesión** en el portal: los grupos se leen de Microsoft al iniciar sesión. Si alguien no la ve, pídale que cierre sesión y vuelva a entrar.
 
@@ -242,7 +248,7 @@ Revise en este orden:
 
 1. **¿La app está publicada?** En **Aplicaciones**, su estado no debe ser **Oculta**.
 2. **¿Aplica a la empresa de la persona?** En la ficha, **Empresas** debe incluir su empresa (o **Todas las empresas activas**).
-3. **¿Cumple alguna regla de «Quién la ve»?** Si la regla es un grupo, confirme en Microsoft 365 que la persona está en ese grupo **de su empresa** y que el nombre es idéntico. Si la regla dice «esta regla no aplica», la app no está asignada a esa empresa.
+3. **¿Cumple alguna regla de «Quién la ve»?** Si la regla es un grupo, confirme en Microsoft 365 que la persona está en ese grupo **de su empresa**, que el nombre es idéntico y que el grupo es de **seguridad**. Si la regla dice «esta regla no aplica», la app no está asignada a esa empresa.
 4. **¿Volvió a iniciar sesión** después de que la agregaron al grupo? Los grupos se actualizan al entrar.
 5. **¿Su empresa está activa?** En **Empresas**.
 6. **¿Entra con la cuenta correcta?** En **Auditoría**, busque su nombre o correo con el tipo **Seguridad**: verá sus inicios de sesión y con qué empresa entró. Un invitado de otra empresa entra con la marca y las apps de la empresa de su propia organización de Microsoft.
@@ -254,6 +260,7 @@ Revise en este orden:
 
 El portal se puede **instalar** como una aplicación: queda un ícono en la pantalla de inicio o en el escritorio y se abre sin la barra del navegador.
 
+- **Foto de perfil:** el portal ya no guarda la foto de Microsoft. Las personas ven sus iniciales.
 - **Nombre e ícono:** los de la empresa de quien inicia sesión (nombre corto e ícono de la ficha de la empresa). Antes de iniciar sesión se usa el nombre y el ícono neutro del portal. La pantalla de carga usa el color claro de la marca.
 - **Color de la barra del celular:** en las páginas que abren con la franja de marca, la barra del navegador toma el color oscuro de la empresa. En las demás páginas usa el color neutro del portal.
 - **Sin conexión o con conexión lenta:** el portal guarda una copia del inicio de cada persona. Si no hay internet (o la red tarda más de 3 segundos), muestra esa copia con el aviso «Sin conexión · mostrando tus apps guardadas» (o «Conexión lenta…»). Las aplicaciones necesitan internet para abrirse: al tocar una sin conexión aparece la página «Sin conexión» con **Reintentar** e **Ir al inicio**.
