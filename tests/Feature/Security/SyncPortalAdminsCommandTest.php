@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Security;
 
+use App\Audit\AuditPresenter;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class SyncPortalAdminsCommandTest extends TestCase
@@ -66,6 +68,28 @@ class SyncPortalAdminsCommandTest extends TestCase
             ->assertSuccessful();
 
         $this->assertTrue($user->fresh()->hasRole('portal_admin'));
+    }
+
+    public function test_each_change_is_a_security_event_by_the_system(): void
+    {
+        $removed = $this->portalAdmin($this->segurex, [['id' => 'cccccccc-0000-0000-0000-000000000001', 'display_name' => 'APP-PortalAdmin']]);
+        $added = User::factory()->microsoft($this->segurex)->create(['name' => 'Ana Pérez', 'email' => 'ana@segurex.com']);
+        $added->syncGroups([['id' => self::ADMIN_GROUP, 'display_name' => 'APP-PortalAdmin']]);
+        $this->portalAdmin($this->segurex, [['id' => self::ADMIN_GROUP, 'display_name' => 'APP-PortalAdmin']]);
+
+        $this->artisan('portal:sync-portal-admins')->assertSuccessful();
+
+        $entries = Activity::query()->where('log_name', 'security')->where('event', 'roles.synced')->get()->keyBy('subject_id');
+        $this->assertCount(2, $entries);
+        $this->assertNull($entries[$added->id]->causer_id);
+        $this->assertSame(['portal_admin'], $entries[$added->id]->properties['roles_added']);
+        $this->assertSame([], $entries[$added->id]->properties['roles_removed']);
+        $this->assertSame(['portal_admin'], $entries[$removed->id]->properties['roles_removed']);
+
+        $entry = app(AuditPresenter::class)->activity($entries[$added->id]);
+        $this->assertSame(AuditPresenter::SYSTEM, $entry->who);
+        $this->assertStringContainsString('Ana Pérez', $entry->what);
+        $this->assertStringContainsString('ahora es Administrador', $entry->what);
     }
 
     public function test_without_a_pinned_group_it_changes_nothing_and_fails(): void

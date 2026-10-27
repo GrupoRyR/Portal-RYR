@@ -218,6 +218,9 @@ final class AuditPresenter
                 .($properties->get('email') ? ' ('.$properties->get('email').')' : '')
                 .($properties->get('step') === 'code' ? ' · código' : ' · contraseña'),
             SecurityLog::REAUTH_CONFIRMED => 'Confirmó su identidad con Microsoft',
+            SecurityLog::ROLES_SYNCED => 'Sincronizó los administradores: '.$properties->get('name')
+                .($properties->get('email') ? ' ('.$properties->get('email').')' : '')
+                .$this->roleChanges($properties->get('roles_added', []), $properties->get('roles_removed', [])),
             SecurityLog::REAUTH_FAILED => 'Otra cuenta de Microsoft intentó confirmar su identidad',
             default => (string) $activity->description,
         };

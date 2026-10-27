@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Audit\SecurityLog;
 use App\Auth\MicrosoftLogin;
 use App\Auth\PortalAdminGroup;
 use App\Models\User;
@@ -13,6 +14,7 @@ use Spatie\Permission\Models\Role;
  * to every user now, from the groups stored at their last sign-in, instead
  * of waiting for each one to sign in again. Run once after setting
  * PORTAL_ADMIN_GROUP_ID and PORTAL_ADMIN_TENANT_ID; safe to run again.
+ * Each change is a security event in Auditoría, by «Sistema».
  */
 class SyncPortalAdminsCommand extends Command
 {
@@ -37,10 +39,12 @@ class SyncPortalAdminsCommand extends Command
 
             if ($shouldHave && ! $user->hasRole($role)) {
                 $user->assignRole($role);
+                SecurityLog::rolesSynced($user, ['added' => [$role->name], 'removed' => []]);
                 $added++;
                 $this->line("+ {$user->email}");
             } elseif (! $shouldHave && $user->hasRole($role)) {
                 $user->removeRole($role);
+                SecurityLog::rolesSynced($user, ['added' => [], 'removed' => [$role->name]]);
                 $removed++;
                 $this->line("- {$user->email}");
             }
