@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -11,18 +12,24 @@ use Illuminate\Support\Facades\Storage;
  * disk (storage/app/public/avatars/{id}.jpg, reachable by anyone at
  * /storage/avatars/{id}.jpg) and clears `users.photo_path`. Sign-in no
  * longer stores photos, so running it once after the deploy is enough; it
- * is safe to run again.
+ * is safe to run again. In production it asks first unless --force.
  */
 class PurgePublicAvatarsCommand extends Command
 {
+    use ConfirmableTrait;
+
     private const DIRECTORY = 'avatars';
 
-    protected $signature = 'portal:purge-public-avatars';
+    protected $signature = 'portal:purge-public-avatars {--force : Run without asking in production}';
 
     protected $description = 'Delete the public profile photos and clear users.photo_path';
 
     public function handle(): int
     {
+        if (! $this->confirmToProceed()) {
+            return self::FAILURE;
+        }
+
         $disk = Storage::disk('public');
         $files = count($disk->allFiles(self::DIRECTORY));
 
