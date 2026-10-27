@@ -326,8 +326,8 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 
 ### 7.1 Inicio de sesión
 
-- Las apps cruzan el fondo como cometas detrás de una tarjeta con el botón de Microsoft. En el celular hay menos cometas y más pequeñas.
-- Arriba aparecen los logos de las empresas: el logo oscuro sobre su color, o el logo claro.
+- Las apps cruzan el fondo como cometas detrás de una tarjeta con el botón de Microsoft. En el celular hay menos cometas, y las apps se ven más pequeñas.
+- Debajo del botón, en «Empresas del grupo», aparecen los logos de las empresas: el logo oscuro sobre su color, o el logo claro.
 - **Escribe a soporte de TI** es un enlace solo si **Configuración › Soporte TI** tiene una dirección. Si está vacía, el texto aparece sin enlace.
 - Con **Reducir movimiento** activo en el equipo, no hay movimiento: las apps se muestran fijas (en el celular, tres mosaicos sobre la tarjeta) y la tarjeta aparece sin animación.
 

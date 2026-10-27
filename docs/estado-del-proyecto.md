@@ -21,9 +21,9 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 
 - Las 9 fases del brief están terminadas y fusionadas en `main` (PR #1 a #45). Suite: **984 tests** pasan (`php artisan test`, medido el 2026-10-27).
 - Producción configurada y probada el 2026-10-09: inicio de sesión con Microsoft, correo por Graph (`portal:mail-test` OK), MySQL, respaldo manual OK, cron cada minuto (heartbeat OK).
-- Lighthouse móvil: inicio de sesión 96/100/96, inicio 99/100/100 (rendimiento/accesibilidad/buenas prácticas).
+- Lighthouse móvil, medido el 2026-10-09 antes de los cambios de marca (no es la medición actual): inicio de sesión 96/100/96, inicio 99/100/100 (rendimiento/accesibilidad/buenas prácticas).
+- #47 (fusionada el 2026-10-22): lista de aplicaciones que solo tienen reglas de empresa completa.
 - **Marca SGX/SDC y pantallas de entrada** (manual de marca de 2026-10-23), fusionadas en `main` el 2026-10-26 y 2026-10-27. Aún no están en producción:
-  - #47: lista de aplicaciones que solo tienen reglas de empresa completa.
   - #48: tokens del manual (Helvetica/Arial, logo de la empresa en los encabezados, columnas de colores del manual por empresa y migraciones de datos con entrada en Auditoría).
   - #49 y #53: mensaje más claro cuando «+ Usuario» no encuentra a nadie.
   - #50: franja de marca en el inicio, logos en el inicio de sesión y en las páginas secundarias.
