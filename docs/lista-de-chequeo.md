@@ -2,7 +2,7 @@
 
 Pruebe en este orden. Marque cada punto con ✅ (bien) o ❌ (falla) y, si falla, anote qué hizo, qué esperaba y qué pasó (con captura). Para celular, tablet y computador use también `docs/manual-administracion.md` §6.
 
-Cuentas necesarias: una persona de **Segurex**, una de **Derivados**, un **súper administrador**, un **administrador** (grupo `APP-PortalAdmin`) y un **editor de anuncios**.
+Cuentas necesarias: una persona de **Segurex**, una de **Derivados**, un **súper administrador**, un **administrador** (miembro del grupo `APP-PortalAdmin` de la organización de Segurex) y un **editor de anuncios**.
 
 ## A. Automático (lo corre el coordinador antes de cada PR)
 
@@ -100,6 +100,11 @@ Con el súper administrador, salvo que se indique otro rol.
 - [ ] Dirección de app con `javascript:` o dominio no permitido: rechazada.
 - [ ] Formularios con token CSRF; cabeceras de seguridad presentes (HSTS, `X-Content-Type-Options`, `frame-ancestors`).
 - [ ] Ningún secreto, token ni contraseña en registros, Auditoría ni código fuente de la página.
+- [ ] Un Team, o un grupo de Microsoft 365, llamado `APP-PortalAdmin` en otra empresa no da el rol de administrador (Administración › Roles).
+- [ ] Un grupo de Microsoft 365 o de Teams en una regla «Quién la ve» no da acceso: la app no aparece a sus miembros y la regla se marca «Este grupo es de Microsoft 365 y no da acceso».
+- [ ] `curl -sI https://apps.segurexlatam.net/login` trae `x-frame-options: DENY`, `x-content-type-options: nosniff`, `referrer-policy` y `permissions-policy`, y no trae `x-powered-by`.
+- [ ] `curl -sI http://apps.segurexlatam.net/login` responde `301` hacia `https://`.
+- [ ] `https://apps.segurexlatam.net/storage/avatars/1.jpg` responde 404 después de `php artisan portal:purge-public-avatars --force`.
 
 ## Cómo reportar
 
