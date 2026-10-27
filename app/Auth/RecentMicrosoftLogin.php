@@ -33,6 +33,16 @@ class RecentMicrosoftLogin
 
     public const EMERGENCY_MESSAGE = 'Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.';
 
+    public const UNAVAILABLE_MESSAGE = 'No pudimos confirmar tu identidad con Microsoft.';
+
+    /** Outcomes of {@see verify()}. */
+    public const CONFIRMED = 'confirmed';
+
+    /** The same identity answered, but the id_token has no `auth_time`. */
+    public const MISSING_AUTH_TIME = 'missing_auth_time';
+
+    public const REJECTED = 'rejected';
+
     public function __construct(private readonly Session $session) {}
 
     public function isFresh(): bool
@@ -65,30 +75,43 @@ class RecentMicrosoftLogin
 
     /**
      * Only the same Microsoft identity the user signed in with may confirm,
-     * and only with credentials entered just now.
+     * and only with credentials entered just now. A missing `auth_time` from
+     * that same identity means the optional claim is not configured on the
+     * app registration: {@see MISSING_AUTH_TIME}, never a confirmation.
+     * Another identity, or a stale or future `auth_time`, is {@see REJECTED}.
+     *
+     * @return self::CONFIRMED|self::MISSING_AUTH_TIME|self::REJECTED
      */
-    public function matches(User $user, MicrosoftIdentity $identity): bool
+    public function verify(User $user, MicrosoftIdentity $identity): string
+    {
+        if (! $this->sameIdentity($user, $identity)) {
+            return self::REJECTED;
+        }
+
+        if ($identity->authTime === null) {
+            return self::MISSING_AUTH_TIME;
+        }
+
+        return $this->authenticatedRecently($identity->authTime) ? self::CONFIRMED : self::REJECTED;
+    }
+
+    private function sameIdentity(User $user, MicrosoftIdentity $identity): bool
     {
         return ! $user->is_emergency
             && $user->tenant_id !== null
             && $user->azure_oid !== null
             && hash_equals($user->tenant_id, strtolower($identity->tenantId))
-            && hash_equals($user->azure_oid, strtolower($identity->objectId))
-            && $this->authenticatedRecently($identity);
+            && hash_equals($user->azure_oid, strtolower($identity->objectId));
     }
 
     /**
      * Whether `auth_time` falls within config('portal.reauth_max_age_seconds')
-     * of now. A missing claim never passes.
+     * of now.
      */
-    private function authenticatedRecently(MicrosoftIdentity $identity): bool
+    private function authenticatedRecently(int $authTime): bool
     {
-        if ($identity->authTime === null) {
-            return false;
-        }
-
         $maxAge = (int) config('portal.reauth_max_age_seconds', self::DEFAULT_MAX_AUTH_AGE_SECONDS);
-        $age = now()->getTimestamp() - $identity->authTime;
+        $age = now()->getTimestamp() - $authTime;
 
         return $age <= $maxAge && $age >= -self::CLOCK_SKEW_SECONDS;
     }
