@@ -438,7 +438,7 @@ Cambios de las PR #56 y #57 (fusionadas el 2026-10-27). Hágalos en este orden: 
 
    Borra `storage/app/public/avatars` y pone en blanco `users.photo_path`. Se puede repetir sin riesgo. Después, `https://apps.segurexlatam.net/storage/avatars/1.jpg` debe responder 404.
 
-9. **Forzar HTTPS en cPanel.** cPanel › **Domains** › `apps.segurexlatam.net` › active **Force HTTPS Redirect**.
+9. **HTTPS obligatorio.** Lo hace `public/.htaccess`: toda petición por `http://` se redirige a `https://`. En cPanel no se puede activar **Force HTTPS Redirect** para `apps.segurexlatam.net` porque es un dominio adicional (muestra «?»); no hace falta.
 
 10. **Comprobar cabeceras** (por SSH, desde cualquier equipo):
 
@@ -452,7 +452,7 @@ Cambios de las PR #56 y #57 (fusionadas el 2026-10-27). Hágalos en este orden: 
     curl -sI https://apps.segurexlatam.net/login | grep -i strict-transport
     ```
 
-    Esperado: `strict-transport-security: max-age=31536000; includeSubDomains`, una sola línea. Si no aparece, el TLS termina antes de Apache y fuera de 127.0.0.1: avise al equipo de desarrollo. **No** agregue una redirección en `.htaccess`: puede hacer un bucle.
+    Esperado: `strict-transport-security: max-age=31536000; includeSubDomains`, una sola línea. Si no aparece, el TLS termina antes de Apache: avise al equipo de desarrollo, porque la redirección de `.htaccess` haría un bucle y hay que quitarla.
 
     ```bash
     curl -sI https://apps.segurexlatam.net/login

@@ -5,6 +5,16 @@
 
     RewriteEngine On
 
+    # Plain HTTP goes to HTTPS. cPanel's Force HTTPS Redirect cannot be set
+    # for an addon domain like apps.segurexlatam.net, so it lives here.
+    # Apache serves TLS itself (the HSTS header below needs HTTPS=on, and it
+    # is sent), so %{HTTPS} is reliable and this cannot loop. AutoSSL
+    # validation under /.well-known/ and local hosts stay on plain HTTP.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|.+\.test)(:\d+)?$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -39,7 +49,7 @@
     # HSTS when Apache itself serves TLS (mod_ssl sets HTTPS=on), so the
     # header is sent even if Laravel does not see HTTPS. Laravel sends it too
     # when it does (App\Http\Middleware\SecurityHeaders); the unset keeps a
-    # single copy. Plain HTTP never gets it and nothing here redirects.
+    # single copy. Plain HTTP never gets it; it is redirected above.
     Header unset Strict-Transport-Security env=HTTPS
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
 

@@ -38,11 +38,14 @@ class HtaccessHeadersTest extends TestCase
     }
 
     /**
-     * Behind the hosting's TLS layer a blind HTTPS rewrite could loop; the
-     * redirect belongs to cPanel's Force HTTPS Redirect.
+     * cPanel cannot force HTTPS for an addon domain, so .htaccess does it,
+     * keeping AutoSSL validation and local hosts on plain HTTP.
      */
-    public function test_it_does_not_redirect_to_https_itself(): void
+    public function test_plain_http_is_redirected_to_https(): void
     {
-        $this->assertStringNotContainsString('%{HTTPS}', $this->htaccess());
+        $this->assertMatchesRegularExpression(
+            '~RewriteCond %\{HTTPS\} !=on\s*RewriteCond %\{REQUEST_URI\} !\^/\\\\\.well-known/\s*RewriteCond %\{HTTP_HOST\} [^\n]*localhost[^\n]*\s*RewriteRule \^ https://%\{HTTP_HOST\}%\{REQUEST_URI\} \[L,R=301\]~',
+            $this->htaccess(),
+        );
     }
 }
