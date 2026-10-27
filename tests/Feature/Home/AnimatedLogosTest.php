@@ -60,8 +60,8 @@ class AnimatedLogosTest extends TestCase
 
         preg_match_all('/data-enter style="--logo-order: (\d+)"/', $this->home()->getContent(), $orders);
 
-        // Capped so the last logo starts within a second.
-        $this->assertSame([...range(0, 14), 14], array_map('intval', $orders[1]));
+        // The plain page order: app.css alone caps it and turns it into time.
+        $this->assertSame(range(0, 15), array_map('intval', $orders[1]));
     }
 
     public function test_the_entrance_follows_the_page_order_across_categories(): void

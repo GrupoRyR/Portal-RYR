@@ -204,21 +204,28 @@
     }
 
     @media (prefers-reduced-motion: no-preference) {
-        /* 1. Entrance on a plain page load: one logo after another, 60 ms
-           apart, in catalog order (--logo-order, set by the card). */
+        /* 1. Entrance on a plain page load: one logo after another in page
+           order (--logo-order, set by the card). This rule is the only
+           source of its timing: home.js ends each card's entrance on the
+           pop's animationend, and the order is capped here so the last
+           logo starts within a second however large the catalog. */
         [data-enter] .app-logo {
+            --logo-step: 60ms;
+            --logo-start: 120ms;
+            --logo-last: 14;
             animation: logo-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-            animation-delay: calc(var(--logo-order, 0) * 60ms + 120ms);
+            animation-delay: calc(min(var(--logo-order, 0), var(--logo-last)) * var(--logo-step) + var(--logo-start));
         }
 
         /* 2. Hover (pointer devices) and keyboard focus: the card lifts and
-           the logo wiggles once. */
+           the logo wiggles once, after its entrance (the wiggle would
+           replace the pop half-way). */
         @media (hover: hover) {
             [data-app]:hover {
                 translate: 0 -3px;
             }
 
-            [data-app]:not([data-status='maintenance']):hover .app-logo {
+            [data-app]:not([data-enter], [data-status='maintenance']):hover .app-logo {
                 animation: logo-wiggle 0.7s ease;
             }
         }
@@ -227,7 +234,7 @@
             translate: 0 -3px;
         }
 
-        [data-app]:not([data-status='maintenance']):has(a:focus-visible) .app-logo {
+        [data-app]:not([data-enter], [data-status='maintenance']):has(a:focus-visible) .app-logo {
             animation: logo-wiggle 0.7s ease;
         }
 

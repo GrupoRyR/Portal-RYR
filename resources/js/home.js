@@ -27,14 +27,22 @@ const serverSearch = document.body.dataset.serverSearch === 'true';
 
 const searching = () => !serverSearch && !!input && normalize(input.value) !== '';
 
-// Logo entrance (resources/css/app.css): once, on page load. A card that
-// moves or comes back from a search would replay it, so the flag goes when
-// the entrance is over or as soon as the list changes, whichever is first.
-const ENTRANCE_MS = 1500;
-const endEntrance = () => $$('[data-enter]').forEach((card) => delete card.dataset.enter);
-setTimeout(endEntrance, ENTRANCE_MS);
-
+// Logo entrance (resources/css/app.css, which alone holds its timing): once,
+// on page load. Each card drops its flag when its own pop ends, so hover and
+// focus can wiggle it from then on. A card that moves or comes back from a
+// search would replay it, so every flag also goes as soon as the list changes.
 const motion = window.matchMedia('(prefers-reduced-motion: no-preference)');
+const endEntrance = () => $$('[data-enter]').forEach((card) => delete card.dataset.enter);
+
+const endPop = (event) => {
+    const card = event.target.closest('[data-enter]');
+    if (event.animationName === 'logo-pop' && card) delete card.dataset.enter;
+};
+document.addEventListener('animationend', endPop);
+document.addEventListener('animationcancel', endPop);
+
+// With reduced motion no pop runs, so none would end.
+if (!motion.matches) endEntrance();
 
 // iOS Safari only applies :active (the logo press) with a touch listener.
 document.addEventListener('touchstart', () => {}, { passive: true });
