@@ -4,8 +4,7 @@ namespace App\Microsoft;
 
 /**
  * The parts of Microsoft Graph the portal reads with the signed-in user's
- * delegated access token. Implementations throw on any failure other than
- * "the user has no photo".
+ * delegated access token. Implementations throw on any failure.
  */
 interface GraphClient
 {
@@ -13,11 +12,6 @@ interface GraphClient
      * @return array{display_name: string|null, job_title: string|null, mail: string|null}
      */
     public function profile(string $accessToken): array;
-
-    /**
-     * The user's photo bytes, or null when the user has no photo.
-     */
-    public function photo(string $accessToken): ?string;
 
     /**
      * Every group the user belongs to, directly or through nested groups.

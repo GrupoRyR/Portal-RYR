@@ -22,6 +22,9 @@ use Spatie\Permission\Traits\HasRoles;
  * (`azure_oid`) inside their home tenant (`tenant_id`); the password is only
  * used by non-Microsoft accounts and is otherwise null.
  *
+ * `photo_path` is no longer used: sign-in stores no photo and
+ * `portal:purge-public-avatars` clears it.
+ *
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
  * `portal:emergency-account` command, so the 2FA columns are not fillable.

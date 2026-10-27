@@ -99,12 +99,8 @@ class MicrosoftLoginTest extends TestCase
         array $groups = [],
         string $displayName = 'Ana Pérez',
         ?string $jobTitle = 'Analista',
-        int $photoStatus = 200,
     ): void {
         Http::fake([
-            'graph.microsoft.com/v1.0/me/photo/*' => $photoStatus === 200
-                ? Http::response('jpeg-bytes', 200, ['Content-Type' => 'image/jpeg'])
-                : Http::response(['error' => ['code' => 'ImageNotFound']], $photoStatus),
             'graph.microsoft.com/v1.0/me/transitiveMemberOf/*' => Http::response(['value' => $groups]),
             'graph.microsoft.com/v1.0/me*' => Http::response([
                 'displayName' => $displayName,
@@ -452,7 +448,6 @@ class MicrosoftLoginTest extends TestCase
     {
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         Http::fake([
-            'graph.microsoft.com/v1.0/me/photo/*' => Http::response([], 404),
             'graph.microsoft.com/v1.0/me/transitiveMemberOf/*' => Http::sequence()
                 ->push(['value' => [['id' => self::ADMIN_GROUP, 'displayName' => 'APP-PortalAdmin']]])
                 ->push(['value' => []]),
