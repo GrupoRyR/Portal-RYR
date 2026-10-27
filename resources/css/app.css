@@ -307,7 +307,7 @@
         --stage-dots: rgb(23 25 28 / 0.07);
         --trail: rgb(23 25 28 / 0.12);
         --trail-head: rgb(23 25 28 / 0.24);
-        --glass: rgb(255 255 255 / 0.86);
+        --glass: rgb(255 255 255 / 0.94);
         --glass-edge: rgb(255 255 255 / 0.5);
         --glass-shadow: rgb(23 25 28 / 0.18);
 
@@ -324,7 +324,7 @@
             --stage-dots: rgb(255 255 255 / 0.06);
             --trail: rgb(255 255 255 / 0.1);
             --trail-head: rgb(255 255 255 / 0.22);
-            --glass: rgb(28 29 32 / 0.84);
+            --glass: rgb(28 29 32 / 0.94);
             --glass-edge: rgb(255 255 255 / 0.08);
             --glass-shadow: rgb(0 0 0 / 0.6);
         }
@@ -356,7 +356,9 @@
 
     /* Comets: each starts just off the left edge at its height (--y) and
        crosses along a shallow diagonal (--angle), head first with a tapered
-       trail. Shown only when motion is welcome (see below). */
+       trail. Shown only when motion is welcome (see below). Only transform
+       moves and nothing that moves is blurred, so the browser composites the
+       comets without repainting them; depth comes from size and opacity. */
     .signin-comets {
         --angle: 16deg;
         --scale: 1;
@@ -380,7 +382,6 @@
         margin-right: calc(var(--s) * -0.4);
         background: linear-gradient(90deg, transparent, var(--trail) 70%, var(--trail-head));
         clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
-        filter: blur(1px);
     }
 
     .signin-comet .signin-tile {
@@ -389,8 +390,7 @@
     }
 
     .signin-comet-far {
-        opacity: 0.5;
-        filter: blur(1.5px);
+        opacity: 0.4;
     }
 
     /* Still layout: tiles placed around the card (reduced motion). */
@@ -410,13 +410,20 @@
         display: none;
     }
 
+    /* Nearly opaque, without a backdrop blur: a blur behind moving comets
+       would be redone on every frame. The still layout keeps the glass. */
     .signin-card {
         background: var(--glass);
-        -webkit-backdrop-filter: blur(22px) saturate(1.15);
-        backdrop-filter: blur(22px) saturate(1.15);
         box-shadow:
             inset 0 0 0 1px var(--glass-edge),
             0 40px 90px var(--glass-shadow);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .signin-card {
+            -webkit-backdrop-filter: blur(22px) saturate(1.15);
+            backdrop-filter: blur(22px) saturate(1.15);
+        }
     }
 
     @media (prefers-reduced-motion: no-preference) {
@@ -437,7 +444,8 @@
         }
     }
 
-    /* Phone: fewer, smaller and steeper comets; three still tiles on top. */
+    /* Phone: fewer, smaller and steeper comets, and with reduced motion
+       only three still tiles, above the card. */
     @media (max-width: 767px) {
         .signin-comets {
             --angle: 24deg;
