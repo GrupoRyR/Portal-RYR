@@ -1,6 +1,6 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-10-09.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-10-27.
 
 ## 1. Qué es y dónde está
 
@@ -19,9 +19,18 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 
 ## 2. Estado
 
-- Las 9 fases del brief están terminadas y fusionadas en `main` (PR #1 a #45). Suite: **902 tests** pasan.
+- Las 9 fases del brief están terminadas y fusionadas en `main` (PR #1 a #45). Suite: **984 tests** pasan (`php artisan test`, medido el 2026-10-27).
 - Producción configurada y probada el 2026-10-09: inicio de sesión con Microsoft, correo por Graph (`portal:mail-test` OK), MySQL, respaldo manual OK, cron cada minuto (heartbeat OK).
 - Lighthouse móvil: inicio de sesión 96/100/96, inicio 99/100/100 (rendimiento/accesibilidad/buenas prácticas).
+- **Marca SGX/SDC y pantallas de entrada** (manual de marca de 2026-10-23), fusionadas en `main` el 2026-10-26 y 2026-10-27. Aún no están en producción:
+  - #47: lista de aplicaciones que solo tienen reglas de empresa completa.
+  - #48: tokens del manual (Helvetica/Arial, logo de la empresa en los encabezados, columnas de colores del manual por empresa y migraciones de datos con entrada en Auditoría).
+  - #49 y #53: mensaje más claro cuando «+ Usuario» no encuentra a nadie.
+  - #50: franja de marca en el inicio, logos en el inicio de sesión y en las páginas secundarias.
+  - #51: Administración con la marca.
+  - #52: correos con marca y color de la barra del navegador en la PWA.
+  - #54: logos animados de las apps en el inicio.
+  - #55: nuevo inicio de sesión de escritorio (cometas detrás de una tarjeta).
 
 ## 3. Pendientes
 
@@ -31,6 +40,10 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 4. **Recordatorio:** fecha de vencimiento del secreto de la app «Portal RYR» en Entra (renovación en `docs/despliegue.md` §1.10).
 5. **Limpieza opcional en el servidor:** `~/portal-ryr/database/database.sqlite` (datos anteriores a MySQL) y `~/portal-ryr/.env.antes-20261009`.
 6. **Apps aún con inicio de sesión propio:** Cuentas por pagar y Cartera (Vercel) se migrarán cuando estén completas; Portafolio al final. Guía: `docs/migracion-apps.md`. Mientras tanto el portal las abre y piden su propio usuario y contraseña.
+7. **Desplegar la marca:** `cd ~/portal-ryr && bash deploy/deploy.sh`. El script corre `artisan migrate --force`, que aplica las dos migraciones de colores del manual (`2026_10_26_113259` y `2026_10_26_113300`).
+8. **Subir los logos (Jhon):** en Administración › Empresas, el logo blanco de Segurex como «Logo oscuro» y el de Derivados como «Logo claro». Sin ellos aparece solo el nombre.
+9. **Lighthouse en producción:** medir `/login` y el inicio. En local, `/login` dio móvil 99/100/96 y escritorio 100/100/96; el 96 de buenas prácticas viene de errores 404 de `sw.js` y del manifiesto en el servidor local (`odd/tasks/marca-sgx-sydc-y-entrada.md`, F5).
+10. **Prueba en celular real:** tocar un logo animado del inicio (se encoge y la app abre) y comprobar que, con «Reducir movimiento» activo, nada se mueve (`docs/lista-de-chequeo.md`, sección D).
 
 ## 4. Cómo publicar cambios
 
@@ -49,7 +62,8 @@ El servidor descarga de GitHub con una llave de despliegue de solo lectura (alia
 - Crear o rotar tokens de la API exige confirmar con Microsoft (10 min). Las apps ocultas responden 404 a la API.
 - Respaldos solo en el mismo servidor: 02:00 limpieza, 02:30 respaldo, 08:00 monitor; 7 diarios + 4 semanales; tope 2000 MB; correo solo si falla.
 - Correo por Microsoft Graph (no SMTP): `MAIL_MAILER=graph`, remitente `segurex.info@segurex.com`.
-- Colores oficiales: los del brief y del portal (no los de los SVG vectorizados). Segurex `#FF671F`/`#666666`/`#8F360B` (botón `#C24C15`); Derivados `#183F94`/`#3E60A8`/`#6D94E8`/`#03256C`/`#031D54`.
+- Colores oficiales: el manual de marca SGX/SDC (2026-10-23) reemplaza a los colores del brief. Segurex: acento `#F26522`, botón `#C6531C`, texto de marca `#943E15`, texto largo y oscuro `#58595B`; Derivados: acento y botón `#0B5FA5`, texto de marca, texto largo y oscuro `#073B66`. Tipografía Helvetica/Arial, sin fuentes web. Los colores del manual se guardan por empresa (`color_button`, `color_ink`, `color_text`, `color_ink_dark_mode`, `color_text_dark_mode`); los que faltan se calculan del principal (`app/Branding/BrandPalette.php`). Fuente: `database/migrations/2026_10_26_113300_apply_brand_manual_colors.php`.
+- «+ Usuario» en «Quién la ve» solo encuentra a personas que ya entraron al portal, y es intencional: el portal no consulta el directorio de Microsoft. Buscar en el directorio por Graph se dejó para más adelante (`app/Livewire/Admin/AppAccessRules.php`). Para dar acceso a quien aún no entra, usar un grupo `APP-…` o pedir que entre una vez.
 
 ## 6. Lecciones de la puesta en producción
 

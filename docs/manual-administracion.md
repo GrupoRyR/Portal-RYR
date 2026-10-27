@@ -62,6 +62,8 @@ Cada empresa del grupo entra con su propia organización de Microsoft (inquilino
 - **Dominios de correo:** los dominios de la empresa (por ejemplo `segurex.com`). Un dominio solo puede pertenecer a una empresa. Si dos empresas comparten inquilino, el dominio del correo decide a cuál entra cada persona.
 - **Enlaces rápidos:** hasta 8 enlaces `https://` que aparecen en la sección «Microsoft 365» del inicio (por ejemplo SharePoint). Un enlace con el mismo nombre que uno predeterminado (Outlook, Teams, OneDrive) reemplaza su dirección.
 - **Marca:** logo claro, logo oscuro (PNG, WebP o SVG de hasta 1 MB), ícono (PNG de exactamente 512 × 512 px) y los tres colores (`#RRGGBB`). Si el color principal no tiene buen contraste con texto blanco, el portal avisa y usa un tono más oscuro para los botones. La **Vista previa** muestra el resultado en claro, oscuro y celular antes de guardar.
+- **Logos:** el **Logo oscuro** se ve sobre la franja oscura de la marca (en Segurex, el logo blanco). El **Logo claro** se ve sobre una pastilla blanca. Si el archivo falta, el portal escribe el nombre de la empresa en su lugar.
+- **Colores del manual de marca:** si la empresa tiene los colores del manual, la ficha muestra la caja **Colores del manual de marca** con el color del botón, el texto de marca y el texto largo. Esos colores mandan sobre los calculados del principal. Si quiere que el portal los calcule otra vez a partir del principal, marque **Quitar colores del manual** y guarde. Si cambia el principal sin quitarlos, el portal lo avisa.
 - El **ícono** también es el ícono del portal instalado en celulares y computadores de esa empresa (vea la sección 5). Si no hay ícono, se usa el ícono neutro del portal.
 
 Pulse **Guardar cambios**. Cada cambio llega a Auditoría.
@@ -87,7 +89,7 @@ Lo que cada persona ve en su portal sale de aquí.
   - **Instalada en el equipo:** instrucciones (un paso por línea) y, opcional, una dirección de descarga. La tarjeta abre una ficha con esas instrucciones.
 - **Quién la ve** (aparece después de crear la aplicación). Basta con cumplir **una** regla:
   - **+ Grupo de Microsoft:** el nombre del grupo tal como está en Microsoft 365 (por ejemplo `APP-Cartera`). El portal sugiere los grupos `APP-…` que ya tienen personas de esa empresa.
-  - **+ Usuario:** una persona concreta (solo aparecen quienes ya entraron al portal).
+  - **+ Usuario:** una persona concreta. Escriba al menos 2 letras del nombre o del correo. Solo aparecen las personas de la empresa elegida que ya entraron al portal alguna vez: la búsqueda se hace en el portal, no en el directorio de Microsoft, y no muestra la cuenta de emergencia. Si nadie coincide, el portal dice: «Nadie con ese nombre ha entrado al portal en esta empresa. Solo aparecen las personas que ya iniciaron sesión al menos una vez.» Para dar acceso a alguien que aún no entra, use **+ Grupo de Microsoft** o pídale que entre una vez.
   - **+ Toda la empresa:** todas las personas de la empresa elegida.
   - Una regla para una empresa a la que la app no está asignada se marca «esta regla no aplica».
   - La aplicación también debe validar el acceso por su cuenta: el portal solo decide qué tarjetas se ven.
@@ -253,6 +255,7 @@ Revise en este orden:
 El portal se puede **instalar** como una aplicación: queda un ícono en la pantalla de inicio o en el escritorio y se abre sin la barra del navegador.
 
 - **Nombre e ícono:** los de la empresa de quien inicia sesión (nombre corto e ícono de la ficha de la empresa). Antes de iniciar sesión se usa el nombre y el ícono neutro del portal. La pantalla de carga usa el color claro de la marca.
+- **Color de la barra del celular:** en las páginas que abren con la franja de marca, la barra del navegador toma el color oscuro de la empresa. En las demás páginas usa el color neutro del portal.
 - **Sin conexión o con conexión lenta:** el portal guarda una copia del inicio de cada persona. Si no hay internet (o la red tarda más de 3 segundos), muestra esa copia con el aviso «Sin conexión · mostrando tus apps guardadas» (o «Conexión lenta…»). Las aplicaciones necesitan internet para abrirse: al tocar una sin conexión aparece la página «Sin conexión» con **Reintentar** e **Ir al inicio**.
 - **Privacidad en equipos compartidos:**
   - **Cerrar sesión** borra todo lo que el navegador guardó del portal en ese equipo.
@@ -265,6 +268,8 @@ El portal se puede **instalar** como una aplicación: queda un ícono en la pant
 ---
 
 ## 6. Lista de pruebas en dispositivos reales
+
+La lista completa de pruebas de la aplicación (entrada, marca, inicio, Administración, API, servidor y seguridad) está en `docs/lista-de-chequeo.md`. Esta sección cubre solo los equipos.
 
 Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.net` (la instalación y el modo sin conexión **solo funcionan con HTTPS**). Anote el modelo del equipo, la versión del sistema y del navegador, y el resultado.
 
@@ -314,3 +319,21 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 
 - [ ] Abra el portal con conexión, cierre y vuelva a abrir: los cambios nuevos aparecen (el portal se actualiza solo al publicar archivos nuevos).
 - [ ] Si un equipo sigue viendo la versión anterior, cierre todas las pestañas o ventanas del portal y ábralo de nuevo.
+
+---
+
+## 7. Lo que ven las personas: inicio de sesión e inicio
+
+### 7.1 Inicio de sesión
+
+- Las apps cruzan el fondo como cometas detrás de una tarjeta con el botón de Microsoft. En el celular hay menos cometas y más pequeñas.
+- Arriba aparecen los logos de las empresas: el logo oscuro sobre su color, o el logo claro.
+- **Escribe a soporte de TI** es un enlace solo si **Configuración › Soporte TI** tiene una dirección. Si está vacía, el texto aparece sin enlace.
+- Con **Reducir movimiento** activo en el equipo, no hay movimiento: las apps se muestran fijas (en el celular, tres mosaicos sobre la tarjeta) y la tarjeta aparece sin animación.
+
+### 7.2 Inicio
+
+- Al abrir el inicio, los logos de las apps entran uno tras otro y en unos 1,5 segundos quedan quietos.
+- Con el mouse encima, o al llegar con la tecla Tab, la tarjeta se levanta y el logo se balancea una vez. En el celular, al tocar, el logo se encoge un instante y la app abre.
+- Apps en mantenimiento: logo gris y quieto. Apps con fallas: un punto rojo que late en la esquina del logo.
+- Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
