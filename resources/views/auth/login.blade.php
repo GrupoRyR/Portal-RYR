@@ -8,8 +8,8 @@
     <main class="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 max-md:place-items-end max-md:px-4 max-md:pt-42 max-md:pb-6">
         <x-auth.sky />
 
-        <section aria-labelledby="titulo" class="signin-card relative z-10 w-full max-w-[480px] rounded-[28px] px-11 pt-11 pb-9 max-md:rounded-3xl max-md:px-6 max-md:pt-8 max-md:pb-7">
-            <h1 id="titulo" class="text-[2.5rem] leading-[1.04] font-bold tracking-[-0.03em] break-words hyphens-auto max-md:text-[2rem]">Todas tus aplicaciones en un solo lugar</h1>
+        <section aria-labelledby="titulo" class="signin-card relative z-10 w-full max-w-[592px] rounded-[28px] px-11 pt-11 pb-9 max-md:rounded-3xl max-md:px-6 max-md:pt-8 max-md:pb-7">
+            <h1 id="titulo" class="text-[2.5rem] leading-[1.04] font-bold tracking-[-0.03em] text-balance break-words max-md:text-[2rem]">Todas tus aplicaciones en un solo lugar</h1>
             <p class="mt-3.5 text-[1.0625rem] leading-normal text-fg-soft">Entra con la misma cuenta de Microsoft que usas para tu correo de trabajo.</p>
 
             @error('login')

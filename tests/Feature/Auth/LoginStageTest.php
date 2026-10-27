@@ -34,6 +34,14 @@ class LoginStageTest extends TestCase
         $this->assertStringContainsString('<body class="min-h-dvh signin-stage">', $html);
     }
 
+    public function test_the_title_wraps_between_words_without_hyphens(): void
+    {
+        $html = $this->get(route('login'))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression('/<h1 id="titulo" class="[^"]*\btext-balance\b/', $html);
+        $this->assertStringNotContainsString('hyphens-auto', $html);
+    }
+
     public function test_a_dark_logo_sits_on_its_own_company_dark_color(): void
     {
         Storage::fake('public');
