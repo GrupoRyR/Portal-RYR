@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * One way to get an app (brief §5.2). Every rule belongs to a company:
  *
- * - `group`: members of the Microsoft group whose display name is `value`
- *   (case-insensitive), among the users of `company_id` only, so a group
- *   with the same name in another tenant grants nothing;
+ * - `group`: members of the Microsoft security group whose display name is
+ *   `value` (case-insensitive), among the users of `company_id` only, so a
+ *   group with the same name in another tenant grants nothing; Microsoft
+ *   365 groups (Teams) never count;
  * - `user`: the user whose id is `value`;
  * - `company`: everyone in `company_id` (`value` is null).
  *
@@ -80,7 +81,7 @@ class AppAccessRule extends Model
 
     /**
      * Whether this rule grants the app to the user, given the lowercase
-     * display names of their groups. The caller has already checked that
+     * display names of their security groups. The caller has already checked that
      * the user belongs to an active company linked to the app.
      *
      * @param  list<string>  $groupNames

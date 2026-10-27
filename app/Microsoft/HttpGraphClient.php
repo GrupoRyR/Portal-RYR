@@ -36,7 +36,7 @@ class HttpGraphClient implements GraphClient
     {
         $groups = [];
         $url = self::BASE_URL.'/me/transitiveMemberOf/microsoft.graph.group';
-        $query = ['$select' => 'id,displayName'];
+        $query = ['$select' => 'id,displayName,securityEnabled,groupTypes'];
 
         for ($page = 0; $url !== null && $page < self::MAX_PAGES; $page++) {
             // A null query keeps the URL's own query string; an empty array
@@ -47,6 +47,7 @@ class HttpGraphClient implements GraphClient
                 $groups[] = [
                     'id' => (string) ($group['id'] ?? ''),
                     'display_name' => (string) ($group['displayName'] ?? ''),
+                    'security_group' => self::isSecurityGroup($group),
                 ];
             }
 
@@ -56,6 +57,20 @@ class HttpGraphClient implements GraphClient
         }
 
         return $groups;
+    }
+
+    /**
+     * Microsoft 365 groups ("Unified", every Team) can be created by any
+     * user by default; security groups are managed by IT. Mail-enabled
+     * security groups count as security groups.
+     *
+     * @param  array<string, mixed>  $group
+     */
+    private static function isSecurityGroup(array $group): bool
+    {
+        $types = is_array($group['groupTypes'] ?? null) ? $group['groupTypes'] : [];
+
+        return ($group['securityEnabled'] ?? false) === true && ! in_array('Unified', $types, true);
     }
 
     private function request(string $accessToken): PendingRequest

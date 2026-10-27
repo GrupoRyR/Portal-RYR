@@ -91,7 +91,8 @@ class RolesPageTest extends TestCase
             ->assertSeeTextInOrder(['Súper administrador', 'Jhon Castro', 'jhon@segurex.com'])
             ->assertSeeText('correos configurados')
             ->assertSeeTextInOrder(['Administradores', 'Leonardo Herrera', 'Segurex'])
-            ->assertSeeText('Se asigna solo: entra quien esté en el grupo APP-PortalAdmin de su empresa')
+            ->assertSeeText('solo a los miembros del grupo APP-PortalAdmin configurado en la organización de Segurex')
+            ->assertSeeText('Los grupos de otras empresas no dan este rol.')
             ->assertSeeTextInOrder(['Editores de anuncios', 'Paula Gómez']);
     }
 

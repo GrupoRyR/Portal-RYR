@@ -83,6 +83,42 @@ class AppAccessRulesTest extends TestCase
         $this->assertSame(2, $this->cartera->accessRules()->count());
     }
 
+    public function test_only_security_groups_are_suggested(): void
+    {
+        $this->member($this->segurex, ['APP-Cartera']);
+        $this->member($this->segurex, ['APP-Equipo'], securityGroups: false);
+
+        $this->rules()
+            ->call('open', 'group')
+            ->set('companyId', (string) $this->segurex->id)
+            ->assertSee('<option value="APP-Cartera">', false)
+            ->assertDontSee('APP-Equipo')
+            ->assertSee('Solo cuentan los grupos de seguridad');
+    }
+
+    public function test_a_rule_for_a_group_only_seen_as_microsoft_365_is_flagged(): void
+    {
+        AppAccessRule::forGroup($this->cartera, $this->segurex, 'APP-Equipo');
+        AppAccessRule::forGroup($this->cartera, $this->segurex, 'APP-Cartera');
+        AppAccessRule::forGroup($this->cartera, $this->segurex, 'APP-SinDatos');
+        AppAccessRule::forGroup($this->cartera, $this->segurex, 'APP-Nuevo');
+        $this->member($this->segurex, ['app-equipo'], securityGroups: false);
+        $this->member($this->segurex, ['APP-Cartera']);
+        $this->member($this->segurex, ['APP-Cartera'], securityGroups: false);
+        // Stored before the column existed: unknown until the next sign-in.
+        $this->member($this->segurex, ['APP-SinDatos'])->groups()->update(['security_group' => null]);
+        // Same name, other company: not this rule's users.
+        $this->member($this->derivados, ['APP-Nuevo'], securityGroups: false);
+
+        $this->rules()
+            ->assertSeeInOrder(['APP-Equipo', 'Este grupo es de Microsoft 365 y no da acceso'])
+            ->assertSeeHtmlInOrder(['APP-Cartera', 'APP-Equipo'])
+            ->assertSee('Este grupo es de Microsoft 365 y no da acceso', false);
+
+        $html = $this->rules()->html();
+        $this->assertSame(1, substr_count($html, 'Este grupo es de Microsoft 365 y no da acceso'));
+    }
+
     public function test_duplicate_group_rules_are_rejected_whatever_the_case(): void
     {
         AppAccessRule::forGroup($this->cartera, $this->segurex, 'APP-Cartera');
@@ -253,10 +289,10 @@ class AppAccessRulesTest extends TestCase
     /**
      * @param  list<string>  $groups
      */
-    private function member(Company $company, array $groups): User
+    private function member(Company $company, array $groups, bool $securityGroups = true): User
     {
         $user = User::factory()->microsoft($company)->create();
-        $user->syncGroups(array_map(fn (string $name) => ['id' => fake()->uuid(), 'display_name' => $name], $groups));
+        $user->syncGroups(array_map(fn (string $name) => ['id' => fake()->uuid(), 'display_name' => $name, 'security_group' => $securityGroups], $groups));
 
         return $user;
     }

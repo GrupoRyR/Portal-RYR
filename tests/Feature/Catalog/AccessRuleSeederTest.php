@@ -59,7 +59,7 @@ class AccessRuleSeederTest extends TestCase
     private function visibleSlugs(Company $company, array $groups): array
     {
         $user = User::factory()->microsoft($company)->create();
-        $user->syncGroups(array_map(fn (string $name) => ['id' => (string) Str::uuid(), 'display_name' => $name], $groups));
+        $user->syncGroups(array_map(fn (string $name) => ['id' => (string) Str::uuid(), 'display_name' => $name, 'security_group' => true], $groups));
 
         return app(AppCatalog::class)->visibleApps($user->fresh())->pluck('slug')->all();
     }

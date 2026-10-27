@@ -169,13 +169,16 @@ class AppCatalog
     }
 
     /**
-     * Lowercase display names of the user's stored groups.
+     * Lowercase display names of the user's stored security groups. A
+     * Microsoft 365 group (any Team) never counts: by default any user can
+     * create one with any name.
      *
      * @return list<string>
      */
     private function groupNames(User $user): array
     {
         return $user->groups
+            ->filter(fn ($group) => $group->security_group === true)
             ->map(fn ($group) => mb_strtolower(trim((string) $group->display_name)))
             ->filter()
             ->unique()

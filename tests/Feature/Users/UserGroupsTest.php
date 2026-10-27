@@ -103,26 +103,26 @@ class UserGroupsTest extends TestCase
         $this->assertSame(1, $transactions);
     }
 
-    public function test_is_in_group_matches_display_name_case_insensitively(): void
+    /**
+     * Privileges never come from a group name (see App\Auth\PortalAdminGroup).
+     */
+    public function test_there_is_no_name_based_membership_check(): void
     {
-        $user = User::factory()->create();
-        $user->syncGroups([['id' => self::ADMINS, 'display_name' => 'APP-PortalAdmin']]);
-
-        $this->assertTrue($user->isInGroup('APP-PortalAdmin'));
-        $this->assertTrue($user->isInGroup('app-portaladmin'));
-        $this->assertTrue($user->isInGroup('  APP-PORTALADMIN '));
-        $this->assertFalse($user->isInGroup('APP-Cartera'));
+        $this->assertFalse(method_exists(User::class, 'isInGroup'));
     }
 
-    public function test_is_in_group_reflects_the_latest_sync(): void
+    public function test_the_security_flag_is_stored_and_updated(): void
     {
         $user = User::factory()->create();
+
+        $user->syncGroups([['id' => self::ADMINS, 'display_name' => 'APP-PortalAdmin', 'security_group' => true]]);
+        $this->assertTrue($user->groups()->sole()->security_group);
+
+        $user->syncGroups([['id' => self::ADMINS, 'display_name' => 'APP-PortalAdmin', 'security_group' => false]]);
+        $this->assertFalse($user->groups()->sole()->security_group);
+
         $user->syncGroups([['id' => self::ADMINS, 'display_name' => 'APP-PortalAdmin']]);
-        $this->assertTrue($user->isInGroup('APP-PortalAdmin'));
-
-        $user->syncGroups([]);
-
-        $this->assertFalse($user->isInGroup('APP-PortalAdmin'));
+        $this->assertNull($user->groups()->sole()->security_group);
     }
 
     public function test_a_group_cannot_repeat_for_the_same_user(): void

@@ -157,6 +157,9 @@ class MicrosoftLogin
      * the tenant owning its domain (never on a guest sign-in) and removed
      * once the email leaves the list; otherwise it is left as it was.
      *
+     * `portal_admin` follows membership of the pinned group of the trusted
+     * tenant (App\Auth\PortalAdminGroup), never a group name.
+     *
      * @return array{added: list<string>, removed: list<string>}
      */
     private function syncRoles(User $user, bool $verifiedOwnEmail): array
@@ -173,7 +176,7 @@ class MicrosoftLogin
         $this->toggleRole(
             $user,
             self::PORTAL_ADMIN,
-            $user->isInGroup((string) config('portal.admin_group')),
+            PortalAdminGroup::contains($user),
             $changes,
         );
 

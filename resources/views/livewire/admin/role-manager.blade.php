@@ -78,7 +78,7 @@
                 <h2 id="role-portal" class="font-sans text-base font-bold tracking-normal">Administradores</h2>
                 <code class="text-xs text-fg-muted">portal_admin</code>
             </div>
-            <p class="text-[0.8125rem] leading-snug text-fg-soft">Se asigna solo: entra quien esté en el grupo <code class="{{ $code }}">{{ config('portal.admin_group') }}</code> de su empresa al iniciar sesión. Para quitar a alguien, sácalo del grupo en Microsoft.</p>
+            <p class="text-[0.8125rem] leading-snug text-fg-soft">Se asigna solo al iniciar sesión, y solo a los miembros del grupo <code class="{{ $code }}">{{ config('portal.admin_group') }}</code> configurado en la organización de Segurex. Los grupos de otras empresas no dan este rol. Para quitar a alguien, sácalo del grupo en Microsoft.</p>
             @forelse ($portalAdmins as $member)
                 <div wire:key="portal-{{ $member->id }}" class="flex items-center gap-2.5">
                     <span class="{{ $avatar }}" aria-hidden="true">{{ $initials($member->name) }}</span>

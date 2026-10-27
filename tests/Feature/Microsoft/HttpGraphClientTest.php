@@ -50,20 +50,41 @@ class HttpGraphClientTest extends TestCase
 
         Http::fake(['graph.microsoft.com/v1.0/me/transitiveMemberOf/*' => Http::sequence()
             ->push([
-                'value' => [['id' => 'g1', 'displayName' => 'APP-PortalAdmin']],
+                'value' => [['id' => 'g1', 'displayName' => 'APP-PortalAdmin', 'securityEnabled' => true, 'groupTypes' => []]],
                 '@odata.nextLink' => $next,
             ])
-            ->push(['value' => [['id' => 'g2', 'displayName' => 'APP-Cartera']]]),
+            ->push(['value' => [['id' => 'g2', 'displayName' => 'APP-Cartera', 'securityEnabled' => true, 'groupTypes' => []]]]),
         ]);
 
         $this->assertSame([
-            ['id' => 'g1', 'display_name' => 'APP-PortalAdmin'],
-            ['id' => 'g2', 'display_name' => 'APP-Cartera'],
+            ['id' => 'g1', 'display_name' => 'APP-PortalAdmin', 'security_group' => true],
+            ['id' => 'g2', 'display_name' => 'APP-Cartera', 'security_group' => true],
         ], $this->client()->groups('token'));
 
         Http::assertSentCount(2);
-        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), '$select=id,displayName'));
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), '$select=id,displayName,securityEnabled,groupTypes'));
         Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), '$skiptoken=page2'));
+    }
+
+    /**
+     * Teams are Microsoft 365 ("Unified") groups, which any user can create
+     * by default, even when they are also security-enabled.
+     */
+    public function test_only_security_groups_that_are_not_microsoft_365_groups_are_flagged(): void
+    {
+        Http::fake(['graph.microsoft.com/v1.0/me/transitiveMemberOf/*' => Http::response(['value' => [
+            ['id' => 'security', 'displayName' => 'APP-Cartera', 'securityEnabled' => true, 'groupTypes' => []],
+            ['id' => 'dynamic', 'displayName' => 'APP-Dinamico', 'securityEnabled' => true, 'groupTypes' => ['DynamicMembership']],
+            ['id' => 'team', 'displayName' => 'APP-Equipo', 'securityEnabled' => false, 'groupTypes' => ['Unified']],
+            ['id' => 'secure-team', 'displayName' => 'APP-EquipoSeguro', 'securityEnabled' => true, 'groupTypes' => ['Unified']],
+            ['id' => 'distribution', 'displayName' => 'Lista de correo', 'securityEnabled' => false, 'groupTypes' => []],
+            ['id' => 'unknown', 'displayName' => 'Sin datos'],
+        ]])]);
+
+        $this->assertSame(
+            ['security' => true, 'dynamic' => true, 'team' => false, 'secure-team' => false, 'distribution' => false, 'unknown' => false],
+            array_column($this->client()->groups('token'), 'security_group', 'id'),
+        );
     }
 
     public function test_failures_raise_an_exception(): void
