@@ -222,7 +222,8 @@
 
                     <div class="flex flex-col gap-1.5">
                         <span class="{{ $label }}">Comando para un administrador de Microsoft 365 de {{ $current->name }}</span>
-                        <pre class="overflow-x-auto rounded-control bg-fg p-4 text-[0.8125rem] text-on-fg"><code>.\crear-grupos-app.ps1 -TenantId {{ $current->tenant_id }} -Grupos 'APP-&lt;App&gt;'</code></pre>
+                        <pre class="overflow-x-auto rounded-control bg-fg p-4 text-[0.8125rem] text-on-fg"><code>.\crear-grupos-app.ps1 -TenantId {{ $current->tenant_id }} -Grupos 'APP-Cartera'</code></pre>
+                        <p class="text-[0.8125rem] text-fg-muted">Cambia <code>APP-Cartera</code> por los grupos de las apps que use esta empresa, separados por comas: <code>-Grupos 'APP-Cartera','APP-TomaPedidos'</code>.</p>
                         <p class="text-[0.8125rem] text-fg-muted">El script está en <code>docs/scripts/crear-grupos-app.ps1</code>. Necesita PowerShell con el módulo Microsoft.Graph y solo crea los grupos que falten.</p>
                     </div>
 
