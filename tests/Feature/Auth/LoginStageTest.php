@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Company;
+use App\Settings\PortalSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -49,6 +50,25 @@ class LoginStageTest extends TestCase
             ->assertOk()
             ->assertSee('style="--brand-dark: #58595B"', false)
             ->assertSee('alt="Segurex Latam"', false);
+    }
+
+    public function test_the_support_note_links_to_the_configured_support_url(): void
+    {
+        app(PortalSettings::class)->update(['support_url' => 'https://soporte.segurex.com.co/tickets/nuevo'], null);
+
+        // Directly to the URL: the /soporte route needs a session.
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('<a href="https://soporte.segurex.com.co/tickets/nuevo" target="_blank" rel="noopener"', false)
+            ->assertSeeText('Escribe a soporte de TI');
+    }
+
+    public function test_without_a_support_url_the_note_is_plain_text(): void
+    {
+        $html = $this->get(route('login'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Escribe a soporte de TI.', $html);
+        $this->assertStringNotContainsString('target="_blank"', $html);
     }
 
     public function test_an_invalid_dark_color_never_reaches_the_style_attribute(): void

@@ -37,7 +37,14 @@
                 </div>
             @endif
 
-            <p class="mt-[18px] text-center text-[0.8125rem] text-fg-muted">Solo para colaboradores del grupo. ¿Problemas para entrar? Escribe a soporte de TI.</p>
+            <p class="mt-[18px] text-center text-[0.8125rem] text-fg-muted">
+                Solo para colaboradores del grupo. ¿Problemas para entrar?
+                @if ($supportUrl)
+                    <a href="{{ $supportUrl }}" target="_blank" rel="noopener" class="font-semibold text-fg underline underline-offset-2">Escribe a soporte de TI</a>.
+                @else
+                    Escribe a soporte de TI.
+                @endif
+            </p>
         </section>
     </main>
 </x-layouts.app>
