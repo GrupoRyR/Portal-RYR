@@ -31,6 +31,20 @@
 </IfModule>
 
 <IfModule mod_headers.c>
+    # PHP announces its version in X-Powered-By. Both tables, since the PHP
+    # handler of the hosting may put it in either.
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+
+    # Uploaded files (company logos, announcement images) are served as they
+    # are: never sniffed into another type, and an SVG or HTML opened
+    # directly runs no script and cannot act as the portal (CSP sandbox).
+    # Pages get the rest of their headers from App\Http\Middleware\SecurityHeaders.
+    <If "%{REQUEST_URI} =~ m#^/storage/#">
+        Header set X-Content-Type-Options "nosniff"
+        Header set Content-Security-Policy "sandbox"
+    </If>
+
     # Built assets carry a content hash in their name: cache them for a year.
     <If "%{REQUEST_URI} =~ m#^/build/assets/#">
         Header set Cache-Control "public, max-age=31536000, immutable"
