@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Login opción B</title>
-<!-- Option B: full-bleed stage of floating app tiles with an elevated glass card.
+<!-- Option B: the apps cross the stage like comets behind an elevated glass card.
      Static prototype for review: self-contained (inline CSS, logos as data URIs,
      Helvetica/Arial only). The "Prototipo" switch in the corner is not part of the design. -->
 <style>
@@ -26,6 +26,8 @@
   --stage-glow: rgb(255 255 255 / 0.9);
   --float: #FFFFFF;
   --float-fg: #17191C;
+  --trail: rgb(23 25 28 / 0.12);
+  --trail-head: rgb(23 25 28 / 0.24);
   --card: rgb(255 255 255 / 0.86);
 }
 @media (prefers-color-scheme: dark) {
@@ -46,6 +48,8 @@
   --stage-glow: rgb(255 255 255 / 0.07);
   --float: #1F2023;
   --float-fg: #E4E5E8;
+  --trail: rgb(255 255 255 / 0.1);
+  --trail-head: rgb(255 255 255 / 0.22);
   --card: rgb(28 29 32 / 0.84);
   }
 }
@@ -66,6 +70,8 @@
   --stage-glow: rgb(255 255 255 / 0.07);
   --float: #1F2023;
   --float-fg: #E4E5E8;
+  --trail: rgb(255 255 255 / 0.1);
+  --trail-head: rgb(255 255 255 / 0.22);
   --card: rgb(28 29 32 / 0.84);
 }
 
@@ -146,8 +152,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline
 }
 
 
-/* Option B: a full-bleed stage of floating app tiles, with the sign-in on an
-   elevated glass card in the middle. */
+/* Option B: a full-bleed stage where the apps cross like comets, leaving a
+   trail, behind an elevated glass card that holds the sign-in. */
 body { background: var(--stage); }
 .stage {
   position: relative;
@@ -165,13 +171,8 @@ body { background: var(--stage); }
   :root:not([data-theme="light"]) .stage { background: radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%), radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.6px) 0 0 / 28px 28px; }
 }
 
-/* Floating tiles: position, size and tilt per tile (--x, --y, --s, --r), set
-   inline; the phone layout overrides a few with !important. */
-.floats { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
-.float {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
+/* The app tile, shared by the comets and the still layout. */
+.tile {
   display: grid;
   place-items: center;
   width: var(--s);
@@ -180,10 +181,39 @@ body { background: var(--stage); }
   background: var(--float);
   color: var(--float-fg);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 40px rgb(23 25 28 / 0.14);
-  rotate: var(--r);
 }
-.float svg { width: 44%; height: 44%; }
-.float-dark { background: var(--float-fg); color: var(--float); }
+.tile svg { width: 44%; height: 44%; }
+.tile-dark { background: var(--float-fg); color: var(--float); }
+
+/* Comets: each one starts off screen on the left at its height (--y) and
+   crosses along a shallow diagonal (--angle), its head leading and a tapered
+   trail behind. Then it waits off screen until its next pass; negative
+   delays put a few mid-flight when the page opens. */
+.comets, .floats { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.comets { --angle: 16deg; --scale: 1; display: none; }
+.comet {
+  position: absolute;
+  left: 0;
+  top: var(--y);
+  display: flex;
+  align-items: center;
+  transform-origin: 0 50%;
+  transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+  --s: calc(var(--size) * var(--scale));
+}
+.comet-tail {
+  width: calc(var(--tail) * var(--scale));
+  height: calc(var(--s) * 0.7);
+  margin-right: calc(var(--s) * -0.4);
+  background: linear-gradient(90deg, transparent, var(--trail) 70%, var(--trail-head));
+  clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
+  filter: blur(1px);
+}
+.comet .tile { position: relative; rotate: calc(var(--r) - var(--angle)); }
+.comet-far { opacity: 0.5; filter: blur(1.5px); }
+
+/* Still layout, used with reduced motion: tiles placed around the card. */
+.float { position: absolute; left: var(--x); top: var(--y); rotate: var(--r); }
 .float-far { filter: blur(2px); opacity: 0.55; }
 
 .card {
@@ -214,35 +244,24 @@ h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
 .note { margin-top: 18px; color: var(--fg-muted); font-size: 13px; text-align: center; }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Like kites: three slow swings at different rhythms (drift sideways,
-     rise and fall, lean), so each tile traces its own soft, never-repeating
-     path. Far tiles move less and slower. */
-  .float {
-    animation:
-      kite-drift var(--d) ease-in-out var(--delay) infinite alternate,
-      kite-lift calc(var(--d) * 0.57) ease-in-out var(--delay) infinite alternate,
-      kite-lean calc(var(--d) * 0.79) ease-in-out var(--delay) infinite alternate;
-  }
+  .comets { display: block; }
+  .floats { display: none; }
+  .comet { animation: comet var(--d) linear var(--delay) infinite; }
   .card { animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 }
-@keyframes kite-drift {
-  from { translate: calc(var(--a) * -1 * var(--k)) 0; }
-  to { translate: calc(var(--a) * var(--k)) 0; }
-}
-@keyframes kite-lift {
-  from { transform: translateY(calc(var(--a) * 0.55)); }
-  to { transform: translateY(calc(var(--a) * -0.55)); }
-}
-@keyframes kite-lean {
-  from { rotate: calc(var(--r) - 7deg * var(--k)); }
-  to { rotate: calc(var(--r) + 7deg * var(--k)); }
+/* From just off the left edge (its own length back) to just past the right
+   one. The crossing takes 65% of the period; the rest is the wait. */
+@keyframes comet {
+  0% { transform: rotate(var(--angle)) translateX(calc(-100% - 40px)); }
+  65%, 100% { transform: rotate(var(--angle)) translateX(112vw); }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
 
-/* Phone: the card fills the width; only the tiles near the edges stay. */
+/* Phone: the card fills the width; fewer, smaller and steeper comets. */
 @media (max-width: 767px) {
   .stage { place-items: end center; padding: 168px 16px 24px; }
-  .float-desk { display: none; }
+  .comets { --angle: 24deg; --scale: 0.62; }
+  .comet-desk, .float-desk { display: none; }
   .card { padding: 32px 24px 28px; border-radius: 24px; }
   h1 { font-size: 32px; }
   .chip { height: 42px; padding: 0 12px; }
@@ -250,11 +269,11 @@ h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
   .chip-sdc img { height: 26px; }
 }
 
+/* Still layout on phones: three tiles above the card. The inline values are
+   overridden with !important. */
 .float-phone { display: none; }
 @media (max-width: 767px) {
   .float-phone { display: grid; }
-  /* A narrower swing, so the kites stay on screen. */
-  .float { --a: 14px !important; }
   .floats .float:nth-child(1) { --x: 6% !important; --y: 32px !important; --s: 88px !important; }
   .floats .float:nth-child(5) { --x: 70% !important; --y: 20px !important; --s: 92px !important; }
   .floats .float:nth-child(11) { --x: 40% !important; --y: 64px !important; --s: 64px !important; }
@@ -264,8 +283,11 @@ h1 { font-size: 40px; line-height: 1.04; letter-spacing: -0.03em; }
 </head>
 <body>
 <main class="stage">
+  <ul class="comets" aria-hidden="true">
+    <li class="comet" style="--y: 2%; --size: 96px; --tail: 340px; --d: 22s; --delay: -3s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></span></li><li class="comet" style="--y: 30%; --size: 112px; --tail: 400px; --d: 26s; --delay: -15s; --r: -6deg"><span class="comet-tail"></span><span class="tile tile-dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span></li><li class="comet" style="--y: 56%; --size: 76px; --tail: 280px; --d: 20s; --delay: -9s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></span></li><li class="comet comet-far" style="--y: -10%; --size: 64px; --tail: 240px; --d: 28s; --delay: -21s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="12" height="10" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></svg></span></li><li class="comet" style="--y: 68%; --size: 88px; --tail: 320px; --d: 24s; --delay: -2s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span></li><li class="comet comet-far comet-desk" style="--y: 14%; --size: 56px; --tail: 220px; --d: 30s; --delay: -12s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 20h18"/><path d="M6 20v-7M11 20V5M16 20v-10M21 20v-4"/></svg></span></li><li class="comet comet-desk" style="--y: 44%; --size: 100px; --tail: 360px; --d: 25s; --delay: -19s; --r: -6deg"><span class="comet-tail"></span><span class="tile tile-dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.8.8 3 2.6 3 4.7"/></svg></span></li><li class="comet comet-far" style="--y: 80%; --size: 60px; --tail: 230px; --d: 27s; --delay: -6s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M10 16l4.5-4.5M11.5 11.5h3v3"/></svg></span></li><li class="comet" style="--y: -2%; --size: 72px; --tail: 260px; --d: 23s; --delay: -11s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span></li><li class="comet comet-far comet-desk" style="--y: 22%; --size: 48px; --tail: 180px; --d: 32s; --delay: -25s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></span></li><li class="comet comet-far comet-desk" style="--y: 62%; --size: 64px; --tail: 240px; --d: 29s; --delay: -17s; --r: 8deg"><span class="comet-tail"></span><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span></li>
+  </ul>
   <ul class="floats" aria-hidden="true">
-    <li class="float" style="--x: 9%; --y: 14%; --s: 112px; --r: -8deg; --d: 14s; --a: 40px; --k: 1; --delay: -0.0s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></li><li class="float float-desk" style="--x: 22%; --y: 60%; --s: 88px; --r: 6deg; --d: 12s; --a: 40px; --k: -1; --delay: -2.3s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li><li class="float float-dark float-desk" style="--x: 5%; --y: 72%; --s: 120px; --r: -4deg; --d: 16s; --a: 40px; --k: 1; --delay: -4.6s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="12" height="10" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></svg></li><li class="float float-far float-desk" style="--x: 27%; --y: 6%; --s: 64px; --r: 10deg; --d: 20s; --a: 20px; --k: -1; --delay: -6.9s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M10 16l4.5-4.5M11.5 11.5h3v3"/></svg></li><li class="float float-dark" style="--x: 78%; --y: 10%; --s: 120px; --r: 7deg; --d: 16s; --a: 40px; --k: 1; --delay: -9.2s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></li><li class="float float-desk" style="--x: 86%; --y: 48%; --s: 84px; --r: -9deg; --d: 13s; --a: 40px; --k: -1; --delay: -11.5s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></li><li class="float float-desk" style="--x: 70%; --y: 74%; --s: 108px; --r: 5deg; --d: 15s; --a: 40px; --k: 1; --delay: -13.8s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 20h18"/><path d="M6 20v-7M11 20V5M16 20v-10M21 20v-4"/></svg></li><li class="float float-far float-desk" style="--x: 72%; --y: 36%; --s: 60px; --r: -12deg; --d: 21s; --a: 20px; --k: -1; --delay: -16.1s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.8.8 3 2.6 3 4.7"/></svg></li><li class="float float-far float-desk" style="--x: 14%; --y: 40%; --s: 56px; --r: 14deg; --d: 18s; --a: 20px; --k: 1; --delay: -18.4s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></li><li class="float float-far float-desk" style="--x: 90%; --y: 82%; --s: 64px; --r: -6deg; --d: 20s; --a: 20px; --k: -1; --delay: -20.7s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></li><li class="float float-phone" style="--x: 44%; --y: 4%; --s: 72px; --r: -5deg; --d: 14s; --a: 40px; --k: 1; --delay: -23.0s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li>
+    <li class="tile float" style="--x: 9%; --y: 14%; --s: 112px; --r: -8deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></li><li class="tile float float-desk" style="--x: 22%; --y: 60%; --s: 88px; --r: 6deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li><li class="tile float tile-dark float-desk" style="--x: 5%; --y: 72%; --s: 120px; --r: -4deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="12" height="10" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></svg></li><li class="tile float float-far float-desk" style="--x: 27%; --y: 6%; --s: 64px; --r: 10deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M10 16l4.5-4.5M11.5 11.5h3v3"/></svg></li><li class="tile float tile-dark" style="--x: 78%; --y: 10%; --s: 120px; --r: 7deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></li><li class="tile float float-desk" style="--x: 86%; --y: 48%; --s: 84px; --r: -9deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></li><li class="tile float float-desk" style="--x: 70%; --y: 74%; --s: 108px; --r: 5deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 20h18"/><path d="M6 20v-7M11 20V5M16 20v-10M21 20v-4"/></svg></li><li class="tile float float-far float-desk" style="--x: 72%; --y: 36%; --s: 60px; --r: -12deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.8.8 3 2.6 3 4.7"/></svg></li><li class="tile float float-far float-desk" style="--x: 14%; --y: 40%; --s: 56px; --r: 14deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></li><li class="tile float float-far float-desk" style="--x: 90%; --y: 82%; --s: 64px; --r: -6deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></li><li class="tile float float-phone" style="--x: 44%; --y: 4%; --s: 72px; --r: -5deg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 8V7a2 2 0 0 1 2-2h10v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M20 11.5h-3.5a2 2 0 0 0 0 4H20"/></svg></li>
   </ul>
 
   <section class="card" aria-labelledby="titulo">
