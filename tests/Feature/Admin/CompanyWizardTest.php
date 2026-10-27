@@ -277,8 +277,10 @@ class CompanyWizardTest extends TestCase
 
         $this->wizard($company->fresh())
             ->assertSet('step', 3)
-            ->assertSee('APP-PortalAdmin')
-            ->assertSee('crear-grupos-app.ps1 -TenantId '.self::NEW_TENANT)
+            ->assertDontSee('APP-PortalAdmin')
+            ->assertSee('Un grupo de seguridad por cada aplicación del catálogo')
+            ->assertSee('Los administradores del portal no se crean aquí')
+            ->assertSee('crear-grupos-app.ps1 -TenantId '.self::NEW_TENANT." -Grupos 'APP-&lt;App&gt;'", false)
             ->call('goToStep', 4)
             ->assertSet('step', 4)
             ->call('activate')

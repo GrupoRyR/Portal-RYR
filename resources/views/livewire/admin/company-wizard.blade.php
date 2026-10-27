@@ -214,15 +214,15 @@
                     </div>
                     <ul role="list" class="flex flex-col gap-2">
                         <li class="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line px-4 py-3">
-                            <code class="font-mono text-sm font-bold">{{ $adminGroup }}</code>
-                            <span class="text-sm text-fg-muted">Administradores del portal en esta empresa</span>
+                            <code class="font-mono text-sm font-bold">APP-&lt;App&gt;</code>
+                            <span class="text-sm text-fg-muted">Un grupo de seguridad por cada aplicación del catálogo que use esta empresa, p. ej. APP-Cartera</span>
                         </li>
                     </ul>
-                    <p class="text-[0.8125rem] text-fg-muted">En la fase 4 se agrega un grupo por cada aplicación del catálogo.</p>
+                    <p class="text-[0.8125rem] text-fg-muted">Solo cuentan los grupos de seguridad: los grupos de Microsoft 365 y los de Teams no dan acceso. Los administradores del portal no se crean aquí: vienen solo del grupo configurado en la organización de Segurex.</p>
 
                     <div class="flex flex-col gap-1.5">
                         <span class="{{ $label }}">Comando para un administrador de Microsoft 365 de {{ $current->name }}</span>
-                        <pre class="overflow-x-auto rounded-control bg-fg p-4 text-[0.8125rem] text-on-fg"><code>.\crear-grupos-app.ps1 -TenantId {{ $current->tenant_id }}</code></pre>
+                        <pre class="overflow-x-auto rounded-control bg-fg p-4 text-[0.8125rem] text-on-fg"><code>.\crear-grupos-app.ps1 -TenantId {{ $current->tenant_id }} -Grupos 'APP-&lt;App&gt;'</code></pre>
                         <p class="text-[0.8125rem] text-fg-muted">El script está en <code>docs/scripts/crear-grupos-app.ps1</code>. Necesita PowerShell con el módulo Microsoft.Graph y solo crea los grupos que falten.</p>
                     </div>
 
