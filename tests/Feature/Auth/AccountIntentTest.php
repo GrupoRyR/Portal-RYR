@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Audit\SecurityLog;
 use App\Auth\AccountIntent;
 use App\Auth\LoginFailed;
 use App\Auth\RecentMicrosoftLogin;
@@ -104,6 +105,16 @@ class AccountIntentTest extends TestCase
             ->assertSessionMissing(RecentMicrosoftLogin::SESSION_KEY);
 
         $this->assertAuthenticatedAs($this->user);
+        $this->assertSame(1, Activity::where('event', SecurityLog::REAUTH_FAILED)->where('causer_id', $this->user->id)->count());
+    }
+
+    public function test_an_error_callback_without_a_pending_reauthentication_records_no_failed_confirmation(): void
+    {
+        Socialite::shouldReceive('driver')->never();
+
+        $this->actingAs($this->user)->get($this->errorCallbackUrl())->assertRedirect('/');
+
+        $this->assertSame(0, Activity::where('event', SecurityLog::REAUTH_FAILED)->count());
     }
 
     public function test_an_error_callback_for_a_guest_shows_the_retry_page(): void

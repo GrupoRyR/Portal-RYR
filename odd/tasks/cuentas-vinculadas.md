@@ -91,11 +91,10 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
 ## Entrega
 
 - **Estrategia:** PR encadenados a `main` (stacked-to-main), según la convención del repositorio. Cada PR puede llegar a `main` solo.
-- **Ramas:**
-  - `feat/cuentas-vinculadas-1-callback`
-  - `-2-personas`
-  - `-3-cambio`
-  - `-4-interfaz`
+- **Ramas y PR.** T1 salió con 857 líneas, así que se partió en dos PR:
+  - `feat/cuentas-vinculadas-1-confirmacion`: commits `49efaf4` y `5164e0a` (308 líneas).
+  - `feat/cuentas-vinculadas-1-callback`: el commit de intenciones, la corrección de auditoría y este documento (~570 líneas, de las cuales 120 son este documento y ~250 son pruebas). Lleva la nota `size:exception`.
+  - Después vienen `-2-personas`, `-3-cambio` y `-4-interfaz`.
 - **Pronóstico:** ~1.600 líneas, unas 400 por PR.
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
@@ -113,8 +112,13 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     - `5164e0a` `feat(auth)`: `admit()` y `microsoft_login_hint`.
     - `feat(auth)`: intenciones y `error` de Microsoft en el callback. Este registro va en ese commit.
   - Corrección de revisión: un `error` de Microsoft con sesión iniciada siempre vuelve a `/`. La página de la reautenticación pendiente está detrás de `microsoft.recent` y mandaría al usuario de nuevo a Microsoft.
-  - Pendiente para PR2/PR4: `/` todavía no muestra el mensaje `status`.
+  - `/code-review` (alto) del coordinador encontró 4 cosas:
+    1. Una reautenticación que termina en `error` ya no quedaba en Auditoría. **Corregido:** registra `reauth.failed`. RED observado sin la corrección, GREEN con ella; 113 de 113 en Auth.
+    2. `/` todavía no muestra el mensaje `status`. Va en el PR4, que toca el inicio.
+    3. La rama de intenciones y `bindState()` no se usan hasta PR2 y PR3. Queda anotado en el PR.
+    4. Ya pasaba antes: en las cuentas de invitado (B2B), la pista de inicio de sesión apunta a su inquilino de origen, y la reautenticación puede cerrar la sesión. Seguimiento: mandar `domain_hint` o la autoridad del inquilino en una fase posterior.
+  - Riesgo según `gentle-ai review assess`: alto (ruta de autenticación). RDD apagado, así que la revisión independiente fue `/code-review`.
 
 ## Siguiente paso
 
-T1: delegar el escritor del PR1.
+Abrir los dos PR del T1 y, cuando Jhon los fusione, delegar el escritor del T2 (PR2).

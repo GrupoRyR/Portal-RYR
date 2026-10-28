@@ -146,7 +146,14 @@ class MicrosoftLoginController extends Controller
         }
 
         $intents->discard();
-        $request->session()->forget(RecentMicrosoftLogin::PENDING_KEY);
+
+        // A re-authentication that ends in an error is still a failed
+        // confirmation of a sensitive action, so Auditoría records it.
+        $pending = $request->session()->pull(RecentMicrosoftLogin::PENDING_KEY);
+
+        if (is_array($pending) && ($pending['user'] ?? null) === $user->getKey()) {
+            SecurityLog::reauthentication($user, false, $request->userAgent());
+        }
 
         // Always home: the page a pending re-authentication would return to
         // is behind microsoft.recent and would send the user straight back
