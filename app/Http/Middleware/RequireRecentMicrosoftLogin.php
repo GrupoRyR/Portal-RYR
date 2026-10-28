@@ -25,7 +25,7 @@ class RequireRecentMicrosoftLogin
             return response()->view('errors.microsoft-required', [], 403);
         }
 
-        if ($this->recent->isFresh()) {
+        if ($this->recent->isFresh($user)) {
             return $next($request);
         }
 

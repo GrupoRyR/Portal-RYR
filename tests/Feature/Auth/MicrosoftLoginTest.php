@@ -161,9 +161,12 @@ class MicrosoftLoginTest extends TestCase
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         $this->fakeGraph();
 
-        $this->hitCallback()
-            ->assertRedirect('/')
-            ->assertSessionHas(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertSame(
+            ['user_id' => User::sole()->id, 'at' => now()->getTimestamp()],
+            session(RecentMicrosoftLogin::SESSION_KEY),
+        );
     }
 
     public function test_a_rejected_sign_in_does_not_count_as_a_recent_confirmation(): void

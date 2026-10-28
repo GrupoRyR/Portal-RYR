@@ -17,7 +17,11 @@ use Illuminate\Contracts\Session\Session;
  */
 class RecentMicrosoftLogin
 {
-    /** Unix timestamp of the last successful confirmation. */
+    /**
+     * The last successful confirmation: ['user_id' => id, 'at' => Unix
+     * timestamp]. Sessions from before it named the user hold a bare
+     * timestamp, which is never fresh.
+     */
     public const SESSION_KEY = 'auth.microsoft_confirmed_at';
 
     /** Confirmation in progress: ['return' => path, 'user' => id]. */
@@ -45,11 +49,18 @@ class RecentMicrosoftLogin
 
     public function __construct(private readonly Session $session) {}
 
-    public function isFresh(): bool
+    /**
+     * Whether this user (never another account on the same session)
+     * confirmed within {@see TTL_SECONDS}.
+     */
+    public function isFresh(User $user): bool
     {
-        $confirmedAt = $this->session->get(self::SESSION_KEY);
+        $confirmed = $this->session->get(self::SESSION_KEY);
 
-        return is_int($confirmedAt) && now()->getTimestamp() - $confirmedAt < self::TTL_SECONDS;
+        return is_array($confirmed)
+            && ($confirmed['user_id'] ?? null) === $user->getKey()
+            && is_int($confirmed['at'] ?? null)
+            && now()->getTimestamp() - $confirmed['at'] < self::TTL_SECONDS;
     }
 
     public function start(User $user, string $return): void
@@ -116,9 +127,9 @@ class RecentMicrosoftLogin
         return $age <= $maxAge && $age >= -self::CLOCK_SKEW_SECONDS;
     }
 
-    public function confirm(): void
+    public function confirm(User $user): void
     {
-        $this->session->put(self::SESSION_KEY, now()->getTimestamp());
+        $this->session->put(self::SESSION_KEY, ['user_id' => $user->getKey(), 'at' => now()->getTimestamp()]);
     }
 
     /**

@@ -78,10 +78,18 @@ class RecentMicrosoftLoginTest extends TestCase
         Socialite::shouldReceive('driver')->with('microsoft')->andReturn($provider);
     }
 
+    /**
+     * @return array{user_id: int, at: int}
+     */
+    private function confirmation(User $user, int $minutesAgo = 0): array
+    {
+        return ['user_id' => $user->id, 'at' => now()->subMinutes($minutesAgo)->getTimestamp()];
+    }
+
     public function test_a_fresh_confirmation_lets_the_request_through(): void
     {
         $this->actingAs($this->user)
-            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->subMinutes(9)->getTimestamp()])
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => $this->confirmation($this->user, 9)])
             ->get('/_pruebas/sensible')
             ->assertOk()
             ->assertSee('contenido sensible');
@@ -93,7 +101,37 @@ class RecentMicrosoftLoginTest extends TestCase
             ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
 
         $this->actingAs($this->user)
-            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->subMinutes(11)->getTimestamp()])
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => $this->confirmation($this->user, 11)])
+            ->get('/_pruebas/sensible')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
+    }
+
+    public function test_freshness_does_not_carry_to_another_user(): void
+    {
+        $other = User::factory()->create([
+            'tenant_id' => self::TENANT,
+            'azure_oid' => '99999999-2222-3333-4444-555555555555',
+            'company_id' => $this->user->company_id,
+        ]);
+        $recent = $this->app->make(RecentMicrosoftLogin::class);
+
+        $recent->confirm($this->user);
+
+        $this->assertTrue($recent->isFresh($this->user));
+        $this->assertFalse($recent->isFresh($other));
+        $this->actingAs($other)
+            ->get('/_pruebas/sensible')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
+    }
+
+    /**
+     * Sessions from before confirmations named their user hold a bare
+     * timestamp: it proves nothing about who confirmed.
+     */
+    public function test_an_old_timestamp_only_confirmation_is_not_fresh(): void
+    {
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->getTimestamp()])
             ->get('/_pruebas/sensible')
             ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
     }

@@ -48,11 +48,15 @@ class CompanyWizardTest extends TestCase
         $this->admin->assignRole('super_admin');
     }
 
-    private function fresh(): static
+    /**
+     * A recent Microsoft confirmation of the given user (the admin by default).
+     */
+    private function fresh(?User $user = null): static
     {
-        session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+        $confirmation = ['user_id' => ($user ?? $this->admin)->id, 'at' => now()->getTimestamp()];
+        session()->put(RecentMicrosoftLogin::SESSION_KEY, $confirmation);
 
-        return $this->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->getTimestamp()]);
+        return $this->withSession([RecentMicrosoftLogin::SESSION_KEY => $confirmation]);
     }
 
     private function wizard(?Company $company = null): Testable
@@ -100,7 +104,7 @@ class CompanyWizardTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.companies.create'))
             ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/admin/empresas/nueva']));
 
-        $this->fresh()->actingAs($portalAdmin)->get(route('admin.companies.create'))->assertForbidden();
+        $this->fresh($portalAdmin)->actingAs($portalAdmin)->get(route('admin.companies.create'))->assertForbidden();
 
         $this->fresh()->actingAs($this->admin)->get(route('admin.companies.create'))
             ->assertOk()

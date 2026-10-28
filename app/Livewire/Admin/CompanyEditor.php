@@ -194,9 +194,9 @@ class CompanyEditor extends Component
      */
     public function startTenantChange(RecentMicrosoftLogin $recent): mixed
     {
-        $this->authorizeTenantChange();
+        $user = $this->authorizeTenantChange();
 
-        if (! $recent->isFresh()) {
+        if (! $recent->isFresh($user)) {
             return $this->redirectToConfirm();
         }
 
@@ -220,9 +220,9 @@ class CompanyEditor extends Component
      */
     public function changeTenant(RecentMicrosoftLogin $recent, CompanyAdminNotifier $notifier): mixed
     {
-        $this->authorizeTenantChange();
+        $user = $this->authorizeTenantChange();
 
-        if (! $recent->isFresh()) {
+        if (! $recent->isFresh($user)) {
             return $this->redirectToConfirm();
         }
 
@@ -406,7 +406,10 @@ class CompanyEditor extends Component
         return $this->redirectRoute('admin.companies.show', $company->slug);
     }
 
-    private function authorizeTenantChange(): void
+    /**
+     * The signed-in Microsoft user allowed to change this company's tenant.
+     */
+    private function authorizeTenantChange(): User
     {
         $this->authorize('update', $this->company);
 
@@ -415,6 +418,8 @@ class CompanyEditor extends Component
         if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
             abort(403, RecentMicrosoftLogin::EMERGENCY_MESSAGE);
         }
+
+        return $user;
     }
 
     private function redirectToConfirm(): mixed

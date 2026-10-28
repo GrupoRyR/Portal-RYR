@@ -6,6 +6,7 @@ use App\Auth\RecentMicrosoftLogin;
 use App\Branding\BrandPalette;
 use App\Microsoft\ConsentChecker;
 use App\Models\Company;
+use App\Models\User;
 use App\Notifications\CompanyAdminNotifier;
 use App\Notifications\CompanyChangedNotice;
 use Closure;
@@ -137,7 +138,9 @@ class CompanyWizard extends Component
             return null;
         }
 
-        if (! $recent->isFresh()) {
+        $user = Auth::user();
+
+        if (! $user instanceof User || ! $recent->isFresh($user)) {
             return $this->redirectRoute('auth.microsoft.confirm', ['return' => route('admin.companies.create', [], false)]);
         }
 

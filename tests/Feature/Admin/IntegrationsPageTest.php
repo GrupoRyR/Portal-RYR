@@ -63,7 +63,7 @@ class IntegrationsPageTest extends TestCase
     private function manager(bool $fresh = true): Testable
     {
         if ($fresh) {
-            session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+            session()->put(RecentMicrosoftLogin::SESSION_KEY, ['user_id' => $this->admin->id, 'at' => now()->getTimestamp()]);
         } else {
             session()->forget(RecentMicrosoftLogin::SESSION_KEY);
         }
@@ -288,7 +288,7 @@ class IntegrationsPageTest extends TestCase
     {
         $monitor = $this->integration();
         $oldHash = PersonalAccessToken::query()->sole()->token;
-        session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+        session()->put(RecentMicrosoftLogin::SESSION_KEY, ['user_id' => $this->admin->id, 'at' => now()->getTimestamp()]);
 
         $this->emergencyManager()->call('startCreating')->assertForbidden()->assertSet('creating', false);
 
