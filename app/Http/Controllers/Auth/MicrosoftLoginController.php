@@ -53,7 +53,7 @@ class MicrosoftLoginController extends Controller
 
         return Socialite::driver('microsoft')
             ->setScopes(['openid', 'profile', 'email', 'User.Read'])
-            ->with(['prompt' => 'login', 'login_hint' => (string) $user->email])
+            ->with(['prompt' => 'login', 'login_hint' => $user->microsoft_login_hint ?? (string) $user->email])
             ->redirect();
     }
 

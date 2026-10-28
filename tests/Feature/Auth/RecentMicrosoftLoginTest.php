@@ -42,12 +42,16 @@ class RecentMicrosoftLoginTest extends TestCase
         ]);
     }
 
-    private function mockRedirect(): void
+    /**
+     * @param  string|null  $loginHint  The `login_hint` Microsoft must receive; null to not check it.
+     */
+    private function mockRedirect(?string $loginHint = null): void
     {
         $provider = Mockery::mock(MicrosoftProvider::class);
         $provider->shouldReceive('setScopes')->andReturnSelf();
         $provider->shouldReceive('with')
-            ->with(Mockery::on(fn (array $parameters) => ($parameters['prompt'] ?? null) === 'login'))
+            ->with(Mockery::on(fn (array $parameters) => ($parameters['prompt'] ?? null) === 'login'
+                && ($loginHint === null || ($parameters['login_hint'] ?? null) === $loginHint)))
             ->once()
             ->andReturnSelf();
         $provider->shouldReceive('redirect')->andReturn(redirect()->away('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize'));
@@ -144,6 +148,25 @@ class RecentMicrosoftLoginTest extends TestCase
             ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
             ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize')
             ->assertSessionHas(RecentMicrosoftLogin::PENDING_KEY.'.return', '/_pruebas/sensible');
+    }
+
+    public function test_reauthentication_uses_the_stored_login_hint(): void
+    {
+        $this->user->forceFill(['microsoft_login_hint' => 'O.opaque-login-hint'])->save();
+        $this->mockRedirect('O.opaque-login-hint');
+
+        $this->actingAs($this->user)
+            ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
+            ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize');
+    }
+
+    public function test_reauthentication_falls_back_to_the_email_as_login_hint(): void
+    {
+        $this->mockRedirect($this->user->email);
+
+        $this->actingAs($this->user)
+            ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
+            ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize');
     }
 
     public function test_guests_cannot_start_a_confirmation(): void
