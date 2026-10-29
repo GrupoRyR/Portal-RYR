@@ -102,11 +102,57 @@ class HomeMyDayTest extends TestCase
     {
         $this->openableApp();
         $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#m365']);
+    }
 
-        // Without apps there are no favorites or app lists to jump to.
+    public function test_there_is_no_sections_menu_without_apps(): void
+    {
+        // The page is short, and the menu would crowd the company name off the logo row.
         $user = User::factory()->microsoft(Company::factory()->create())->create();
         $response = $this->actingAs($user)->get('/')->assertOk();
-        $this->assertSectionsMenuLinksResolve($response, ['#contenido', '#fechas', '#m365']);
+
+        $this->assertSame(0, $this->xpath($response)->query('//details[@data-sections]')->length);
+        $response->assertDontSeeText('Secciones');
+    }
+
+    public function test_the_sections_menu_skips_sections_hidden_by_a_search(): void
+    {
+        $favorite = $this->openableApp(['name' => 'Nómina', 'description' => 'Desprendibles de pago']);
+        $this->user->favoriteApps()->attach($favorite);
+        $this->openableApp(['name' => 'Cartera', 'description' => 'Cuentas por cobrar']);
+
+        // No match at all: neither Favoritos nor Aplicaciones are on screen.
+        $this->assertSectionsMenuLinksResolve($this->home('?q=zzzz'), ['#contenido', '#fechas', '#m365']);
+        // Only a category matches.
+        $this->assertSectionsMenuLinksResolve($this->home('?q=cartera'), ['#contenido', '#aplicaciones', '#fechas', '#m365']);
+        // Only a favorite matches.
+        $this->assertSectionsMenuLinksResolve($this->home('?q=nomina'), ['#contenido', '#favoritos', '#fechas', '#m365']);
+    }
+
+    public function test_holiday_dates_are_marked_for_the_saved_copy(): void
+    {
+        // resources/js/home.js corrects the copy the service worker replays on a later day.
+        $this->travelTo(CarbonImmutable::parse('2026-12-08 10:00', 'America/Bogota'));
+        $xpath = $this->xpath($this->home());
+
+        $notice = $xpath->query('//*[@data-holiday-notice]');
+        $this->assertSame(1, $notice->length);
+        $this->assertSame('2026-12-08', $notice->item(0)->getAttribute('data-holiday-date'));
+        $this->assertStringContainsString('Hoy es festivo', $notice->item(0)->textContent);
+
+        $rows = $xpath->query('//section[@id="fechas"]//li');
+        $dates = [];
+        foreach ($rows as $row) {
+            $dates[] = $row->getAttribute('data-holiday-date');
+        }
+        $this->assertSame(['2026-12-08', '2026-12-25', '2027-01-01', '2027-01-11'], $dates);
+
+        // Today's row says «Hoy» and keeps the weekday for a later day.
+        $today = $rows->item(0);
+        $this->assertSame(1, $xpath->query('.//*[@data-holiday-today]', $today)->length);
+        $weekday = $xpath->query('.//*[@data-holiday-weekday]', $today)->item(0);
+        $this->assertSame('Hoy', $weekday->textContent);
+        $this->assertSame('Martes', $weekday->getAttribute('data-holiday-weekday'));
+        $this->assertSame(0, $xpath->query('.//*[@data-holiday-today]', $rows->item(1))->length);
     }
 
     public function test_the_sections_menu_lists_recents_when_there_are_some(): void
@@ -144,9 +190,9 @@ class HomeMyDayTest extends TestCase
         $this->assertSame($expected, $hrefs);
     }
 
-    private function home(): TestResponse
+    private function home(string $query = ''): TestResponse
     {
-        return $this->actingAs($this->user->fresh())->get('/')->assertOk();
+        return $this->actingAs($this->user->fresh())->get('/'.$query)->assertOk();
     }
 
     private function xpath(TestResponse $response): \DOMXPath

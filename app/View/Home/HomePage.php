@@ -60,22 +60,32 @@ final readonly class HomePage
     }
 
     /**
-     * The «Secciones» menu of phones: only sections the view renders, as
-     * anchors (home.blade.php keeps the same conditions).
+     * The «Secciones» menu of phones: only sections the view renders and
+     * shows, as anchors (home.blade.php keeps the same conditions). Empty, so
+     * no menu, without apps: that page is short, and the menu would crowd
+     * the company name off the logo row.
      *
      * @return list<array{href: string, label: string}>
      */
     public function sections(): array
     {
+        if (! $this->hasApps()) {
+            return [];
+        }
+
         $sections = [['href' => '#contenido', 'label' => 'Inicio']];
 
-        if ($this->hasApps()) {
+        // A search hides Favoritos without matches (home.blade.php).
+        if (! $this->isSearching() || $this->favorites !== []) {
             $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
+        }
 
-            if ($this->recents !== []) {
-                $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
-            }
+        if ($this->recents !== []) {
+            $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
+        }
 
+        // Empty categories are hidden; a search drops those without matches.
+        if (array_filter($this->categories, fn (CategoryGroup $group) => ! $group->isEmpty()) !== []) {
             $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
         }
 

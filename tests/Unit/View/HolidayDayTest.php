@@ -43,6 +43,8 @@ class HolidayDayTest extends TestCase
 
         $this->assertTrue($day->isToday);
         $this->assertSame('Hoy', $day->weekday());
+        // The weekday the saved copy shows once that day is over (resources/js/home.js).
+        $this->assertSame('Martes', $day->dayName());
     }
 
     private function holiday(string $date, string $name): Holiday

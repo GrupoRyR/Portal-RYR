@@ -83,7 +83,16 @@ final readonly class HolidayDay
      */
     public function weekday(): string
     {
-        return $this->isToday ? 'Hoy' : Str::ucfirst($this->spanish()->isoFormat('dddd'));
+        return $this->isToday ? 'Hoy' : $this->dayName();
+    }
+
+    /**
+     * «Lunes», even today: what the saved copy of the page shows once the day
+     * is over (resources/js/home.js).
+     */
+    public function dayName(): string
+    {
+        return Str::ucfirst($this->spanish()->isoFormat('dddd'));
     }
 
     public function isoDate(): string

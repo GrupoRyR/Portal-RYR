@@ -42,18 +42,20 @@
             @endif
 
             {{-- Phones: jump to a section of this long page; a <details>, so it works without JavaScript. --}}
-            <details class="relative order-4 md:hidden" data-sections>
-                <summary class="flex h-12 cursor-pointer list-none items-center gap-2 rounded-[14px] border border-white/40 px-3 text-sm font-semibold hover:bg-white/10 [&::-webkit-details-marker]:hidden">
-                    <x-home.icon name="menu" stroke-width="2" class="size-[18px]" />Secciones
-                </summary>
-                <nav aria-label="Secciones de la página" class="absolute top-full left-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
-                    <ul class="flex flex-col gap-0.5">
-                        @foreach ($page->sections() as $section)
-                            <li><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
-                        @endforeach
-                    </ul>
-                </nav>
-            </details>
+            @if ($sections = $page->sections())
+                <details class="relative order-4 md:hidden" data-sections>
+                    <summary class="flex h-12 cursor-pointer list-none items-center gap-2 rounded-[14px] border border-white/40 px-3 text-sm font-semibold hover:bg-white/10 [&::-webkit-details-marker]:hidden">
+                        <x-home.icon name="menu" stroke-width="2" class="size-[18px]" />Secciones
+                    </summary>
+                    <nav aria-label="Secciones de la página" class="absolute top-full left-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
+                        <ul class="flex flex-col gap-0.5">
+                            @foreach ($sections as $section)
+                                <li><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
+                            @endforeach
+                        </ul>
+                    </nav>
+                </details>
+            @endif
 
             @if ($page->hasApps())
                 <form role="search" method="GET" action="{{ route('home') }}" class="order-4 min-w-0 flex-1 basis-40 md:order-2 md:mx-auto md:max-w-[560px] md:basis-auto" data-search-form>
@@ -118,8 +120,9 @@
             <div class="flex flex-col gap-1 md:gap-1.5">
                 <p class="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
                     <span class="font-semibold text-brand-ink">{{ $page->dateLine }}</span>
+                    {{-- data-holiday-date: home.js hides it in the saved copy once that day is over. --}}
                     @if ($holidayNotice = $page->holidayNotice())
-                        <span class="text-fg-muted">{{ $holidayNotice }}</span>
+                        <span class="text-fg-muted" data-holiday-notice data-holiday-date="{{ $page->nextHoliday->isoDate() }}">{{ $holidayNotice }}</span>
                     @endif
                 </p>
                 <h1 class="text-[1.75rem] leading-[1.05] font-bold tracking-[-0.025em] md:text-[2.125rem] lg:text-[2.5rem]">{{ $page->greeting() }}</h1>
@@ -208,19 +211,20 @@
             @if ($page->upcomingHolidays !== [])
                 <section id="fechas" aria-labelledby="fechas-titulo" class="flex scroll-mt-6 flex-col gap-3.5 p-5">
                     <h2 id="fechas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Próximas fechas</h2>
+                    {{-- data-holiday-*: home.js corrects the saved copy replayed on a later day. --}}
                     <ul class="flex flex-col gap-3">
                         @foreach ($page->upcomingHolidays as $holiday)
-                            <li class="flex items-center gap-3">
+                            <li class="flex items-center gap-3" data-holiday-date="{{ $holiday->isoDate() }}">
                                 <time datetime="{{ $holiday->isoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
                                     <span class="text-lg font-bold">{{ $holiday->dayNumber() }}</span>
                                     <span class="text-xs">{{ $holiday->shortMonth() }}</span>
                                 </time>
                                 <div class="flex min-w-0 flex-col gap-0.5">
-                                    <span class="sr-only">{{ $holiday->isToday ? 'Hoy, '.$holiday->longDate() : $holiday->longDate() }}:</span>
+                                    <span class="sr-only">@if ($holiday->isToday)<span data-holiday-today>Hoy, </span>@endif{{ $holiday->longDate() }}:</span>
                                     @foreach ($holiday->names as $name)
                                         <p class="text-sm leading-snug font-bold break-words">{{ $name }}</p>
                                     @endforeach
-                                    <p class="text-xs text-fg-muted" aria-hidden="true">{{ $holiday->weekday() }} · Festivo</p>
+                                    <p class="text-xs text-fg-muted" aria-hidden="true"><span data-holiday-weekday="{{ $holiday->dayName() }}">{{ $holiday->weekday() }}</span> · Festivo</p>
                                 </div>
                             </li>
                         @endforeach
