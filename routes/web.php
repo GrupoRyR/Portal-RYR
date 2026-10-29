@@ -108,9 +108,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:60,1')
         ->name('announcements.show');
     // «Confirmar lectura» of a mandatory announcement (once per account).
+    // Its own limiter (AppServiceProvider): `throttle:N,1` routes share one
+    // counter per account, so other pages could use up its budget.
     Route::post('/anuncios/{announcement}/leido', [AnnouncementReadController::class, 'store'])
         ->whereNumber('announcement')
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:announcement-read')
         ->name('announcements.read');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).

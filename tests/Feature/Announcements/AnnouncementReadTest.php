@@ -86,6 +86,8 @@ class AnnouncementReadTest extends TestCase
             ->assertSee('action="'.route('announcements.read', $mandatory).'"', false)
             ->assertSee('name="_token"', false)
             ->assertSeeText('Confirmar lectura')
+            ->assertSee('id="announcement-'.$mandatory->id.'-title"', false)
+            ->assertSee('aria-describedby="announcement-'.$mandatory->id.'-title"', false)
             ->assertDontSeeText('Leído el');
 
         $this->assertSame(1, substr_count(
@@ -121,22 +123,93 @@ class AnnouncementReadTest extends TestCase
             ->assertDontSeeText('Leído el');
     }
 
-    public function test_only_announcements_one_sees_and_must_read_can_be_confirmed(): void
+    public function test_announcements_one_could_never_see_are_not_found(): void
     {
-        $hidden = [
+        $never = [
             'other company' => Announcement::factory()->mandatory()->forCompanies($this->derivados)->create(),
-            'withdrawn' => Announcement::factory()->mandatory()->withdrawn()->create(),
-            'expired' => Announcement::factory()->mandatory()->expired()->create(),
+            'other company, withdrawn' => Announcement::factory()->mandatory()->withdrawn()->forCompanies($this->derivados)->create(),
+            'other company, expired' => Announcement::factory()->mandatory()->expired()->forCompanies($this->derivados)->create(),
+            'other company, not mandatory' => Announcement::factory()->forCompanies($this->derivados)->create(),
             'scheduled' => Announcement::factory()->mandatory()->scheduled()->create(),
-            'not mandatory' => Announcement::factory()->create(),
         ];
 
-        foreach ($hidden as $case => $announcement) {
+        foreach ($never as $case => $announcement) {
             $this->actingAs($this->ana)->post(route('announcements.read', $announcement))->assertNotFound();
+            $this->actingAs($this->ana)->post(route('announcements.read', $announcement), ['from' => 'home'])->assertNotFound();
         }
 
         $this->actingAs($this->ana)->post('/anuncios/999999/leido')->assertNotFound();
         $this->assertSame(0, AnnouncementRead::query()->count());
+    }
+
+    public function test_a_stale_button_goes_back_with_a_message_and_records_nothing(): void
+    {
+        // Shown to Ana's company once, no longer asking to confirm (a saved
+        // copy of the home, or a page left open).
+        $stale = [
+            'withdrawn' => Announcement::factory()->mandatory()->withdrawn()->create(),
+            'expired' => Announcement::factory()->mandatory()->expired()->forCompanies($this->segurex)->create(),
+            'not mandatory any more' => Announcement::factory()->create(),
+        ];
+
+        foreach ($stale as $case => $announcement) {
+            $this->actingAs($this->ana)->post(route('announcements.read', $announcement))
+                ->assertRedirect(route('announcements.index'))
+                ->assertSessionHas('status', 'Este anuncio ya no pide confirmación.');
+
+            $this->actingAs($this->ana)->post(route('announcements.read', $announcement), ['from' => 'home'])
+                ->assertRedirect(route('home').'#anuncios')
+                ->assertSessionHas('status', 'Este anuncio ya no pide confirmación.');
+        }
+
+        $this->assertSame(0, AnnouncementRead::query()->count());
+
+        $this->followingRedirects()->actingAs($this->ana)
+            ->post(route('announcements.read', $stale['withdrawn']), ['from' => 'home'])
+            ->assertOk()
+            ->assertSeeText('Este anuncio ya no pide confirmación.');
+    }
+
+    public function test_a_read_left_from_before_is_kept_if_another_request_wrote_it_first(): void
+    {
+        // Two taps at once: the other request inserted the row between this
+        // one's start and its write. createOrFirst() writes first and falls
+        // back to the existing row on the unique pair, so there is no gap
+        // between a check and a write to race through.
+        $announcement = Announcement::factory()->mandatory()->create();
+        DB::table('announcement_reads')->insert([
+            'announcement_id' => $announcement->id,
+            'user_id' => $this->ana->id,
+            'read_at' => '2026-10-29 09:00:00',
+        ]);
+
+        $this->travel(1)->hours();
+        $read = $announcement->markReadBy($this->ana);
+
+        $this->assertSame(1, AnnouncementRead::query()->count());
+        $this->assertSame('2026-10-29 09:00', $read->read_at->format('Y-m-d H:i'));
+    }
+
+    // --- Limits -----------------------------------------------------------
+
+    public function test_confirming_has_its_own_limit(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->create();
+
+        // Another route's budget (throttle:60,1, one counter per account)
+        // is half spent: confirming must not share it.
+        for ($i = 0; $i < 30; $i++) {
+            $this->actingAs($this->ana)->get(route('announcements.show', $announcement))->assertRedirect();
+        }
+
+        $this->actingAs($this->ana)->post(route('announcements.read', $announcement))->assertRedirect();
+
+        for ($i = 1; $i < 30; $i++) {
+            $this->actingAs($this->ana)->post(route('announcements.read', $announcement))->assertRedirect();
+        }
+
+        $this->actingAs($this->ana)->post(route('announcements.read', $announcement))->assertTooManyRequests();
+        $this->actingAs($this->ana)->get(route('announcements.show', $announcement))->assertRedirect();
     }
 
     public function test_people_without_a_company_cannot_confirm(): void
