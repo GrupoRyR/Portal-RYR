@@ -10,6 +10,7 @@ use App\Auth\LoginFailed;
 use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
 use App\Auth\RecentMicrosoftLogin;
+use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Controller;
 use App\Microsoft\ConsentChecker;
 use App\Models\Company;
@@ -33,6 +34,12 @@ class MicrosoftLoginController extends Controller
     public const SCOPES = ['openid', 'profile', 'email', 'User.Read', 'GroupMember.Read.All'];
 
     public const MICROSOFT_ERROR_MESSAGE = 'Microsoft no confirmó la cuenta. Inténtalo de nuevo.';
+
+    /**
+     * `error` codes of a silent sign-in (prompt=none) that only mean the
+     * person has to act: a switch retries once asking for the credentials.
+     */
+    private const INTERACTION_ERRORS = ['login_required', 'interaction_required', 'consent_required', 'account_selection_required'];
 
     public function show(): View
     {
@@ -67,8 +74,9 @@ class MicrosoftLoginController extends Controller
     }
 
     /**
-     * In this order: admin consent, an error from Microsoft, an account
-     * intent, a re-authentication, a sign-in. Each step ends the callback.
+     * In this order: admin consent, an error from Microsoft (where a
+     * pending switch may retry), an account intent, a re-authentication,
+     * a sign-in. Each step ends the callback.
      */
     public function callback(
         Request $request,
@@ -87,14 +95,14 @@ class MicrosoftLoginController extends Controller
         }
 
         if ($request->has('error')) {
-            return $this->microsoftError($request, $intents);
+            return $this->microsoftError($request, $intents, $linkedAccounts);
         }
 
         // The callback is shared with the re-authentication flow and the
         // account intents, so it is not behind the guest middleware.
         if ($request->user() instanceof User) {
             return $intents->pending()
-                ? $this->continueIntent($request, $request->user(), $intents, $login, $linkedAccounts)
+                ? $this->continueIntent($request, $request->user(), $intents, $login, $recent, $linkedAccounts)
                 : $this->confirmed($request, $request->user(), $recent);
         }
 
@@ -134,17 +142,18 @@ class MicrosoftLoginController extends Controller
     /**
      * Microsoft sent the user back with an `error` instead of a code: they
      * cancelled, or Microsoft could not complete the sign-in. A signed-in
-     * user keeps the session and leaves any pending flow; a guest sees the
-     * usual failure. Only the error code reaches the log, never
-     * `error_description`: anyone can put text in these parameters.
+     * user keeps the session and leaves any pending flow (a pending switch
+     * may first retry once); a guest sees the usual failure. Only the
+     * error code reaches the log, never `error_description`: anyone can
+     * put text in these parameters.
      */
-    private function microsoftError(Request $request, AccountIntent $intents): RedirectResponse
+    private function microsoftError(Request $request, AccountIntent $intents, LinkedAccounts $linkedAccounts): RedirectResponse|SymfonyRedirect
     {
         $user = $request->user();
-        $error = $request->query('error');
+        $code = self::errorCode($request->query('error'));
 
         Log::info('Microsoft returned an error to the sign-in callback.', [
-            'error' => is_string($error) ? substr((string) preg_replace('/[^A-Za-z0-9_]/', '', $error), 0, 64) : null,
+            'error' => $code,
             'user_id' => $user?->getAuthIdentifier(),
         ]);
 
@@ -154,7 +163,13 @@ class MicrosoftLoginController extends Controller
             return $this->failed(LoginFailed::RETRY);
         }
 
-        $intents->discard();
+        // Consumed either way: only a switch of this callback (its state,
+        // this user, not expired) has an answer of its own.
+        $intent = $intents->pull($request, $user);
+
+        if (($intent['type'] ?? null) === AccountIntent::SWITCH) {
+            return $this->switchError($user, $intent, $code, $intents, $linkedAccounts);
+        }
 
         // A re-authentication that ends in an error is still a failed
         // confirmation of a sensitive action, so Auditoría records it.
@@ -171,6 +186,39 @@ class MicrosoftLoginController extends Controller
     }
 
     /**
+     * The `error` parameter reduced to a code: letters, digits and
+     * underscores, at most 64 characters. Null when there is none.
+     */
+    private static function errorCode(mixed $error): ?string
+    {
+        return is_string($error) ? substr((string) preg_replace('/[^A-Za-z0-9_]/', '', $error), 0, 64) : null;
+    }
+
+    /**
+     * Microsoft could not sign in the target account of a switch. When the
+     * silent attempt only needs the person (INTERACTION_ERRORS), it is
+     * retried once asking for the credentials; anything else, or a failed
+     * retry, leaves the session as it was.
+     *
+     * @param  array{target_id: int|null, attempt: int}  $intent
+     */
+    private function switchError(User $user, array $intent, ?string $code, AccountIntent $intents, LinkedAccounts $linkedAccounts): RedirectResponse|SymfonyRedirect
+    {
+        $attempt = (int) ($intent['attempt'] ?? 0);
+        $target = User::query()->find($intent['target_id'] ?? null);
+
+        if ($attempt !== SwitchAccountController::SILENT_ATTEMPT || ! in_array($code, self::INTERACTION_ERRORS, true)) {
+            return $this->switchFailed($user, $target, $code ?: 'microsoft_error', $attempt, null);
+        }
+
+        if ($target === null || ! $linkedAccounts->canSwitch($user, $target)) {
+            return $this->switchFailed($user, $target, 'target_unavailable', $attempt, null);
+        }
+
+        return SwitchAccountController::toMicrosoft($intents, $user, $target, SwitchAccountController::INTERACTIVE_ATTEMPT);
+    }
+
+    /**
      * The callback of an account intent (App\Auth\AccountIntent) ends here,
      * whatever happens: it is never a re-authentication or a sign-in.
      */
@@ -179,17 +227,111 @@ class MicrosoftLoginController extends Controller
         User $user,
         AccountIntent $intents,
         MicrosoftLogin $login,
+        RecentMicrosoftLogin $recent,
         LinkedAccounts $linkedAccounts,
     ): RedirectResponse {
         $intent = $intents->pull($request, $user);
 
-        // One handler per flow type (linking; switching company comes
-        // next); without one, or when the intent failed its checks, it is
-        // dropped.
+        // One handler per flow type; without one, or when the intent failed
+        // its checks, it is dropped.
         return match ($intent['type'] ?? null) {
             AccountIntent::LINK => $this->linkAccount($user, $login, $linkedAccounts),
+            AccountIntent::SWITCH => $this->switchAccount($request, $user, $intent, $login, $recent, $linkedAccounts),
             default => $this->unusableIntent($user),
         };
+    }
+
+    /**
+     * Microsoft answered the switch. Only the target account itself (same
+     * tenant and object ID) may answer, and it signs in as on the sign-in
+     * page (MicrosoftLogin::handle(): every check, profile, groups, roles
+     * and its sign-in record). Anything else leaves the session, and every
+     * row, as it was.
+     *
+     * The new session never inherits the old one: invalidated, the target
+     * signed in, the ID and CSRF token regenerated, and the browser cache
+     * cleared. App\Pwa\PortalUserKey names the new user on this response.
+     *
+     * @param  array{target_id: int|null, attempt: int}  $intent
+     */
+    private function switchAccount(
+        Request $request,
+        User $user,
+        array $intent,
+        MicrosoftLogin $login,
+        RecentMicrosoftLogin $recent,
+        LinkedAccounts $linkedAccounts,
+    ): RedirectResponse {
+        $attempt = (int) ($intent['attempt'] ?? 0);
+        $target = User::query()->find($intent['target_id'] ?? null);
+
+        if ($target === null || ! $linkedAccounts->canSwitch($user, $target)) {
+            return $this->switchFailed($user, $target, 'target_unavailable', $attempt, null);
+        }
+
+        $identity = null;
+
+        try {
+            $driver = Socialite::driver('microsoft');
+            $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
+
+            if (! self::isAccount($target, $identity)) {
+                return $this->switchFailed($user, $target, 'wrong_account', $attempt, $identity->tenantId, SwitchAccountController::WRONG_ACCOUNT_MESSAGE);
+            }
+
+            $signedIn = $login->handle($identity, $request->userAgent());
+        } catch (LoginFailed $e) {
+            return $this->switchFailed($user, $target, $e->reason, $attempt, $identity?->tenantId);
+        } catch (Throwable $e) {
+            Log::warning('Switching to a linked account failed.', [
+                'user_id' => $user->id,
+                'target_id' => $target->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->switchFailed($user, $target, 'provider_error', $attempt, $identity?->tenantId);
+        }
+
+        $session = $request->session();
+        $session->invalidate();
+        Auth::login($signedIn);
+        $session->regenerate();
+        $session->regenerateToken();
+
+        // A silent switch rides on the Microsoft session of the target, so
+        // unlike the sign-in page it is not a recent confirmation by itself:
+        // only credentials entered just now (auth_time) are.
+        if ($recent->verify($signedIn, $identity) === RecentMicrosoftLogin::CONFIRMED) {
+            $recent->confirm($signedIn);
+        }
+
+        SecurityLog::accountSwitched($user, $signedIn);
+
+        return redirect('/')
+            ->with('status', 'Ahora estás en tu cuenta de '.Company::displayName($signedIn->company).'.')
+            ->withHeaders(['Clear-Site-Data' => '"cache"']);
+    }
+
+    private static function isAccount(User $account, MicrosoftIdentity $identity): bool
+    {
+        return $account->tenant_id !== null
+            && $account->azure_oid !== null
+            && hash_equals(strtolower($account->tenant_id), $identity->tenantId)
+            && hash_equals(strtolower($account->azure_oid), $identity->objectId);
+    }
+
+    private function switchFailed(
+        User $user,
+        ?User $target,
+        string $reason,
+        int $attempt,
+        ?string $tenantId,
+        string $message = SwitchAccountController::FAILED_MESSAGE,
+    ): RedirectResponse {
+        SecurityLog::accountSwitchFailed($user, $target, $reason, $attempt, $tenantId);
+
+        return redirect('/')->with('status', $message);
     }
 
     /**

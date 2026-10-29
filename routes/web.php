@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\LinkedAccountController;
+use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\AuditController;
@@ -75,6 +76,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/cuenta/vincular', [LinkedAccountController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('account.link.start');
+
+    // Switching to another linked account: a real Microsoft sign-in with
+    // that account (App\Http\Controllers\Account\SwitchAccountController).
+    Route::post('/cuenta/cambiar/{user}', [SwitchAccountController::class, 'store'])
+        ->whereNumber('user')
+        ->middleware('throttle:20,1')
+        ->name('account.switch');
 
     // Every announcement the user may see (the home shows the latest ones).
     Route::get('/anuncios', [AnnouncementController::class, 'index'])->name('announcements.index');
