@@ -355,9 +355,25 @@ class RecentMicrosoftLoginTest extends TestCase
 
         $this->actingAs($emergency)->get('/_pruebas/sensible')
             ->assertForbidden()
-            ->assertSee('Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.');
+            ->assertSee('Esta acción requiere iniciar sesión con Microsoft.');
 
         $this->actingAs($emergency)->get(route('auth.microsoft.confirm', ['return' => '/admin']))->assertForbidden();
+    }
+
+    /**
+     * errors.microsoft-required answers every action behind a Microsoft
+     * sign-in (companies, tenants, linking and unlinking accounts), so it
+     * names none of them as the only one.
+     */
+    public function test_the_microsoft_required_page_speaks_of_any_action(): void
+    {
+        $html = view('errors.microsoft-required')->render();
+
+        $this->assertStringContainsString('Esta acción requiere iniciar sesión con Microsoft.', $html);
+        $this->assertStringContainsString('vincular o desvincular cuentas', $html);
+        $this->assertStringContainsString('cuenta de emergencia', $html);
+        $this->assertStringNotContainsString('Crear empresas o cambiar su inquilino requiere', $html);
+        $this->assertStringNotContainsString('no puede agregar organizaciones', $html);
     }
 
     // --- Security events (Auditoría) ---------------------------------------
