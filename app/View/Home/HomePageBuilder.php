@@ -9,6 +9,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\Company;
 use App\Models\User;
+use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
 use Carbon\CarbonImmutable;
@@ -31,9 +32,13 @@ use InvalidArgumentException;
  * - the person's other accounts for «Cambiar de empresa» (no query when
  *   the account is not linked);
  * - the next Colombian holidays for «Mi día» and the date line (computed,
- *   no query), from today in `config('app.timezone')`.
+ *   no query), from today in `config('app.timezone')`;
+ * - the index of the «Ctrl K» search (App\Search\HomeSearchIndex): every
+ *   app on the page, the announcements of the same query and the holidays
+ *   of the next twelve months.
  *
- * A search (`?q=`) narrows favorites and categories and hides recents.
+ * A search (`?q=`) narrows favorites and categories and hides recents; that
+ * page, the server search without JavaScript, carries no index.
  * Runs a fixed number of queries whatever the size of the catalog.
  */
 final class HomePageBuilder
@@ -85,7 +90,10 @@ final class HomePageBuilder
         $now ??= now();
         $greeting = Greeting::at($now);
         $company = $user->company;
-        $upcoming = $this->upcomingHolidays($now);
+        $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
+        $upcoming = $this->upcomingHolidays($today);
+        // A server search shows the cards only; the index wants more.
+        $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
         return new HomePage(
             salutation: $greeting->salutation,
@@ -103,12 +111,22 @@ final class HomePageBuilder
             quickLinks: QuickLinks::for($company),
             query: $search->isActive() ? $search->query() : '',
             resultCount: count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
-            announcements: $this->announcements($user, $now),
+            announcements: $announcements
+                ->take(self::ANNOUNCEMENT_LIMIT)
+                ->map(fn (Announcement $announcement) => AnnouncementCard::from($announcement, now: $now))
+                ->values()
+                ->all(),
             supportHref: $this->settings->supportUrl() === null ? null : route('support'),
             switcher: AccountSwitcher::for($user),
             accountsHref: $user->is_emergency ? null : route('account.show'),
             upcomingHolidays: $upcoming,
             nextHoliday: $upcoming[0] ?? null,
+            searchIndex: $search->isActive() ? null : HomeSearchIndex::build(
+                array_values($cards),
+                $announcements,
+                $this->holidaysAhead($today, $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS)->subDay()),
+                $today,
+            ),
         );
     }
 
@@ -171,21 +189,37 @@ final class HomePageBuilder
     }
 
     /**
-     * @return list<AnnouncementCard>
+     * The announcements of the cards and of the search index, in one query:
+     * the first ANNOUNCEMENT_LIMIT make the cards.
+     *
+     * @return Collection<int, Announcement>
      */
-    private function announcements(User $user, ?CarbonInterface $now): array
+    private function announcements(User $user, int $limit): Collection
     {
         if ($user->company_id === null) {
-            return [];
+            return new Collection;
         }
 
         return Announcement::query()
             ->visibleTo($user)
             ->ordered()
-            ->limit(self::ANNOUNCEMENT_LIMIT)
-            ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned'])
-            ->map(fn (Announcement $announcement) => AnnouncementCard::from($announcement, now: $now))
-            ->all();
+            ->limit($limit)
+            ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned']);
+    }
+
+    /**
+     * Days off from today to $until, grouped by day; none past the
+     * calendar's supported range (ColombianHolidays).
+     *
+     * @return list<HolidayDay>
+     */
+    private function holidaysAhead(CarbonImmutable $today, CarbonImmutable $until): array
+    {
+        try {
+            return HolidayDay::group($this->holidays->between($today, $until), $today);
+        } catch (InvalidArgumentException) {
+            return [];
+        }
     }
 
     /**
@@ -194,10 +228,8 @@ final class HomePageBuilder
      *
      * @return list<HolidayDay>
      */
-    private function upcomingHolidays(CarbonInterface $now): array
+    private function upcomingHolidays(CarbonImmutable $today): array
     {
-        $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
-
         // Late in 9999 the horizon or the next holiday falls past the
         // calendar's supported range (ColombianHolidays), and both throw.
         try {

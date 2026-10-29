@@ -101,6 +101,11 @@ Route::middleware('auth')->group(function () {
 
     // Every announcement the user may see (the home shows the latest ones).
     Route::get('/anuncios', [AnnouncementController::class, 'index'])->name('announcements.index');
+    // One of them, on its page of the list (the «Ctrl K» search links here).
+    Route::get('/anuncios/{announcement}', [AnnouncementController::class, 'show'])
+        ->whereNumber('announcement')
+        ->middleware('throttle:60,1')
+        ->name('announcements.show');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
