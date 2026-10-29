@@ -63,11 +63,12 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - POST `/cuenta/cambiar/{user}` con intención `switch`, `prompt=none` y un reintento.
   - Secuencia de sesión: invalidar, iniciar sesión, nuevo token CSRF, `Clear-Site-Data` y redirigir a `/`.
   - Eventos `account.switched` y `account.switch_failed`.
-- [ ] T4. **PR4, interfaz y desvinculación.** Ruta: delegada.
+- [ ] T4. **PR4, interfaz y desvinculación.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: componente, vistas, controlador, comando, aviso y pruebas.
   - Componente `account-switcher`: botones hasta 3 empresas y menú desde 4.
   - Página `/cuenta`.
   - Comando `portal:unlink-account`.
   - `docs/manual-administracion.md` y `docs/estado-del-proyecto.md`.
+  - Hecho y verificado, salvo el texto general de `errors.microsoft-required` (ver el registro del T4). Por eso sigue sin marcar.
 
 ## Criterios de aceptación
 
@@ -190,6 +191,45 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - Tamaño: ~975 líneas (~340 de código con comentarios, ~635 de pruebas). Supera las 400 por las pruebas; el código solo queda cerca. Se puede abrir como un PR con `size:exception`.
 - 2026-10-29: la revisión independiente de T3 salió bien, con un solo hallazgo bajo: un error de infraestructura después de `admit()` puede dejar la fila de destino actualizada. Se documentó en `switchAccount()` y en este registro, sin cambiar el comportamiento. Commit `docs(accounts)`: lo que un cambio fallido puede dejar actualizado.
 
+- 2026-10-29: T4 hecha (ruta delegada, un escritor), en `feat/cuentas-vinculadas-4-interfaz`, encima de `-3-cambio` (#67). Sin `push` ni PR.
+  - RED antes de cada parte (las fallas eran solo las pruebas nuevas):
+    1. Selector y mensaje: `tests/Feature/Home/AccountSwitcherTest.php`, 14 pruebas: 5 en verde y 9 fallas. Las 5 en verde eran los casos «oculto» y «sin mensaje».
+    2. Página y desvincular: `tests/Feature/Account/AccountPageTest.php`, 27 pruebas: 2 en verde, 1 falla y 24 errores (la ruta no existía). Las 2 en verde: el 404 de emergencia (sin ruta también daba 404) y «la desvinculación automática no manda correo».
+    3. Comando: `tests/Feature/Console/UnlinkAccountCommandTest.php`, 10 pruebas: 10 errores (el comando no existía).
+    4. Guarda: sin su entrada, `AccountSwitcher.php` hizo fallar `PersonNeverAuthorizesTest` (141 pruebas, 1 falla).
+  - GREEN: 14 de 14, 27 de 27 y 10 de 10.
+  - GREEN, suite completa: 1.342 de 1.342 (6.557 aserciones). Son 54 pruebas nuevas (51 y 3 entradas de la guarda).
+  - `vendor/bin/pint --test`: sin cambios.
+  - Commits (cada uno en verde por separado):
+    - `bf6837c` `feat(accounts)`: selector en el encabezado y mensaje `status` (446 líneas, 261 de pruebas).
+    - `80e2ece` `feat(accounts)`: página `/cuenta` y desvincular (841 líneas, 441 de pruebas).
+    - `82753e4` `feat(accounts)`: comando `portal:unlink-account` (326 líneas, 188 de pruebas).
+    - `21ffdbb` `docs(accounts)`: manual (§8) y estado del proyecto (78 líneas).
+    - `e2ff8a4` `fix(accounts)`: anchos del selector y la franja en el celular, visto en el navegador (11 líneas).
+    - `docs(odd)`: este registro.
+  - Qué hace:
+    - `account-switcher` (`App\View\Components\AccountSwitcher`): la empresa actual con `aria-current` (no es botón) y un `POST` a `account.switch` con CSRF por cada otra cuenta de `LinkedAccounts::switchTargets()` (las de `canSwitch()`). Botones hasta 3 empresas, menú `<details>` desde 4, sin JavaScript. Oculto sin vínculos útiles y para la cuenta de emergencia. En el inicio llega por `HomePageBuilder` (sin consulta si la cuenta no está vinculada); en `brand-bar` lo arma el componente.
+    - El inicio muestra el mensaje `status` en un `role="status"`.
+    - `GET /cuenta` (`account.show`): las cuentas de la persona (`LinkedAccounts::accountsOf()`), con «Esta cuenta», «Desvincular» y «Vincular otra empresa». Sin vínculos, una explicación y el botón. Enlace desde el menú del avatar del inicio.
+    - Desvincular: `GET /cuenta/desvincular/{user}` (`account.unlink.confirm`, la confirmación) y `POST` (`account.unlink`), con `throttle:20,1`. Las dos piden una confirmación reciente de Microsoft que revisa el controlador; sin ella, el `GET` manda a `auth.microsoft.confirm` y el `POST` vuelve a la confirmación. Todo lo que no sea una cuenta de la misma persona (`LinkedAccounts::canUnlink()`), y toda cuenta de emergencia, es 404.
+    - `LinkedAccounts::unlink()` ahora avisa por correo a todas las cuentas que tenía la persona (después del commit, sin bloquear), salvo con `company_changed`. `LinkedAccountNotice` tiene el tipo `unlinked` («Se desvinculó una cuenta tuya del portal»).
+    - `portal:unlink-account {email} {--id=} {--force}`: muestra las cuentas de la persona, avisa si la persona se disuelve, pide confirmar y desvincula con `admin`, sin causante.
+  - Decisiones:
+    - El selector nombra cada empresa con su nombre corto, sin logos: el manual de marca pide una sola empresa por pantalla, y la franja ya lleva el logo de la actual.
+    - El `GET` de la confirmación no usa `microsoft.recent`, porque ese middleware responde 403 a la cuenta de emergencia y aquí debe ser 404. El controlador hace la misma redirección.
+    - La desvinculación automática (`company_changed`) no manda correo: pasa durante un inicio de sesión y el correo es síncrono.
+    - Un comando sin la cuenta vinculada, o una confirmación rechazada, termina con error y «No se cambió nada.».
+    - Las clases de Tailwind de las vistas nuevas ya existían en `public/build`, así que no hizo falta `npm run build` (comprobado contra el CSS compilado).
+    - La fecha de cada vínculo no se guarda por cuenta, así que `/cuenta` no la muestra.
+    - Entradas nuevas de la guarda, cada una con su motivo: `AccountSwitcher`, `AccountController` y `UnlinkAccountCommand`. Todos solo llaman a `LinkedAccounts`.
+  - No hecho: el texto general de `errors.microsoft-required`. Rompe dos pruebas fuera del alcance del escritor, que esperan la frase de hoy: `tests/Feature/Auth/RecentMicrosoftLoginTest.php` (línea 357) y `tests/Feature/Admin/CompanyWizardTest.php` (línea 123). La vista y su prueba quedaron listas fuera del repositorio para aplicarlas cuando se autorice tocar esas dos pruebas.
+  - Seguimiento:
+    - La copia del inicio que guarda el service worker incluye el mensaje `status` del momento. Ocultarlo en la copia es un cambio de `resources/js/home.js` (`data-flash`).
+    - En tablet (768 px), con 2 o 3 empresas, el buscador del encabezado queda angosto.
+    - `canUnlink()` se lee sin bloqueo antes de `unlink()`. Si la cuenta cambia de persona en ese instante, se desvincula de la nueva. Es muy poco probable y lo hace la misma persona.
+  - Capturas (claro y oscuro; 390, 768 y 1.440 px; movimiento reducido): inicio con 2 y 4 empresas, menú abierto, `/cuenta` con y sin vínculos, confirmación y `/anuncios`. Sin desbordes horizontales.
+  - Tamaño: ~1.670 líneas en 5 commits (~780 de código y vistas, ~890 de pruebas). Supera las 400: se puede partir en un PR por commit.
+
 ## Siguiente paso
 
-Revisar T3 (`/code-review` y `/security-review`), abrir el PR de `feat/cuentas-vinculadas-3-cambio` a `main` y hacer la prueba manual con dos cuentas reales (cambio silencioso, con MFA y con una cuenta desactivada). Después, delegar el escritor del T4.
+Prueba manual de Jhon con dos cuentas reales antes de fusionar #67 y el PR de T4: cambio silencioso, cambio con MFA, cuenta desactivada, `/cuenta` y desvincular (con el correo). Después, revisar T4 (`/code-review` y `/security-review`), decidir si se autoriza el texto de `errors.microsoft-required` con sus dos pruebas y abrir el PR de `feat/cuentas-vinculadas-4-interfaz`.
