@@ -2,53 +2,63 @@
 
 namespace Tests\Unit\Auth;
 
+use FilesystemIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 /**
  * Linked accounts share a person, never permissions: roles, groups,
- * favorites, announcements and app access stay per account. No policy,
- * gate, middleware or access rule may look at the person.
+ * favorites, announcements and app access stay per account. Outside the
+ * linking code below, no PHP file of app/ or routes/ may look at the
+ * person, so a new policy, gate, middleware or access rule that does
+ * fails here. Comments are not code and are ignored.
  */
 class PersonNeverAuthorizesTest extends TestCase
 {
-    /** Code that decides what an account may see or do. */
-    private const AUTHORIZATION_CODE = [
-        'app/Policies',
-        'app/Http/Middleware',
-        'app/Catalog',
-        'app/Admin',
-        'app/Announcements',
-        'app/View/Home',
-        'app/Providers/AppServiceProvider.php',
-        'app/Auth/PortalAdminGroup.php',
-        'app/Models/App.php',
-        'app/Models/AppAccessRule.php',
-        'app/Models/Announcement.php',
-        'app/Http/Controllers/AppLaunchController.php',
-        'app/Http/Controllers/FavoriteController.php',
-        'app/Http/Controllers/AnnouncementController.php',
-        'app/Http/Controllers/HomeController.php',
-        'app/Livewire/Admin/AppAccessRules.php',
-        'app/Livewire/Admin/RoleManager.php',
+    private const PERSON = '/person_id|->person\b|\bperson\(|linkedAccounts|\bPerson\b|LinkedAccounts/';
+
+    /**
+     * The files that link or unlink accounts, and what each may mention:
+     * null for anything. The sign-in classes only call the linking
+     * service; they never read the person themselves.
+     */
+    private const ALLOWED = [
+        'app/Auth/LinkedAccounts.php' => null,
+        'app/Models/Person.php' => null,
+        'app/Models/User.php' => null,
+        'app/Http/Controllers/Account/LinkedAccountController.php' => ['linkedAccounts'],
+        'app/Notifications/LinkedAccountNotifier.php' => ['Person', 'person_id'],
+        'app/Audit/SecurityLog.php' => ['person_id'],
+        'app/Auth/MicrosoftLogin.php' => ['LinkedAccounts', 'linkedAccounts'],
+        'app/Http/Controllers/Auth/MicrosoftLoginController.php' => ['LinkedAccounts', 'linkedAccounts'],
     ];
+
+    private static function root(): string
+    {
+        return dirname(__DIR__, 3);
+    }
 
     /**
      * @return array<string, array{string}>
      */
-    public static function authorizationFiles(): array
+    public static function phpFiles(): array
     {
-        $root = dirname(__DIR__, 3);
         $files = [];
 
-        foreach (self::AUTHORIZATION_CODE as $path) {
-            $full = $root.'/'.$path;
-            $found = is_dir($full) ? self::phpFiles($full) : [$full];
+        foreach (['app', 'routes'] as $directory) {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::root().'/'.$directory, FilesystemIterator::SKIP_DOTS));
 
-            foreach ($found as $file) {
-                $files[substr($file, strlen($root) + 1)] = [$file];
+            foreach ($iterator as $file) {
+                if ($file->getExtension() === 'php') {
+                    $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen(self::root()) + 1));
+                    $files[$path] = [$path];
+                }
             }
         }
+
+        ksort($files);
 
         return $files;
     }
@@ -56,30 +66,46 @@ class PersonNeverAuthorizesTest extends TestCase
     /**
      * @return list<string>
      */
-    private static function phpFiles(string $directory): array
+    private static function mentions(string $path): array
     {
-        $files = [];
+        $code = '';
 
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)) as $file) {
-            if ($file->getExtension() === 'php') {
-                $files[] = str_replace('\\', '/', $file->getPathname());
+        foreach (token_get_all((string) file_get_contents(self::root().'/'.$path)) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
             }
+
+            $code .= is_array($token) ? $token[1] : $token;
         }
 
-        sort($files);
+        preg_match_all(self::PERSON, $code, $matches);
 
-        return $files;
+        return array_values(array_unique($matches[0]));
     }
 
-    #[DataProvider('authorizationFiles')]
-    public function test_authorization_code_never_reads_the_person(string $file): void
+    #[DataProvider('phpFiles')]
+    public function test_only_the_linking_code_looks_at_the_person(string $path): void
     {
-        $this->assertFileExists($file);
+        $allowed = array_key_exists($path, self::ALLOWED) ? self::ALLOWED[$path] : [];
 
-        $this->assertDoesNotMatchRegularExpression(
-            '/person_id|->person\b|\bperson\(|linkedAccounts|\bPerson\b|LinkedAccounts/',
-            (string) file_get_contents($file),
-            'Authorization must never depend on linked accounts.',
+        if ($allowed === null) {
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+
+        $this->assertSame(
+            [],
+            array_values(array_diff(self::mentions($path), $allowed)),
+            "{$path} must not depend on linked accounts: they never authorize anything.",
         );
+    }
+
+    public function test_every_allowed_file_still_needs_to_be_allowed(): void
+    {
+        foreach (array_keys(self::ALLOWED) as $path) {
+            $this->assertFileExists(self::root().'/'.$path);
+            $this->assertNotSame([], self::mentions($path), "{$path} no longer looks at the person: take it off the list.");
+        }
     }
 }

@@ -381,6 +381,22 @@ class LinkAccountFlowTest extends TestCase
         $this->assertRefused($this->hitCallback(), LinkRefused::GUEST_ACCOUNT, $before);
     }
 
+    public function test_a_signed_in_account_not_known_as_a_home_account_is_asked_to_confirm_again(): void
+    {
+        $this->current->forceFill(['is_guest' => null])->save();
+        $before = $this->snapshot();
+        $this->microsoftAnswers();
+
+        $response = $this->hitCallback();
+
+        $this->assertRefused($response, LinkRefused::GUEST_UNKNOWN, $before);
+        $response->assertSessionHas('status', 'Confirma de nuevo tu cuenta y vuelve a intentarlo.');
+        $this->assertSame(
+            'Vinculación de cuentas rechazada · falta confirmar la cuenta · inquilino '.self::DERIVADOS_TENANT,
+            $this->app->make(AuditPresenter::class)->activity(Activity::query()->where('event', SecurityLog::ACCOUNT_LINK_REFUSED)->sole())->what,
+        );
+    }
+
     public function test_an_organization_without_access_is_refused(): void
     {
         $before = $this->snapshot();
@@ -435,6 +451,10 @@ class LinkAccountFlowTest extends TestCase
 
         $this->assertRefused($this->hitCallback(), LinkRefused::DIFFERENT_PEOPLE, $before);
         $this->assertSame('Contador', $other->fresh()->job_title, 'The other account is not refreshed either.');
+        $this->assertSame(
+            'Vinculación de cuentas rechazada · ya está vinculada con otras cuentas · inquilino '.self::DERIVADOS_TENANT,
+            $this->app->make(AuditPresenter::class)->activity(Activity::query()->where('event', SecurityLog::ACCOUNT_LINK_REFUSED)->sole())->what,
+        );
     }
 
     public function test_a_microsoft_failure_is_refused(): void

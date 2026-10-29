@@ -214,10 +214,12 @@ class LinkedAccountsTest extends TestCase
 
     public function test_an_account_not_known_to_be_a_home_account_is_refused(): void
     {
-        // No sign-in since the guest flag was added: not known, so refused.
+        // No sign-in since the guest flag was added: not known, so refused
+        // until the account confirms with Microsoft again.
         $unknown = $this->account($this->segurex, ['is_guest' => null]);
 
-        $this->assertRefused(LinkRefused::GUEST_ACCOUNT, $unknown, $this->account($this->derivados));
+        $this->assertRefused(LinkRefused::GUEST_UNKNOWN, $unknown, $this->account($this->derivados));
+        $this->assertSame('Confirma de nuevo tu cuenta y vuelve a intentarlo.', (new LinkRefused(LinkRefused::GUEST_UNKNOWN))->getMessage());
     }
 
     public function test_an_inactive_company_is_refused_on_either_side(): void

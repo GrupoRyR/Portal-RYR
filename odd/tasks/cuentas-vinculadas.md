@@ -146,7 +146,21 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     - La vista 403 `errors.microsoft-required` habla de crear empresas. Falta un texto general.
     - `preview()` no simula la desvinculación automática. Si la otra cuenta cambió de empresa, puede salir `different_people` aunque `admit()` la habría desvinculado. Es un rechazo seguro.
   - Tamaño: ~2.190 líneas (~950 de código con comentarios, ~1.240 de pruebas). Supera las 400: se puede partir en un PR por commit.
+  - Corrección de revisión (2026-10-29). Una revisión independiente no halló defectos graves; se corrigió:
+    1. Los roles que `admit()` cambia en la otra cuenta al vincular ahora quedan en Auditoría (`roles.synced`).
+    2. Un error de base de datos durante la lectura de Graph ya no se toma por una falla de Graph: se propaga. En MySQL, un bloqueo mutuo ya deshizo la transacción.
+    3. La regla «empresa ya vinculada» es una lectura con bloqueo, y una violación del índice único se rechaza como `company_already_linked`. La prueba de carrera ahora pasa por el índice, sin sustituir `link()`.
+    4. `link()` y `unlink()` bloquean las cuentas en el mismo orden (por id).
+    5. Al disolver una persona, su última cuenta también registra `account.unlinked`.
+    6. `resolveCompany` decide entre todas las empresas del inquilino (dominio y luego principal). Si gana una inactiva, devuelve null. Así, una empresa principal desactivada ya no manda sus usuarios a la otra.
+    7. Textos: «ya está vinculada con otras cuentas» en Auditoría y un motivo propio, `guest_unknown`, con «Confirma de nuevo tu cuenta y vuelve a intentarlo.».
+    8. La prueba de guarda revisa todo `app/` y `routes/` (sin comentarios), salvo una lista explícita de archivos.
+    - No se cambió: `LinkRefused::NOT_MICROSOFT` sí se alcanza desde `link()` con una cuenta local, y hay una prueba de eso.
+    - Quedan anotados por el coordinador: el tiempo del correo síncrono en el callback y el texto de `errors.microsoft-required`.
+    - RED antes de cada parte: roles, errores, carreras y bitácora (234 pruebas, 226 en verde, 6 fallas y 2 errores); `resolveCompany` (22, 21 en verde y 1 falla); textos (59, 56 en verde, 1 falla y 2 errores); la guarda falló con un archivo de prueba que leía `person_id`.
+    - GREEN, suite completa: 1.249 de 1.249 (5.874 aserciones). `pint --test`: sin cambios.
+    - Commits: `c4a6eaf` `fix(accounts)`, `5bddccb` `fix(tenancy)` y `fix(accounts)` de textos y guarda, que lleva este registro.
 
 ## Siguiente paso
 
-Revisar el T2 (`/code-review` y `/security-review`) y decidir si PR2 se parte por commits. Abrirlo cuando Jhon fusione #61 y #62. Después, delegar el escritor del T3.
+Revisar las correcciones y decidir si PR2 se parte por commits. Abrirlo cuando Jhon fusione #61 y #62. Después, delegar el escritor del T3.

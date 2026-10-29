@@ -72,10 +72,11 @@ final class AuditPresenter
         'same_account' => 'la misma cuenta',
         'not_microsoft' => 'sin cuenta de Microsoft',
         'guest_account' => 'cuenta de invitado',
+        'guest_unknown' => 'falta confirmar la cuenta',
         'company_inactive' => 'empresa sin acceso',
         'same_company' => 'misma empresa',
         'company_already_linked' => 'empresa ya vinculada',
-        'different_people' => 'cuenta de otra persona',
+        'different_people' => 'ya está vinculada con otras cuentas',
     ];
 
     private const UNLINK_REASONS = [

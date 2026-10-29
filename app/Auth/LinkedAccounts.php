@@ -269,7 +269,11 @@ class LinkedAccounts
             throw new LinkRefused(LinkRefused::NOT_MICROSOFT);
         }
 
-        // Null means not known yet (no sign-in since the flag was added).
+        // Null means not known yet: the next confirmation records it.
+        if ($account->is_guest === null) {
+            throw new LinkRefused(LinkRefused::GUEST_UNKNOWN);
+        }
+
         if ($account->is_guest !== false) {
             throw new LinkRefused(LinkRefused::GUEST_ACCOUNT);
         }
