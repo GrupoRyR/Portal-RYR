@@ -18,9 +18,13 @@ use InvalidArgumentException;
  *   (−2) stay; Ascensión (+39), Corpus Christi (+60) and Sagrado Corazón (+68)
  *   move to the following Monday, so they land on +43, +64 and +71.
  * - Ley 2347 de 2024 names 12 October «Día de la Diversidad Étnica y Cultural».
- * - Ley 2578 de 2026 adds 9 July (Nuestra Señora del Rosario de Chiquinquirá)
- *   from 2026 on, moved to Monday like the Ley 51 dates. A claim against it is
- *   pending at the Constitutional Court; if it falls, change FIRST_CHIQUINQUIRA_YEAR.
+ * - Ley 2578 de 2026 (Diario Oficial 53.510, 2 June 2026, in force from its
+ *   promulgation), art. 6, adds 9 July (Nuestra Señora del Rosario de
+ *   Chiquinquirá) from 2026 on, moved to Monday like the Ley 51 dates. A claim of
+ *   unconstitutionality against art. 6 was filed on 9 June 2026; no ruling is
+ *   known. A ruling of inexequibilidad is not retroactive, so 13 July 2026 stays a
+ *   holiday: if art. 6 falls, set LAST_CHIQUINQUIRA_YEAR to the last year it was
+ *   observed, and never move FIRST_CHIQUINQUIRA_YEAR.
  *
  * That gives 18 holidays a year until 2025 and 19 from 2026. Years before 1984
  * get today's rules too: this is a calendar for the portal, not legal history.
@@ -29,15 +33,24 @@ use InvalidArgumentException;
  * Easter falls between 19 and 25 April: Sagrado Corazón (+71) is then the same
  * Monday as San Pedro y San Pablo (30 June 2025). So forYear() always returns
  * every holiday, isHoliday() is true once, and entries on one day are sorted by
- * name, which makes nextOnOrAfter() deterministic.
+ * name, which makes nextOnOrAfter() deterministic. A home page listing must
+ * show both names on that day, not just the first one.
  *
- * Days are read in the calendar timezone: pass config('app.timezone')
- * (America/Bogota). An instant is converted to that timezone before its day is
+ * Days are read in the calendar timezone. The container builds this class with
+ * config('app.timezone') (AppServiceProvider); built by hand, it defaults to
+ * America/Bogota. An instant is converted to that timezone before its day is
  * taken, so 1 January 03:00 UTC is still 31 December in Bogotá.
  */
 final class ColombianHolidays
 {
     public const FIRST_CHIQUINQUIRA_YEAR = 2026;
+
+    /** Last year 9 July is a holiday; null while Ley 2578 de 2026, art. 6, is in force. */
+    public const LAST_CHIQUINQUIRA_YEAR = null;
+
+    private const MIN_YEAR = 1583;
+
+    private const MAX_YEAR = 9999;
 
     private const FIXED = [
         [1, 1, 'Año Nuevo'],
@@ -72,7 +85,13 @@ final class ColombianHolidays
     /** @var array<int, list<Holiday>> */
     private array $years = [];
 
-    public function __construct(private readonly string $timezone = 'America/Bogota') {}
+    /**
+     * @param  ?int  $lastChiquinquiraYear  only for tests; the law is LAST_CHIQUINQUIRA_YEAR
+     */
+    public function __construct(
+        private readonly string $timezone = 'America/Bogota',
+        private readonly ?int $lastChiquinquiraYear = self::LAST_CHIQUINQUIRA_YEAR,
+    ) {}
 
     /**
      * @return list<Holiday> sorted by date, then by name
@@ -97,21 +116,24 @@ final class ColombianHolidays
 
     /**
      * The first holiday on that day or later, crossing into the next year.
+     * After Navidad 9999 there is none in the supported range, and it throws.
      */
     public function nextOnOrAfter(CarbonInterface $date): Holiday
     {
         $day = $this->localDay($date);
 
-        foreach ([$day->year, $day->year + 1] as $year) {
-            foreach ($this->forYear($year) as $holiday) {
-                if ($holiday->date->greaterThanOrEqualTo($day)) {
-                    return $holiday;
-                }
+        foreach ($this->forYear($day->year) as $holiday) {
+            if ($holiday->date->greaterThanOrEqualTo($day)) {
+                return $holiday;
             }
         }
 
-        // Unreachable: 1 January of the next year is always a holiday.
-        throw new InvalidArgumentException('No holiday found after '.$day->toDateString().'.');
+        if ($day->year >= self::MAX_YEAR) {
+            throw new InvalidArgumentException('No holiday on or after '.$day->toDateString().' within the supported range '.self::MIN_YEAR.'–'.self::MAX_YEAR.'.');
+        }
+
+        // 1 January (Año Nuevo) sorts first in every year.
+        return $this->forYear($day->year + 1)[0];
     }
 
     /**
@@ -181,7 +203,7 @@ final class ColombianHolidays
         }
 
         $moved = self::MOVED_TO_MONDAY;
-        if ($year >= self::FIRST_CHIQUINQUIRA_YEAR) {
+        if ($year >= self::FIRST_CHIQUINQUIRA_YEAR && ($this->lastChiquinquiraYear === null || $year <= $this->lastChiquinquiraYear)) {
             $moved[] = self::CHIQUINQUIRA;
         }
 
@@ -216,8 +238,8 @@ final class ColombianHolidays
 
     private static function assertGregorian(int $year): void
     {
-        if ($year < 1583 || $year > 9999) {
-            throw new InvalidArgumentException("Year {$year} is outside the Gregorian calendar range 1583–9999.");
+        if ($year < self::MIN_YEAR || $year > self::MAX_YEAR) {
+            throw new InvalidArgumentException("Year {$year} is outside the Gregorian calendar range ".self::MIN_YEAR.'–'.self::MAX_YEAR.'.');
         }
     }
 }

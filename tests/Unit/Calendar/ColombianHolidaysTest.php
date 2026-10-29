@@ -190,6 +190,27 @@ class ColombianHolidaysTest extends TestCase
         $this->assertSame('2028-07-10', $this->dateOf($holidays->forYear(2028), 'Nuestra Señora del Rosario de Chiquinquirá'));
     }
 
+    public function test_chiquinquira_has_no_last_year_while_the_law_is_in_force(): void
+    {
+        $holidays = new ColombianHolidays;
+
+        $this->assertNull(ColombianHolidays::LAST_CHIQUINQUIRA_YEAR);
+        $this->assertSame('2026-07-13', $this->dateOf($holidays->forYear(2026), 'Nuestra Señora del Rosario de Chiquinquirá'));
+        $this->assertSame('2027-07-12', $this->dateOf($holidays->forYear(2027), 'Nuestra Señora del Rosario de Chiquinquirá'));
+        $this->assertSame('2028-07-10', $this->dateOf($holidays->forYear(2028), 'Nuestra Señora del Rosario de Chiquinquirá'));
+    }
+
+    public function test_a_last_chiquinquira_year_keeps_the_years_already_observed(): void
+    {
+        // A ruling is not retroactive: 2026 stays a holiday, the years after it do not.
+        $holidays = new ColombianHolidays('America/Bogota', lastChiquinquiraYear: 2026);
+
+        $this->assertSame('2026-07-13', $this->dateOf($holidays->forYear(2026), 'Nuestra Señora del Rosario de Chiquinquirá'));
+        $this->assertCount(19, $holidays->forYear(2026));
+        $this->assertNull($this->dateOf($holidays->forYear(2027), 'Nuestra Señora del Rosario de Chiquinquirá'));
+        $this->assertCount(18, $holidays->forYear(2027));
+    }
+
     public function test_dates_are_midnight_in_the_given_timezone(): void
     {
         foreach ((new ColombianHolidays('America/Bogota'))->forYear(2026) as $holiday) {
@@ -262,6 +283,18 @@ class ColombianHolidaysTest extends TestCase
         $copy = $sorted;
         sort($copy);
         $this->assertSame($copy, $sorted);
+    }
+
+    public function test_next_on_or_after_late_in_the_last_year_explains_the_range(): void
+    {
+        $holidays = new ColombianHolidays;
+
+        $this->assertSame('9999-12-25', $holidays->nextOnOrAfter(CarbonImmutable::parse('9999-12-25', 'America/Bogota'))->date->toDateString());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('No holiday on or after 9999-12-26 within the supported range 1583–9999.');
+
+        $holidays->nextOnOrAfter(CarbonImmutable::parse('9999-12-26', 'America/Bogota'));
     }
 
     public function test_years_outside_the_gregorian_calendar_are_refused(): void
