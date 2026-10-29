@@ -14,7 +14,7 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 
 ## Alcance
 
-- WU1: lectura obligatoria (tabla `announcement_reads`), botón «Confirmar lectura» y conteo «X de Y personas lo leyeron» en Admin.
+- WU1: lectura obligatoria (tabla `announcement_reads`), botón «Confirmar lectura» y conteo «X de Y cuentas lo leyeron» en Admin (por cuenta, no por persona).
 - WU2: eventos con `.ics`.
 - WU3: resumen de los lunes por cron (bloqueada si necesita correo).
 - WU4: correo a las listas de cada empresa (bloqueada: Jhon).
@@ -42,9 +42,10 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
   - Editor de Admin: casilla «Lectura obligatoria»; el registro de actividad guarda el cambio.
   - `/anuncios` y el inicio: chip «Lectura obligatoria» y botón «Confirmar lectura» (`POST /anuncios/{announcement}/leido`, con CSRF y límite); después, «Leído el …». Idempotente; 404 si quien confirma no lo ve.
   - Inicio: el estado de lectura sin consultas de más (o una como máximo).
-  - Admin: «X de Y personas lo leyeron» y la lista de quién falta (solo nombres), solo para quien puede editar ese anuncio.
+  - Admin: «X de Y cuentas lo leyeron» y «Cuentas que faltan» (nombre y empresa), solo para quien puede editar ese anuncio.
   - Manual de administración.
   - Hecho y verificado (ver el registro del WU1).
+- [x] WU1-R. **Arreglos de la revisión independiente del PR5.** Ruta: delegada (escritor), 2 o más archivos no triviales (controlador, límite, modelo, editor, vistas, pruebas, manual). Hecho y verificado (ver el registro).
 - [ ] WU2. **PR6, eventos con `.ics`.** Pendiente; sin diseño todavía.
 - [ ] WU3. **PR7, resumen de los lunes.** Bloqueada si necesita correo (ver preguntas).
 - [ ] WU4. **PR8, correo a las listas de cada empresa.** Bloqueada: Jhon.
@@ -55,10 +56,11 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 2. WU3: ¿el resumen de los lunes va por correo (bloqueado como WU4) o basta con verlo en el portal?
 3. WU1: «Y» solo cuenta a quien ya entró al portal (las cuentas se crean al iniciar sesión). ¿Sirve así o hace falta traer el directorio de Microsoft?
 4. WU1: ¿quien no ha leído debe recibir un recordatorio (correo o aviso)? Hoy no se construye.
+5. WU1: ¿contar por persona entre cuentas vinculadas? Hoy se cuenta por cuenta (decisión del coordinador): quien tiene cuenta en dos empresas confirma una vez con cada una y aparece dos veces en «Cuentas que faltan». Contar por persona necesitaría un ayudante dentro de `App\Auth\LinkedAccounts` y una entrada nueva en `tests/Unit/Auth/PersonNeverAuthorizesTest.php`, porque `person_id` no decide nada fuera de ahí.
 
 ## Criterios de aceptación
 
-- WU1: confirmar dos veces deja una sola fila; un anuncio de otra empresa, retirado, vencido o programado da 404; sin CSRF, 419; el conteo y la lista cuentan solo a las personas de las empresas del anuncio (sin emergencia ni invitados); quien no puede editar el anuncio no ve la lista; el inicio sigue en ≤ 12 consultas y sin Livewire.
+- WU1: confirmar dos veces deja una sola fila; un anuncio de otra empresa, programado o inexistente da 404; uno retirado, vencido o ya no obligatorio que la empresa de la cuenta llegó a ver vuelve con «Este anuncio ya no pide confirmación.» y no guarda nada; sin CSRF, 419; el conteo y la lista cuentan solo a las personas de las empresas del anuncio (sin emergencia ni invitados); quien no puede editar el anuncio no ve la lista; el inicio sigue en ≤ 12 consultas y sin Livewire.
 
 ## Chequeos
 
@@ -93,6 +95,24 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
     - Chip con los tokens de estado existentes (`status-maintenance`), botón `bg-brand-button`; sin colores nuevos.
   - No hecho: contador de lecturas pendientes en «Mi día» (opcional; necesitaría otra consulta o contar solo los 50 del índice); Lighthouse.
 
+- 2026-10-29: arreglos de la revisión independiente del WU1 (WU1-R, ruta delegada, un escritor). Sin `push` ni PR.
+  - Commits: `ebf74b6` `fix(announcements)` (botón viejo, límite propio, `aria-describedby`), `e0fe368` `fix(admin)` (por cuenta con empresa, `#[Computed]`, flecha del desplegable, `public/build` `app-ffOrOrMX.css`), `02f840e` `docs(admin)` (manual §2.4), `abf708a` `fix(admin)` (texto de ayuda).
+  - RED (antes de tocar el código): 8 fallas en `AnnouncementReadTest` y `AnnouncementReadReportTest`: el botón viejo daba 404, el límite compartido daba 429 tras 30 visitas a `announcements.show`, sin `id`/`aria-describedby`, la lista devolvía solo nombres, el texto decía «personas», y escribir en el formulario volvía a contar (mostró «1 de 2» tras una lectura nueva). Tres pruebas nuevas pasaron desde el principio porque describen lo que ya hacía el código: `is_guest = null` cuenta, la cuenta que cambia de empresa y la carrera de `createOrFirst`.
+  - GREEN: suite completa 1.456 de 1.456 (7.220 aserciones); `vendor/bin/pint --test`: sin cambios.
+  - Decisiones:
+    1. **Por cuenta, no por persona** (coordinador): «X de Y cuentas lo leyeron» («1 cuenta lo leyó»), «Cuentas que faltan (N)», cada cuenta con nombre y nombre corto de su empresa («Ana Pérez · Segurex»). Las lecturas siguen por cuenta, igual que favoritos, roles y recientes. Pregunta 5 para Jhon.
+    2. **`is_guest = null` cuenta**: es una cuenta que no ha vuelto a iniciar sesión desde que se guarda la marca; dejarla fuera podría esconder a alguien que debía leer, y un invitado contado de más solo aparece como una cuenta pendiente hasta su siguiente inicio de sesión. Comentario en `Announcement::audience()` y en el manual.
+    3. **Botón viejo**: 404 para lo que la cuenta nunca pudo ver (otra empresa, aunque esté retirado o vencido; programado; inexistente; sin empresa o emergencia). Si el anuncio es de su empresa y ya empezó, pero ya no pide confirmación (retirado, vencido o no obligatorio), vuelve a `/#anuncios` (con `from=home`) o a `/anuncios` con «Este anuncio ya no pide confirmación.» y no escribe nada. Así la respuesta nunca dice que existe un anuncio de otra empresa.
+    4. **Límite propio**: `RateLimiter::for('announcement-read')` en `AppServiceProvider` (30 por minuto, clave `announcement-read:{id}`) y la ruta usa `throttle:announcement-read`. La prueba gasta 30 visitas de `announcements.show` y luego confirma 30 veces; la 31.ª da 429 y `show` sigue funcionando.
+    5. **Accesibilidad**: el título de la tarjeta lleva `id="announcement-{id}-title"` y el botón `aria-describedby` hacia él. El `summary` lleva `list-none` y su propia flecha (`chevron-right`, gira con `group-open:rotate-90`, sin animación con `motion-reduce`).
+    6. **Rendimiento**: `readReport` es `#[Computed(persist: true, seconds: 60)]` (clave por instancia del componente): escribir en el formulario no vuelve a contar (la prueba cuenta 0 consultas a `announcement_reads` en dos `set`). `viewReads` y `requires_read` se revisan en cada render fuera del cálculo; Livewire no deja llamar `readReport` como acción (`CannotCallComputedDirectlyException`, con prueba). Las cifras pueden tener hasta 1 minuto; recargar cuenta de nuevo (dicho en el manual).
+    7. **Cuenta que cambia de empresa**: X e Y van por la empresa actual. Sale de X y de Y del anuncio de la empresa anterior; en un anuncio para todas sigue contando como leído; la fila se guarda y vuelve a contar si regresa.
+    8. **Carrera**: `createOrFirst` escribe primero y, si choca con el par único, lee la fila existente; no hay hueco entre revisar y escribir. La prueba inserta la fila «por detrás» (como otra petición) y comprueba que se conserva la primera fecha. No hace falta un mock parcial.
+    9. **Tope de la lista**: prueba con 203 cuentas pendientes: 200 en la lista, «Cuentas que faltan (203)» y «Y 3 más.».
+  - Captura en el scratchpad (`inicio-4-shots`): `admin-cuentas-que-faltan-1440-light-fix.png` y `-dark-fix.png` («3 de 5 cuentas lo leyeron», dos cuentas con «· Segurex», flecha abierta). Sin desborde horizontal. Servidor detenido.
+  - **No hecho**: `/anuncios` no muestra el mensaje `status` (solo el inicio lo pinta); quien pulsa un botón viejo en `/anuncios` vuelve allí sin ver «Este anuncio ya no pide confirmación.». Falta una línea en `resources/views/announcements/index.blade.php`, fuera de las rutas permitidas en esta tarea.
+  - Seguimiento: las rutas con `throttle:N,1` (cerrar sesión, abrir apps, `announcements.show`, soporte, favoritos) comparten un solo contador por cuenta; no se cambiaron.
+
 ## Siguiente paso
 
-Abrir el PR de `feat/inicio-4-lectura-obligatoria` encima de #71 (`feat/inicio-3-buscador`): decisión de Jhon. WU2 (eventos con `.ics`) necesita diseño; WU3 y WU4 esperan las respuestas de Jhon.
+Mostrar el mensaje `status` en `/anuncios` (una línea en `resources/views/announcements/index.blade.php`). Después, abrir el PR de `feat/inicio-4-lectura-obligatoria` encima de #71 (`feat/inicio-3-buscador`): decisión de Jhon. WU2 (eventos con `.ics`) necesita diseño; WU3 y WU4 esperan las respuestas de Jhon.
