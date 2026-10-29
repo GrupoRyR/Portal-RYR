@@ -52,7 +52,7 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - `MicrosoftLogin::admit()` separado del registro.
   - Confirmación reciente ligada al usuario.
   - `users.microsoft_login_hint`.
-- [ ] T2. **PR2, personas y vinculación.** Ruta: delegada.
+- [x] T2. **PR2, personas y vinculación.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: migraciones, `LinkedAccounts`, controladores, vista, aviso y pruebas.
   - `people`, `users.person_id` y `UNIQUE(person_id, company_id)`.
   - `LinkedAccounts::link/unlink`.
   - GET y POST `/cuenta/vincular`.
@@ -94,7 +94,9 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
 - **Ramas y PR.** T1 salió con 857 líneas, así que se partió en dos PR:
   - `feat/cuentas-vinculadas-1-confirmacion`: commits `49efaf4` y `5164e0a` (308 líneas).
   - `feat/cuentas-vinculadas-1-callback`: el commit de intenciones, la corrección de auditoría y este documento (~570 líneas, de las cuales 120 son este documento y ~250 son pruebas). Lleva la nota `size:exception`.
-  - Después vienen `-2-personas`, `-3-cambio` y `-4-interfaz`.
+  - PR #61 (`-1-confirmacion`) y PR #62 (`-1-callback`, encima de #61) se abrieron el 2026-10-29.
+  - `feat/cuentas-vinculadas-2-personas` sale de `-1-callback`: los 4 commits del T2.
+  - Después vienen `-3-cambio` y `-4-interfaz`.
 - **Pronóstico:** ~1.600 líneas, unas 400 por PR.
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
@@ -118,7 +120,33 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     3. La rama de intenciones y `bindState()` no se usan hasta PR2 y PR3. Queda anotado en el PR.
     4. Ya pasaba antes: en las cuentas de invitado (B2B), la pista de inicio de sesión apunta a su inquilino de origen, y la reautenticación puede cerrar la sesión. Seguimiento: mandar `domain_hint` o la autoridad del inquilino en una fase posterior.
   - Riesgo según `gentle-ai review assess`: alto (ruta de autenticación). RDD apagado, así que la revisión independiente fue `/code-review`.
+- 2026-10-29: PR #61 y #62 abiertos.
+- 2026-10-29: T2 hecha (ruta delegada, un escritor), en `feat/cuentas-vinculadas-2-personas`. Sin `push` ni PR.
+  - Base: `tests/Feature/Auth` + `Tenancy` + `Admin` con 412 de 412 en verde.
+  - RED antes de cada parte (las fallas eran solo las pruebas nuevas):
+    1. Datos y reglas: 109 pruebas, 82 en verde, 1 falla y 26 errores.
+    2. Flujo, aviso y auditoría: 51 pruebas, 26 en verde, 19 fallas y 6 errores.
+    3. `resolveCompany`: 69 pruebas, 66 en verde y 3 fallas (el error de hoy).
+    4. Desvinculación automática: 4 pruebas, 1 en verde, 2 fallas y 1 error. Hoy ese inicio de sesión fallaba por el índice único.
+  - GREEN, Auth + Tenancy + Admin + Account + `tests/Unit/Auth`: 509 de 509.
+  - GREEN, suite completa: 1.139 de 1.139 (5.746 aserciones). Son 97 pruebas nuevas.
+  - `vendor/bin/pint --test`: sin cambios.
+  - Commits (cada uno en verde por separado en Auth + Tenancy):
+    - `ab678de` `feat(accounts)`: personas, `LinkedAccounts` y la marca de invitado.
+    - `61080ad` `feat(accounts)`: GET y POST `/cuenta/vincular`, el callback `link`, el aviso y la auditoría.
+    - `93573e4` `fix(tenancy)`: `resolveCompany` en inquilinos compartidos.
+    - `feat(accounts)`: desvinculación automática con `company_changed`. Este registro va en ese commit.
+  - Decisiones:
+    - `users.is_guest` (nuevo). Hoy el código solo sabe si es invitado al iniciar sesión (claim `idp`). Se guarda en cada inicio y en cada reautenticación confirmada. Null es «no se sabe» y se rechaza como invitado.
+    - `MicrosoftLogin::preview()` corre las comprobaciones de `admit()` sin escribir. El callback valida todo con ella y después hace `admit()` + `link()` en una sola transacción.
+    - Una prueba de `TenantDirectory` afirmaba el error; se cambió a lo correcto.
+    - Motivos de rechazo: los de `LinkRefused` y los de `LoginFailed` (por ejemplo `tenant_not_allowed`).
+  - Seguimiento:
+    - `/` aún no muestra el mensaje `status` (PR4).
+    - La vista 403 `errors.microsoft-required` habla de crear empresas. Falta un texto general.
+    - `preview()` no simula la desvinculación automática. Si la otra cuenta cambió de empresa, puede salir `different_people` aunque `admit()` la habría desvinculado. Es un rechazo seguro.
+  - Tamaño: ~2.190 líneas (~950 de código con comentarios, ~1.240 de pruebas). Supera las 400: se puede partir en un PR por commit.
 
 ## Siguiente paso
 
-Abrir los dos PR del T1 y, cuando Jhon los fusione, delegar el escritor del T2 (PR2).
+Revisar el T2 (`/code-review` y `/security-review`) y decidir si PR2 se parte por commits. Abrirlo cuando Jhon fusione #61 y #62. Después, delegar el escritor del T3.

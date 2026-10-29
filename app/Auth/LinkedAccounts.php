@@ -162,6 +162,31 @@ class LinkedAccounts
     }
 
     /**
+     * For a saved account about to move to another company (its new
+     * `company_id` set, not saved yet): when its person already has an
+     * account there, the moving account leaves the person
+     * ({@see COMPANY_CHANGED}), so that the move itself always goes on.
+     */
+    public function unlinkIfCompanyTaken(User $account): bool
+    {
+        if (! $account->exists || $account->person_id === null || ! $account->isDirty('company_id')) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($account) {
+            $taken = User::query()
+                ->where('person_id', $account->person_id)
+                ->where('company_id', $account->company_id)
+                ->whereKeyNot($account->getKey())
+                ->lockForUpdate()
+                ->get()
+                ->isNotEmpty();
+
+            return $taken && $this->unlink($account, self::COMPANY_CHANGED);
+        });
+    }
+
+    /**
      * Locks the other accounts of the people involved, so that no
      * concurrent link takes one of their companies meanwhile.
      */

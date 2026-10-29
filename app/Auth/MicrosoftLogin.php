@@ -19,6 +19,9 @@ use Throwable;
  * managed roles. A successful sign-in is recorded as a security event
  * (App\Audit\SecurityLog) with the role changes it applied.
  *
+ * A linked account that moves to a company its person already has an
+ * account in is unlinked from that person (App\Auth\LinkedAccounts).
+ *
  * Guests are never linked to their home account: per Microsoft's guidance
  * (id-token-claims-reference) a guest sign-in is a separate user whose
  * privileges come only from the tenant it signed in to. The email is only
@@ -33,6 +36,7 @@ class MicrosoftLogin
     public function __construct(
         private readonly TenantDirectory $tenants,
         private readonly GraphClient $graph,
+        private readonly LinkedAccounts $linkedAccounts,
     ) {}
 
     /**
@@ -118,6 +122,12 @@ class MicrosoftLogin
         $user = $this->findOrNew($identity);
 
         $this->applyIdentity($user, $identity, $company);
+
+        // A linked account moving to a company its person already has an
+        // account in leaves the person (one account per company); the
+        // sign-in never fails because of it.
+        $this->linkedAccounts->unlinkIfCompanyTaken($user);
+
         $user->save();
 
         return $user;
