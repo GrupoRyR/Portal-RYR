@@ -102,7 +102,7 @@
                 <div class="flex flex-col gap-1.5">
                     <label for="e-to" class="{{ $label }}">{{ $allDay ? 'Último día' : 'Termina' }} <span class="font-medium text-fg-muted">(opcional)</span></label>
                     <input id="e-to" type="{{ $dateType }}" wire:model="endsAt" wire:key="e-to-{{ $dateType }}" aria-describedby="e-to-h" class="{{ $field }}" {!! $invalid('endsAt', 'e-to-error') !!}>
-                    <span id="e-to-h" class="{{ $hint }}">{{ $allDay ? 'Sin fecha, dura un solo día.' : 'Sin hora, el calendario lo muestra como un momento.' }}</span>
+                    <span id="e-to-h" class="{{ $hint }}">{{ $allDay ? 'Sin fecha, dura un solo día.' : 'Sin fin, el calendario lo muestra como un momento.' }}</span>
                     @error('endsAt') <p id="e-to-error" class="{{ $error }}">{{ $message }}</p> @enderror
                 </div>
             </div>
