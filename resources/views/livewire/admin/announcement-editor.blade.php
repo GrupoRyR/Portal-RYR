@@ -165,7 +165,7 @@
                 <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
                     <span class="flex flex-col gap-0.5">
                         <span class="text-[0.9375rem] font-semibold">Lectura obligatoria</span>
-                        <span id="n-read-h" class="{{ $hint }}">Cada persona confirma que lo leyó. Aquí verás quién falta.</span>
+                        <span id="n-read-h" class="{{ $hint }}">Cada cuenta que lo ve confirma que lo leyó. Aquí verás cuáles faltan.</span>
                     </span>
                     <input type="checkbox" role="switch" wire:model.live="requiresRead" aria-describedby="n-read-h"
                            class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
@@ -201,14 +201,17 @@
         @php($missing = $reads['total'] - $reads['read'])
         <section class="{{ $card }} gap-3" aria-labelledby="n-reads" data-read-report>
             <h2 id="n-reads" class="{{ $heading }}">Lectura</h2>
-            <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'persona lo leyó' : 'personas lo leyeron' }}</p>
-            <p class="{{ $hint }}">Cuenta a las personas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados.</p>
+            <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'cuenta lo leyó' : 'cuentas lo leyeron' }}</p>
+            <p class="{{ $hint }}">Cuenta las cuentas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuenta en dos empresas confirma una vez con cada una.</p>
             @if ($missing > 0)
                 <details class="group">
-                    <summary class="inline-flex min-h-touch cursor-pointer items-center text-sm font-semibold text-fg-soft">Quién falta ({{ $missing }})</summary>
+                    {{-- list-none + its own chevron: inline-flex would hide the native marker. --}}
+                    <summary class="inline-flex min-h-touch cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-fg-soft [&::-webkit-details-marker]:hidden">
+                        <x-home.icon name="chevron-right" stroke-width="2" class="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" />Cuentas que faltan ({{ $missing }})
+                    </summary>
                     <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                        @foreach ($reads['pending'] as $name)
-                            <li class="break-words">{{ $name }}</li>
+                        @foreach ($reads['pending'] as $account)
+                            <li class="break-words">{{ $account['name'] }}@if ($account['company'] !== '') <span class="text-fg-muted">· {{ $account['company'] }}</span>@endif</li>
                         @endforeach
                     </ul>
                     @if ($missing > count($reads['pending']))

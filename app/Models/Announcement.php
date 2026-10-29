@@ -24,9 +24,12 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * an optional 16:9 WebP image, for every company or for chosen ones, shown
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
  *
- * A mandatory one (`requires_read`) asks each person who sees it to
- * confirm they read it ({@see markReadBy()}); editors see who did
- * ({@see readCounts()}, {@see pendingReaders()}).
+ * A mandatory one (`requires_read`) asks each account that sees it to
+ * confirm it was read ({@see markReadBy()}); editors see which accounts did
+ * ({@see readCounts()}, {@see pendingReaders()}). Per account, never per
+ * person: `users.person_id` decides nothing outside App\Auth\LinkedAccounts
+ * (tests/Unit/Auth/PersonNeverAuthorizesTest.php), so someone with accounts
+ * in two companies confirms once with each.
  *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
@@ -58,7 +61,7 @@ class Announcement extends Model
 
     public const BODY_MAX = 280;
 
-    /** Names in the «Quién falta» list of the admin editor. */
+    /** Accounts in the «Cuentas que faltan» list of the admin editor. */
     public const PENDING_READERS_LIMIT = 200;
 
     /**
@@ -177,6 +180,15 @@ class Announcement extends Model
      * company when it is for all) that are active, without emergency or
      * guest accounts. Only people who already signed in have an account.
      *
+     * By the account's company now: an account that moves to another
+     * company leaves X and Y of an announcement only for the old one (its
+     * read is kept and counts again if it comes back).
+     *
+     * `is_guest = null` (the account has not signed in since the flag was
+     * added, so it is not known yet) counts: leaving it out could hide a
+     * member who must read it, while a guest counted by mistake only shows
+     * up as one more pending account until its next sign-in sets the flag.
+     *
      * @return Builder<User>
      */
     public function audience(): Builder
@@ -196,7 +208,7 @@ class Announcement extends Model
     }
 
     /**
-     * «X de Y personas lo leyeron»: reads by accounts of the audience
+     * «X de Y cuentas lo leyeron»: reads by accounts of the audience
      * only, so a read left from an earlier audience does not count.
      *
      * @return array{read: int, total: int}
@@ -210,20 +222,26 @@ class Announcement extends Model
     }
 
     /**
-     * Names of the audience that have not confirmed yet, alphabetical,
-     * at most PENDING_READERS_LIMIT.
+     * Accounts of the audience that have not confirmed yet, alphabetical,
+     * at most PENDING_READERS_LIMIT: the name and the short name of the
+     * account's company (one person may have an account in each company).
      *
-     * @return list<string>
+     * @return list<array{name: string, company: string}>
      */
     public function pendingReaders(): array
     {
         return $this->audience()
             ->whereNotIn('id', $this->reads()->select('user_id'))
+            ->with('company:id,short_name')
             ->orderBy('name')
             ->orderBy('id')
             ->limit(self::PENDING_READERS_LIMIT)
-            ->pluck('name')
-            ->map(fn ($name) => (string) $name)
+            ->get(['id', 'name', 'company_id'])
+            ->map(fn (User $user) => [
+                'name' => (string) $user->name,
+                'company' => (string) $user->company?->short_name,
+            ])
+            ->values()
             ->all();
     }
 
