@@ -19,7 +19,10 @@ use Symfony\Component\HttpFoundation\IpUtils;
 /**
  * An external system of the API (brief §6b): a monitor or IT tool that
  * reads the catalog or reports app statuses with its own Bearer token,
- * managed in Administración → Integraciones.
+ * managed in Administración → Integraciones. The tasks app publishes its
+ * work items (`work:write`, docs/contrato-tareas-aprobaciones.md): it
+ * also needs its catalog app (`app_id`, whose host is the only one allowed
+ * in the links) and its base URL (`app_base_url`).
  *
  * The integration owns the Sanctum token (never a user). It has at most one
  * live token: rotating replaces it at once, revoking deletes it for good.
@@ -27,7 +30,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * stored nor logged: only its SHA-256 hash (Sanctum) and its last four
  * characters (`token_hint`, to recognise it in the list).
  */
-#[Fillable(['name', 'abilities', 'allowed_ips', 'created_by'])]
+#[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'created_by'])]
 class Integration extends Model
 {
     use HasApiTokens;
@@ -46,10 +49,13 @@ class Integration extends Model
 
     public const STATUS_WRITE = 'status:write';
 
+    public const WORK_WRITE = 'work:write';
+
     /** The only abilities a token may have, with their description. */
     public const ABILITIES = [
         self::CATALOG_READ => 'Leer el catálogo de apps, sin usuarios ni reglas',
         self::STATUS_WRITE => 'Reportar si una app funciona, falla o está caída',
+        self::WORK_WRITE => 'Publicar tareas y aprobaciones en el inicio de cada persona',
     ];
 
     /** Rate limit of each token (named limiter `api`). */
@@ -61,6 +67,8 @@ class Integration extends Model
     public const MAX_NAME = 80;
 
     public const MAX_IPS = 20;
+
+    public const MAX_APP_BASE_URL = 255;
 
     protected function casts(): array
     {
@@ -107,6 +115,27 @@ class Integration extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The catalog app of a `work:write` integration: its host is the only
+     * one allowed in the links of the work items.
+     *
+     * @return BelongsTo<App, $this>
+     */
+    public function app(): BelongsTo
+    {
+        return $this->belongsTo(App::class);
+    }
+
+    /**
+     * Tasks and approvals this system published, deletion traces included.
+     *
+     * @return HasMany<WorkItem, $this>
+     */
+    public function workItems(): HasMany
+    {
+        return $this->hasMany(WorkItem::class);
     }
 
     /**
@@ -157,12 +186,15 @@ class Integration extends Model
     }
 
     /**
-     * Deletes the token for good. A revoked integration stays listed.
+     * Deletes the token for good, and the work items it published, which
+     * leave the home at once (contract §2.2). A revoked integration stays
+     * listed.
      */
     public function revoke(): void
     {
         DB::transaction(function () {
             $this->tokens()->delete();
+            $this->workItems()->withTrashed()->forceDelete();
             $this->forceFill(['revoked_at' => now()])->save();
         });
     }
@@ -241,6 +273,21 @@ class Integration extends Model
         $max = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false ? 32 : 128;
 
         return ctype_digit($bits) && (int) $bits <= $max;
+    }
+
+    /**
+     * A base URL the portal may call (contract §2.2): `https`, a host, no
+     * user info, no `?` nor `#`, printable ASCII only.
+     */
+    public static function isValidAppBaseUrl(string $url): bool
+    {
+        if (strlen($url) > self::MAX_APP_BASE_URL || str_contains($url, '\\')
+            || preg_match('~\A[\x21-\x7E]+\z~', $url) !== 1
+            || preg_match('~\Ahttps://[^/?#@]+(?:/[^?#]*)?\z~i', $url) !== 1) {
+            return false;
+        }
+
+        return filter_var($url, FILTER_VALIDATE_URL) !== false && is_string(parse_url($url, PHP_URL_HOST));
     }
 
     /**

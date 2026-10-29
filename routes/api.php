@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AppCatalogController;
 use App\Http\Controllers\Api\AppStatusController;
+use App\Http\Controllers\Api\WorkItemController;
 use App\Models\Integration;
+use App\Models\WorkItem;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,4 +27,16 @@ Route::prefix('v1')
         Route::put('/apps/{app:slug}/status', AppStatusController::class)
             ->middleware('abilities:'.Integration::STATUS_WRITE)
             ->name('apps.status');
+
+        // Tasks and approvals (docs/contrato-tareas-aprobaciones.md §3):
+        // any other `external_id` matches no route, so it answers 404.
+        Route::put('/work-items/{externalId}', [WorkItemController::class, 'update'])
+            ->where('externalId', WorkItem::EXTERNAL_ID_PATTERN)
+            ->middleware('abilities:'.Integration::WORK_WRITE)
+            ->name('work-items.update');
+
+        Route::delete('/work-items/{externalId}', [WorkItemController::class, 'destroy'])
+            ->where('externalId', WorkItem::EXTERNAL_ID_PATTERN)
+            ->middleware('abilities:'.Integration::WORK_WRITE)
+            ->name('work-items.destroy');
     });
