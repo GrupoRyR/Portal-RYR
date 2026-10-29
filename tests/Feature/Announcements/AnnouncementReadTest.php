@@ -168,6 +168,11 @@ class AnnouncementReadTest extends TestCase
             ->post(route('announcements.read', $stale['withdrawn']), ['from' => 'home'])
             ->assertOk()
             ->assertSeeText('Este anuncio ya no pide confirmación.');
+
+        $this->followingRedirects()->actingAs($this->ana)
+            ->post(route('announcements.read', $stale['withdrawn']))
+            ->assertOk()
+            ->assertSeeText('Este anuncio ya no pide confirmación.');
     }
 
     public function test_a_read_left_from_before_is_kept_if_another_request_wrote_it_first(): void
