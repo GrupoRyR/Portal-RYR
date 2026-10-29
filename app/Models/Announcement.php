@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Policies\AnnouncementPolicy;
+use App\Models\Concerns\AddressedToCompanies;
 use Database\Factories\AnnouncementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +46,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
 ])]
 class Announcement extends Model
 {
+    use AddressedToCompanies;
+
     /** @use HasFactory<AnnouncementFactory> */
     use HasFactory;
 
@@ -53,6 +55,9 @@ class Announcement extends Model
 
     /** Activity log name for announcement changes (spatie/laravel-activitylog). */
     public const AUDIT_LOG = 'announcements';
+
+    /** Named audit entries: «announcement.withdrawn», «announcement.republished», «announcement.companies_changed». */
+    public const AUDIT_EVENT_PREFIX = 'announcement';
 
     /** Uploaded images live on the "public" disk under {IMAGE_DIR}/{id}/. */
     public const IMAGE_DIR = 'announcements';
@@ -123,20 +128,6 @@ class Announcement extends Model
             ->logFillable()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
-    }
-
-    /**
-     * Writes a named audit entry; the causer is the signed-in user, if any.
-     *
-     * @param  array<string, mixed>  $properties
-     */
-    public function audit(string $event, array $properties = []): void
-    {
-        activity(self::AUDIT_LOG)
-            ->performedOn($this)
-            ->event($event)
-            ->withProperties($properties)
-            ->log($event);
     }
 
     /**
@@ -245,35 +236,6 @@ class Announcement extends Model
             ->all();
     }
 
-    /**
-     * Takes the announcement off the home screen at once. Nothing is
-     * deleted; {@see republish()} brings it back.
-     */
-    public function withdraw(): void
-    {
-        if ($this->withdrawn_at !== null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => now()])->save();
-        $this->audit('announcement.withdrawn');
-    }
-
-    public function republish(): void
-    {
-        if ($this->withdrawn_at === null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => null])->save();
-        $this->audit('announcement.republished');
-    }
-
-    public function isForAllCompanies(): bool
-    {
-        return $this->audience === self::AUDIENCE_ALL;
-    }
-
     public function imageUrl(): ?string
     {
         return $this->image_path === null ? null : Storage::disk('public')->url($this->image_path);
@@ -303,23 +265,6 @@ class Announcement extends Model
     }
 
     /**
-     * Announcements a user sees on the home screen right now: published and
-     * addressed to their company. Users without a company see none.
-     *
-     * @param  Builder<Announcement>  $query
-     */
-    public function scopeVisibleTo(Builder $query, User $user): void
-    {
-        if ($user->company_id === null) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $query->inStatus(self::STATUS_PUBLISHED)->forCompanyId((int) $user->company_id);
-    }
-
-    /**
      * Announcements addressed to the company, including those for every
      * company, whatever their status.
      *
@@ -328,16 +273,6 @@ class Announcement extends Model
     public function scopeForCompany(Builder $query, Company $company): void
     {
         $query->forCompanyId($company->id);
-    }
-
-    /**
-     * @param  Builder<Announcement>  $query
-     */
-    public function scopeForCompanyId(Builder $query, int $companyId): void
-    {
-        $query->where(fn (Builder $query) => $query
-            ->where('audience', self::AUDIENCE_ALL)
-            ->orWhereHas('companies', fn (Builder $query) => $query->whereKey($companyId)));
     }
 
     /**
@@ -361,32 +296,6 @@ class Announcement extends Model
                 ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $now)),
             default => throw new InvalidArgumentException("Unknown announcement status [{$status}]."),
         };
-    }
-
-    /**
-     * Announcements the user may edit (App\Policies\AnnouncementPolicy):
-     * all of them for admins; for an announcements editor, those addressed
-     * to exactly their own company; none for anybody else.
-     *
-     * @param  Builder<Announcement>  $query
-     */
-    public function scopeManageableBy(Builder $query, User $user): void
-    {
-        if (AnnouncementPolicy::manages($user)) {
-            return;
-        }
-
-        if ($user->company_id === null || ! $user->hasRole(AnnouncementPolicy::EDITOR)) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $companyId = (int) $user->company_id;
-
-        $query->where('audience', self::AUDIENCE_COMPANIES)
-            ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
-            ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
     }
 
     /**

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Policies\AnnouncementPolicy;
+use App\Models\Concerns\AddressedToCompanies;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\EventFactory;
@@ -48,6 +48,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
 ])]
 class Event extends Model
 {
+    use AddressedToCompanies;
+
     /** @use HasFactory<EventFactory> */
     use HasFactory;
 
@@ -55,6 +57,9 @@ class Event extends Model
 
     /** Activity log name for event changes (spatie/laravel-activitylog). */
     public const AUDIT_LOG = 'events';
+
+    /** Named audit entries: «event.withdrawn», «event.republished», «event.companies_changed». */
+    public const AUDIT_EVENT_PREFIX = 'event';
 
     public const TITLE_MAX = 120;
 
@@ -118,20 +123,6 @@ class Event extends Model
     }
 
     /**
-     * Writes a named audit entry; the causer is the signed-in user, if any.
-     *
-     * @param  array<string, mixed>  $properties
-     */
-    public function audit(string $event, array $properties = []): void
-    {
-        activity(self::AUDIT_LOG)
-            ->performedOn($this)
-            ->event($event)
-            ->withProperties($properties)
-            ->log($event);
-    }
-
-    /**
      * @return BelongsToMany<Company, $this>
      */
     public function companies(): BelongsToMany
@@ -166,7 +157,7 @@ class Event extends Model
 
             $new = $this->companyNames($ids);
             if ($new !== $old) {
-                $this->audit('event.companies_changed', [
+                $this->audit(self::AUDIT_EVENT_PREFIX.'.companies_changed', [
                     'old' => ['companies' => $old],
                     'attributes' => ['companies' => $new],
                 ]);
@@ -174,35 +165,6 @@ class Event extends Model
         });
 
         return $this;
-    }
-
-    /**
-     * Off the home screen and /eventos at once. Nothing is deleted;
-     * {@see republish()} brings it back.
-     */
-    public function withdraw(): void
-    {
-        if ($this->withdrawn_at !== null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => now()])->save();
-        $this->audit('event.withdrawn');
-    }
-
-    public function republish(): void
-    {
-        if ($this->withdrawn_at === null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => null])->save();
-        $this->audit('event.republished');
-    }
-
-    public function isForAllCompanies(): bool
-    {
-        return $this->audience === self::AUDIENCE_ALL;
     }
 
     /**
@@ -241,35 +203,6 @@ class Event extends Model
     }
 
     /**
-     * Events a user sees right now: published, not over, addressed to
-     * their company. Users without a company (emergency accounts) see none.
-     *
-     * @param  Builder<Event>  $query
-     */
-    public function scopeVisibleTo(Builder $query, User $user): void
-    {
-        if ($user->company_id === null) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $query->inStatus(self::STATUS_PUBLISHED)->forCompanyId((int) $user->company_id);
-    }
-
-    /**
-     * Events addressed to the company, including those for every company.
-     *
-     * @param  Builder<Event>  $query
-     */
-    public function scopeForCompanyId(Builder $query, int $companyId): void
-    {
-        $query->where(fn (Builder $query) => $query
-            ->where('audience', self::AUDIENCE_ALL)
-            ->orWhereHas('companies', fn (Builder $query) => $query->whereKey($companyId)));
-    }
-
-    /**
      * Not over yet, whatever its status: the same rule as endsAtMoment().
      *
      * @param  Builder<Event>  $query
@@ -305,32 +238,6 @@ class Event extends Model
     }
 
     /**
-     * Events the user may edit (App\Policies\EventPolicy): all of them for
-     * admins; for an announcements editor, those addressed to exactly
-     * their own company; none for anybody else.
-     *
-     * @param  Builder<Event>  $query
-     */
-    public function scopeManageableBy(Builder $query, User $user): void
-    {
-        if (AnnouncementPolicy::manages($user)) {
-            return;
-        }
-
-        if ($user->company_id === null || ! $user->hasRole(AnnouncementPolicy::EDITOR)) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $companyId = (int) $user->company_id;
-
-        $query->where('audience', self::AUDIENCE_COMPANIES)
-            ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
-            ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
-    }
-
-    /**
      * Soonest first.
      *
      * @param  Builder<Event>  $query
@@ -346,22 +253,5 @@ class Event extends Model
     private static function local(CarbonInterface $moment): CarbonImmutable
     {
         return $moment->toImmutable()->setTimezone(config('app.timezone'));
-    }
-
-    /**
-     * @param  array<int|string>  $ids
-     * @return list<string>
-     */
-    private function companyNames(array $ids): array
-    {
-        if ($ids === []) {
-            return [];
-        }
-
-        return Company::query()->whereKey($ids)->get(['id', 'name', 'short_name'])
-            ->map(fn (Company $company) => $company->short_name ?: $company->name)
-            ->sort()
-            ->values()
-            ->all();
     }
 }
