@@ -248,6 +248,15 @@ class MicrosoftLoginController extends Controller
      * and its sign-in record). Anything else leaves the session, and every
      * row, as it was.
      *
+     * One exception, as in a normal sign-in: admit() commits the target's
+     * row (email, company, login hint, guest flag, and possibly its
+     * unlinking) before the Graph and role sync, `last_login_at` and the
+     * security event. An infrastructure error after that point (not a
+     * LoginFailed) keeps the session and records `provider_error`, but the
+     * target's row stays refreshed with its real, proven Microsoft data.
+     * handle() is deliberately not wrapped in a transaction: it would stay
+     * open across the Graph HTTP calls.
+     *
      * The new session never inherits the old one: invalidated, the target
      * signed in, the ID and CSRF token regenerated, and the browser cache
      * cleared. App\Pwa\PortalUserKey names the new user on this response.
