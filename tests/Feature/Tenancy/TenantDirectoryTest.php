@@ -218,6 +218,59 @@ class TenantDirectoryTest extends TestCase
         $primary = Company::factory()->forTenant(self::SHARED_TENANT, ['main.com'])->create();
         Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['second.com'], primary: false)->create();
 
-        $this->assertTrue($primary->is($this->directory()->resolveCompany(self::SHARED_TENANT, 'x@second.com')));
+        $directory = $this->directory();
+
+        $this->assertTrue($primary->is($directory->resolveCompany(self::SHARED_TENANT, 'x@main.com')));
+        // A guest from a domain no company of the tenant owns.
+        $this->assertTrue($primary->is($directory->resolveCompany(self::SHARED_TENANT, 'x@other.com')));
+    }
+
+    /**
+     * Two companies share a tenant and one is deactivated: its users must
+     * not land in the other one, even when that is the tenant's only
+     * active company.
+     */
+    public function test_resolve_company_refuses_a_user_of_an_inactive_company_on_a_shared_tenant(): void
+    {
+        Company::factory()->forTenant(self::SHARED_TENANT, ['main.com'])->create();
+        Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['second.com'], primary: false)->create();
+
+        $this->assertNull($this->directory()->resolveCompany(self::SHARED_TENANT, 'ana@Second.com'));
+    }
+
+    public function test_resolve_company_refuses_a_user_of_an_inactive_company_among_several_active_ones(): void
+    {
+        Company::factory()->forTenant(self::SHARED_TENANT, ['main.com'])->create();
+        Company::factory()->forTenant(self::SHARED_TENANT, ['second.com'], primary: false)->create();
+        Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['third.com'], primary: false)->create();
+
+        $this->assertNull($this->directory()->resolveCompany(self::SHARED_TENANT, 'ana@third.com'));
+    }
+
+    /**
+     * The deactivated company is the tenant's primary: users the primary
+     * fallback places there (no company owns their domain) must not land
+     * in the tenant's only active company either.
+     */
+    public function test_resolve_company_refuses_users_of_a_deactivated_primary(): void
+    {
+        Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['segurex.com'])->create();
+        $sdc = Company::factory()->forTenant(self::SHARED_TENANT, ['sdc.com'], primary: false)->create();
+
+        $directory = $this->directory();
+
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, 'x@gmail.com'));
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, 'x@segurex.onmicrosoft.com'));
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, null));
+        $this->assertTrue($sdc->is($directory->resolveCompany(self::SHARED_TENANT, 'ana@sdc.com')));
+    }
+
+    public function test_resolve_company_keeps_a_domain_listed_by_an_active_company_too(): void
+    {
+        // Company::domainOwner() keeps domains unique, but old rows may not.
+        $primary = Company::factory()->forTenant(self::SHARED_TENANT, ['main.com'])->create();
+        Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['main.com'], primary: false)->create();
+
+        $this->assertTrue($primary->is($this->directory()->resolveCompany(self::SHARED_TENANT, 'ana@main.com')));
     }
 }

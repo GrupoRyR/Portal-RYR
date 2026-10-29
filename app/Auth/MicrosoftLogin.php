@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PDOException;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
@@ -18,6 +19,9 @@ use Throwable;
  * only, refresh the profile and groups from Graph, and align the
  * managed roles. A successful sign-in is recorded as a security event
  * (App\Audit\SecurityLog) with the role changes it applied.
+ *
+ * A linked account that moves to a company its person already has an
+ * account in is unlinked from that person (App\Auth\LinkedAccounts).
  *
  * Guests are never linked to their home account: per Microsoft's guidance
  * (id-token-claims-reference) a guest sign-in is a separate user whose
@@ -33,6 +37,7 @@ class MicrosoftLogin
     public function __construct(
         private readonly TenantDirectory $tenants,
         private readonly GraphClient $graph,
+        private readonly LinkedAccounts $linkedAccounts,
     ) {}
 
     /**
@@ -118,6 +123,12 @@ class MicrosoftLogin
         $user = $this->findOrNew($identity);
 
         $this->applyIdentity($user, $identity, $company);
+
+        // A linked account moving to a company its person already has an
+        // account in leaves the person (one account per company); the
+        // sign-in never fails because of it.
+        $this->linkedAccounts->unlinkIfCompanyTaken($user);
+
         $user->save();
 
         return $user;
@@ -176,7 +187,8 @@ class MicrosoftLogin
 
     /**
      * Each Graph read is independent: a failure is logged and the stored
-     * value is kept, so Graph problems never block a sign-in.
+     * value is kept, so Graph problems never block a sign-in. Database
+     * errors are not Graph problems and propagate.
      */
     private function syncFromGraph(User $user, string $accessToken): void
     {
@@ -204,6 +216,12 @@ class MicrosoftLogin
     {
         try {
             $callback();
+        } catch (PDOException $e) {
+            // A database error (QueryException, DeadlockException) is not a
+            // Graph problem: on MySQL a deadlock has already rolled the
+            // surrounding transaction back, so carrying on would write
+            // outside it.
+            throw $e;
         } catch (Throwable $e) {
             Log::warning("Microsoft Graph {$what} sync failed at sign-in; keeping stored data.", [
                 'user_id' => $user->id,

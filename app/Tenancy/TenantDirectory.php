@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Models\Company;
 use App\Observers\CompanyObserver;
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Support\Collection;
 
 /**
  * Knows which Microsoft tenants may sign in and which company a signed-in
@@ -42,9 +43,12 @@ class TenantDirectory
     }
 
     /**
-     * The active company of a tenant. When several companies share the
-     * tenant, the email domain decides; otherwise the tenant's primary
-     * company is used. Returns null rather than guessing.
+     * The company of a tenant's user, only when it is active. A tenant
+     * with a single company gets it whatever the email. When several
+     * companies share the tenant, the email domain decides, otherwise the
+     * tenant's primary company, among all of the tenant's companies:
+     * active or not, so that the users of a deactivated company never land
+     * in another one. Returns null rather than guessing.
      */
     public function resolveCompany(string $tenantId, ?string $email): ?Company
     {
@@ -54,20 +58,32 @@ class TenantDirectory
             return null;
         }
 
-        $companies = Company::active()->where('tenant_id', $tenantId)->get();
+        $companies = Company::query()->where('tenant_id', $tenantId)->get();
 
-        if ($companies->count() <= 1) {
-            return $companies->first();
-        }
+        $company = $companies->count() === 1
+            ? $companies->first()
+            : self::byDomain($companies, $email) ?? self::primary($companies);
 
-        if ($email !== null) {
-            $byDomain = $companies->filter(fn (Company $company) => $company->ownsEmailDomain($email));
+        return $company?->is_active ? $company : null;
+    }
 
-            if ($byDomain->count() === 1) {
-                return $byDomain->first();
-            }
-        }
+    /**
+     * @param  Collection<int, Company>  $companies
+     */
+    private static function byDomain(Collection $companies, ?string $email): ?Company
+    {
+        $owners = $email === null
+            ? collect()
+            : $companies->filter(fn (Company $company) => $company->ownsEmailDomain($email));
 
+        return $owners->count() === 1 ? $owners->first() : null;
+    }
+
+    /**
+     * @param  Collection<int, Company>  $companies
+     */
+    private static function primary(Collection $companies): ?Company
+    {
         $primaries = $companies->where('is_primary_for_tenant', true);
 
         return $primaries->count() === 1 ? $primaries->first() : null;

@@ -90,7 +90,8 @@ final class SecurityLog
     }
 
     /**
-     * Roles the system changed outside a sign-in (`portal:sync-portal-admins`).
+     * Roles the system changed outside a sign-in (`portal:sync-portal-admins`,
+     * or the refresh of an account being linked).
      * No causer: Auditoría shows «Sistema»; the user is the subject.
      *
      * @param  array{added: list<string>, removed: list<string>}  $roleChanges

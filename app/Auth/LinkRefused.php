@@ -20,8 +20,14 @@ class LinkRefused extends RuntimeException
     /** An account without a Microsoft identity (tenant and object ID). */
     public const NOT_MICROSOFT = 'not_microsoft';
 
-    /** A B2B guest, or an account not known to be a home account yet. */
+    /** A B2B guest of its tenant. */
     public const GUEST_ACCOUNT = 'guest_account';
+
+    /**
+     * Not known yet whether it is a guest: no Microsoft sign-in or
+     * confirmation since the flag was added.
+     */
+    public const GUEST_UNKNOWN = 'guest_unknown';
 
     /** An account whose company is inactive, or that has none. */
     public const COMPANY_INACTIVE = 'company_inactive';
@@ -43,6 +49,7 @@ class LinkRefused extends RuntimeException
         self::EMERGENCY_ACCOUNT => 'Las cuentas de emergencia no se pueden vincular.',
         self::NOT_MICROSOFT => 'Solo se pueden vincular cuentas de Microsoft.',
         self::GUEST_ACCOUNT => 'Las cuentas de invitado no se pueden vincular. Usa la cuenta propia de cada empresa.',
+        self::GUEST_UNKNOWN => 'Confirma de nuevo tu cuenta y vuelve a intentarlo.',
         self::COMPANY_INACTIVE => 'Una de las empresas no tiene acceso al portal.',
         self::SAME_COMPANY => 'Las dos cuentas son de la misma empresa.',
         self::COMPANY_ALREADY_LINKED => 'Ya tienes una cuenta vinculada de esa empresa.',

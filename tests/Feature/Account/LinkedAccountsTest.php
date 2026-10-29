@@ -9,6 +9,7 @@ use App\Auth\LinkRefused;
 use App\Models\Company;
 use App\Models\Person;
 use App\Models\User;
+use App\Notifications\LinkedAccountNotifier;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
@@ -213,10 +214,12 @@ class LinkedAccountsTest extends TestCase
 
     public function test_an_account_not_known_to_be_a_home_account_is_refused(): void
     {
-        // No sign-in since the guest flag was added: not known, so refused.
+        // No sign-in since the guest flag was added: not known, so refused
+        // until the account confirms with Microsoft again.
         $unknown = $this->account($this->segurex, ['is_guest' => null]);
 
-        $this->assertRefused(LinkRefused::GUEST_ACCOUNT, $unknown, $this->account($this->derivados));
+        $this->assertRefused(LinkRefused::GUEST_UNKNOWN, $unknown, $this->account($this->derivados));
+        $this->assertSame('Confirma de nuevo tu cuenta y vuelve a intentarlo.', (new LinkRefused(LinkRefused::GUEST_UNKNOWN))->getMessage());
     }
 
     public function test_an_inactive_company_is_refused_on_either_side(): void
@@ -340,7 +343,7 @@ class LinkedAccountsTest extends TestCase
 
         $this->linkedAccounts()->unlink($other, LinkedAccounts::COMPANY_CHANGED);
 
-        $entry = Activity::query()->where('log_name', SecurityLog::LOG)->sole();
+        $entry = Activity::query()->where('log_name', SecurityLog::LOG)->where('subject_id', $other->id)->sole();
         $this->assertSame(SecurityLog::ACCOUNT_UNLINKED, $entry->event);
         $this->assertNull($entry->causer, 'An automatic unlink has no causer.');
         $this->assertTrue($entry->subject->is($other));
@@ -351,6 +354,62 @@ class LinkedAccountsTest extends TestCase
         $row = $this->app->make(AuditPresenter::class)->activity($entry);
         $this->assertSame(AuditPresenter::SYSTEM, $row->who);
         $this->assertSame('Desvinculó la cuenta de Soluciones y Derivados (edward@derivados.com) · por cambio de empresa', $row->what);
+    }
+
+    public function test_dissolving_a_person_records_its_last_account_as_unlinked_too(): void
+    {
+        $current = $this->account($this->segurex);
+        $other = $this->account($this->derivados);
+        $this->personWith($current, $other);
+
+        $this->linkedAccounts()->unlink($other, LinkedAccounts::USER, $current);
+
+        $entries = Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->orderBy('id')->get();
+        $this->assertCount(2, $entries);
+        $this->assertEqualsCanonicalizing([$other->id, $current->id], $entries->pluck('subject_id')->all());
+
+        foreach ($entries as $entry) {
+            $this->assertSame(LinkedAccounts::USER, $entry->properties['reason']);
+            $this->assertTrue($entry->causer->is($current));
+        }
+    }
+
+    public function test_unlinking_one_of_three_accounts_records_only_that_one(): void
+    {
+        $current = $this->account($this->segurex);
+        $other = $this->account($this->derivados);
+        $this->personWith($current, $other, $this->account(Company::factory()->create()));
+
+        $this->linkedAccounts()->unlink($other, LinkedAccounts::ADMIN);
+
+        $this->assertSame([$other->id], Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->pluck('subject_id')->all());
+    }
+
+    /**
+     * The rules read the person's accounts, but a concurrent link may
+     * commit between that read and the write. The unique index stops the
+     * second account in that company, and the link is refused as such.
+     */
+    public function test_a_link_the_rules_missed_is_stopped_by_the_unique_index(): void
+    {
+        $current = $this->account($this->segurex);
+        $this->personWith($current, $this->account($this->derivados));
+        $other = $this->account($this->derivados);
+        $blind = new class($this->app->make(LinkedAccountNotifier::class)) extends LinkedAccounts
+        {
+            public function check(User $current, User $other): void {}
+        };
+        $users = $this->personIds();
+
+        try {
+            $blind->link($current, $other);
+            $this->fail('The unique index should have stopped the link.');
+        } catch (LinkRefused $e) {
+            $this->assertSame(LinkRefused::COMPANY_ALREADY_LINKED, $e->reason);
+        }
+
+        $this->assertSame($users, $this->personIds());
+        $this->assertSame(0, Activity::query()->where('event', SecurityLog::ACCOUNT_LINKED)->count());
     }
 
     public function test_unlinking_an_account_without_a_person_does_nothing(): void
