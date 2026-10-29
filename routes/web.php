@@ -26,6 +26,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\Event;
 use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -171,6 +172,20 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             ->whereNumber('announcement')
             ->can('update', 'announcement')
             ->name('announcements.edit');
+
+        // App\Policies\EventPolicy: the same people as announcements.
+        // App\Livewire\Admin\EventList and EventEditor re-authorize every
+        // action. {event} is bound in AppServiceProvider (Route::model).
+        Route::view('/eventos', 'admin.events.index')
+            ->can('viewAny', Event::class)
+            ->name('events.index');
+        Route::view('/eventos/nuevo', 'admin.events.edit', ['event' => null])
+            ->can('create', Event::class)
+            ->name('events.create');
+        Route::view('/eventos/{event}', 'admin.events.edit')
+            ->whereNumber('event')
+            ->can('update', 'event')
+            ->name('events.edit');
 
         // App\Policies\AppPolicy: super_admin and portal_admin.
         Route::get('/aplicaciones', [AppController::class, 'index'])

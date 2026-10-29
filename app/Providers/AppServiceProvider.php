@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -65,6 +66,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define(AdminSections::INTEGRATIONS, [AdminSections::class, 'manageIntegrations']);
         Gate::define(AdminSections::SETTINGS, [AdminSections::class, 'manageSettings']);
         Gate::policy(Role::class, RolePolicy::class);
+
+        // {event} of the admin pages, which are plain views (Route::view):
+        // the `can` middleware needs the model, and a missing one is a 404.
+        Route::model('event', \App\Models\Event::class);
 
         // API for external systems: each token has its own budget; calls
         // that reach the limiter without a token are limited per address.
