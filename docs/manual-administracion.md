@@ -128,10 +128,13 @@ Se muestran en el inicio entre su fecha de inicio y de fin: en el computador, en
 
 - **Contenido:** título, texto (solo texto, hasta 280 caracteres; los saltos de línea se respetan) e imagen opcional (PNG, JPG o WebP de hasta 2 MB; se recorta a 16:9).
 - **Publicación:** **Para quién** (todas las empresas o algunas), **Desde** y **Hasta** (sin fecha de fin, se muestra hasta que lo retire) y **Fijar arriba** (se muestra primero y destacado con el color de la empresa).
+- **Lectura obligatoria:** cada persona que ve el anuncio debe pulsar **Confirmar lectura** (en el inicio y en la página de anuncios); después ve «Leído el …». Se puede marcar al crear o al editar, y el cambio queda en Auditoría.
 - **Vista previa:** cómo se verá en escritorio y en celular.
 - **Retirar** lo quita del inicio sin borrarlo; **Volver a publicar** lo devuelve.
 
 Un editor de anuncios solo publica para su propia empresa. Los anuncios no se borran.
+
+**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y personas lo leyeron» y, en **Quién falta**, los nombres de quienes no lo han confirmado (hasta 200, en orden alfabético). Solo la ve quien puede editar ese anuncio. Y cuenta a las personas de las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
 
 ### 2.5 Roles
 
