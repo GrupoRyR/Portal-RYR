@@ -69,6 +69,9 @@
                             <button type="button" data-search-open hidden class="hidden min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong px-2 text-xs font-semibold text-fg-muted hover:bg-subtle md:inline-flex">
                                 <span class="sr-only">Buscar en todo el portal</span><kbd class="font-sans" data-search-shortcut>Ctrl K</kbd>
                             </button>
+                        @else
+                            {{-- A server search (?q=) has no dialog: «/» focuses this field (home.js). --}}
+                            <kbd class="hidden rounded-md border border-line-strong bg-surface px-2 py-0.5 font-sans text-xs text-fg-muted md:inline" title="Pulsa / para buscar">/</kbd>
                         @endif
                     </div>
                 </form>

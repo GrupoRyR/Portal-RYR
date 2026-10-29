@@ -3,7 +3,6 @@
 namespace App\Search;
 
 use App\Catalog\AppSearch;
-use App\Http\Controllers\AnnouncementController;
 use App\Models\Announcement;
 use App\View\Home\AppCard;
 use App\View\Home\HolidayDay;
@@ -61,8 +60,7 @@ final readonly class HomeSearchIndex
 
         $notices = [];
         foreach ($announcements as $announcement) {
-            $position = count($notices);
-            if ($position >= self::ANNOUNCEMENT_LIMIT) {
+            if (count($notices) >= self::ANNOUNCEMENT_LIMIT) {
                 break;
             }
 
@@ -71,7 +69,9 @@ final readonly class HomeSearchIndex
                 'title' => (string) $announcement->title,
                 'detail' => $excerpt,
                 'search' => AppSearch::normalize($announcement->title.' '.$excerpt),
-                'href' => self::announcementHref($announcement->id, $position),
+                // Finds the page of /anuncios when followed, so a saved copy
+                // of this page never points at a page that has moved on.
+                'href' => route('announcements.show', $announcement->id),
             ];
         }
 
@@ -91,7 +91,8 @@ final readonly class HomeSearchIndex
 
     /**
      * For the page's <script type="application/json">: `<`, `>`, `&` and
-     * quotes are escaped, so no text can close the script element.
+     * quotes are escaped, so no text can close the script element. A string
+     * that is not valid UTF-8 gets U+FFFD instead of failing the home page.
      */
     public function toJson(): string
     {
@@ -99,16 +100,6 @@ final readonly class HomeSearchIndex
             'apps' => $this->apps,
             'announcements' => $this->announcements,
             'dates' => $this->dates,
-        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * The announcement on its page of /anuncios (same order, PER_PAGE each).
-     */
-    private static function announcementHref(int $id, int $position): string
-    {
-        $page = intdiv($position, AnnouncementController::PER_PAGE) + 1;
-
-        return route('announcements.index', $page > 1 ? ['page' => $page] : []).'#a-'.$id;
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 }

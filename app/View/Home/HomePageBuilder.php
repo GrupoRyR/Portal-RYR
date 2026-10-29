@@ -92,7 +92,8 @@ final class HomePageBuilder
         $company = $user->company;
         $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
         $upcoming = $this->upcomingHolidays($today);
-        $announcements = $this->announcements($user);
+        // A server search shows the cards only; the index wants more.
+        $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
         return new HomePage(
             salutation: $greeting->salutation,
@@ -193,7 +194,7 @@ final class HomePageBuilder
      *
      * @return Collection<int, Announcement>
      */
-    private function announcements(User $user): Collection
+    private function announcements(User $user, int $limit): Collection
     {
         if ($user->company_id === null) {
             return new Collection;
@@ -202,7 +203,7 @@ final class HomePageBuilder
         return Announcement::query()
             ->visibleTo($user)
             ->ordered()
-            ->limit(max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT))
+            ->limit($limit)
             ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned']);
     }
 

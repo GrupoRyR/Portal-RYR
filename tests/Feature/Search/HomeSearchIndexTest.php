@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Search;
 
-use App\Http\Controllers\AnnouncementController;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppAccessRule;
@@ -71,8 +70,8 @@ class HomeSearchIndexTest extends TestCase
         $announcements = $this->index()['announcements'];
 
         $this->assertSame(['Para todos', 'Solo Segurex'], array_column($announcements, 'title'));
-        $this->assertSame(route('announcements.index').'#a-'.$pinned->id, $announcements[0]['href']);
-        $this->assertSame(route('announcements.index').'#a-'.$own->id, $announcements[1]['href']);
+        $this->assertSame(route('announcements.show', $pinned), $announcements[0]['href']);
+        $this->assertSame(route('announcements.show', $own), $announcements[1]['href']);
     }
 
     public function test_announcements_carry_a_short_excerpt_and_never_their_body(): void
@@ -91,7 +90,7 @@ class HomeSearchIndexTest extends TestCase
         $this->assertStringNotContainsString('COLA-PRIVADA', $this->rawIndex($response));
     }
 
-    public function test_the_index_caps_the_announcements_and_links_each_to_its_page(): void
+    public function test_the_index_caps_the_announcements_and_links_each_to_its_own_link(): void
     {
         Announcement::factory()->count(HomeSearchIndex::ANNOUNCEMENT_LIMIT + 5)->sequence(fn ($sequence) => [
             'title' => 'Anuncio '.($sequence->index + 1),
@@ -103,9 +102,11 @@ class HomeSearchIndexTest extends TestCase
         $this->assertCount(HomeSearchIndex::ANNOUNCEMENT_LIMIT, $announcements);
         $this->assertSame('Anuncio 1', $announcements[0]['title']);
 
-        $firstOfPageTwo = $announcements[AnnouncementController::PER_PAGE];
+        // The link finds the page when it is followed (AnnouncementLinkTest),
+        // so a saved copy of the home page never points at a stale page.
+        $firstOfPageTwo = $announcements[Announcement::PER_PAGE];
         $id = Announcement::query()->where('title', $firstOfPageTwo['title'])->value('id');
-        $this->assertSame(route('announcements.index', ['page' => 2]).'#a-'.$id, $firstOfPageTwo['href']);
+        $this->assertSame(route('announcements.show', $id), $firstOfPageTwo['href']);
     }
 
     public function test_the_index_lists_the_holidays_of_the_next_twelve_months(): void
@@ -123,6 +124,79 @@ class HomeSearchIndexTest extends TestCase
 
         $this->assertSame('2027-10-18', end($dates)['date']);
         $this->assertCount(19, $dates);
+    }
+
+    public function test_viewers_without_a_company_get_no_announcements_like_the_announcements_page(): void
+    {
+        Announcement::factory()->create(['title' => 'Para todos']);
+        $emergency = User::factory()->emergency()->create();
+        $companyless = User::factory()->create(['company_id' => null]);
+
+        foreach ([$emergency, $companyless] as $viewer) {
+            $this->actingAs($viewer)->get(route('announcements.index'))
+                ->assertOk()
+                ->assertSeeText('No hay anuncios por ahora.');
+
+            $index = $this->index($this->actingAs($viewer)->get('/')->assertOk());
+
+            $this->assertSame([], $index['announcements']);
+            $this->assertSame([], $index['apps']);
+        }
+    }
+
+    /**
+     * Today /anuncios lists announcements to the users of a deactivated
+     * company (Announcement::scopeVisibleTo does not look at is_active),
+     * while the catalog shows them no apps (AppCatalog::mayUseCatalog). The
+     * index follows both pages: never more than they already show.
+     */
+    public function test_a_deactivated_companys_viewer_gets_what_the_announcements_page_shows(): void
+    {
+        $inactive = Company::factory()->inactive()->create();
+        $viewer = User::factory()->microsoft($inactive)->create();
+        $app = App::factory()->forCompanies($inactive)->create(['name' => 'App inactiva']);
+        AppAccessRule::forCompany($app, $inactive);
+        Announcement::factory()->create(['title' => 'Para todos', 'starts_at' => now()->subHour()]);
+        Announcement::factory()->forCompanies($inactive)->create(['title' => 'Solo inactiva', 'starts_at' => now()->subDay()]);
+        Announcement::factory()->forCompanies($this->segurex)->create(['title' => 'Solo Segurex']);
+
+        $this->actingAs($viewer)->get(route('announcements.index'))
+            ->assertOk()
+            ->assertSeeTextInOrder(['Para todos', 'Solo inactiva'])
+            ->assertDontSeeText('Solo Segurex');
+
+        $index = $this->index($this->actingAs($viewer)->get('/')->assertOk());
+
+        $this->assertSame(['Para todos', 'Solo inactiva'], array_column($index['announcements'], 'title'));
+        $this->assertSame([], $index['apps']);
+    }
+
+    public function test_an_excerpt_cannot_break_out_of_the_index_script(): void
+    {
+        $body = '</script><img src=x onerror="alert(1)"> & \'comillas\'';
+        Announcement::factory()->create(['title' => 'Aviso', 'body' => $body]);
+
+        $response = $this->home();
+        $raw = $this->rawIndex($response);
+
+        foreach (['<', '>', '&', "'", 'onerror="'] as $character) {
+            $this->assertStringNotContainsString($character, $raw);
+        }
+        $this->assertStringContainsString('onerror='.'\u0022alert(1)'.'\u0022', $raw);
+        $this->assertSame($body, $this->index($response)['announcements'][0]['detail']);
+    }
+
+    public function test_one_invalid_utf8_string_does_not_break_the_index(): void
+    {
+        $index = new HomeSearchIndex(
+            apps: [['title' => "Cartera \xB1", 'detail' => 'Finanzas', 'search' => 'cartera', 'href' => '/apps/cartera', 'newTab' => false]],
+            announcements: [],
+            dates: [],
+        );
+
+        $decoded = json_decode($index->toJson(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame("Cartera \u{FFFD}", $decoded['apps'][0]['title']);
     }
 
     public function test_the_index_holds_no_people(): void
@@ -179,6 +253,31 @@ class HomeSearchIndexTest extends TestCase
             ->assertDontSee('id="search-index"', false);
 
         $this->home()->assertSee('id="search-index"', false);
+    }
+
+    public function test_the_server_search_page_keeps_the_slash_hint(): void
+    {
+        $this->openableApp(['name' => 'Cámaras']);
+        $hint = 'title="Pulsa / para buscar"';
+
+        $this->home('?q=camaras')->assertSee($hint, false)->assertDontSee('data-search-open', false);
+        $this->home()->assertDontSee($hint, false)->assertSee('data-search-open', false);
+    }
+
+    public function test_the_server_search_page_fetches_only_the_announcements_it_shows(): void
+    {
+        $this->openableApp(['name' => 'Cámaras']);
+        Announcement::factory()->count(5)->create();
+        $sql = [];
+        DB::listen(function ($query) use (&$sql) {
+            $sql[] = $query->sql;
+        });
+
+        $this->home('?q=camaras');
+
+        $announcementQueries = array_values(array_filter($sql, fn (string $query) => str_contains($query, 'from "announcements"')));
+        $this->assertCount(1, $announcementQueries);
+        $this->assertStringContainsString('limit 3', $announcementQueries[0]);
     }
 
     public function test_the_index_adds_no_query(): void
