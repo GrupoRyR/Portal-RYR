@@ -67,6 +67,17 @@ final class AuditPresenter
         'provider_error' => 'error de Microsoft',
     ];
 
+    /** Reasons of App\Auth\LinkRefused; the sign-in ones come from REJECTION_REASONS. */
+    private const LINK_REFUSAL_REASONS = [
+        'same_account' => 'la misma cuenta',
+        'not_microsoft' => 'sin cuenta de Microsoft',
+        'guest_account' => 'cuenta de invitado',
+        'company_inactive' => 'empresa sin acceso',
+        'same_company' => 'misma empresa',
+        'company_already_linked' => 'empresa ya vinculada',
+        'different_people' => 'cuenta de otra persona',
+    ];
+
     private const UNLINK_REASONS = [
         'company_changed' => 'por cambio de empresa',
         'admin' => 'por un administrador',
@@ -230,6 +241,9 @@ final class AuditPresenter
             SecurityLog::REAUTH_FAILED => 'Otra cuenta de Microsoft intentó confirmar su identidad, o no fue un inicio reciente',
             SecurityLog::REAUTH_UNAVAILABLE => 'No se pudo comprobar su identidad: falta configurar auth_time en Microsoft',
             SecurityLog::ACCOUNT_LINKED => 'Vinculó su cuenta de '.$this->account($properties->get('linked_company'), $properties->get('linked_email')),
+            SecurityLog::ACCOUNT_LINK_REFUSED => 'Vinculación de cuentas rechazada · '
+                .(self::LINK_REFUSAL_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
+                .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             SecurityLog::ACCOUNT_UNLINKED => 'Desvinculó la cuenta de '.$this->account($properties->get('company'), $properties->get('email'))
                 .' · '.(self::UNLINK_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason')),
             default => (string) $activity->description,

@@ -214,6 +214,23 @@ class RecentMicrosoftLoginTest extends TestCase
     }
 
     /**
+     * Accounts that signed in before the guest flag existed learn it from
+     * their next confirmation, so they can link accounts right away.
+     */
+    public function test_a_matching_callback_records_whether_the_account_is_a_guest(): void
+    {
+        $this->assertNull($this->user->is_guest);
+        $this->mockCallback(self::TENANT, self::OID);
+
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::PENDING_KEY => ['return' => '/_pruebas/sensible', 'user' => $this->user->id]])
+            ->get('/auth/microsoft/callback?code=abc&state=xyz')
+            ->assertRedirect('/_pruebas/sensible');
+
+        $this->assertFalse($this->user->fresh()->is_guest);
+    }
+
+    /**
      * @return array<string, array{int|false}>
      */
     public static function staleAuthentications(): array

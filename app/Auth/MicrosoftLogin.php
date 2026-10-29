@@ -62,6 +62,40 @@ class MicrosoftLogin
      */
     public function admit(MicrosoftIdentity $identity): array
     {
+        $company = $this->companyFor($identity);
+
+        $user = DB::transaction(fn () => $this->upsertUser($identity, $company));
+
+        $this->syncFromGraph($user, $identity->accessToken);
+
+        return ['user' => $user, 'roleChanges' => $this->syncRoles($user, $this->ownsItsEmail($identity))];
+    }
+
+    /**
+     * The account {@see admit()} would leave for this identity, without
+     * writing anything: the stored one, or a new one, with the company,
+     * email and guest flag admit() would give it. Runs every check admit()
+     * runs, so a flow can refuse before admit() writes. Never save it.
+     *
+     * @throws LoginFailed
+     */
+    public function preview(MicrosoftIdentity $identity): User
+    {
+        $company = $this->companyFor($identity);
+        $user = $this->findOrNew($identity);
+
+        $this->applyIdentity($user, $identity, $company);
+
+        return $user->setRelation('company', $company);
+    }
+
+    /**
+     * Gate the tenant and pick the signing tenant's company.
+     *
+     * @throws LoginFailed
+     */
+    private function companyFor(MicrosoftIdentity $identity): Company
+    {
         if (! $this->tenants->isAllowed($identity->tenantId)) {
             throw LoginFailed::tenantNotAllowed();
         }
@@ -76,14 +110,23 @@ class MicrosoftLogin
             throw LoginFailed::tenantNotAllowed('no_company');
         }
 
-        $user = DB::transaction(fn () => $this->upsertUser($identity, $company));
-
-        $this->syncFromGraph($user, $identity->accessToken);
-
-        return ['user' => $user, 'roleChanges' => $this->syncRoles($user, $this->ownsItsEmail($identity))];
+        return $company;
     }
 
     private function upsertUser(MicrosoftIdentity $identity, Company $company): User
+    {
+        $user = $this->findOrNew($identity);
+
+        $this->applyIdentity($user, $identity, $company);
+        $user->save();
+
+        return $user;
+    }
+
+    /**
+     * @throws LoginFailed
+     */
+    private function findOrNew(MicrosoftIdentity $identity): User
     {
         $user = User::query()
             ->where('tenant_id', $identity->tenantId)
@@ -101,13 +144,15 @@ class MicrosoftLogin
             throw LoginFailed::retry('emergency_account');
         }
 
+        return $user;
+    }
+
+    private function applyIdentity(User $user, MicrosoftIdentity $identity, Company $company): void
+    {
         $user->email = $identity->email;
         $user->microsoft_login_hint = $identity->loginHint;
         $user->is_guest = ! $identity->isHomeSignIn();
         $user->company_id = $company->id;
-        $user->save();
-
-        return $user;
     }
 
     /**

@@ -34,6 +34,8 @@ final class SecurityLog
 
     public const ACCOUNT_LINKED = 'account.linked';
 
+    public const ACCOUNT_LINK_REFUSED = 'account.link_refused';
+
     public const ACCOUNT_UNLINKED = 'account.unlinked';
 
     /**
@@ -126,6 +128,21 @@ final class SecurityLog
             'linked_email' => $other->email,
             'person_id' => $personId,
         ], $other);
+    }
+
+    /**
+     * The signed-in account tried to link another one and nothing was
+     * linked. The tenant ID is the other account's, when the token got
+     * that far.
+     *
+     * @param  string  $reason  A App\Auth\LinkRefused or App\Auth\LoginFailed reason code.
+     */
+    public static function accountLinkRefused(User $current, string $reason, ?string $tenantId): void
+    {
+        self::write(self::ACCOUNT_LINK_REFUSED, $current, [
+            'reason' => $reason,
+            'tenant_id' => $tenantId === null ? null : strtolower($tenantId),
+        ]);
     }
 
     /**

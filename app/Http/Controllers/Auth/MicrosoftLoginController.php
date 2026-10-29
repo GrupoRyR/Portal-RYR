@@ -4,17 +4,21 @@ namespace App\Http\Controllers\Auth;
 
 use App\Audit\SecurityLog;
 use App\Auth\AccountIntent;
+use App\Auth\LinkedAccounts;
+use App\Auth\LinkRefused;
 use App\Auth\LoginFailed;
 use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
 use App\Auth\RecentMicrosoftLogin;
 use App\Http\Controllers\Controller;
 use App\Microsoft\ConsentChecker;
+use App\Models\Company;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
@@ -66,8 +70,13 @@ class MicrosoftLoginController extends Controller
      * In this order: admin consent, an error from Microsoft, an account
      * intent, a re-authentication, a sign-in. Each step ends the callback.
      */
-    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent, AccountIntent $intents): RedirectResponse|View|Response
-    {
+    public function callback(
+        Request $request,
+        MicrosoftLogin $login,
+        RecentMicrosoftLogin $recent,
+        AccountIntent $intents,
+        LinkedAccounts $linkedAccounts,
+    ): RedirectResponse|View|Response {
         // A tenant administrator coming back from the admin-consent link.
         // Nothing is trusted from these parameters: the wizard verifies the
         // consent itself with ConsentChecker.
@@ -85,7 +94,7 @@ class MicrosoftLoginController extends Controller
         // account intents, so it is not behind the guest middleware.
         if ($request->user() instanceof User) {
             return $intents->pending()
-                ? $this->continueIntent($request, $request->user(), $intents)
+                ? $this->continueIntent($request, $request->user(), $intents, $login, $linkedAccounts)
                 : $this->confirmed($request, $request->user(), $recent);
         }
 
@@ -165,15 +174,69 @@ class MicrosoftLoginController extends Controller
      * The callback of an account intent (App\Auth\AccountIntent) ends here,
      * whatever happens: it is never a re-authentication or a sign-in.
      */
-    private function continueIntent(Request $request, User $user, AccountIntent $intents): RedirectResponse
-    {
+    private function continueIntent(
+        Request $request,
+        User $user,
+        AccountIntent $intents,
+        MicrosoftLogin $login,
+        LinkedAccounts $linkedAccounts,
+    ): RedirectResponse {
         $intent = $intents->pull($request, $user);
 
-        // One handler per flow type (linking, switching company) goes here;
-        // without one, or when the intent failed its checks, it is dropped.
+        // One handler per flow type (linking; switching company comes
+        // next); without one, or when the intent failed its checks, it is
+        // dropped.
         return match ($intent['type'] ?? null) {
+            AccountIntent::LINK => $this->linkAccount($user, $login, $linkedAccounts),
             default => $this->unusableIntent($user),
         };
+    }
+
+    /**
+     * Microsoft answered with the account the person chose to link. Every
+     * check runs before any write; then admit() and link() share one
+     * transaction, so a refusal leaves no account, person or link behind.
+     * The other account is proven, never signed in: the session, the
+     * recent confirmation and its sign-in record stay as they were.
+     */
+    private function linkAccount(User $user, MicrosoftLogin $login, LinkedAccounts $linkedAccounts): RedirectResponse
+    {
+        $identity = null;
+
+        try {
+            $driver = Socialite::driver('microsoft');
+            $identity = MicrosoftIdentity::fromSocialite($driver->user(), $driver->getClaims());
+
+            $linkedAccounts->check($user, $login->preview($identity));
+
+            $other = DB::transaction(function () use ($user, $identity, $login, $linkedAccounts) {
+                $other = $login->admit($identity)['user'];
+                $linkedAccounts->link($user, $other);
+
+                return $other;
+            });
+        } catch (LinkRefused $e) {
+            return $this->linkRefused($user, $e, $identity);
+        } catch (LoginFailed $e) {
+            return $this->linkRefused($user, new LinkRefused($e->reason), $identity);
+        } catch (Throwable $e) {
+            Log::warning('Linking a Microsoft account failed.', [
+                'user_id' => $user->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->linkRefused($user, new LinkRefused('provider_error'), $identity);
+        }
+
+        return redirect('/')->with('status', 'Vinculaste tu cuenta de '.Company::displayName($other->company).'.');
+    }
+
+    private function linkRefused(User $user, LinkRefused $refusal, ?MicrosoftIdentity $identity): RedirectResponse
+    {
+        SecurityLog::accountLinkRefused($user, $refusal->reason, $identity?->tenantId);
+
+        return redirect('/')->with('status', $refusal->getMessage());
     }
 
     private function unusableIntent(User $user): RedirectResponse
@@ -190,6 +253,8 @@ class MicrosoftLoginController extends Controller
         if ($pending === null) {
             return redirect('/');
         }
+
+        $identity = null;
 
         try {
             $driver = Socialite::driver('microsoft');
@@ -228,6 +293,12 @@ class MicrosoftLoginController extends Controller
 
         $request->session()->regenerate();
         $recent->confirm($user);
+
+        // The same account just answered: refresh whether it is a B2B guest
+        // (linked accounts refuse guests and accounts not known yet).
+        if ($identity !== null) {
+            $user->forceFill(['is_guest' => ! $identity->isHomeSignIn()])->save();
+        }
 
         return redirect($pending['return']);
     }

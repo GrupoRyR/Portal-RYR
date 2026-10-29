@@ -5,6 +5,7 @@ namespace App\Auth;
 use App\Audit\SecurityLog;
 use App\Models\Person;
 use App\Models\User;
+use App\Notifications\LinkedAccountNotifier;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -27,6 +28,8 @@ class LinkedAccounts
     public const ADMIN = 'admin';
 
     public const USER = 'user';
+
+    public function __construct(private readonly LinkedAccountNotifier $notifier) {}
 
     /**
      * Every linking rule, without writing anything. The other account may
@@ -65,7 +68,8 @@ class LinkedAccounts
     /**
      * Links two saved accounts under one person: the person of either
      * account, or a new one. One transaction with the rows locked, where
-     * every rule is checked again.
+     * every rule is checked again. Every account of the person is told by
+     * mail once it commits.
      *
      * @throws LinkRefused
      */
@@ -102,6 +106,7 @@ class LinkedAccounts
             }
 
             SecurityLog::accountLinked($current, $other, $person->id);
+            $this->notifier->notify($person, $current, $other);
 
             return $person;
         });

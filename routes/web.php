@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\LinkedAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\AuditController;
@@ -64,6 +65,16 @@ Route::middleware('auth')->group(function () {
         ->name('auth.microsoft.confirm');
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
+
+    // Linking another company's account (App\Auth\LinkedAccounts): a fresh
+    // Microsoft confirmation first, then a sign-in to the other account.
+    // microsoft.recent only guards GET; the POST checks it itself.
+    Route::get('/cuenta/vincular', [LinkedAccountController::class, 'create'])
+        ->middleware('microsoft.recent')
+        ->name('account.link');
+    Route::post('/cuenta/vincular', [LinkedAccountController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('account.link.start');
 
     // Every announcement the user may see (the home shows the latest ones).
     Route::get('/anuncios', [AnnouncementController::class, 'index'])->name('announcements.index');
