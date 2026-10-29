@@ -154,7 +154,7 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
     - Sin personas ni otras cuentas en el índice. Máximo 6 resultados por grupo.
   - Pendiente: Lighthouse; probar con lector de pantalla real (solo se revisó el marcado ARIA).
 - 2026-10-29: revisión independiente del WU4, ocho arreglos (ruta: delegada, un escritor). Sin `push` ni PR.
-  - RED: 13 de 23 en `HomeSearchIndexTest` y la nueva `tests/Feature/Announcements/AnnouncementLinkTest.php` (4 fallas: `?q=` sin la pista `/`, `?q=` pedía 50 anuncios, y dos de prueba mal escrita que se corrigieron; 10 errores: ruta `announcements.show` y `Announcement::PER_PAGE` inexistentes, «Malformed UTF-8» en `toJson()`).
+  - RED: 14 de 23 en `HomeSearchIndexTest` y la nueva `tests/Feature/Announcements/AnnouncementLinkTest.php` (4 fallas: `?q=` sin la pista `/`, `?q=` pedía 50 anuncios, y dos de prueba mal escrita que se corrigieron; 10 errores: ruta `announcements.show` y `Announcement::PER_PAGE` inexistentes, «Malformed UTF-8» en `toJson()`).
   - `255a877` `fix(search)`:
     - `GET /anuncios/{announcement}` (`announcements.show`, mismo grupo `auth`, `throttle:60,1`): redirige a `/anuncios?page=N#a-{id}` calculando la página al abrirlo (misma visibilidad `visibleTo`, mismo orden `ordered()` y `Announcement::PER_PAGE`); 404 si quien lo abre no lo ve (otra empresa, retirado, programado, vencido, sin empresa) o si no existe. El índice enlaza ahí, así la copia guardada nunca apunta a una página vieja.
     - `Announcement::PER_PAGE` reemplaza a `AnnouncementController::PER_PAGE` (controlador, índice y redirección).
