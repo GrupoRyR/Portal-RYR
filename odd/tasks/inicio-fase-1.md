@@ -124,7 +124,18 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
     - La tarjeta de anuncios se ve solo con la columna al lado (desde 1024 px, antes desde 1280 px); en tableta y celular sigue el banner con el primero. Mismas reglas de visibilidad (`Announcement::scopeVisibleTo`).
     - «Secciones» lista Inicio, Favoritos, Recientes (si hay), Aplicaciones, Próximas fechas y Microsoft 365; no lista Anuncios porque en el celular el banner ya está arriba. La lista sale de `HomePage::sections()`, con las mismas condiciones de la vista.
     - Encabezado sin cambios de marca: buscador, selector de cuenta y menú de cuenta como estaban; «Secciones» comparte fila con el buscador en el celular.
-  - Pendiente: la prueba `test_the_favorite_star_works_without_javascript` (anterior a WU3) falló una vez por texto aleatorio de Faker sin «a»; pasó en 6 de 6 reintentos. Lighthouse: pendiente.
+  - Pendiente: Lighthouse.
+- 2026-10-29: revisión independiente del WU3, cinco arreglos (ruta: delegada, un escritor). Sin `push` ni PR.
+  - RED: 5 de 20 en `HomeMyDayTest`, `HomeUpcomingHolidaysTest` y `HolidayDayTest` (3 fallas: menú sin apps, menú durante la búsqueda, atributos `data-holiday-*`; 2 errores: «Year 10000 is outside…» y `dayName()` inexistente).
+  - `af774ee` `fix(home)`: a fines de 9999 el horizonte de 60 días cae en el año 10000 y `between()` lanzaba antes del `try`; las dos llamadas quedan dentro y el inicio sale sin «Próximas fechas».
+  - `0a50a8f` `test(home)`: `test_the_favorite_star_works_without_javascript` usa `'name' => 'Cartera'`, así `?q=a` siempre coincide (antes fallaba si Faker no ponía «a»). Sin RED posible: era intermitente.
+  - `56409b1` `fix(home)`:
+    - Copia guardada (el service worker la sirve hasta 24 h sin red o con red lenta): el aviso del festivo y cada fila de «Próximas fechas» llevan `data-holiday-date`; `home.js`, solo con `data-pwa-source="cache"`, calcula hoy en `America/Bogota` y oculta el aviso y las filas ya pasadas, quita el «Hoy» de un día que ya no es hoy (`data-holiday-today`, `data-holiday-weekday` con `HolidayDay::dayName()`) y oculta «Próximas fechas» si se queda vacía. Sin arnés de pruebas JS en el proyecto: se probó en Playwright con la página marcada como copia y el reloj en el 3 de noviembre (aviso y fila del 2 de noviembre ocultos, el resto visible).
+    - «Secciones» ya no sale sin apps: la página es corta y el menú le quitaba espacio al nombre de la empresa en la fila del logo. `HomePage::sections()` devuelve `[]` en ese caso.
+    - Durante una búsqueda, «Secciones» no lista Favoritos sin coincidencias ni Aplicaciones sin categorías con tarjetas.
+    - `public/build` reconstruido (`home-CO6nO0hU.js`; el CSS no cambió).
+  - GREEN: suite completa 1.401 de 1.401 (6.873 aserciones). `vendor/bin/pint --test`: sin cambios.
+  - Capturas nuevas a 390 px (`home-sin-vinculos-390-light-fix`, `-dark-fix`, `home-secciones-abierto-390-light-fix`): sin desborde; sin menú, el nombre pasa de «Solucio…» a «Soluciones y Derivados de …». La razón social completa aún se recorta en el celular: es el componente `x-brand-logo`, igual que con apps.
 
 ## Siguiente paso
 
