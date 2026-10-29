@@ -63,12 +63,12 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - POST `/cuenta/cambiar/{user}` con intención `switch`, `prompt=none` y un reintento.
   - Secuencia de sesión: invalidar, iniciar sesión, nuevo token CSRF, `Clear-Site-Data` y redirigir a `/`.
   - Eventos `account.switched` y `account.switch_failed`.
-- [ ] T4. **PR4, interfaz y desvinculación.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: componente, vistas, controlador, comando, aviso y pruebas.
+- [x] T4. **PR4, interfaz y desvinculación.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: componente, vistas, controlador, comando, aviso y pruebas.
   - Componente `account-switcher`: botones hasta 3 empresas y menú desde 4.
   - Página `/cuenta`.
   - Comando `portal:unlink-account`.
   - `docs/manual-administracion.md` y `docs/estado-del-proyecto.md`.
-  - Hecho y verificado, salvo el texto general de `errors.microsoft-required` (ver el registro del T4). Por eso sigue sin marcar.
+  - Hecho y verificado, con las correcciones de la revisión independiente y el texto general de `errors.microsoft-required` (ver el registro del T4).
 
 ## Criterios de aceptación
 
@@ -224,12 +224,31 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     - Entradas nuevas de la guarda, cada una con su motivo: `AccountSwitcher`, `AccountController` y `UnlinkAccountCommand`. Todos solo llaman a `LinkedAccounts`.
   - No hecho: el texto general de `errors.microsoft-required`. Rompe dos pruebas fuera del alcance del escritor, que esperan la frase de hoy: `tests/Feature/Auth/RecentMicrosoftLoginTest.php` (línea 357) y `tests/Feature/Admin/CompanyWizardTest.php` (línea 123). La vista y su prueba quedaron listas fuera del repositorio para aplicarlas cuando se autorice tocar esas dos pruebas.
   - Seguimiento:
-    - La copia del inicio que guarda el service worker incluye el mensaje `status` del momento. Ocultarlo en la copia es un cambio de `resources/js/home.js` (`data-flash`).
-    - En tablet (768 px), con 2 o 3 empresas, el buscador del encabezado queda angosto.
-    - `canUnlink()` se lee sin bloqueo antes de `unlink()`. Si la cuenta cambia de persona en ese instante, se desvincula de la nueva. Es muy poco probable y lo hace la misma persona.
+    - La copia del inicio que guarda el service worker incluye el mensaje `status` del momento. Corregido en la revisión (abajo).
+    - En tablet (768 px), con 2 o 3 empresas, el buscador del encabezado queda angosto. Aceptado como seguimiento.
+    - `canUnlink()` se lee sin bloqueo antes de `unlink()`. Si la cuenta cambia de persona en ese instante, se desvincula de la nueva. Corregido en la revisión (abajo).
   - Capturas (claro y oscuro; 390, 768 y 1.440 px; movimiento reducido): inicio con 2 y 4 empresas, menú abierto, `/cuenta` con y sin vínculos, confirmación y `/anuncios`. Sin desbordes horizontales.
   - Tamaño: ~1.670 líneas en 5 commits (~780 de código y vistas, ~890 de pruebas). Supera las 400: se puede partir en un PR por commit.
 
+- 2026-10-29: correcciones de la revisión independiente de T4 (ruta delegada, un escritor). Sin `push` ni PR.
+  - RED antes de cada corrección, GREEN después:
+    1. Mensaje en la copia sin conexión: `AccountSwitcherTest::test_the_saved_offline_copy_drops_the_status_message` falló («The worker defines FLASH»). Corrección en `resources/js/sw.js`: `remember()` quita el `<p … data-flash>` antes de `cache.put`, con el patrón `FLASH`. La prueba toma ese patrón de `/sw.js` y lo aplica al inicio real con y sin mensaje. `sw.js` lo sirve PHP desde `resources/js` (no es entrada de Vite), así que no hizo falta `npm run build`; su versión nueva renueva las cachés al desplegar.
+    2. Carrera al desvincular: `LinkedAccountsTest::test_unlinking_an_account_that_moved_to_another_person_does_nothing` y `AccountPageTest::test_an_account_that_moved_to_another_person_meanwhile_is_a_404` fallaron (`true` y 302). `unlink()` pasa a `detach()` la persona del modelo (la que revisó `canUnlink()`); con la fila bloqueada en otra persona, o sin persona, devuelve `false` sin cambios. El `POST` responde 404, como una cuenta no vinculada. `test_unlinking_an_account_unlinked_meanwhile_does_nothing` es una guarda (ya pasaba).
+    3. El comando ignoraba el resultado: `test_an_account_unlinked_before_the_command_gets_to_it_changes_nothing` falló (código 0). Ahora: «La cuenta ya no estaba vinculada. No se cambió nada.» y error.
+    4. `AutomaticUnlinkTest::test_an_unlink_during_a_sign_in_sends_no_notice` (con `Notification::fake()`, por el inicio de sesión real). Pasó al escribirla, porque el comportamiento ya era correcto; con `notify: true` forzado en `unlinkIfCompanyTaken()` falló, y se revirtió.
+    5. Persona con una sola cuenta: `test_a_person_with_a_single_account_names_no_other_account` falló (imprimía el aviso con «()»). Se guarda `$last !== null`.
+    6. Texto general de `errors.microsoft-required`: «Esta acción requiere iniciar sesión con Microsoft.» y una explicación que nombra empresas, inquilinos y vincular o desvincular cuentas. `RecentMicrosoftLoginTest::test_the_microsoft_required_page_speaks_of_any_action` es nueva; `test_emergency_users_are_refused` y `CompanyWizardTest::test_emergency_accounts_cannot_create_companies` ahora esperan la frase general. Las tres fallaron antes de cambiar la vista. `RecentMicrosoftLogin::EMERGENCY_MESSAGE` no cambia: lo sigue usando el `abort(403)` de `CompanyEditor`.
+  - GREEN, suite completa: 1.350 de 1.350 (6.600 aserciones), 8 pruebas nuevas.
+  - `vendor/bin/pint --test`: sin cambios.
+  - Commits (cada uno en verde por separado):
+    - `af1a79c` `fix(accounts)`: desvincular solo de la persona que revisó quien llama.
+    - `b62334a` `fix(accounts)`: el comando falla si no desvinculó nada (y el caso de una sola cuenta).
+    - `5dc58c0` `test(accounts)`: una desvinculación al iniciar sesión no manda correo.
+    - `2ebe674` `fix(home)`: la copia sin conexión no guarda el mensaje.
+    - `6edc44c` `fix(auth)`: texto general de la página de Microsoft requerido.
+    - `docs(odd)`: este registro.
+  - Seguimiento aceptado: en tablet (768 px), con 2 o 3 empresas, el buscador del encabezado queda angosto.
+
 ## Siguiente paso
 
-Prueba manual de Jhon con dos cuentas reales antes de fusionar #67 y el PR de T4: cambio silencioso, cambio con MFA, cuenta desactivada, `/cuenta` y desvincular (con el correo). Después, revisar T4 (`/code-review` y `/security-review`), decidir si se autoriza el texto de `errors.microsoft-required` con sus dos pruebas y abrir el PR de `feat/cuentas-vinculadas-4-interfaz`.
+Prueba manual de Jhon con dos cuentas reales antes de fusionar #67 y el PR de T4: cambio silencioso, cambio con MFA, cuenta desactivada, `/cuenta` y desvincular (con el correo). T4 ya pasó la revisión independiente y sus correcciones. Falta abrir el PR de `feat/cuentas-vinculadas-4-interfaz` (decisión de Jhon).
