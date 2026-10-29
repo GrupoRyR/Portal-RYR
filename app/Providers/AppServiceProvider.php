@@ -67,10 +67,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define(AdminSections::SETTINGS, [AdminSections::class, 'manageSettings']);
         Gate::policy(Role::class, RolePolicy::class);
 
-        // {event} of the admin pages, which are plain views (Route::view):
-        // the `can` middleware needs the model, and a missing one is a 404.
-        Route::model('event', \App\Models\Event::class);
-
         // API for external systems: each token has its own budget; calls
         // that reach the limiter without a token are limited per address.
         RateLimiter::for('api', function (Request $request) {

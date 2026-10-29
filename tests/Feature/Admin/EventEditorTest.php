@@ -74,6 +74,13 @@ class EventEditorTest extends TestCase
 
     // --- Create and edit --------------------------------------------------
 
+    public function test_event_is_bound_only_by_its_own_routes(): void
+    {
+        // No global Route::model('event'): another {event} parameter (a
+        // webhook, an API route) must not turn into an App\Models\Event.
+        $this->assertNull(app('router')->getBindingCallback('event'));
+    }
+
     public function test_an_admin_creates_a_timed_event_for_every_company(): void
     {
         Livewire::actingAs($this->admin)->test(EventEditor::class)

@@ -175,14 +175,16 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
 
         // App\Policies\EventPolicy: the same people as announcements.
         // App\Livewire\Admin\EventList and EventEditor re-authorize every
-        // action. {event} is bound in AppServiceProvider (Route::model).
+        // action. The edit page binds {event} by its typed parameter (no
+        // global Route::model), so `can` gets the model and a missing one
+        // is a 404.
         Route::view('/eventos', 'admin.events.index')
             ->can('viewAny', Event::class)
             ->name('events.index');
         Route::view('/eventos/nuevo', 'admin.events.edit', ['event' => null])
             ->can('create', Event::class)
             ->name('events.create');
-        Route::view('/eventos/{event}', 'admin.events.edit')
+        Route::get('/eventos/{event}', fn (Event $event) => view('admin.events.edit', ['event' => $event]))
             ->whereNumber('event')
             ->can('update', 'event')
             ->name('events.edit');
