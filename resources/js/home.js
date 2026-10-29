@@ -180,6 +180,24 @@ account?.addEventListener('keydown', (event) => {
     }
 });
 
+// «Secciones» (phones): a plain <details>; this only closes it after a
+// jump, on Escape and on a click elsewhere.
+const sectionsMenu = $('[data-sections]');
+
+document.addEventListener('click', (event) => {
+    if (!sectionsMenu?.open) return;
+    if (event.target.closest('[data-sections] a') || !sectionsMenu.contains(event.target)) {
+        sectionsMenu.open = false;
+    }
+});
+
+sectionsMenu?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && sectionsMenu.open) {
+        sectionsMenu.open = false;
+        $('summary', sectionsMenu).focus();
+    }
+});
+
 // Offline notice (docs/diseno/PhoneDark): without network, or when the
 // service worker answered with the saved copy of this page.
 const notice = $('[data-offline-notice]');
@@ -194,6 +212,36 @@ function showConnection() {
         ? 'Sin conexión · mostrando tus apps guardadas'
         : 'Conexión lenta · mostrando tus apps guardadas';
 }
+
+// The saved copy can be up to a day old (resources/js/sw.js): drop holiday
+// lines that are over and the «Hoy» of a day that is no longer today.
+// Bogotá is the calendar timezone (App\Calendar\ColombianHolidays, from
+// config app.timezone); ISO dates compare as strings.
+function correctSavedHolidays() {
+    const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date());
+
+    const holidayNotice = $('[data-holiday-notice]');
+    if (holidayNotice && holidayNotice.dataset.holidayDate < today) holidayNotice.hidden = true;
+
+    const rows = $$('li[data-holiday-date]');
+    for (const row of rows) {
+        row.hidden = row.dataset.holidayDate < today;
+        if (row.dataset.holidayDate === today) continue;
+
+        $$('[data-holiday-today]', row).forEach((label) => label.remove());
+        $$('[data-holiday-weekday]', row).forEach((day) => (day.textContent = day.dataset.holidayWeekday));
+    }
+
+    const dates = $('#fechas');
+    if (dates && rows.length > 0 && rows.every((row) => row.hidden)) dates.hidden = true;
+}
+
+if (fromCache) correctSavedHolidays();
 
 showConnection();
 window.addEventListener('online', showConnection);
