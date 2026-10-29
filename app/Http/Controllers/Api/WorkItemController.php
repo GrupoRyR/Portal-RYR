@@ -30,8 +30,12 @@ class WorkItemController extends Controller
     /** ISO 8601 date and time with a time zone, seconds optional. */
     private const DATE_TIME = '/\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,6})?)?(?:Z|[+-](\d{2}):(\d{2}))\z/';
 
-    /** Control characters, line and paragraph separators, bidi overrides and isolates. */
-    private const NOT_ONE_LINE = '/[\p{Cc}\p{Zl}\p{Zp}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u';
+    /**
+     * Control characters, line and paragraph separators, bidi overrides,
+     * isolates and marks (U+200E, U+200F, U+061C), the zero-width space and
+     * the byte order mark: all of them can disguise a title.
+     */
+    private const NOT_ONE_LINE = '/[\p{Cc}\p{Zl}\p{Zp}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{200B}\x{200E}\x{200F}\x{061C}\x{FEFF}]/u';
 
     public function update(Request $request, string $externalId, WorkItemWriter $writer): JsonResponse
     {
@@ -45,7 +49,7 @@ class WorkItemController extends Controller
             'kind' => $data['kind'],
             'title' => trim($data['title']),
             'status' => $data['status'],
-            'due_at' => isset($data['due_at']) ? CarbonImmutable::parse($data['due_at']) : null,
+            'due_at' => isset($data['due_at']) ? self::instant($data['due_at']) : null,
             'url' => $data['url'],
             'completable_from_portal' => $data['completable_from_portal'],
             'version' => $data['version'],
@@ -127,6 +131,16 @@ class WorkItemController extends Controller
         });
 
         return $validator->validate();
+    }
+
+    /**
+     * The same instant in the app time zone: the database keeps the wall
+     * clock time without its offset, and Eloquent reads it back in
+     * config('app.timezone'), so `22:00Z` must be stored as `17:00` Bogotá.
+     */
+    private static function instant(string $value): CarbonImmutable
+    {
+        return CarbonImmutable::parse($value)->setTimezone(config('app.timezone'));
     }
 
     private static function isDateTimeWithZone(string $value): bool

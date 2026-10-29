@@ -7,7 +7,7 @@ namespace App\Work;
  * (docs/contrato-tareas-aprobaciones.md §5): `https`, no user info, and
  * exactly the host (and port, if any) of the integration's catalog app,
  * compared without case. A subdomain, a trailing dot or another port is
- * another host.
+ * another host; only an explicit `:443`, the https default, equals no port.
  *
  * The URL is checked as text, not through parse_url(), whose reading of
  * odd URLs (`https://a\@b`) differs from a browser's: only printable ASCII
@@ -37,7 +37,7 @@ final class WorkItemLink
 
         $port = parse_url($appUrl, PHP_URL_PORT);
 
-        return strtolower($host).($port === null ? '' : ':'.$port);
+        return self::withoutDefaultPort(strtolower($host).($port === null ? '' : ':'.$port));
     }
 
     /**
@@ -54,12 +54,20 @@ final class WorkItemLink
             return self::NOT_HTTPS;
         }
 
-        $authority = strtolower($match[1]);
+        $authority = self::withoutDefaultPort(strtolower($match[1]));
 
         if (str_contains($authority, '@')) {
             return self::USER_INFO;
         }
 
         return $authority === $allowedAuthority ? null : self::WRONG_HOST;
+    }
+
+    /**
+     * `host:443` as `host`; any other port, or a malformed one, as written.
+     */
+    private static function withoutDefaultPort(string $authority): string
+    {
+        return str_ends_with($authority, ':443') ? substr($authority, 0, -4) : $authority;
     }
 }

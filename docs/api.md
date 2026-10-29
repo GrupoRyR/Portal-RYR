@@ -29,7 +29,7 @@ Cada sistema tiene su propio token. Lo crea un súper administrador en **Adminis
 - **App del catálogo** y **URL base de la app**: solo con `work:write`, y obligatorias con él (sección 7).
 - **IP permitidas** (opcional): direcciones (`10.0.0.5`) o rangos (`192.168.1.0/24`) desde las que se acepta el token. Si la lista está vacía, se acepta desde cualquier IP. Se recomienda limitarla a la IP del servidor que hace las llamadas.
 
-Para crear o rotar un token, el portal pide confirmar de nuevo la sesión con Microsoft si la última confirmación tiene más de 10 minutos (igual que al crear una empresa). La cuenta de emergencia no puede crear ni rotar tokens.
+Para crear o rotar un token, dar `work:write` o cambiar la app del catálogo o la URL base de un sistema, el portal pide confirmar de nuevo la sesión con Microsoft si la última confirmación tiene más de 10 minutos (igual que al crear una empresa). La cuenta de emergencia no puede hacer ninguna de esas cosas.
 
 El token empieza por `ryr_` y **se muestra una sola vez**, al crearlo. Guárdelo en el gestor de secretos del sistema que lo va a usar; el portal solo conserva una huella del token y no puede volver a mostrarlo.
 
@@ -243,16 +243,20 @@ La app de tareas y aprobaciones envía al portal una copia de cada elemento. El 
 Antes de usarlos, la integración necesita en **Administración → Integraciones**:
 
 - el permiso `work:write`;
-- la **app del catálogo** de la app de tareas: los enlaces `url` solo pueden ir a `https` en el mismo host (y puerto) de la dirección de esa app;
+- la **app del catálogo** de la app de tareas: los enlaces `url` solo pueden ir a `https` en el mismo host (y puerto) de la dirección de esa app. Un `:443` escrito equivale a no escribir puerto; cualquier otro puerto tiene que coincidir exactamente;
 - la **URL base de la app** (`https`, sin usuario, sin `?` ni `#`).
 
 Reglas que el portal ya aplica:
 
 - Un `external_id` fuera de `^[A-Za-z0-9][A-Za-z0-9._:-]{0,189}$` responde `404`.
 - Un cuerpo de más de 8 KB responde `413`. Los campos que no están en el contrato se ignoran.
+- `title` es una sola línea de texto: responde `422` con caracteres de control, separadores de línea o párrafo de Unicode, marcas y controles de dirección del texto (U+200E, U+200F, U+061C, U+202A a U+202E, U+2066 a U+2069), el espacio de ancho cero (U+200B) o la marca de orden de bytes (U+FEFF). Los espacios al principio y al final se quitan.
+- `due_at` se guarda como el mismo instante, venga en la zona que venga (`Z`, `+02:00`, `-05:00`).
 - La persona se identifica solo por `assignee.tenant_id` y `assignee.oid`. El inquilino debe ser el de una empresa del portal. La persona no tiene que haber entrado al portal.
 - Cada persona tiene como máximo 500 elementos pendientes por integración.
-- Cada integración ve y cambia solo sus propios `external_id`.
+- Cada integración ve y cambia solo sus propios `external_id`, que distinguen mayúsculas de minúsculas (`TAREA-1` y `tarea-1` son dos elementos).
+- Si la integración pierde `work:write` o su app del catálogo, sus elementos dejan de verse (no se borran) hasta que recupere las dos cosas.
+- Cada noche (3:00, hora de Bogotá) se borran los rastros de borrado y los elementos hechos o cancelados de más de 30 días.
 - Los `PUT` y `DELETE` no crean una entrada en Auditoría: quedan en el «Último uso» de la integración. Los cambios de la app del catálogo y de la URL base sí quedan en Auditoría.
 
 Todavía no existen en el portal: la lista en el inicio, el botón «Completar» (la llamada firmada a la app, contrato §6) y el secreto de firma.

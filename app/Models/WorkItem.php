@@ -81,7 +81,9 @@ class WorkItem extends Model
 
     /**
      * What the home may show to the signed-in account (§4): its own
-     * pending items, from integrations that are not revoked. Accounts
+     * pending items, from integrations that are not revoked and still have
+     * `work:write` and a catalog app. Items of an integration that lost
+     * either are kept, hidden, and show again once both are back. Accounts
      * without a Microsoft identity (emergency) see nothing.
      *
      * @param  Builder<WorkItem>  $query
@@ -97,7 +99,10 @@ class WorkItem extends Model
         $query->where('assignee_tenant_id', strtolower($user->tenant_id))
             ->where('assignee_oid', strtolower($user->azure_oid))
             ->where('status', self::STATUS_PENDING)
-            ->whereHas('integration', fn (Builder $integration) => $integration->whereNull('revoked_at'));
+            ->whereHas('integration', fn (Builder $integration) => $integration
+                ->whereNull('revoked_at')
+                ->whereNotNull('app_id')
+                ->whereJsonContains('abilities', Integration::WORK_WRITE));
     }
 
     /**

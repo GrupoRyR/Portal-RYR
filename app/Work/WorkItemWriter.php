@@ -16,6 +16,12 @@ use Illuminate\Validation\ValidationException;
  * A deletion trace keeps its version for WorkItem::RETENTION_DAYS.
  *
  * An integration only ever reads and writes its own `external_id`s.
+ *
+ * Every write first locks the row of its integration (lockIntegration()),
+ * so the writes of one integration run one after the other: two first PUTs
+ * of the same `external_id` cannot both create it, and two new pending
+ * items cannot both pass the WorkItem::MAX_PENDING_PER_PERSON count. Other
+ * integrations are not held up.
  */
 final class WorkItemWriter
 {
@@ -38,8 +44,8 @@ final class WorkItemWriter
         try {
             return $this->apply($integration, $externalId, $item);
         } catch (UniqueConstraintViolationException) {
-            // Two first calls raced to create the item: the other one won,
-            // so this one now compares versions with it.
+            // Only reachable if a write skipped the integration lock: the
+            // other call created the item, so this one compares versions.
             return $this->apply($integration, $externalId, $item);
         }
     }
@@ -51,6 +57,8 @@ final class WorkItemWriter
     public function delete(Integration $integration, string $externalId): void
     {
         DB::transaction(function () use ($integration, $externalId) {
+            $this->lockIntegration($integration);
+
             $item = WorkItem::query()
                 ->where('integration_id', $integration->id)
                 ->where('external_id', $externalId)
@@ -78,6 +86,8 @@ final class WorkItemWriter
     private function apply(Integration $integration, string $externalId, array $item): array
     {
         return DB::transaction(function () use ($integration, $externalId, $item) {
+            $this->lockIntegration($integration);
+
             $current = WorkItem::withTrashed()
                 ->where('integration_id', $integration->id)
                 ->where('external_id', $externalId)
@@ -118,6 +128,17 @@ final class WorkItemWriter
 
             return ['result' => $existing === null ? self::CREATED : self::UPDATED, 'version' => $item['version']];
         });
+    }
+
+    /**
+     * Holds the integration row until the transaction ends. The item row
+     * lock alone is not enough: a row that does not exist yet cannot be
+     * locked, and the pending count reads other rows. (SQLite ignores
+     * FOR UPDATE; it already allows a single writer at a time.)
+     */
+    private function lockIntegration(Integration $integration): void
+    {
+        Integration::query()->whereKey($integration->getKey())->lockForUpdate()->first();
     }
 
     /**

@@ -12,13 +12,22 @@ return new class extends Migration
      * the fields of the contract are stored. A deleted item keeps only its
      * version for 30 days (`deleted_at`), so the content columns are
      * nullable.
+     *
+     * `external_id` is case-sensitive (§3.1): binary on MySQL, whose default
+     * collation would make `TASK-1` and `task-1` the same item. SQLite
+     * already compares text in binary.
      */
     public function up(): void
     {
         Schema::create('work_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('integration_id')->constrained()->cascadeOnDelete();
-            $table->string('external_id', 190);
+            $externalId = $table->string('external_id', 190);
+
+            if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+                $externalId->collation('utf8mb4_bin');
+            }
+
             $table->string('kind', 16)->nullable();
             $table->string('title', 140)->nullable();
             $table->string('status', 16)->nullable();
