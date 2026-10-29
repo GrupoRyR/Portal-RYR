@@ -142,14 +142,14 @@ Un editor de anuncios solo publica para su propia empresa. Los anuncios no se bo
 
 ### 2.6 Integraciones (solo súper administrador)
 
-Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo o reporten el estado de las aplicaciones. Si nadie los usa, el portal funciona igual. Detalle técnico en `docs/api.md`.
+Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo o reporten el estado de las aplicaciones, y para que la app de tareas publique tareas y aprobaciones. Si nadie los usa, el portal funciona igual. Detalle técnico en `docs/api.md` y `docs/contrato-tareas-aprobaciones.md`.
 
 - **Lista:** sistema, permisos, token enmascarado (`ryr_…xxxx`), último uso y estado (**Activo** / **Revocado**).
-- **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados) e IP permitidas (opcional; vacío = cualquier IP). Pulse **Crear token**.
+- **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados, publicar tareas y aprobaciones) e IP permitidas (opcional; vacío = cualquier IP). Con `work:write` también pide la **app del catálogo** y la **URL base de la app** (vea 4.6). Pulse **Crear token**.
 - **El token se muestra una sola vez.** Cópielo con **Copiar**, guárdelo en un lugar seguro, marque «Ya lo guardé en un lugar seguro» y pulse **Listo**. El portal no lo puede volver a mostrar.
-- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), últimos cambios de estado que hizo.
+- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
-- **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado.
+- **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
 
 ### 2.7 Auditoría
 
@@ -253,6 +253,14 @@ Revise en este orden:
 5. **¿Su empresa está activa?** En **Empresas**.
 6. **¿Entra con la cuenta correcta?** En **Auditoría**, busque su nombre o correo con el tipo **Seguridad**: verá sus inicios de sesión y con qué empresa entró. Un invitado de otra empresa entra con la marca y las apps de la empresa de su propia organización de Microsoft.
 7. **¿Ve una copia guardada?** Si el portal muestra «Sin conexión · mostrando tus apps guardadas» o «Conexión lenta…», la lista puede ser vieja: pídale que recargue con conexión.
+
+### 4.6 Conectar la app de tareas y aprobaciones
+
+1. En **Aplicaciones**, registre la app de tareas como app web con su dirección `https` (por ejemplo `https://tareas.segurexlatam.net`). Los enlaces «Ver tarea» solo pueden ir al host de esa dirección.
+2. En **Integraciones**, pulse **Nuevo token**, marque `work:write`, elija esa app en **App del catálogo** y escriba la **URL base de la app** (`https`, sin usuario, sin `?` ni `#`). Agregue la IP del servidor de la app.
+3. Copie el token y entréguelo por el gestor de secretos al equipo de la app.
+
+Para dar `work:write` a un sistema que ya existe, primero elija la app y la URL base en su detalle y pulse **Guardar app**; después marque el permiso. Mientras tenga `work:write`, la app y la URL base no se pueden dejar vacías.
 
 ---
 
