@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Audit\SecurityLog;
+use App\Auth\AccountIntent;
 use App\Auth\LoginFailed;
 use App\Auth\MicrosoftIdentity;
 use App\Auth\MicrosoftLogin;
@@ -27,6 +28,8 @@ class MicrosoftLoginController extends Controller
      */
     public const SCOPES = ['openid', 'profile', 'email', 'User.Read', 'GroupMember.Read.All'];
 
+    public const MICROSOFT_ERROR_MESSAGE = 'Microsoft no confirmó la cuenta. Inténtalo de nuevo.';
+
     public function show(): View
     {
         return view('auth.login');
@@ -41,7 +44,7 @@ class MicrosoftLoginController extends Controller
      * Re-authentication for sensitive actions: Microsoft must ask for the
      * credentials again (prompt=login), whatever its own session says.
      */
-    public function confirm(Request $request, RecentMicrosoftLogin $recent): SymfonyRedirect|Response
+    public function confirm(Request $request, RecentMicrosoftLogin $recent, AccountIntent $intents): SymfonyRedirect|Response
     {
         $user = $request->user();
 
@@ -49,6 +52,8 @@ class MicrosoftLoginController extends Controller
             return response()->view('errors.microsoft-required', [], 403);
         }
 
+        // Only one Microsoft round trip is pending at a time.
+        $intents->discard();
         $recent->start($user, (string) $request->query('return', '/'));
 
         return Socialite::driver('microsoft')
@@ -57,7 +62,11 @@ class MicrosoftLoginController extends Controller
             ->redirect();
     }
 
-    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent): RedirectResponse|View|Response
+    /**
+     * In this order: admin consent, an error from Microsoft, an account
+     * intent, a re-authentication, a sign-in. Each step ends the callback.
+     */
+    public function callback(Request $request, MicrosoftLogin $login, RecentMicrosoftLogin $recent, AccountIntent $intents): RedirectResponse|View|Response
     {
         // A tenant administrator coming back from the admin-consent link.
         // Nothing is trusted from these parameters: the wizard verifies the
@@ -68,10 +77,16 @@ class MicrosoftLoginController extends Controller
             ]);
         }
 
-        // The callback is shared with the re-authentication flow, so it is
-        // not behind the guest middleware.
+        if ($request->has('error')) {
+            return $this->microsoftError($request, $intents);
+        }
+
+        // The callback is shared with the re-authentication flow and the
+        // account intents, so it is not behind the guest middleware.
         if ($request->user() instanceof User) {
-            return $this->confirmed($request, $request->user(), $recent);
+            return $intents->pending()
+                ? $this->continueIntent($request, $request->user(), $intents)
+                : $this->confirmed($request, $request->user(), $recent);
         }
 
         // Every rejection is also a security event (Auditoría) with a reason
@@ -105,6 +120,67 @@ class MicrosoftLoginController extends Controller
         $recent->confirm($user);
 
         return redirect()->intended('/');
+    }
+
+    /**
+     * Microsoft sent the user back with an `error` instead of a code: they
+     * cancelled, or Microsoft could not complete the sign-in. A signed-in
+     * user keeps the session and leaves any pending flow; a guest sees the
+     * usual failure. Only the error code reaches the log, never
+     * `error_description`: anyone can put text in these parameters.
+     */
+    private function microsoftError(Request $request, AccountIntent $intents): RedirectResponse
+    {
+        $user = $request->user();
+        $error = $request->query('error');
+
+        Log::info('Microsoft returned an error to the sign-in callback.', [
+            'error' => is_string($error) ? substr((string) preg_replace('/[^A-Za-z0-9_]/', '', $error), 0, 64) : null,
+            'user_id' => $user?->getAuthIdentifier(),
+        ]);
+
+        if (! $user instanceof User) {
+            SecurityLog::microsoftRejected('microsoft_error', null);
+
+            return $this->failed(LoginFailed::RETRY);
+        }
+
+        $intents->discard();
+
+        // A re-authentication that ends in an error is still a failed
+        // confirmation of a sensitive action, so Auditoría records it.
+        $pending = $request->session()->pull(RecentMicrosoftLogin::PENDING_KEY);
+
+        if (is_array($pending) && ($pending['user'] ?? null) === $user->getKey()) {
+            SecurityLog::reauthentication($user, false, $request->userAgent());
+        }
+
+        // Always home: the page a pending re-authentication would return to
+        // is behind microsoft.recent and would send the user straight back
+        // to Microsoft.
+        return redirect('/')->with('status', self::MICROSOFT_ERROR_MESSAGE);
+    }
+
+    /**
+     * The callback of an account intent (App\Auth\AccountIntent) ends here,
+     * whatever happens: it is never a re-authentication or a sign-in.
+     */
+    private function continueIntent(Request $request, User $user, AccountIntent $intents): RedirectResponse
+    {
+        $intent = $intents->pull($request, $user);
+
+        // One handler per flow type (linking, switching company) goes here;
+        // without one, or when the intent failed its checks, it is dropped.
+        return match ($intent['type'] ?? null) {
+            default => $this->unusableIntent($user),
+        };
+    }
+
+    private function unusableIntent(User $user): RedirectResponse
+    {
+        Log::warning('Microsoft callback for an account intent that is expired, foreign or not handled; discarded.', ['user_id' => $user->id]);
+
+        return redirect('/')->with('status', AccountIntent::UNUSABLE_MESSAGE);
     }
 
     private function confirmed(Request $request, User $user, RecentMicrosoftLogin $recent): RedirectResponse|Response
