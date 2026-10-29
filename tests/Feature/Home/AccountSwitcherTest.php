@@ -254,6 +254,33 @@ class AccountSwitcherTest extends TestCase
         $this->assertSame('Ahora estás en tu cuenta de Segurex Latam S.A.S..', trim($status->item(0)->textContent));
     }
 
+    /**
+     * The service worker (resources/js/sw.js) saves the home page for
+     * offline use; the message belongs to the response it came with, so
+     * the saved copy drops it. This runs the worker's own pattern on the
+     * real page.
+     */
+    public function test_the_saved_offline_copy_drops_the_status_message(): void
+    {
+        $worker = $this->get('/sw.js')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('~^const FLASH = /(.+)/g;$~m', $worker, $match), 'The worker defines FLASH.');
+        $this->assertStringContainsString('.replace(FLASH, \'\')', $worker);
+        $flash = '/'.$match[1].'/';
+
+        $message = 'Ahora estás en tu cuenta de Segurex Latam S.A.S. <1>.';
+        $html = $this->actingAs($this->current)->withSession(['status' => $message])->get('/')->getContent();
+        $saved = (string) preg_replace($flash, '', $html);
+
+        $this->assertStringNotContainsString('data-flash', $saved);
+        $this->assertStringNotContainsString('Ahora estás en tu cuenta de', $saved);
+        $this->assertStringContainsString('data-pwa-source="network"', $saved, 'Only the message goes.');
+
+        $this->flushSession();
+        $plain = $this->actingAs($this->current)->get('/')->getContent();
+        $this->assertStringNotContainsString('data-flash', $plain);
+        $this->assertSame($plain, preg_replace($flash, '', $plain));
+    }
+
     public function test_the_home_screen_has_no_status_message_by_default(): void
     {
         $this->assertSame(0, $this->page()->query('//*[@data-flash]')->length);
