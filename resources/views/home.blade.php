@@ -251,7 +251,7 @@
                     <ul class="flex flex-col divide-y divide-line">
                         @foreach ($page->announcements as $announcement)
                             <li class="py-4 first:pt-0 last:pb-0">
-                                <x-announcements.card :card="$announcement" />
+                                <x-announcements.card :card="$announcement" from="home" />
                             </li>
                         @endforeach
                     </ul>

@@ -16,6 +16,10 @@
             <h1 class="text-[1.75rem] leading-tight font-bold md:text-[2.125rem]">Anuncios</h1>
         </div>
 
+        @if (session('status'))
+            <p role="status" class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">{{ session('status') }}</p>
+        @endif
+
         @if ($cards->isEmpty())
             <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">No hay anuncios por ahora.</p>
         @else
