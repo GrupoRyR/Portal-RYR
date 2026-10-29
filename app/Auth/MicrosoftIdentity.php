@@ -7,7 +7,8 @@ use stdClass;
 
 /**
  * Who signed in with Microsoft, taken from the validated id_token claims
- * (`tid`, `oid`, `idp`, `auth_time`) and the Graph profile Socialite fetched.
+ * (`tid`, `oid`, `idp`, `auth_time`, `login_hint`) and the Graph profile
+ * Socialite fetched.
  *
  * `email` comes from attributes the signing tenant's admins control, so it
  * is only a hint: it proves nothing outside that tenant.
@@ -22,6 +23,7 @@ final readonly class MicrosoftIdentity
         public string $accessToken,
         public ?string $homeTenantId = null,
         public ?int $authTime = null,
+        public ?string $loginHint = null,
     ) {}
 
     /**
@@ -67,6 +69,7 @@ final readonly class MicrosoftIdentity
             $accessToken,
             self::homeTenant($claims->idp ?? null, $tenantId),
             self::timestamp($claims->auth_time ?? null),
+            self::loginHint([$claims->login_hint ?? null, $claims->preferred_username ?? null, $email]),
         );
     }
 
@@ -103,6 +106,27 @@ final readonly class MicrosoftIdentity
             $candidate = strtolower(trim((string) $candidate));
 
             if (str_contains($candidate, '@') && ! str_contains($candidate, '#ext#')) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * What to send Microsoft as `login_hint` for this account: the id_token
+     * `login_hint` claim (an opaque hint Microsoft issues for exactly this),
+     * else the sign-in name, else the email. A value too long for the column
+     * is skipped, not cut: a cut hint would point to no account.
+     *
+     * @param  list<mixed>  $candidates
+     */
+    private static function loginHint(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            $candidate = is_string($candidate) ? trim($candidate) : '';
+
+            if ($candidate !== '' && strlen($candidate) <= 255 && preg_match('/[\x00-\x1F\x7F]/', $candidate) !== 1) {
                 return $candidate;
             }
         }

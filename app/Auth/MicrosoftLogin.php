@@ -36,9 +36,31 @@ class MicrosoftLogin
     ) {}
 
     /**
+     * A sign-in: {@see admit()} plus its record (last sign-in time and the
+     * `login.microsoft` security event).
+     *
      * @throws LoginFailed
      */
     public function handle(MicrosoftIdentity $identity, ?string $userAgent = null): User
+    {
+        ['user' => $user, 'roleChanges' => $roleChanges] = $this->admit($identity);
+
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        SecurityLog::microsoftSignIn($user, $userAgent, $roleChanges);
+
+        return $user;
+    }
+
+    /**
+     * Everything a sign-in checks and refreshes, without recording one: for
+     * flows that prove a Microsoft account but do not sign it in (linking).
+     *
+     * @return array{user: User, roleChanges: array{added: list<string>, removed: list<string>}}
+     *
+     * @throws LoginFailed
+     */
+    public function admit(MicrosoftIdentity $identity): array
     {
         if (! $this->tenants->isAllowed($identity->tenantId)) {
             throw LoginFailed::tenantNotAllowed();
@@ -57,13 +79,8 @@ class MicrosoftLogin
         $user = DB::transaction(fn () => $this->upsertUser($identity, $company));
 
         $this->syncFromGraph($user, $identity->accessToken);
-        $roleChanges = $this->syncRoles($user, $this->ownsItsEmail($identity));
 
-        $user->forceFill(['last_login_at' => now()])->save();
-
-        SecurityLog::microsoftSignIn($user, $userAgent, $roleChanges);
-
-        return $user;
+        return ['user' => $user, 'roleChanges' => $this->syncRoles($user, $this->ownsItsEmail($identity))];
     }
 
     private function upsertUser(MicrosoftIdentity $identity, Company $company): User
@@ -85,6 +102,7 @@ class MicrosoftLogin
         }
 
         $user->email = $identity->email;
+        $user->microsoft_login_hint = $identity->loginHint;
         $user->company_id = $company->id;
         $user->save();
 

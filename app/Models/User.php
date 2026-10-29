@@ -25,6 +25,9 @@ use Spatie\Permission\Traits\HasRoles;
  * `photo_path` is no longer used: sign-in stores no photo and
  * `portal:purge-public-avatars` clears it.
  *
+ * `microsoft_login_hint` is written only by the Microsoft sign-in
+ * (App\Auth\MicrosoftLogin), so it is not fillable.
+ *
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
  * `portal:emergency-account` command, so the 2FA columns are not fillable.

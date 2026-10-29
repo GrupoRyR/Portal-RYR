@@ -42,12 +42,16 @@ class RecentMicrosoftLoginTest extends TestCase
         ]);
     }
 
-    private function mockRedirect(): void
+    /**
+     * @param  string|null  $loginHint  The `login_hint` Microsoft must receive; null to not check it.
+     */
+    private function mockRedirect(?string $loginHint = null): void
     {
         $provider = Mockery::mock(MicrosoftProvider::class);
         $provider->shouldReceive('setScopes')->andReturnSelf();
         $provider->shouldReceive('with')
-            ->with(Mockery::on(fn (array $parameters) => ($parameters['prompt'] ?? null) === 'login'))
+            ->with(Mockery::on(fn (array $parameters) => ($parameters['prompt'] ?? null) === 'login'
+                && ($loginHint === null || ($parameters['login_hint'] ?? null) === $loginHint)))
             ->once()
             ->andReturnSelf();
         $provider->shouldReceive('redirect')->andReturn(redirect()->away('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize'));
@@ -78,10 +82,18 @@ class RecentMicrosoftLoginTest extends TestCase
         Socialite::shouldReceive('driver')->with('microsoft')->andReturn($provider);
     }
 
+    /**
+     * @return array{user_id: int, at: int}
+     */
+    private function confirmation(User $user, int $minutesAgo = 0): array
+    {
+        return ['user_id' => $user->id, 'at' => now()->subMinutes($minutesAgo)->getTimestamp()];
+    }
+
     public function test_a_fresh_confirmation_lets_the_request_through(): void
     {
         $this->actingAs($this->user)
-            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->subMinutes(9)->getTimestamp()])
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => $this->confirmation($this->user, 9)])
             ->get('/_pruebas/sensible')
             ->assertOk()
             ->assertSee('contenido sensible');
@@ -93,7 +105,37 @@ class RecentMicrosoftLoginTest extends TestCase
             ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
 
         $this->actingAs($this->user)
-            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->subMinutes(11)->getTimestamp()])
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => $this->confirmation($this->user, 11)])
+            ->get('/_pruebas/sensible')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
+    }
+
+    public function test_freshness_does_not_carry_to_another_user(): void
+    {
+        $other = User::factory()->create([
+            'tenant_id' => self::TENANT,
+            'azure_oid' => '99999999-2222-3333-4444-555555555555',
+            'company_id' => $this->user->company_id,
+        ]);
+        $recent = $this->app->make(RecentMicrosoftLogin::class);
+
+        $recent->confirm($this->user);
+
+        $this->assertTrue($recent->isFresh($this->user));
+        $this->assertFalse($recent->isFresh($other));
+        $this->actingAs($other)
+            ->get('/_pruebas/sensible')
+            ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
+    }
+
+    /**
+     * Sessions from before confirmations named their user hold a bare
+     * timestamp: it proves nothing about who confirmed.
+     */
+    public function test_an_old_timestamp_only_confirmation_is_not_fresh(): void
+    {
+        $this->actingAs($this->user)
+            ->withSession([RecentMicrosoftLogin::SESSION_KEY => now()->getTimestamp()])
             ->get('/_pruebas/sensible')
             ->assertRedirect(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']));
     }
@@ -106,6 +148,25 @@ class RecentMicrosoftLoginTest extends TestCase
             ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
             ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize')
             ->assertSessionHas(RecentMicrosoftLogin::PENDING_KEY.'.return', '/_pruebas/sensible');
+    }
+
+    public function test_reauthentication_uses_the_stored_login_hint(): void
+    {
+        $this->user->forceFill(['microsoft_login_hint' => 'O.opaque-login-hint'])->save();
+        $this->mockRedirect('O.opaque-login-hint');
+
+        $this->actingAs($this->user)
+            ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
+            ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize');
+    }
+
+    public function test_reauthentication_falls_back_to_the_email_as_login_hint(): void
+    {
+        $this->mockRedirect($this->user->email);
+
+        $this->actingAs($this->user)
+            ->get(route('auth.microsoft.confirm', ['return' => '/_pruebas/sensible']))
+            ->assertRedirect('https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize');
     }
 
     public function test_guests_cannot_start_a_confirmation(): void

@@ -53,7 +53,7 @@ class MicrosoftLoginController extends Controller
 
         return Socialite::driver('microsoft')
             ->setScopes(['openid', 'profile', 'email', 'User.Read'])
-            ->with(['prompt' => 'login', 'login_hint' => (string) $user->email])
+            ->with(['prompt' => 'login', 'login_hint' => $user->microsoft_login_hint ?? (string) $user->email])
             ->redirect();
     }
 
@@ -102,7 +102,7 @@ class MicrosoftLoginController extends Controller
         // A completed Microsoft sign-in is itself a fresh confirmation: the
         // sensitive company actions only ask Microsoft again once it is older
         // than RecentMicrosoftLogin::TTL_SECONDS (decision 2026-10-05).
-        $recent->confirm();
+        $recent->confirm($user);
 
         return redirect()->intended('/');
     }
@@ -151,7 +151,7 @@ class MicrosoftLoginController extends Controller
         }
 
         $request->session()->regenerate();
-        $recent->confirm();
+        $recent->confirm($user);
 
         return redirect($pending['return']);
     }

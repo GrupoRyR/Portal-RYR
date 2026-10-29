@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Auth\MicrosoftIdentity;
+use App\Auth\MicrosoftLogin;
 use App\Auth\RecentMicrosoftLogin;
 use App\Models\Company;
 use App\Models\User;
@@ -161,9 +163,12 @@ class MicrosoftLoginTest extends TestCase
         $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
         $this->fakeGraph();
 
-        $this->hitCallback()
-            ->assertRedirect('/')
-            ->assertSessionHas(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertSame(
+            ['user_id' => User::sole()->id, 'at' => now()->getTimestamp()],
+            session(RecentMicrosoftLogin::SESSION_KEY),
+        );
     }
 
     public function test_a_rejected_sign_in_does_not_count_as_a_recent_confirmation(): void
@@ -600,6 +605,76 @@ class MicrosoftLoginTest extends TestCase
         $this->hitCallback()->assertRedirect('/');
 
         $this->assertSame('ana@segurex.com', User::sole()->email);
+    }
+
+    public function test_the_login_hint_is_stored_and_refreshed_on_sign_in(): void
+    {
+        $user = User::factory()->microsoft($this->segurex)->create([
+            'email' => 'ana@segurex.com',
+            'azure_oid' => self::OID,
+            'microsoft_login_hint' => 'O.old-opaque-hint',
+        ]);
+        $this->signInAs([
+            'tid' => self::SEGUREX_TENANT,
+            'oid' => self::OID,
+            'login_hint' => 'O.new-opaque-hint',
+            'preferred_username' => 'ana.perez@segurex.com',
+        ]);
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertSame('O.new-opaque-hint', $user->fresh()->microsoft_login_hint);
+    }
+
+    /**
+     * Without the `login_hint` claim the sign-in name is the next best hint;
+     * the stored email (which prefers `mail`) is the last resort.
+     *
+     * @return array<string, array{array<string, string>, string}>
+     */
+    public static function loginHintFallbacks(): array
+    {
+        return [
+            'preferred_username' => [['preferred_username' => 'ana.perez@segurex.com'], 'ana.perez@segurex.com'],
+            'email' => [[], 'ana@segurex.com'],
+        ];
+    }
+
+    #[DataProvider('loginHintFallbacks')]
+    public function test_the_login_hint_falls_back_to_the_sign_in_name_then_the_email(array $claims, string $expected): void
+    {
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID, ...$claims]);
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertSame($expected, User::sole()->microsoft_login_hint);
+    }
+
+    public function test_admit_records_no_sign_in_event(): void
+    {
+        config(['portal.super_admin_emails' => ['ana@segurex.com']]);
+        $this->fakeGraph();
+        $identity = new MicrosoftIdentity(
+            self::SEGUREX_TENANT,
+            self::OID,
+            'ana@segurex.com',
+            'Ana Pérez',
+            'graph-access-token',
+            self::SEGUREX_TENANT,
+        );
+
+        $admitted = $this->app->make(MicrosoftLogin::class)->admit($identity);
+
+        $user = User::sole();
+        $this->assertTrue($admitted['user']->is($user));
+        $this->assertSame(['added' => ['super_admin'], 'removed' => []], $admitted['roleChanges']);
+        $this->assertTrue($user->company->is($this->segurex));
+        $this->assertSame('Analista', $user->job_title);
+        $this->assertNull($user->last_login_at);
+        $this->assertSame(0, Activity::query()->where('log_name', 'security')->count());
+        $this->assertGuest();
     }
 
     public function test_a_socialite_error_shows_a_retry_message(): void

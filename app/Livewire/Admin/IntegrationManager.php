@@ -299,7 +299,7 @@ class IntegrationManager extends Component
             abort(403, self::EMERGENCY_MESSAGE);
         }
 
-        if ($recent->isFresh()) {
+        if ($recent->isFresh($user)) {
             return true;
         }
 

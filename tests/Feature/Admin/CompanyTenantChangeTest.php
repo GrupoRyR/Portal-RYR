@@ -53,7 +53,7 @@ class CompanyTenantChangeTest extends TestCase
     private function editor(bool $fresh = true, ?Company $company = null): Testable
     {
         if ($fresh) {
-            session()->put(RecentMicrosoftLogin::SESSION_KEY, now()->getTimestamp());
+            session()->put(RecentMicrosoftLogin::SESSION_KEY, ['user_id' => $this->admin->id, 'at' => now()->getTimestamp()]);
         }
 
         return Livewire::actingAs($this->admin)->test(CompanyEditor::class, ['company' => $company ?? $this->company]);
