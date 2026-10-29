@@ -73,7 +73,41 @@ class HomeEventsTest extends TestCase
         $page = $this->build();
 
         $this->assertSame(['Todos los Santos', 'Independencia de Cartagena', 'Inmaculada Concepción', 'Navidad'], $this->titles($page));
-        $this->assertFalse($page->hasEvents);
+        // «Muy lejos» is not in the list, but «Ver eventos» still leads to it.
+        $this->assertTrue($page->hasEvents);
+    }
+
+    public function test_the_events_link_shows_for_any_visible_upcoming_event(): void
+    {
+        Event::factory()->create(['title' => 'En un año y medio', 'starts_at' => '2028-04-01 09:00:00', 'ends_at' => null]);
+        Event::factory()->forCompanies(Company::factory()->create())->create(['title' => 'Otra empresa']);
+
+        $xpath = $this->xpath($this->home());
+
+        $this->assertSame(1, $xpath->query('//section[@id="fechas"]//a[@href="'.route('events.index').'"]')->length);
+        $this->assertNotContains('En un año y medio', array_column($this->index()['dates'], 'title'));
+    }
+
+    public function test_an_event_under_way_says_until_when(): void
+    {
+        $week = Event::factory()->allDay('2026-10-30', '2026-11-03')->create(['title' => 'Semana de seguridad']);
+        Event::factory()->create(['title' => 'Auditoría externa', 'starts_at' => '2026-10-28 08:00:00', 'ends_at' => '2026-10-30 18:00:00', 'published_at' => '2026-10-01 00:00:00']);
+
+        // Before it starts it reads as usual.
+        $this->travelTo(CarbonImmutable::parse('2026-10-27 10:00', 'America/Bogota'));
+        $before = $this->eventRows()['Auditoría externa'] ?? '';
+        $this->assertStringContainsString('Miércoles · 08:00 · Evento', $before);
+        $this->assertStringNotContainsString('En curso', $before);
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-31 09:00', 'America/Bogota'));
+        $xpath = $this->xpath($this->home());
+        $row = $xpath->query('//section[@id="fechas"]//li[.//a[@href="'.route('events.index').'#e-'.$week->id.'"]]')->item(0);
+        $this->assertStringContainsString('En curso · hasta el 3 de noviembre · Evento', $this->squish($row->textContent));
+        $this->assertSame('2026-10-31', $xpath->query('.//time', $row)->item(0)->getAttribute('datetime'));
+        $this->assertSame(0, $xpath->query('.//*[@data-event-weekday]', $row)->length);
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-29 10:00', 'America/Bogota'));
+        $this->assertStringContainsString('En curso · hasta el 30 de octubre, 18:00 · Evento', $this->eventRows()['Auditoría externa']);
     }
 
     public function test_event_rows_are_labelled_and_marked_for_the_saved_copy(): void
@@ -184,6 +218,22 @@ class HomeEventsTest extends TestCase
         $page = app(HomePageBuilder::class)->build(User::factory()->emergency()->create());
 
         $this->assertNotContains('Para todas', $this->titles($page));
+    }
+
+    /**
+     * Text of each event row of «Próximas fechas», by title.
+     *
+     * @return array<string, string>
+     */
+    private function eventRows(): array
+    {
+        $xpath = $this->xpath($this->home());
+        $rows = [];
+        foreach ($xpath->query('//section[@id="fechas"]//li[@data-event-end]') as $row) {
+            $rows[$this->squish($xpath->query('.//a', $row)->item(0)->textContent)] = $this->squish($row->textContent);
+        }
+
+        return $rows;
     }
 
     private function build(): HomePage

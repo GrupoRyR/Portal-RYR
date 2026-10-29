@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
  * with «Agregar a mi calendario». Plain HTML, no Livewire. «Próximas
  * fechas» and the «Ctrl K» search link to one of them with #e-{id}: they
  * hold at most HomeSearchIndex::EVENT_LIMIT of the soonest, all on this
- * page, which holds up to LIMIT.
+ * page, which holds up to LIMIT and says so when more were left out.
  */
 class EventController extends Controller
 {
@@ -27,11 +27,13 @@ class EventController extends Controller
             ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
             ->visibleTo($request->user())
             ->chronological()
-            ->limit(self::LIMIT)
+            // One more than shown: whether the list was cut, in the same query.
+            ->limit(self::LIMIT + 1)
             ->get();
 
         return view('events.index', [
-            'events' => $events->map(fn (Event $event) => EventDate::from($event, $today))->all(),
+            'events' => $events->take(self::LIMIT)->map(fn (Event $event) => EventDate::from($event, $today))->all(),
+            'cut' => $events->count() > self::LIMIT,
         ]);
     }
 }

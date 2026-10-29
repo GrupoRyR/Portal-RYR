@@ -230,14 +230,22 @@
                         @foreach ($page->upcomingDates as $date)
                             @if ($date instanceof \App\View\Home\EventDate)
                                 <li class="flex items-center gap-3" data-event-date="{{ $date->isoDate() }}" data-event-end="{{ $date->overIso() }}">
-                                    <time datetime="{{ $date->isoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
+                                    <time datetime="{{ $date->dayIsoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
                                         <span class="text-lg font-bold">{{ $date->dayNumber() }}</span>
                                         <span class="text-xs">{{ $date->shortMonth() }}</span>
                                     </time>
                                     <div class="flex min-w-0 flex-col gap-0.5">
-                                        <span class="sr-only">@if ($date->isToday)<span data-event-today>Hoy, </span>@endif{{ $date->dateAndTime() }}, evento:</span>
+                                        @if ($date->isOngoing)
+                                            <span class="sr-only">{{ $date->ongoingDetail() }}, evento:</span>
+                                        @else
+                                            <span class="sr-only">@if ($date->isToday)<span data-event-today>Hoy, </span>@endif{{ $date->dateAndTime() }}, evento:</span>
+                                        @endif
                                         <a href="{{ $date->href() }}" class="text-sm leading-snug font-bold break-words underline-offset-4 hover:underline">{{ $date->title }}</a>
-                                        <p class="text-xs text-fg-muted" aria-hidden="true"><span data-event-weekday="{{ $date->dayName() }}">{{ $date->weekday() }}</span>@if ($detail = $date->shortDetail()) · {{ $detail }}@endif · Evento</p>
+                                        @if ($date->isOngoing)
+                                            <p class="text-xs text-fg-muted" aria-hidden="true">{{ $date->ongoingDetail() }} · Evento</p>
+                                        @else
+                                            <p class="text-xs text-fg-muted" aria-hidden="true"><span data-event-weekday="{{ $date->dayName() }}">{{ $date->weekday() }}</span>@if ($detail = $date->shortDetail()) · {{ $detail }}@endif · Evento</p>
+                                        @endif
                                     </div>
                                 </li>
                                 @continue

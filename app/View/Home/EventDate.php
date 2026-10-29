@@ -20,6 +20,8 @@ final readonly class EventDate
      * @param  CarbonImmutable  $over  When it is over (Event::endsAtMoment()).
      * @param  bool  $isToday  It starts today.
      * @param  int  $year  This year, local: other years are spelled out.
+     * @param  bool  $isOngoing  It started on an earlier day and is not over: under way.
+     * @param  CarbonImmutable  $day  The day beside it: its first day, or today while it is under way.
      */
     public function __construct(
         public int $id,
@@ -33,6 +35,8 @@ final readonly class EventDate
         public CarbonImmutable $over,
         public bool $isToday,
         public int $year,
+        public bool $isOngoing,
+        public CarbonImmutable $day,
     ) {}
 
     /**
@@ -42,6 +46,8 @@ final readonly class EventDate
     {
         $timezone = config('app.timezone');
         $start = $event->starts_at->toImmutable()->setTimezone($timezone);
+        // Not over (it is visible) and started before today.
+        $ongoing = $start->toDateString() < $today->toDateString();
 
         return new self(
             id: (int) $event->id,
@@ -55,18 +61,20 @@ final readonly class EventDate
             over: $event->endsAtMoment(),
             isToday: $start->toDateString() === $today->toDateString(),
             year: $today->year,
+            isOngoing: $ongoing,
+            day: $ongoing ? $today : $start->startOfDay(),
         );
     }
 
     /**
      * Holidays and events in one list: by start, a holiday before the
-     * events of its day, then by id.
+     * events of its day, then by id. An event under way counts as today.
      *
      * @return array{0: int, 1: int, 2: int}
      */
     public function sortKey(): array
     {
-        return [$this->start->getTimestamp(), 1, $this->id];
+        return [($this->isOngoing ? $this->day : $this->start)->getTimestamp(), 1, $this->id];
     }
 
     public function isMultiDay(): bool
@@ -76,7 +84,7 @@ final readonly class EventDate
 
     public function dayNumber(): string
     {
-        return (string) $this->start->day;
+        return (string) $this->day->day;
     }
 
     /**
@@ -84,7 +92,13 @@ final readonly class EventDate
      */
     public function shortMonth(): string
     {
-        return rtrim($this->spanish($this->start)->isoFormat('MMM'), '.');
+        return rtrim($this->spanish($this->day)->isoFormat('MMM'), '.');
+    }
+
+    /** The day beside it, for its `<time>`. */
+    public function dayIsoDate(): string
+    {
+        return $this->day->toDateString();
     }
 
     /**
@@ -144,7 +158,27 @@ final readonly class EventDate
     }
 
     /**
-     * The whole date and time, for /eventos: «Jueves 5 de noviembre · 15:00
+     * «En curso · hasta el 3 de noviembre» (with the end time when it has
+     * one, «…, 18:00»), for «Próximas fechas» while it is under way.
+     */
+    public function ongoingDetail(): string
+    {
+        return 'En curso · hasta el '.$this->dayWithoutWeekday($this->lastDay).$this->endTime();
+    }
+
+    /**
+     * What /eventos says: «En curso · hasta el martes 3 de noviembre» while
+     * it is under way, {@see when()} otherwise.
+     */
+    public function listedWhen(): string
+    {
+        return $this->isOngoing
+            ? 'En curso · hasta el '.$this->day($this->lastDay).$this->endTime()
+            : $this->when();
+    }
+
+    /**
+     * The whole date and time, for Admin and /eventos: «Jueves 5 de noviembre · 15:00
      * a 17:00», «Jueves 5 de noviembre · Todo el día», «Del jueves 5 de
      * noviembre al sábado 7 de noviembre».
      */
@@ -193,6 +227,14 @@ final readonly class EventDate
     public function calendarHref(): string
     {
         return route('events.calendar', $this->id);
+    }
+
+    /**
+     * «, 18:00» of a timed event with an end; nothing otherwise.
+     */
+    private function endTime(): string
+    {
+        return $this->end === null ? '' : ', '.$this->end->format('H:i');
     }
 
     private function day(CarbonImmutable $date): string

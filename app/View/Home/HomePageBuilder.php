@@ -102,7 +102,11 @@ final class HomePageBuilder
         $company = $user->company;
         $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
         $upcoming = $this->upcomingHolidays($today);
-        $events = $this->events($user, $today);
+        $visibleEvents = $this->events($user, $today);
+        // The search and «Próximas fechas» look twelve months ahead; «Ver
+        // eventos» shows for any visible upcoming event.
+        $searchHorizon = $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS);
+        $events = array_values(array_filter($visibleEvents, fn (EventDate $event) => $event->start < $searchHorizon));
         $upcomingDates = self::upcomingDates($upcoming, $events, $today);
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
@@ -141,7 +145,7 @@ final class HomePageBuilder
                 $events,
             ),
             upcomingDates: $upcomingDates,
-            hasEvents: array_filter($upcomingDates, fn (HolidayDay|EventDate $date) => $date instanceof EventDate) !== [],
+            hasEvents: $visibleEvents !== [],
         );
     }
 
@@ -226,10 +230,12 @@ final class HomePageBuilder
     }
 
     /**
-     * The events of «Próximas fechas» and of the search index, in one
-     * query: not over yet and starting within HomeSearchIndex::HOLIDAY_MONTHS,
-     * soonest first, at most HomeSearchIndex::EVENT_LIMIT. No query for a
-     * user without a company, who sees none.
+     * The events of «Próximas fechas», of the search index and of «Ver
+     * eventos», in one query: visible (not over yet), soonest first, at most
+     * HomeSearchIndex::EVENT_LIMIT. The caller keeps those that start within
+     * HomeSearchIndex::HOLIDAY_MONTHS for the list and the search: being
+     * soonest first, they are the same as filtering in the query. No query
+     * for a user without a company, who sees none.
      *
      * @return list<EventDate>
      */
@@ -242,7 +248,6 @@ final class HomePageBuilder
         return Event::query()
             ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
             ->visibleTo($user)
-            ->where('starts_at', '<', $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS))
             ->chronological()
             ->limit(HomeSearchIndex::EVENT_LIMIT)
             ->get()

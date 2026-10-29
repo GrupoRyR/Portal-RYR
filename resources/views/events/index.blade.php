@@ -1,7 +1,8 @@
 {{--
     «Eventos»: every upcoming event the user may see, soonest first, each
     with «Agregar a mi calendario» (an .ics file, App\Calendar\EventCalendarFile).
-    $events is a list of App\View\Home\EventDate. No Livewire or Alpine;
+    $events is a list of App\View\Home\EventDate; $cut says more were left
+    out (App\Http\Controllers\EventController::LIMIT). No Livewire or Alpine;
     each item has an anchor (#e-{id}) for «Próximas fechas» and the search.
 --}}
 <x-layouts.app title="Eventos" brand-band>
@@ -24,13 +25,13 @@
                 @foreach ($events as $event)
                     <li id="e-{{ $event->id }}" class="scroll-mt-6 rounded-card border border-line bg-surface p-5 target:border-brand-button md:p-6">
                         <article class="flex gap-4">
-                            <time datetime="{{ $event->isoDate() }}" aria-hidden="true" class="flex w-14 shrink-0 flex-col items-center self-start rounded-[10px] bg-brand-tint py-2 leading-tight text-brand-ink">
+                            <time datetime="{{ $event->dayIsoDate() }}" aria-hidden="true" class="flex w-14 shrink-0 flex-col items-center self-start rounded-[10px] bg-brand-tint py-2 leading-tight text-brand-ink">
                                 <span class="text-xl font-bold">{{ $event->dayNumber() }}</span>
                                 <span class="text-xs">{{ $event->shortMonth() }}</span>
                             </time>
                             <div class="flex min-w-0 flex-1 flex-col gap-2">
                                 <h2 id="event-{{ $event->id }}-title" class="font-sans text-lg leading-snug font-bold tracking-normal break-words md:text-xl">{{ $event->title }}</h2>
-                                <p class="text-sm font-semibold text-fg-soft">{{ $event->when() }}</p>
+                                <p class="text-sm font-semibold text-fg-soft">{{ $event->listedWhen() }}</p>
                                 @if ($event->location)
                                     <p class="text-sm break-words text-fg-muted"><span class="sr-only">Lugar: </span>{{ $event->location }}</p>
                                 @endif
@@ -46,6 +47,9 @@
                     </li>
                 @endforeach
             </ol>
+            @if ($cut)
+                <p class="text-center text-sm text-fg-muted">Se muestran los {{ count($events) }} eventos más próximos.</p>
+            @endif
         @endif
     </main>
 </x-layouts.app>

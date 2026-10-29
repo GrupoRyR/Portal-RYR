@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Events;
 
+use App\Http\Controllers\EventController;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\User;
@@ -81,6 +82,38 @@ class EventPageTest extends TestCase
             ->assertSeeText('Del jueves 24 de diciembre al sábado 26 de diciembre')
             ->assertSeeText('Jueves 5 de noviembre · 09:30')
             ->assertSeeText('Del lunes 11 de enero de 2027, 08:00 al martes 12 de enero de 2027, 18:00');
+    }
+
+    public function test_an_event_under_way_says_until_when_instead_of_its_start(): void
+    {
+        $week = Event::factory()->allDay('2026-10-30', '2026-11-03')->create(['title' => 'Semana de seguridad']);
+        Event::factory()->create(['title' => 'Auditoría externa', 'starts_at' => '2026-10-28 08:00:00', 'ends_at' => '2026-10-30 18:00:00']);
+
+        // The day before it starts it reads as usual.
+        $this->page()->assertSeeText('Del viernes 30 de octubre al martes 3 de noviembre');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-31 09:00', 'America/Bogota'));
+        $response = $this->page()
+            ->assertSeeText('En curso · hasta el martes 3 de noviembre')
+            ->assertDontSeeText('Del viernes 30 de octubre');
+
+        // The date beside it is today, not the start that already passed.
+        $badge = $this->xpath($response)->query('//*[@id="e-'.$week->id.'"]//time')->item(0);
+        $this->assertSame('2026-10-31', $badge->getAttribute('datetime'));
+        $this->assertSame('31 oct', trim((string) preg_replace('/\s+/', ' ', $badge->textContent)));
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-29 10:00', 'America/Bogota'));
+        $this->page()->assertSeeText('En curso · hasta el viernes 30 de octubre, 18:00');
+    }
+
+    public function test_a_cut_list_says_so(): void
+    {
+        Event::factory()->count(EventController::LIMIT)->create();
+        $this->page()->assertDontSeeText('Se muestran los');
+
+        Event::factory()->create();
+        $response = $this->page()->assertSeeText('Se muestran los '.EventController::LIMIT.' eventos más próximos.');
+        $this->assertSame(EventController::LIMIT, $this->xpath($response)->query('//ol/li')->length);
     }
 
     public function test_without_events_it_says_so(): void
