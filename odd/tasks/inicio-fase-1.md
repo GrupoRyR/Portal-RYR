@@ -61,7 +61,7 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 2. WU2: ¿quién administra las fechas de cada empresa?, ¿cada empresa tiene las suyas?, ¿fechas que se repiten cada año o de una sola vez?
 3. Búsqueda de personas: Ley 1581 de 2012 (datos personales) y hoy solo existen en el portal las personas que ya iniciaron sesión.
 4. ¿La barra inferior del celular se queda al lado de «Secciones»?
-5. Chiquinquirá (Ley 2578 de 2026): ya está desde 2026, pero hay una demanda ante la Corte Constitucional. Si la Corte la tumba, se cambia `ColombianHolidays::FIRST_CHIQUINQUIRA_YEAR`.
+5. Chiquinquirá (Ley 2578 de 2026, art. 6): ya está desde 2026, pero hay una demanda ante la Corte Constitucional (radicada el 9 de junio de 2026, sin fallo conocido). Si la Corte la tumba, se pone en `ColombianHolidays::LAST_CHIQUINQUIRA_YEAR` el último año que se festejó; `FIRST_CHIQUINQUIRA_YEAR` no se toca, porque el fallo no es retroactivo y el 13 de julio de 2026 sí fue festivo.
 
 ## Criterios de aceptación
 
@@ -96,9 +96,20 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
     - **19 festivos desde 2026, no 18.** La Ley 2578 de 2026 agrega el 9 de julio (Nuestra Señora del Rosario de Chiquinquirá), que se traslada al lunes como los de la Ley 51: 13 de julio de 2026 y 12 de julio de 2027. Hasta 2025 son 18.
     - El 12 de octubre se llama «Día de la Diversidad Étnica y Cultural» (Ley 2347 de 2024), no «Día de la Raza».
     - Dos festivos el mismo día se guardan como dos entradas, ordenadas por nombre. Pasa cuando la Pascua cae entre el 19 y el 25 de abril: Sagrado Corazón y San Pedro el 30 de junio de 2025. `isHoliday()` da verdadero una vez y `nextOnOrAfter()` devuelve la primera por nombre.
-    - El día se lee en la zona del calendario (`new ColombianHolidays(config('app.timezone'))`): el 1 de enero a las 03:00 UTC aún es 31 de diciembre en Bogotá.
+    - El día se lee en la zona del calendario: el contenedor la construye con `config('app.timezone')` (`AppServiceProvider`, singleton); a mano, por defecto `America/Bogota`. El 1 de enero a las 03:00 UTC aún es 31 de diciembre en Bogotá.
     - Años fuera de 1583–9999 se rechazan (`InvalidArgumentException`). Los anteriores a 1984 usan las reglas de hoy.
     - `easterSunday()` es pública y estática, para probar la Pascua por separado.
+- 2026-10-29: revisión del WU1. Premisas legales confirmadas con el texto oficial:
+  - Ley 2578 de 2026: Diario Oficial 53.510 del 2 de junio de 2026, rige desde su promulgación. Demanda de inconstitucionalidad contra el art. 6 radicada el 9 de junio de 2026, sin fallo conocido.
+  - Ley 2347 de 2024: Diario Oficial 52.663 del 8 de febrero de 2024.
+  - Tres arreglos menores, en `3069abc` `fix(calendar)` (ruta: delegada, un escritor):
+    - `LAST_CHIQUINQUIRA_YEAR` (null mientras rige el art. 6) en la regla del 9 de julio; un fallo futuro pone el último año en vez de mover el primero, así no se borra el 13 de julio de 2026. Argumento `lastChiquinquiraYear` del constructor solo para pruebas.
+    - `nextOnOrAfter()` después de Navidad de 9999 lanza «No holiday on or after … within the supported range 1583–9999.», no el error engañoso del año 10000.
+    - El contenedor construye `ColombianHolidays` con `config('app.timezone')`; la clase sigue usable sin contenedor en las pruebas unitarias.
+    - El docblock dice que el inicio debe mostrar los dos nombres cuando dos festivos caen el mismo día.
+  - RED: 4 de 28 (2 fallas, 2 errores: constante y argumento inexistentes, mensaje del año 10000, zona `America/Bogota` en vez de la de `config`).
+  - GREEN: 28 de 28 (133 aserciones); suite completa 1.380 de 1.380 (6.735 aserciones); `vendor/bin/pint --test` sin cambios.
+  - Commits: `3069abc` `fix(calendar)`; `docs(odd)`: este registro.
 
 ## Siguiente paso
 
