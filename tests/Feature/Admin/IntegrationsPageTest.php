@@ -425,4 +425,157 @@ class IntegrationsPageTest extends TestCase
             ->assertSeeTextInOrder(['Jhon Castro', 'API', 'Creó el token de Monitor de disponibilidad'])
             ->assertSeeTextInOrder(['Permisos', '—', 'catalog:read']);
     }
+
+    // --- Tasks and approvals (work:write) ------------------------------------
+
+    private function tasksApp(): App
+    {
+        return App::factory()->create(['slug' => 'tareas', 'name' => 'Tareas y aprobaciones', 'url' => 'https://tareas.segurex.com.co']);
+    }
+
+    public function test_creating_with_work_write_needs_the_catalog_app_and_the_base_url(): void
+    {
+        $tareas = $this->tasksApp();
+
+        $this->manager()
+            ->call('startCreating')
+            ->assertSee('work:write')
+            ->assertSee('Publicar tareas y aprobaciones en el inicio de cada persona')
+            ->assertSee('Tareas y aprobaciones')
+            ->set('name', 'App de tareas')
+            ->set('abilities', [Integration::WORK_WRITE])
+            ->call('create')
+            ->assertHasErrors(['appId', 'appBaseUrl'])
+            ->assertSee('Elige la app del catálogo.')
+            ->assertSee('Escribe la URL base de la app.');
+
+        foreach (['http://tareas.segurex.com.co', 'https://jhon@tareas.segurex.com.co', 'https://tareas.segurex.com.co/?a=1', 'https://tareas.segurex.com.co/#x', 'tareas.segurex.com.co'] as $url) {
+            $this->manager()
+                ->call('startCreating')
+                ->set('name', 'App de tareas')
+                ->set('abilities', [Integration::WORK_WRITE])
+                ->set('appId', $tareas->id)
+                ->set('appBaseUrl', $url)
+                ->call('create')
+                ->assertHasErrors(['appBaseUrl'])
+                ->assertSee('Escribe una dirección https, sin usuario, sin ? ni #.');
+        }
+
+        $this->assertSame(0, Integration::query()->count());
+
+        $this->manager()
+            ->call('startCreating')
+            ->set('name', 'App de tareas')
+            ->set('abilities', [Integration::WORK_WRITE])
+            ->set('appId', $tareas->id)
+            ->set('appBaseUrl', 'https://tareas.segurex.com.co/')
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $integration = Integration::query()->sole();
+        $this->assertTrue($integration->app->is($tareas));
+        $this->assertSame('https://tareas.segurex.com.co', $integration->app_base_url);
+        $this->assertSame(
+            ['name' => 'App de tareas', 'abilities' => [Integration::WORK_WRITE], 'allowed_ips' => [], 'app' => 'tareas', 'app_base_url' => 'https://tareas.segurex.com.co'],
+            $this->apiEntries('integration.created')->sole()->properties['attributes'],
+        );
+    }
+
+    public function test_other_abilities_need_no_app_and_keep_none(): void
+    {
+        $this->manager()
+            ->call('startCreating')
+            ->set('name', 'Monitor')
+            ->set('abilities', [Integration::CATALOG_READ])
+            ->set('appId', $this->tasksApp()->id)
+            ->set('appBaseUrl', 'no es url')
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $integration = Integration::query()->sole();
+        $this->assertNull($integration->app_id);
+        $this->assertNull($integration->app_base_url);
+    }
+
+    public function test_work_write_is_granted_only_once_the_app_is_set(): void
+    {
+        $monitor = $this->integration();
+        $tareas = $this->tasksApp();
+
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::WORK_WRITE)
+            ->assertHasErrors('abilities')
+            ->assertSee('Antes de dar work:write, guarda la app del catálogo y la URL base.');
+        $this->assertNotContains(Integration::WORK_WRITE, $monitor->fresh()->abilities);
+
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->assertSet('workAppId', null)
+            ->set('workAppId', $tareas->id)
+            ->set('workBaseUrl', 'http://tareas.segurex.com.co')
+            ->call('saveWorkApp')
+            ->assertHasErrors('workBaseUrl')
+            ->set('workBaseUrl', 'https://tareas.segurex.com.co')
+            ->call('saveWorkApp')
+            ->assertHasNoErrors()
+            ->assertSee('App de tareas actualizada.')
+            ->call('toggleAbility', Integration::WORK_WRITE)
+            ->assertHasNoErrors();
+
+        $monitor->refresh();
+        $this->assertTrue($monitor->app->is($tareas));
+        $this->assertSame('https://tareas.segurex.com.co', $monitor->app_base_url);
+        $this->assertContains(Integration::WORK_WRITE, $monitor->abilities);
+
+        $entry = $this->apiEntries('integration.work_app_changed')->sole();
+        $this->assertSame(['app' => null, 'app_base_url' => null], $entry->properties['old']);
+        $this->assertSame(['app' => 'tareas', 'app_base_url' => 'https://tareas.segurex.com.co'], $entry->properties['attributes']);
+
+        // While work:write is granted, the app cannot be taken away.
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->assertSet('workAppId', $tareas->id)
+            ->assertSet('workBaseUrl', 'https://tareas.segurex.com.co')
+            ->set('workAppId', null)
+            ->set('workBaseUrl', '')
+            ->call('saveWorkApp')
+            ->assertHasErrors(['workAppId', 'workBaseUrl']);
+        $this->assertSame($tareas->id, $monitor->fresh()->app_id);
+    }
+
+    public function test_the_work_app_shows_in_the_detail_and_in_auditoria(): void
+    {
+        $tareas = $this->tasksApp();
+        $integration = $this->integration([
+            'name' => 'App de tareas',
+            'abilities' => [Integration::WORK_WRITE],
+            'app_id' => $tareas->id,
+            'app_base_url' => 'https://tareas.segurex.com.co',
+        ]);
+
+        $this->actingAs($this->admin)->get(route('admin.integrations.index', ['sistema' => $integration->id]))
+            ->assertSeeTextInOrder(['App de tareas y aprobaciones', 'App del catálogo', 'Tareas y aprobaciones', 'URL base de la app'])
+            ->assertSee('value="https://tareas.segurex.com.co"', false);
+
+        $this->manager()
+            ->call('select', $integration->id)
+            ->set('workBaseUrl', 'https://tareas.segurex.com.co/portal')
+            ->call('saveWorkApp');
+
+        $this->actingAs($this->admin)->get(route('admin.audit.index', ['tipo' => 'api']))
+            ->assertSeeTextInOrder(['Jhon Castro', 'API', 'Cambió la app de tareas de App de tareas'])
+            ->assertSeeTextInOrder(['URL base de la app', 'https://tareas.segurex.com.co', 'https://tareas.segurex.com.co/portal']);
+    }
+
+    public function test_base_urls_are_validated(): void
+    {
+        foreach (['https://tareas.segurex.com.co', 'https://tareas.segurex.com.co/portal', 'https://tareas.segurex.com.co:8443'] as $url) {
+            $this->assertTrue(Integration::isValidAppBaseUrl($url), $url);
+        }
+
+        foreach (['http://tareas.segurex.com.co', 'https://user:pass@tareas.segurex.com.co', 'https://tareas.segurex.com.co?x', 'https://tareas.segurex.com.co/#x', 'https://evil.com\\@tareas.segurex.com.co', 'https:// tareas.segurex.com.co', 'https://', 'ftp://tareas.segurex.com.co'] as $url) {
+            $this->assertFalse(Integration::isValidAppBaseUrl($url), $url);
+        }
+    }
 }

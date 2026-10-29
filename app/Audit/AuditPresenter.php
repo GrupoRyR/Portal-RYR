@@ -55,6 +55,7 @@ final class AuditPresenter
         'integration.revoked' => 'Revocó el token de',
         'integration.abilities_changed' => 'Cambió los permisos de',
         'integration.ips_changed' => 'Cambió las IP permitidas de',
+        'integration.work_app_changed' => 'Cambió la app de tareas de',
         'backup.requested' => 'Pidió',
     ];
 
@@ -139,6 +140,8 @@ final class AuditPresenter
         'role' => 'Rol',
         'abilities' => 'Permisos',
         'allowed_ips' => 'IP permitidas',
+        'app' => 'App del catálogo',
+        'app_base_url' => 'URL base de la app',
         PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
         PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',

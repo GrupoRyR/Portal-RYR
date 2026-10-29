@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Auth\RecentMicrosoftLogin;
+use App\Models\App;
 use App\Models\Integration;
 use App\Models\User;
 use App\Policies\AdminSections;
@@ -30,6 +31,11 @@ use Livewire\Component;
  * form only opens once that holds, so nothing typed is lost on the way to
  * Microsoft. Revoking, abilities and IPs only take access away or narrow
  * it, and stay one click (revoking a leaked token must never wait).
+ *
+ * `work:write` (tasks and approvals, docs/contrato-tareas-aprobaciones.md
+ * §2.2) also needs the catalog app whose host the links must use and the
+ * base URL of the app: both are asked when creating, and must be saved
+ * before granting it on an existing system.
  */
 class IntegrationManager extends Component
 {
@@ -57,6 +63,16 @@ class IntegrationManager extends Component
 
     public string $newIp = '';
 
+    /** Catalog app and base URL of a new `work:write` token. */
+    public int|string|null $appId = null;
+
+    public string $appBaseUrl = '';
+
+    /** Catalog app and base URL being edited in the detail panel. */
+    public int|string|null $workAppId = null;
+
+    public string $workBaseUrl = '';
+
     /** Plaintext of the token just created or rotated; null once dismissed. */
     #[Locked]
     public ?string $plainToken = null;
@@ -71,16 +87,20 @@ class IntegrationManager extends Component
     {
         $this->authorize(AdminSections::INTEGRATIONS);
 
-        if ($this->selectedId !== null && ! Integration::query()->whereKey($this->selectedId)->exists()) {
-            $this->selectedId = null;
-        }
+        $selected = $this->selectedId === null ? null : Integration::query()->find($this->selectedId);
+        $this->selectedId = $selected?->id;
+        $this->workAppId = $selected?->app_id;
+        $this->workBaseUrl = (string) $selected?->app_base_url;
     }
 
     public function select(int $id): void
     {
         $this->authorize(AdminSections::INTEGRATIONS);
 
-        $this->selectedId = Integration::query()->findOrFail($id)->id;
+        $integration = Integration::query()->findOrFail($id);
+        $this->selectedId = $integration->id;
+        $this->workAppId = $integration->app_id;
+        $this->workBaseUrl = (string) $integration->app_base_url;
         $this->creating = false;
         $this->newIp = '';
         $this->notice = '';
@@ -97,6 +117,8 @@ class IntegrationManager extends Component
         $this->name = '';
         $this->abilities = [Integration::CATALOG_READ];
         $this->ips = '';
+        $this->appId = null;
+        $this->appBaseUrl = '';
         $this->notice = '';
         $this->resetErrorBag();
     }
@@ -114,14 +136,22 @@ class IntegrationManager extends Component
         }
 
         $this->name = trim($this->name);
+        $this->appBaseUrl = self::normalizeBaseUrl($this->appBaseUrl);
         $ips = [];
+        $work = in_array(Integration::WORK_WRITE, $this->abilities, true);
 
-        $this->withValidator(function ($validator) use (&$ips) {
-            $validator->after(function ($validator) use (&$ips) {
+        $this->withValidator(function ($validator) use (&$ips, $work) {
+            $validator->after(function ($validator) use (&$ips, $work) {
                 [$ips, $error] = self::parseIps($this->ips);
 
                 if ($error !== null) {
                     $validator->errors()->add('ips', $error);
+                }
+
+                if ($work) {
+                    foreach (self::workAppErrors(self::idOf($this->appId), $this->appBaseUrl, true) as $field => $message) {
+                        $validator->errors()->add($field === 'app' ? 'appId' : 'appBaseUrl', $message);
+                    }
                 }
             });
         })->validate([
@@ -139,6 +169,8 @@ class IntegrationManager extends Component
             'name' => $this->name,
             'abilities' => $this->abilities,
             'allowed_ips' => $ips,
+            'app_id' => $work ? self::idOf($this->appId) : null,
+            'app_base_url' => $work ? $this->appBaseUrl : null,
             'created_by' => Auth::id(),
         ]);
         $this->plainToken = $integration->issueToken();
@@ -149,11 +181,14 @@ class IntegrationManager extends Component
                 'name' => $integration->name,
                 'abilities' => $integration->abilities,
                 'allowed_ips' => $integration->allowed_ips,
+                ...($work ? self::workAppAudit($integration) : []),
             ],
         ]);
 
         $this->creating = false;
         $this->selectedId = $integration->id;
+        $this->workAppId = $integration->app_id;
+        $this->workBaseUrl = (string) $integration->app_base_url;
     }
 
     public function dismissToken(): void
@@ -212,6 +247,12 @@ class IntegrationManager extends Component
             return;
         }
 
+        if (in_array(Integration::WORK_WRITE, $new, true) && self::workAppErrors($integration->app_id, (string) $integration->app_base_url, true) !== []) {
+            $this->addError('abilities', 'Antes de dar work:write, guarda la app del catálogo y la URL base.');
+
+            return;
+        }
+
         if ($integration->changeAbilities($new)) {
             $integration->audit('integration.abilities_changed', [
                 'old' => ['abilities' => $old],
@@ -219,6 +260,45 @@ class IntegrationManager extends Component
             ]);
             $this->notice = 'Permisos actualizados.';
         }
+    }
+
+    /**
+     * Saves the catalog app and base URL of the selected system. While it
+     * has `work:write`, both are required.
+     */
+    public function saveWorkApp(): void
+    {
+        $integration = $this->liveSelection();
+        $this->resetErrorBag();
+
+        if ($integration === null) {
+            return;
+        }
+
+        $this->workBaseUrl = self::normalizeBaseUrl($this->workBaseUrl);
+        $required = in_array(Integration::WORK_WRITE, $integration->abilities, true);
+        $errors = self::workAppErrors(self::idOf($this->workAppId), $this->workBaseUrl, $required);
+
+        if ($errors !== []) {
+            foreach ($errors as $field => $message) {
+                $this->addError($field === 'app' ? 'workAppId' : 'workBaseUrl', $message);
+            }
+
+            return;
+        }
+
+        $old = self::workAppAudit($integration);
+        $integration->forceFill([
+            'app_id' => self::idOf($this->workAppId),
+            'app_base_url' => $this->workBaseUrl === '' ? null : $this->workBaseUrl,
+        ])->save();
+        $new = self::workAppAudit($integration);
+
+        if ($old !== $new) {
+            $integration->audit('integration.work_app_changed', ['old' => $old, 'attributes' => $new]);
+        }
+
+        $this->notice = 'App de tareas actualizada.';
     }
 
     public function addIp(): void
@@ -280,6 +360,7 @@ class IntegrationManager extends Component
                 ->limit(self::LATEST_CHANGES)
                 ->get(),
             'tokenOwner' => $this->plainToken === null ? null : $selected,
+            'catalogApps' => self::catalogApps(),
         ]);
     }
 
@@ -337,6 +418,79 @@ class IntegrationManager extends Component
             'attributes' => ['allowed_ips' => $ips],
         ]);
         $this->notice = 'IP permitidas actualizadas.';
+    }
+
+    /**
+     * Web apps of the catalog with a URL: their host is the one the links
+     * of the work items must use.
+     *
+     * @return Collection<int, App>
+     */
+    private static function catalogApps(): Collection
+    {
+        return App::query()
+            ->where('type', App::TYPE_WEB)
+            ->whereNotNull('url')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'url']);
+    }
+
+    /**
+     * Why the catalog app or the base URL cannot be saved, keyed `app` and
+     * `url`. Empty values are only an error when required.
+     *
+     * @return array<string, string>
+     */
+    private static function workAppErrors(?int $appId, string $baseUrl, bool $required): array
+    {
+        $errors = [];
+
+        if ($appId === null) {
+            if ($required) {
+                $errors['app'] = 'Elige la app del catálogo.';
+            }
+        } elseif (! self::catalogApps()->contains('id', $appId)) {
+            $errors['app'] = 'Esa app no está en el catálogo o no tiene dirección.';
+        }
+
+        if ($baseUrl === '') {
+            if ($required) {
+                $errors['url'] = 'Escribe la URL base de la app.';
+            }
+        } elseif (! Integration::isValidAppBaseUrl($baseUrl)) {
+            $errors['url'] = 'Escribe una dirección https, sin usuario, sin ? ni #.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * The catalog app (by its slug, readable in Auditoría) and base URL.
+     *
+     * @return array{app: ?string, app_base_url: ?string}
+     */
+    private static function workAppAudit(Integration $integration): array
+    {
+        return [
+            'app' => $integration->app_id === null ? null : App::query()->whereKey($integration->app_id)->value('slug'),
+            'app_base_url' => $integration->app_base_url,
+        ];
+    }
+
+    /**
+     * The app ID of a select («» means none).
+     */
+    private static function idOf(int|string|null $value): ?int
+    {
+        return is_int($value) ? $value : (is_string($value) && ctype_digit($value) ? (int) $value : null);
+    }
+
+    /**
+     * Trimmed, without the trailing slash the portal adds itself.
+     */
+    private static function normalizeBaseUrl(string $url): string
+    {
+        return rtrim(trim($url), '/');
     }
 
     /**
