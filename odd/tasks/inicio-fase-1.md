@@ -39,11 +39,12 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 
 ## Tareas
 
-- [ ] WU1. **PR1, festivos de Colombia.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: `Holiday`, `ColombianHolidays` y sus pruebas.
+- [x] WU1. **PR1, festivos de Colombia.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: `Holiday`, `ColombianHolidays` y sus pruebas.
   - `App\Calendar\Holiday`: fecha (`CarbonImmutable`) y nombre.
   - `App\Calendar\ColombianHolidays`: `forYear()`, `isHoliday()`, `nextOnOrAfter()` (cruza el fin de año) y `between()`. Pura: sin base de datos ni red.
   - Reglas: Ley 51 de 1983 (fijos y trasladados al lunes), Pascua gregoriana (Meeus/Jones/Butcher) y las leyes nuevas que cambian la lista.
   - Pruebas con las listas completas de 2025, 2026 y 2027.
+  - Hecho y verificado (ver el registro del WU1).
 - [ ] WU2. **PR2, fechas por empresa en Admin.** Bloqueada: decisión de Jhon.
 - [ ] WU3. **PR3, distribución del inicio.** Ruta: por decidir al empezar.
   - Columna «Mi día»: festivos, tarjeta de anuncios y enlaces de Microsoft 365.
@@ -60,6 +61,7 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 2. WU2: ¿quién administra las fechas de cada empresa?, ¿cada empresa tiene las suyas?, ¿fechas que se repiten cada año o de una sola vez?
 3. Búsqueda de personas: Ley 1581 de 2012 (datos personales) y hoy solo existen en el portal las personas que ya iniciaron sesión.
 4. ¿La barra inferior del celular se queda al lado de «Secciones»?
+5. Chiquinquirá (Ley 2578 de 2026): ya está desde 2026, pero hay una demanda ante la Corte Constitucional. Si la Corte la tumba, se cambia `ColombianHolidays::FIRST_CHIQUINQUIRA_YEAR`.
 
 ## Criterios de aceptación
 
@@ -77,13 +79,27 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 
 - **Estrategia:** `ask-on-risk`, con cadena `stacked-to-main` (ya elegida por el coordinador): un PR por WU, encadenados encima de #68 (`feat/cuentas-vinculadas-4-interfaz`).
 - **Ramas:** `feat/inicio-1-festivos` (WU1), desde `feat/cuentas-vinculadas-4-interfaz`.
-- **Pronóstico:** WU1 ~400 líneas (más de la mitad, pruebas).
+- **Pronóstico:** WU1 ~400 líneas (más de la mitad, pruebas). Salió con 625 (este documento ~130, código ~210, pruebas ~280).
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
 ## Progreso
 
-- 2026-10-29: plan creado. Rama `feat/inicio-1-festivos` desde `feat/cuentas-vinculadas-4-interfaz`.
+- 2026-10-29: plan creado (`6386e0a`). Rama `feat/inicio-1-festivos` desde `feat/cuentas-vinculadas-4-interfaz`.
+- 2026-10-29: WU1 hecha (ruta delegada, un escritor). Sin `push` ni PR.
+  - RED: `tests/Unit/Calendar/ColombianHolidaysTest.php` nueva, 24 pruebas: 0 en verde, 1 falla y 23 errores (la clase no existía).
+  - GREEN: 24 de 24 (120 aserciones). Primero falló una (`between` con el rango al revés: `betweenIncluded()` de Carbon invierte los límites); se corrigió con una guarda.
+  - GREEN, suite completa: 1.376 de 1.376 (6.722 aserciones).
+  - `vendor/bin/pint --test`: sin cambios.
+  - Commits: `b6fc40e` `feat(calendar)`: festivos de Colombia; `docs(odd)`: este registro.
+  - Fuentes (revisadas el 2026-10-29, citadas en el docblock de la prueba): Ley 51 de 1983 (Alcaldía de Bogotá, sisjur), Ley 2347 de 2024 (Diario Oficial 52.663, Rama Judicial), resumen de la Ley 2578 de 2026 (Universidad del Rosario) y calendarios publicados de 2025, 2026 y 2027.
+  - Decisiones:
+    - **19 festivos desde 2026, no 18.** La Ley 2578 de 2026 agrega el 9 de julio (Nuestra Señora del Rosario de Chiquinquirá), que se traslada al lunes como los de la Ley 51: 13 de julio de 2026 y 12 de julio de 2027. Hasta 2025 son 18.
+    - El 12 de octubre se llama «Día de la Diversidad Étnica y Cultural» (Ley 2347 de 2024), no «Día de la Raza».
+    - Dos festivos el mismo día se guardan como dos entradas, ordenadas por nombre. Pasa cuando la Pascua cae entre el 19 y el 25 de abril: Sagrado Corazón y San Pedro el 30 de junio de 2025. `isHoliday()` da verdadero una vez y `nextOnOrAfter()` devuelve la primera por nombre.
+    - El día se lee en la zona del calendario (`new ColombianHolidays(config('app.timezone'))`): el 1 de enero a las 03:00 UTC aún es 31 de diciembre en Bogotá.
+    - Años fuera de 1583–9999 se rechazan (`InvalidArgumentException`). Los anteriores a 1984 usan las reglas de hoy.
+    - `easterSunday()` es pública y estática, para probar la Pascua por separado.
 
 ## Siguiente paso
 
-WU1: pruebas primero (RED), luego `ColombianHolidays` (GREEN).
+Abrir el PR de `feat/inicio-1-festivos` encima de #68 (decisión de Jhon). Después, WU3: distribución del inicio con «Mi día». WU2 y la búsqueda de personas esperan las respuestas de Jhon.
