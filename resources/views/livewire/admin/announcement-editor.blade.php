@@ -202,7 +202,7 @@
         <section class="{{ $card }} gap-3" aria-labelledby="n-reads" data-read-report>
             <h2 id="n-reads" class="{{ $heading }}">Lectura</h2>
             <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'cuenta lo leyó' : 'cuentas lo leyeron' }}</p>
-            <p class="{{ $hint }}">Cuenta las cuentas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuenta en dos empresas confirma una vez con cada una.</p>
+            <p class="{{ $hint }}">Incluye las cuentas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuenta en dos empresas confirma una vez con cada una.</p>
             @if ($missing > 0)
                 <details class="group">
                     {{-- list-none + its own chevron: inline-flex would hide the native marker. --}}
