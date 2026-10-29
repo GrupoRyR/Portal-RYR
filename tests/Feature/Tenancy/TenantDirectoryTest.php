@@ -247,6 +247,24 @@ class TenantDirectoryTest extends TestCase
         $this->assertNull($this->directory()->resolveCompany(self::SHARED_TENANT, 'ana@third.com'));
     }
 
+    /**
+     * The deactivated company is the tenant's primary: users the primary
+     * fallback places there (no company owns their domain) must not land
+     * in the tenant's only active company either.
+     */
+    public function test_resolve_company_refuses_users_of_a_deactivated_primary(): void
+    {
+        Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['segurex.com'])->create();
+        $sdc = Company::factory()->forTenant(self::SHARED_TENANT, ['sdc.com'], primary: false)->create();
+
+        $directory = $this->directory();
+
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, 'x@gmail.com'));
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, 'x@segurex.onmicrosoft.com'));
+        $this->assertNull($directory->resolveCompany(self::SHARED_TENANT, null));
+        $this->assertTrue($sdc->is($directory->resolveCompany(self::SHARED_TENANT, 'ana@sdc.com')));
+    }
+
     public function test_resolve_company_keeps_a_domain_listed_by_an_active_company_too(): void
     {
         // Company::domainOwner() keeps domains unique, but old rows may not.
