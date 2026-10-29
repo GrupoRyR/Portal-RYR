@@ -175,6 +175,8 @@ class HomeEventsTest extends TestCase
         $this->assertSame('Evento · jueves 5 de noviembre, 15:00', $entry['detail']);
         $this->assertSame(route('events.index').'#e-'.$event->id, $entry['href']);
         $this->assertSame('2026-11-05', $entry['date']);
+        // A saved copy hides it at this moment, like the home list (data-event-end).
+        $this->assertSame('2026-11-06T00:00:00-05:00', $entry['end']);
         $this->assertSame('reunion general evento jueves 5 de noviembre, 15:00', $entry['search']);
 
         $vacation = $dates[array_search('Vacaciones colectivas', $titles, true)];

@@ -40,7 +40,7 @@ final readonly class HomeSearchIndex
     /**
      * @param  list<array{title: string, detail: string, search: string, href: string, newTab: bool}>  $apps
      * @param  list<array{title: string, detail: string, search: string, href: string}>  $announcements
-     * @param  list<array{title: string, detail: string, search: string, date: string, href?: string}>  $dates  Holidays and events by start; `date` is the last day, after which a saved copy hides it.
+     * @param  list<array{title: string, detail: string, search: string, date: string, end?: string, href?: string}>  $dates  Holidays and events by start; `date` is the last day, after which a saved copy hides it; an event's `end` (ISO 8601) is the moment it is over, when the saved copy hides it instead (like `data-event-end` on the home list).
      */
     public function __construct(
         public array $apps,
@@ -100,6 +100,7 @@ final readonly class HomeSearchIndex
                 'detail' => $event->searchDetail(),
                 'search' => AppSearch::normalize("{$event->title} evento {$event->dateAndTime()}"),
                 'date' => $event->lastIsoDate(),
+                'end' => $event->overIso(),
                 'href' => $event->href(),
             ]];
         }

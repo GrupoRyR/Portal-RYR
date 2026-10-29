@@ -104,6 +104,10 @@ const bogotaToday = () =>
         new Date(),
     );
 
+// A date of the search index that is over: an event at the moment it ends
+// (`end`, as `data-event-end` on the home list), a holiday after its day.
+const isOver = (entry, today, now) => (entry.end ? Date.parse(entry.end) <= now : Boolean(entry.date) && entry.date < today);
+
 // «Ctrl K» search (x-home.search-dialog) over the index embedded in the page
 // (App\Search\HomeSearchIndex): apps, announcements and holidays, matched
 // like the server search. Absent on a server search (?q=).
@@ -132,6 +136,7 @@ function renderResults(index) {
     const terms = normalize(query).split(' ').filter(Boolean);
     // The saved copy can be a day old: no holiday or event that is already over.
     const today = bogotaToday();
+    const now = Date.now();
     found = [];
 
     for (const group of $$('[data-search-group]', dialog)) {
@@ -141,7 +146,7 @@ function renderResults(index) {
             terms.length === 0
                 ? []
                 : index[group.dataset.searchGroup]
-                      .filter((entry) => !(entry.date && entry.date < today))
+                      .filter((entry) => !isOver(entry, today, now))
                       .filter((entry) => terms.every((term) => entry.search.includes(term)))
                       .slice(0, SEARCH_GROUP_LIMIT);
 
