@@ -29,8 +29,11 @@ use Livewire\Component;
  * a company, it needs a Microsoft sign-in from the last 10 minutes
  * (App\Auth\RecentMicrosoftLogin), checked again on every call. The create
  * form only opens once that holds, so nothing typed is lost on the way to
- * Microsoft. Revoking, abilities and IPs only take access away or narrow
- * it, and stay one click (revoking a leaked token must never wait).
+ * Microsoft. Granting `work:write` and changing the catalog app or base URL
+ * of a system decide where the links of every person's home lead and where
+ * «Completar» calls, so they need it too. Revoking, taking abilities away,
+ * the other abilities and IPs stay one click (revoking a leaked token must
+ * never wait).
  *
  * `work:write` (tasks and approvals, docs/contrato-tareas-aprobaciones.md
  * §2.2) also needs the catalog app whose host the links must use and the
@@ -44,7 +47,7 @@ class IntegrationManager extends Component
     public const LATEST_CHANGES = 5;
 
     /** Emergency accounts have no Microsoft identity to confirm with. */
-    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens requiere iniciar sesión con Microsoft.';
+    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens, dar work:write o cambiar la app de tareas requiere iniciar sesión con Microsoft.';
 
     /** The system shown in the detail panel (`?sistema=` in the address). */
     #[Url(as: 'sistema', history: true)]
@@ -227,7 +230,7 @@ class IntegrationManager extends Component
         $this->notice = "Se revocó el token de {$integration->name}. Ya no funciona.";
     }
 
-    public function toggleAbility(string $ability): void
+    public function toggleAbility(string $ability, RecentMicrosoftLogin $recent): void
     {
         $integration = $this->liveSelection();
         $this->resetErrorBag();
@@ -247,9 +250,15 @@ class IntegrationManager extends Component
             return;
         }
 
-        if (in_array(Integration::WORK_WRITE, $new, true) && self::workAppErrors($integration->app_id, (string) $integration->app_base_url, true) !== []) {
+        $grantsWork = in_array(Integration::WORK_WRITE, $new, true) && ! in_array(Integration::WORK_WRITE, $old, true);
+
+        if ($grantsWork && self::workAppErrors($integration->app_id, (string) $integration->app_base_url, true) !== []) {
             $this->addError('abilities', 'Antes de dar work:write, guarda la app del catálogo y la URL base.');
 
+            return;
+        }
+
+        if ($grantsWork && ! $this->hasRecentLogin($recent)) {
             return;
         }
 
@@ -264,9 +273,10 @@ class IntegrationManager extends Component
 
     /**
      * Saves the catalog app and base URL of the selected system. While it
-     * has `work:write`, both are required.
+     * has `work:write`, both are required. A change needs a recent Microsoft
+     * sign-in; saving the same values does nothing.
      */
-    public function saveWorkApp(): void
+    public function saveWorkApp(RecentMicrosoftLogin $recent): void
     {
         $integration = $this->liveSelection();
         $this->resetErrorBag();
@@ -291,7 +301,13 @@ class IntegrationManager extends Component
         $integration->forceFill([
             'app_id' => self::idOf($this->workAppId),
             'app_base_url' => $this->workBaseUrl === '' ? null : $this->workBaseUrl,
-        ])->save();
+        ]);
+
+        if ($integration->isDirty(['app_id', 'app_base_url']) && ! $this->hasRecentLogin($recent)) {
+            return;
+        }
+
+        $integration->save();
         $new = self::workAppAudit($integration);
 
         if ($old !== $new) {

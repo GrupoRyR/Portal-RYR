@@ -544,6 +544,74 @@ class IntegrationsPageTest extends TestCase
         $this->assertSame($tareas->id, $monitor->fresh()->app_id);
     }
 
+    public function test_changing_the_work_app_or_granting_work_write_needs_a_recent_microsoft_login(): void
+    {
+        $monitor = $this->integration();
+        $tareas = $this->tasksApp();
+        $confirm = route('auth.microsoft.confirm', ['return' => '/admin/integraciones?sistema='.$monitor->id]);
+
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->assertSee('pide confirmar con Microsoft.')
+            ->set('workAppId', $tareas->id)
+            ->set('workBaseUrl', 'https://tareas.segurex.com.co')
+            ->call('saveWorkApp')
+            ->assertRedirect($confirm);
+        $this->assertNull($monitor->fresh()->app_id);
+        $this->assertCount(0, $this->apiEntries('integration.work_app_changed'));
+
+        // Saving the same values changes nothing, so it needs no confirmation.
+        $monitor->forceFill(['app_id' => $tareas->id, 'app_base_url' => 'https://tareas.segurex.com.co'])->save();
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('saveWorkApp')
+            ->assertNoRedirect()
+            ->assertHasNoErrors();
+
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::WORK_WRITE)
+            ->assertRedirect($confirm);
+        $this->assertNotContains(Integration::WORK_WRITE, $monitor->fresh()->abilities);
+
+        // Taking work:write away only narrows access: one click.
+        $monitor->changeAbilities([Integration::CATALOG_READ, Integration::WORK_WRITE]);
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::WORK_WRITE)
+            ->assertNoRedirect()
+            ->assertHasNoErrors();
+        $this->assertNotContains(Integration::WORK_WRITE, $monitor->fresh()->abilities);
+    }
+
+    public function test_emergency_accounts_cannot_change_the_work_app_nor_grant_work_write(): void
+    {
+        $monitor = $this->integration();
+        $tareas = $this->tasksApp();
+
+        $this->emergencyManager()
+            ->call('select', $monitor->id)
+            ->set('workAppId', $tareas->id)
+            ->set('workBaseUrl', 'https://tareas.segurex.com.co')
+            ->call('saveWorkApp')
+            ->assertForbidden();
+        $this->assertNull($monitor->fresh()->app_id);
+
+        $monitor->forceFill(['app_id' => $tareas->id, 'app_base_url' => 'https://tareas.segurex.com.co'])->save();
+        $this->emergencyManager()
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::WORK_WRITE)
+            ->assertForbidden();
+        $this->assertNotContains(Integration::WORK_WRITE, $monitor->fresh()->abilities);
+
+        // Other abilities stay one click for them.
+        $this->emergencyManager()
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::STATUS_WRITE)
+            ->assertHasNoErrors();
+        $this->assertNotContains(Integration::STATUS_WRITE, $monitor->fresh()->abilities);
+    }
+
     public function test_the_work_app_shows_in_the_detail_and_in_auditoria(): void
     {
         $tareas = $this->tasksApp();

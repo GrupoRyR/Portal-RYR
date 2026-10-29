@@ -213,7 +213,7 @@
 
                 <form wire:submit="saveWorkApp" aria-labelledby="in-work-label" class="flex flex-col gap-2">
                     <span id="in-work-label" class="text-[0.8125rem] font-bold">App de tareas y aprobaciones</span>
-                    <span class="{{ $hint }}">Obligatoria con <code>work:write</code>.</span>
+                    <span class="{{ $hint }}">Obligatoria con <code>work:write</code>. Cambiarla o dar <code>work:write</code> pide confirmar con Microsoft.</span>
                     <fieldset class="flex flex-col gap-2" @disabled(! $live)>
                         <label for="in-work-app" class="{{ $label }}">App del catálogo</label>
                         <select id="in-work-app" wire:model="workAppId" class="{{ $field }} h-9 text-[0.8125rem]"

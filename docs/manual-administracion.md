@@ -40,6 +40,7 @@ Las acciones que abren el portal a una organización entera o entregan llaves a 
 - Crear una empresa o seguir su asistente.
 - Cambiar el inquilino (organización de Microsoft) de una empresa.
 - Crear o rotar un token de Integraciones.
+- Dar `work:write` a un sistema o cambiar su app de tareas (app del catálogo o URL base).
 
 El portal lo lleva a Microsoft y lo devuelve a la misma pantalla. Microsoft debe haber registrado el inicio de sesión hace menos de 5 minutos: por eso pide la contraseña otra vez. Después de confirmar, la confirmación vale 10 minutos.
 
@@ -147,7 +148,7 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Lista:** sistema, permisos, token enmascarado (`ryr_…xxxx`), último uso y estado (**Activo** / **Revocado**).
 - **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados, publicar tareas y aprobaciones) e IP permitidas (opcional; vacío = cualquier IP). Con `work:write` también pide la **app del catálogo** y la **URL base de la app** (vea 4.6). Pulse **Crear token**.
 - **El token se muestra una sola vez.** Cópielo con **Copiar**, guárdelo en un lugar seguro, marque «Ya lo guardé en un lugar seguro» y pulse **Listo**. El portal no lo puede volver a mostrar.
-- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo.
+- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
 
@@ -192,7 +193,7 @@ Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Gu
 Sirve para entrar a Administración **cuando el inicio de sesión con Microsoft no funciona** (secreto de la app vencido, consentimiento revocado, caída de Microsoft, acceso condicional mal configurado). No sirve para el uso diario.
 
 - **Cómo entrar:** abra `https://apps.segurexlatam.net/acceso-emergencia` (o la ruta definida en `PORTAL_EMERGENCY_PATH`). No hay ningún enlace a esa página en el portal. Escriba el correo y la contraseña, y luego el código de 6 dígitos de la app autenticadora.
-- **Qué puede hacer:** lo mismo que un súper administrador, **excepto** crear empresas, cambiar inquilinos y crear o rotar tokens (esas acciones exigen confirmar con Microsoft). Sí puede revocar tokens.
+- **Qué puede hacer:** lo mismo que un súper administrador, **excepto** crear empresas, cambiar inquilinos, crear o rotar tokens, dar `work:write` y cambiar la app de tareas de un sistema (esas acciones exigen confirmar con Microsoft). Sí puede revocar tokens y quitar permisos.
 - **Crear o cambiar la contraseña** (por SSH en el servidor):
 
   ```bash
@@ -260,7 +261,9 @@ Revise en este orden:
 2. En **Integraciones**, pulse **Nuevo token**, marque `work:write`, elija esa app en **App del catálogo** y escriba la **URL base de la app** (`https`, sin usuario, sin `?` ni `#`). Agregue la IP del servidor de la app.
 3. Copie el token y entréguelo por el gestor de secretos al equipo de la app.
 
-Para dar `work:write` a un sistema que ya existe, primero elija la app y la URL base en su detalle y pulse **Guardar app**; después marque el permiso. Mientras tenga `work:write`, la app y la URL base no se pueden dejar vacías.
+Para dar `work:write` a un sistema que ya existe, primero elija la app y la URL base en su detalle y pulse **Guardar app**; después marque el permiso. Las dos cosas piden confirmar con Microsoft: si el portal lo lleva a Microsoft al pulsar **Guardar app**, al volver elija de nuevo la app y la URL base y pulse **Guardar app** otra vez (la confirmación vale 10 minutos). Mientras tenga `work:write`, la app y la URL base no se pueden dejar vacías.
+
+Si un sistema pierde `work:write` o su app del catálogo (por ejemplo, porque se borró la app), sus tareas y aprobaciones dejan de verse en el inicio, pero el portal las conserva: vuelven a verse cuando el sistema recupera las dos cosas. Revocar el token sí las borra.
 
 ---
 
