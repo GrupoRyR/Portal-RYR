@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Spatie\Activitylog\LogOptions;
@@ -24,7 +25,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
  *
  * A mandatory one (`requires_read`) asks each person who sees it to
- * confirm they read it ({@see markReadBy()}).
+ * confirm they read it ({@see markReadBy()}); editors see who did
+ * ({@see readCounts()}, {@see pendingReaders()}).
  *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
@@ -55,6 +57,9 @@ class Announcement extends Model
     public const TITLE_MAX = 120;
 
     public const BODY_MAX = 280;
+
+    /** Names in the «Quién falta» list of the admin editor. */
+    public const PENDING_READERS_LIMIT = 200;
 
     /**
      * Announcements per page of /anuncios (App\Http\Controllers\AnnouncementController),
@@ -165,6 +170,61 @@ class Announcement extends Model
             ['announcement_id' => $this->id, 'user_id' => $user->id],
             ['read_at' => now()],
         );
+    }
+
+    /**
+     * The accounts expected to read it: those of its companies (every
+     * company when it is for all) that are active, without emergency or
+     * guest accounts. Only people who already signed in have an account.
+     *
+     * @return Builder<User>
+     */
+    public function audience(): Builder
+    {
+        $companies = Company::query()
+            ->where('is_active', true)
+            ->when(! $this->isForAllCompanies(), fn (Builder $query) => $query->whereIn(
+                'id',
+                DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'),
+            ))
+            ->select('id');
+
+        return User::query()
+            ->where('is_emergency', false)
+            ->where(fn (Builder $query) => $query->whereNull('is_guest')->orWhere('is_guest', false))
+            ->whereIn('company_id', $companies);
+    }
+
+    /**
+     * «X de Y personas lo leyeron»: reads by accounts of the audience
+     * only, so a read left from an earlier audience does not count.
+     *
+     * @return array{read: int, total: int}
+     */
+    public function readCounts(): array
+    {
+        return [
+            'read' => $this->audience()->whereIn('id', $this->reads()->select('user_id'))->count(),
+            'total' => $this->audience()->count(),
+        ];
+    }
+
+    /**
+     * Names of the audience that have not confirmed yet, alphabetical,
+     * at most PENDING_READERS_LIMIT.
+     *
+     * @return list<string>
+     */
+    public function pendingReaders(): array
+    {
+        return $this->audience()
+            ->whereNotIn('id', $this->reads()->select('user_id'))
+            ->orderBy('name')
+            ->orderBy('id')
+            ->limit(self::PENDING_READERS_LIMIT)
+            ->pluck('name')
+            ->map(fn ($name) => (string) $name)
+            ->all();
     }
 
     /**

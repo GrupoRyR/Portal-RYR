@@ -162,6 +162,14 @@
                     <input type="checkbox" role="switch" wire:model.live="isPinned" aria-describedby="n-pin-h"
                            class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
                 </label>
+                <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-[0.9375rem] font-semibold">Lectura obligatoria</span>
+                        <span id="n-read-h" class="{{ $hint }}">Cada persona confirma que lo leyó. Aquí verás quién falta.</span>
+                    </span>
+                    <input type="checkbox" role="switch" wire:model.live="requiresRead" aria-describedby="n-read-h"
+                           class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
+                </label>
             </section>
         </form>
 
@@ -187,4 +195,29 @@
             <p class="{{ $hint }}" x-text="device === 'desktop' ? 'Tarjeta del lateral del inicio en escritorio.' : 'Franja del inicio en celular y tablet.'">Tarjeta del lateral del inicio en escritorio.</p>
         </aside>
     </div>
+
+    {{-- Mandatory reading: only for people who may edit it (AnnouncementPolicy::viewReads). --}}
+    @if ($reads)
+        @php($missing = $reads['total'] - $reads['read'])
+        <section class="{{ $card }} gap-3" aria-labelledby="n-reads" data-read-report>
+            <h2 id="n-reads" class="{{ $heading }}">Lectura</h2>
+            <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'persona lo leyó' : 'personas lo leyeron' }}</p>
+            <p class="{{ $hint }}">Cuenta a las personas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados.</p>
+            @if ($missing > 0)
+                <details class="group">
+                    <summary class="inline-flex min-h-touch cursor-pointer items-center text-sm font-semibold text-fg-soft">Quién falta ({{ $missing }})</summary>
+                    <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($reads['pending'] as $name)
+                            <li class="break-words">{{ $name }}</li>
+                        @endforeach
+                    </ul>
+                    @if ($missing > count($reads['pending']))
+                        <p class="{{ $hint }} mt-2">Y {{ $missing - count($reads['pending']) }} más.</p>
+                    @endif
+                </details>
+            @else
+                <p class="text-sm font-semibold text-status-active">Ya lo leyeron todos.</p>
+            @endif
+        </section>
+    @endif
 </div>

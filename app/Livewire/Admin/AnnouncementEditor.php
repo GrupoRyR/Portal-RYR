@@ -24,7 +24,10 @@ use Throwable;
 /**
  * Creates or edits one announcement (brief §4 «Anuncios»,
  * docs/diseno/AdminAnnouncementEdit.dc.html): content, audience, window,
- * pin, and a live preview built from the same partials as the home screen.
+ * pin, mandatory reading, and a live preview built from the same partials
+ * as the home screen. A saved mandatory announcement also shows «X de Y
+ * personas lo leyeron» and who is missing, re-checked (`viewReads`) on
+ * every render.
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -53,6 +56,9 @@ class AnnouncementEditor extends Component
     public string $endsAt = '';
 
     public bool $isPinned = false;
+
+    /** «Lectura obligatoria»: each person who sees it confirms reading it. */
+    public bool $requiresRead = false;
 
     public ?TemporaryUploadedFile $image = null;
 
@@ -83,6 +89,7 @@ class AnnouncementEditor extends Component
         $this->startsAt = $announcement->starts_at->format(self::DATETIME_FORMAT);
         $this->endsAt = (string) $announcement->ends_at?->format(self::DATETIME_FORMAT);
         $this->isPinned = $announcement->is_pinned;
+        $this->requiresRead = $announcement->requires_read;
     }
 
     public function updatedImage(): void
@@ -123,6 +130,7 @@ class AnnouncementEditor extends Component
             'starts_at' => self::parse($this->startsAt),
             'ends_at' => $this->endsAt === '' ? null : self::parse($this->endsAt),
             'is_pinned' => $this->isPinned,
+            'requires_read' => $this->requiresRead,
         ];
 
         if ($creating) {
@@ -170,6 +178,7 @@ class AnnouncementEditor extends Component
             'title' => trim($this->title) !== '' ? $this->title : 'Título del anuncio',
             'body' => trim($this->body) !== '' ? $this->body : 'El texto del anuncio aparece aquí.',
             'is_pinned' => $this->isPinned,
+            'requires_read' => $this->requiresRead,
             'image_path' => $this->removeImage ? null : $this->announcement?->image_path,
         ]);
         $preview->starts_at = $this->parsedStart() ?? Carbon::now();
@@ -193,6 +202,7 @@ class AnnouncementEditor extends Component
             'startsAt' => ['required', 'date_format:'.self::DATETIME_FORMAT],
             'endsAt' => ['nullable', 'date_format:'.self::DATETIME_FORMAT, 'after:startsAt'],
             'isPinned' => ['boolean'],
+            'requiresRead' => ['boolean'],
             'image' => [
                 'nullable', 'file',
                 'max:'.AnnouncementImageStore::MAX_KILOBYTES,
@@ -239,7 +249,25 @@ class AnnouncementEditor extends Component
             'preview' => $this->previewCard(),
             'currentImageUrl' => $this->removeImage ? null : $this->announcement?->imageUrl(),
             'newImageUrl' => $this->newImageUrl(),
+            'reads' => $this->readReport(),
         ]);
+    }
+
+    /**
+     * Who read the saved announcement, when it is mandatory and the user
+     * may still see it (the role can go away while the page is open).
+     *
+     * @return array{read: int, total: int, pending: list<string>}|null
+     */
+    private function readReport(): ?array
+    {
+        if ($this->announcement === null
+            || ! $this->announcement->requires_read
+            || ! $this->user()->can('viewReads', $this->announcement)) {
+            return null;
+        }
+
+        return [...$this->announcement->readCounts(), 'pending' => $this->announcement->pendingReaders()];
     }
 
     /**
