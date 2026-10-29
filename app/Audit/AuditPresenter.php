@@ -10,6 +10,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\Event;
 use App\Models\Integration;
 use App\Models\User;
 use App\Settings\PortalSettings;
@@ -45,6 +46,9 @@ final class AuditPresenter
         'announcement.withdrawn' => 'Retiró',
         'announcement.republished' => 'Volvió a publicar',
         'announcement.companies_changed' => 'Cambió las empresas de',
+        'event.withdrawn' => 'Retiró',
+        'event.republished' => 'Volvió a publicar',
+        'event.companies_changed' => 'Cambió las empresas de',
         'category.moved' => 'Movió',
         'role.assigned' => 'Hizo editor de anuncios a',
         'role.removed' => 'Quitó como editor de anuncios a',
@@ -146,6 +150,10 @@ final class AuditPresenter
         'is_pinned' => 'Fijado arriba',
         'author_id' => 'Autor',
         'companies' => 'Empresas',
+        'location' => 'Lugar',
+        'all_day' => 'Todo el día',
+        'published_at' => 'Se muestra desde',
+        'created_by' => 'Creado por',
         'position' => 'Posición',
         'role' => 'Rol',
         'abilities' => 'Permisos',
@@ -155,6 +163,12 @@ final class AuditPresenter
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
         PortalSettings::ALLOWED_APP_HOSTS => 'Dominios permitidos',
         PortalSettings::API_STATUS_TTL => 'Quitar «Con fallas» después de (horas)',
+    ];
+
+    /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
+    private const EVENT_FIELD_LABELS = [
+        'starts_at' => 'Empieza',
+        'ends_at' => 'Termina',
     ];
 
     private const MAX_VALUE = 300;
@@ -227,6 +241,7 @@ final class AuditPresenter
             (new App)->getMorphClass() => 'la app '.($name('name') ?? '(eliminada)'),
             (new AppCategory)->getMorphClass() => 'la categoría '.($name('name') ?? '(eliminada)'),
             (new Announcement)->getMorphClass() => 'el anuncio «'.($name('title') ?? '(eliminado)').'»',
+            (new Event)->getMorphClass() => 'el evento «'.($name('title') ?? '(eliminado)').'»',
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
             (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
@@ -302,10 +317,14 @@ final class AuditPresenter
             $new = ['role' => self::ROLE_LABELS[$activity->properties->get('role')] ?? $activity->properties->get('role')];
         }
 
+        $labels = $activity->subject_type === (new Event)->getMorphClass()
+            ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
+            : self::FIELD_LABELS;
+
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
             $rows[] = [
-                'label' => self::FIELD_LABELS[$field] ?? (string) $field,
+                'label' => $labels[$field] ?? (string) $field,
                 'old' => self::value($old[$field] ?? null),
                 'new' => self::value($new[$field] ?? null),
             ];

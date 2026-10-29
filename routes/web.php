@@ -15,6 +15,8 @@ use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
+use App\Http\Controllers\EventCalendarController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Pwa\ManifestController;
@@ -24,6 +26,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\Event;
 use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -115,6 +118,15 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:announcement-read')
         ->name('announcements.read');
 
+    // Company events the user may see (App\Models\Event::scopeVisibleTo),
+    // soonest first, and «Agregar a mi calendario» of one of them: an .ics
+    // file, or a 404 when the user cannot see it right now.
+    Route::get('/eventos', [EventController::class, 'index'])->name('events.index');
+    Route::get('/eventos/{event}.ics', EventCalendarController::class)
+        ->whereNumber('event')
+        ->middleware('throttle:60,1')
+        ->name('events.calendar');
+
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
         ->middleware('throttle:60,1')
@@ -160,6 +172,22 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             ->whereNumber('announcement')
             ->can('update', 'announcement')
             ->name('announcements.edit');
+
+        // App\Policies\EventPolicy: the same people as announcements.
+        // App\Livewire\Admin\EventList and EventEditor re-authorize every
+        // action. The edit page binds {event} by its typed parameter (no
+        // global Route::model), so `can` gets the model and a missing one
+        // is a 404.
+        Route::view('/eventos', 'admin.events.index')
+            ->can('viewAny', Event::class)
+            ->name('events.index');
+        Route::view('/eventos/nuevo', 'admin.events.edit', ['event' => null])
+            ->can('create', Event::class)
+            ->name('events.create');
+        Route::get('/eventos/{event}', fn (Event $event) => view('admin.events.edit', ['event' => $event]))
+            ->whereNumber('event')
+            ->can('update', 'event')
+            ->name('events.edit');
 
         // App\Policies\AppPolicy: super_admin and portal_admin.
         Route::get('/aplicaciones', [AppController::class, 'index'])

@@ -46,7 +46,8 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
   - Manual de administración.
   - Hecho y verificado (ver el registro del WU1).
 - [x] WU1-R. **Arreglos de la revisión independiente del PR5.** Ruta: delegada (escritor), 2 o más archivos no triviales (controlador, límite, modelo, editor, vistas, pruebas, manual). Hecho y verificado (ver el registro).
-- [ ] WU2. **PR6, eventos con `.ics`.** Pendiente; sin diseño todavía.
+- [x] WU2. **PR6, eventos con `.ics`.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, política, `.ics`, Admin, inicio, buscador, vistas y pruebas). Hecho y verificado (ver el registro del WU2).
+- [x] WU2-R. **Arreglos de la revisión independiente del PR6.** Ruta: delegada (escritor), 2 o más archivos no triviales (Auditoría, modelos, políticas, `.ics`, rutas, inicio, `/eventos`, buscador, `home.js` y pruebas). Hecho y verificado (ver el registro).
 - [ ] WU3. **PR7, resumen de los lunes.** Bloqueada si necesita correo (ver preguntas).
 - [ ] WU4. **PR8, correo a las listas de cada empresa.** Bloqueada: Jhon.
 
@@ -57,10 +58,14 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 3. WU1: «Y» solo cuenta a quien ya entró al portal (las cuentas se crean al iniciar sesión). ¿Sirve así o hace falta traer el directorio de Microsoft?
 4. WU1: ¿quien no ha leído debe recibir un recordatorio (correo o aviso)? Hoy no se construye.
 5. WU1: ¿contar por persona entre cuentas vinculadas? Hoy se cuenta por cuenta (decisión del coordinador): quien tiene cuenta en dos empresas confirma una vez con cada una y aparece dos veces en «Cuentas que faltan». Contar por persona necesitaría un ayudante dentro de `App\Auth\LinkedAccounts` y una entrada nueva en `tests/Unit/Auth/PersonNeverAuthorizesTest.php`, porque `person_id` no decide nada fuera de ahí.
+6. WU2: los eventos los manejan las mismas personas que los anuncios (sin rol nuevo; el editor de anuncios, solo los de su empresa). ¿Sirve así o hace falta un «Editor de eventos»?
+7. WU2: el `.ics` ya lleva `SEQUENCE` y `LAST-MODIFIED` (WU2-R): si la persona vuelve a descargarlo, su calendario actualiza la copia. Pero nadie recibe los cambios solo (no hay suscripción). ¿Basta así, o hace falta un calendario suscrito (`webcal://`) por empresa?
 
 ## Criterios de aceptación
 
 - WU1: confirmar dos veces deja una sola fila; un anuncio de otra empresa, programado o inexistente da 404; uno retirado, vencido o ya no obligatorio que la empresa de la cuenta llegó a ver vuelve con «Este anuncio ya no pide confirmación.» y no guarda nada; sin CSRF, 419; el conteo y la lista cuentan solo a las personas de las empresas del anuncio (sin emergencia ni invitados); quien no puede editar el anuncio no ve la lista; el inicio sigue en ≤ 12 consultas y sin Livewire.
+
+- WU2: un evento de otra empresa, retirado, programado o que ya terminó no sale en el inicio, en `/eventos`, en el buscador ni como `.ics` (404); el `.ics` es RFC 5545 (UTC, `VALUE=DATE` con fin al día siguiente, texto escapado, líneas de 75 octetos, CRLF); un editor de la empresa A no ve ni edita eventos de B ni publica para todas; el inicio sigue en ≤ 12 consultas y sin Livewire.
 
 ## Chequeos
 
@@ -71,7 +76,7 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 ## Entrega
 
 - **Estrategia:** `ask-on-risk`, con cadena `stacked-to-main` (ya elegida por el coordinador): un PR por WU, encadenados encima de #71 (`feat/inicio-3-buscador`).
-- **Ramas:** `feat/inicio-4-lectura-obligatoria` (WU1), desde `feat/inicio-3-buscador`.
+- **Ramas:** `feat/inicio-4-lectura-obligatoria` (WU1), desde `feat/inicio-3-buscador`; `feat/inicio-5-eventos` (WU2), desde `feat/inicio-4-lectura-obligatoria`.
 - **Pronóstico:** WU1 ~450 líneas (código ~200, pruebas ~200, documentos ~50), más `public/build`. Salió con ~900: código 377 (367+, 10−), pruebas 436, `public/build` 6, documentos ~85. Las pruebas son casi la mitad; el código quedó cerca del pronóstico.
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
@@ -113,6 +118,41 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
   - **No hecho**: `/anuncios` no muestra el mensaje `status` (solo el inicio lo pinta); quien pulsa un botón viejo en `/anuncios` vuelve allí sin ver «Este anuncio ya no pide confirmación.». Falta una línea en `resources/views/announcements/index.blade.php`, fuera de las rutas permitidas en esta tarea.
   - Seguimiento: las rutas con `throttle:N,1` (cerrar sesión, abrir apps, `announcements.show`, soporte, favoritos) comparten un solo contador por cuenta; no se cambiaron.
 
+- 2026-10-29: WU2 hecha (ruta delegada, un escritor), rama `feat/inicio-5-eventos`. Sin `push` ni PR.
+  - RED: `tests/Feature/Events/*` (18 pruebas: 18 errores sin el modelo; con el modelo, 6 en verde y 12 sin rutas), `tests/Feature/Admin/EventEditorTest.php`, `EventListTest.php` y `RoleMatrixTest` (23: 20 fallas o errores, sin componentes ni rutas), `tests/Feature/Home/HomeEventsTest.php` (8: 5 fallas; las 3 en verde son guardas: sin enlace sin eventos, presupuesto y sin Livewire).
+  - GREEN:
+    - `a89a3ef` `feat(events)`: migración `2026_10_29_000005` (`events` y `event_company`), `Event` (`scopeVisibleTo` = publicado, no retirado, no terminado y para la empresa; `scopeUpcoming`, `scopeInStatus`, `scopeManageableBy`, `saveWithCompanies`, retirar y volver a publicar, registro `events`), `EventCalendarFile` (`.ics`), `GET /eventos` y `GET /eventos/{event}.ics` (`throttle:60,1`, 404 si no lo ve), `EventDate`.
+    - `7e34b36` `feat(admin)`: `EventPolicy` (mismas personas y empresa que `AnnouncementPolicy`), `EventList` y `EventEditor` (autorizan en `mount` y en cada acción o render), «Eventos» en el menú de Admin (también para editores) y en `RoleMatrix`, `Route::model('event')` en `AppServiceProvider` (las páginas de Admin son `Route::view`).
+    - `501bd47` `feat(home)`: «Próximas fechas» une festivos y eventos (`UPCOMING_DATE_LIMIT` = 5, eventos que empiezan en `UPCOMING_EVENT_DAYS` = 60 días), «Evento» o «Festivo», «Ver eventos» solo con eventos; buscador con hasta `EVENT_LIMIT` = 50 eventos de 12 meses entre las fechas, con enlace `/eventos#e-{id}`; `home.js` oculta en la copia guardada un evento al terminar (`data-event-end`) y corrige su «Hoy».
+    - `8be4880` `docs(admin)`: manual §2.5 «Eventos» (las secciones siguientes pasan a 2.6–2.10), roles y §7.2.
+    - `7779326` `fix(admin)`: texto de ayuda de «Termina».
+  - Suite completa: 1.508 de 1.508 (7.558 aserciones). `vendor/bin/pint --test`: sin cambios. `public/build` reconstruido (`app-Cd2BwBrn.css`, `home-ilkd6fv3.js`).
+  - Consultas del inicio: 10 → 11 (una para los eventos, la misma con 1 o 9 eventos); presupuesto ≤ 12.
+  - Capturas en el scratchpad (`inicio-5-shots`): inicio («Próximas fechas» con 3 eventos y 2 festivos), `/eventos`, editor y lista de Admin, a 390 y 1440 px, claro y oscuro. Sin desborde horizontal. El `.ics` descargado del servidor: `text/calendar; charset=utf-8`, `attachment; filename=reunion-general-de-resultados.ics`, CRLF, UTC, `LOCATION:Sala de juntas\, piso 3`. Servidor detenido.
+  - Decisiones:
+    1. **Sin rol nuevo**: manejan los eventos súper administrador y administrador (todos) y el editor de anuncios (solo de su empresa, con la misma regla de «exactamente su empresa»). Valor por defecto que Jhon puede cambiar (pregunta 6).
+    2. **Visible = publicado y no terminado**: `published_at` ≤ ahora, sin `withdrawn_at`, para la empresa y sin terminar. El `.ics` de un evento que ya pasó da 404, como el de otra empresa.
+    3. **Cuándo termina**: con hora, en `ends_at`; con hora y sin fin, al acabar su día; todo el día, al acabar su último día. Todo el día guarda la medianoche del primer día y del último (`ends_at` null = un día).
+    4. **`.ics`**: horas en UTC (`Z`), sin `VTIMEZONE` (Bogotá no tiene horario de verano); todo el día con `VALUE=DATE` y `DTEND` al día siguiente del último; sin fin, sin `DTEND` (un momento, RFC 5545 §3.6.1). `UID` `event-{id}@{host de APP_URL}`. Sin librería.
+    5. **`/eventos` sin paginar**, hasta 100: el buscador y «Próximas fechas» enlazan con `#e-{id}` a los 50 más próximos, que siempre están en esa página.
+    6. **Orden en «Próximas fechas»**: por inicio; un festivo va antes de los eventos de su día. Un evento de varios días que ya empezó sale con su primer día y «Hasta el …».
+  - **No hecho / seguimiento**: Auditoría mostraba los eventos como «Event #N» (resuelto en WU2-R); Lighthouse; suscripción del calendario (pregunta 7).
+
+- 2026-10-29: arreglos de la revisión independiente del WU2 (WU2-R, ruta delegada, un escritor), rama `feat/inicio-5-eventos`. Sin `push` ni PR.
+  - Commits: `f75196d` `fix(audit)` (1), `48885f0` `refactor(models)` (2), `1b20555` `fix(events)` (3), `f468597` `fix(admin)` (6), `65f511d` `fix(events)` (4 y 7), `77c7706` `fix(search)` (5, `public/build` `home--MKLBabp.js`).
+  - RED antes de cada arreglo: Auditoría decía «Creó Event #1» y «Creó » (2 fallas; la guarda de anuncios en verde); el `.ics` sin `SEQUENCE` (2 fallas); `getBindingCallback('event')` no era nulo (1 falla); inicio y `/eventos` (5 fallas y 1 error: «Ver eventos» faltaba con un evento lejano, sin «En curso», sin aviso de lista cortada, sin `end` en el buscador). El arreglo 2 es un cambio sin comportamiento nuevo: las 236 pruebas de anuncios, eventos e inicio en verde antes, y 492 de Admin, eventos, anuncios, inicio y buscador después.
+  - GREEN: suite completa 1.519 de 1.519 (7.624 aserciones). `vendor/bin/pint --test`: sin cambios. Líneas: código 377+ / 306− (el arreglo 2 quita más de lo que pone), pruebas 193+ / 1−, sin contar `public/build`.
+  - Decisiones:
+    1. **Auditoría**: «el evento «título»» o «(eliminado)»; verbos Retiró, Volvió a publicar y Cambió las empresas de; Lugar, Todo el día, Se muestra desde, Creado por; Empieza y Termina solo para eventos (los anuncios siguen con Desde y Hasta). «Cambió las empresas de el evento» repite la forma de los anuncios («de el anuncio»); no se contrajo a «del» para no cambiar los anuncios.
+    2. **Código compartido**: `App\Models\Concerns\AddressedToCompanies` (`audit`, `withdraw`, `republish`, `isForAllCompanies`, `scopeVisibleTo`, `scopeForCompanyId`, `scopeManageableBy`, `companyNames`) y `App\Policies\Rules\CompanyAddressedRules` (quién lista, crea, edita y publica para qué empresas). Quedan en cada modelo: la tabla pivote (`companies()`), qué es «publicado» (`scopeInStatus`; un evento además no ha terminado), `AUDIT_LOG`, `AUDIT_EVENT_PREFIX` y `getActivitylogOptions`. `saveWithCompanies` sigue en `Event`: el de anuncios vive en `App\Announcements\AnnouncementPublisher` (con la imagen), fuera de las rutas permitidas; su `companyNames` privado podría usar el del rasgo. `AnnouncementPolicy::MANAGERS`, `EDITOR` y `manages()` se quedan como alias.
+    3. **`.ics`**: `SEQUENCE` = hora Unix de `updated_at` (solo crece; dos cambios en el mismo segundo comparten número; cabe en el entero de 32 bits de RFC 5545 hasta 2038) y `LAST-MODIFIED` en UTC; el `UID` no cambia.
+    4. **«Ver eventos»**: sale con cualquier evento visible que no ha terminado. La consulta de eventos del inicio ya no filtra 12 meses: trae los 50 más próximos y el inicio se queda con los de 12 meses para la lista y el buscador (el mismo resultado, por ir en orden). Sigue en 11 consultas. `/eventos` pide 101 y, si llegan 101, muestra 100 y «Se muestran los 100 eventos más próximos.».
+    5. **Buscador en la copia guardada**: cada evento lleva `end` (el momento en que termina, ISO 8601) y `home.js` lo oculta en ese momento, como la lista con `data-event-end` (`isOver`). Sin ejecutor de JS en el proyecto: comprobado con `node` sobre la función (evento terminado, en curso, festivo de ayer y de hoy, entrada sin fecha).
+    6. **`{event}`**: sin `Route::model` global. La página de Admin es `Route::get` con un cierre de parámetro tipado (`fn (Event $event)`), así `can('update', 'event')` recibe el modelo; el `.ics` ya lo tipaba en su controlador. `route:cache` sigue funcionando.
+    7. **En curso**: un evento que empezó un día anterior y no ha terminado dice «En curso · hasta el 31 de octubre» en «Próximas fechas» (con «, 18:00» si tiene hora de fin) y «En curso · hasta el sábado 31 de octubre» en `/eventos`; la fecha de al lado es hoy y se ordena como hoy (después del festivo de hoy). Uno que empezó hoy sigue con «Hoy · 08:00». Admin sigue con las fechas completas (`when()`).
+  - Capturas en el scratchpad (`inicio-5-shots`): `home-390-light-fechas-fix.png` y `eventos-390-light-fix.png` («Semana de la seguridad» en curso). Sin desborde horizontal. Servidor detenido.
+  - **No hecho / seguimiento**: el buscador sigue diciendo «Evento · martes 27 de octubre» para uno en curso; la copia guardada no pasa a «En curso» un evento que empezó después de guardarse; `requires_read` sigue sin etiqueta en Auditoría; `AnnouncementPublisher` podría usar `companyNames` del rasgo.
+
 ## Siguiente paso
 
-Mostrar el mensaje `status` en `/anuncios` (una línea en `resources/views/announcements/index.blade.php`). Después, abrir el PR de `feat/inicio-4-lectura-obligatoria` encima de #71 (`feat/inicio-3-buscador`): decisión de Jhon. WU2 (eventos con `.ics`) necesita diseño; WU3 y WU4 esperan las respuestas de Jhon.
+Abrir el PR de `feat/inicio-5-eventos` encima de #72 (`feat/inicio-4-lectura-obligatoria`) y pasarle `/code-review`: decisión del coordinador o de Jhon. WU3 y WU4 esperan las respuestas de Jhon.
