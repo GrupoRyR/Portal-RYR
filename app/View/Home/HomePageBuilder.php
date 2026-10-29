@@ -197,16 +197,18 @@ final class HomePageBuilder
     private function upcomingHolidays(CarbonInterface $now): array
     {
         $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
-        $found = $this->holidays->between($today, $today->addDays(self::UPCOMING_HOLIDAY_DAYS));
 
-        if ($found === []) {
-            try {
+        // Late in 9999 the horizon or the next holiday falls past the
+        // calendar's supported range (ColombianHolidays), and both throw.
+        try {
+            $found = $this->holidays->between($today, $today->addDays(self::UPCOMING_HOLIDAY_DAYS));
+
+            if ($found === []) {
                 $next = $this->holidays->nextOnOrAfter($today)->date;
-            } catch (InvalidArgumentException) {
-                return []; // Past Navidad 9999: nothing left in the supported range.
+                $found = $this->holidays->between($next, $next);
             }
-
-            $found = $this->holidays->between($next, $next);
+        } catch (InvalidArgumentException) {
+            return [];
         }
 
         return array_slice(HolidayDay::group($found, $today), 0, self::UPCOMING_HOLIDAY_LIMIT);

@@ -86,6 +86,16 @@ class HomeUpcomingHolidaysTest extends TestCase
         );
     }
 
+    public function test_there_are_no_upcoming_holidays_past_the_supported_range(): void
+    {
+        // After Navidad 9999 the horizon (10000) is out of ColombianHolidays' range.
+        $page = $this->build('9999-12-26 10:00');
+
+        $this->assertSame([], $page->upcomingHolidays);
+        $this->assertNull($page->nextHoliday);
+        $this->assertNull($page->holidayNotice());
+    }
+
     private function build(string $time, string $timezone = 'America/Bogota'): HomePage
     {
         return app(HomePageBuilder::class)->build($this->user->fresh(), null, CarbonImmutable::parse($time, $timezone));
