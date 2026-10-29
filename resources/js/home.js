@@ -130,7 +130,7 @@ function renderResults(index) {
     const field = $('[data-search-input]', dialog);
     const query = field.value.trim();
     const terms = normalize(query).split(' ').filter(Boolean);
-    // The saved copy can be a day old: no holiday that is already over.
+    // The saved copy can be a day old: no holiday or event that is already over.
     const today = bogotaToday();
     found = [];
 
@@ -387,28 +387,33 @@ function showConnection() {
         : 'Conexión lenta · mostrando tus apps guardadas';
 }
 
-// The saved copy can be up to a day old (resources/js/sw.js): drop holiday
-// lines that are over and the «Hoy» of a day that is no longer today.
-function correctSavedHolidays() {
+// The saved copy can be up to a day old (resources/js/sw.js): drop the
+// holidays and events that are over (an event at the moment it ends,
+// `data-event-end`) and the «Hoy» of a day that is no longer today.
+function correctSavedDates() {
     const today = bogotaToday();
+    const now = Date.now();
 
     const holidayNotice = $('[data-holiday-notice]');
     if (holidayNotice && holidayNotice.dataset.holidayDate < today) holidayNotice.hidden = true;
 
-    const rows = $$('li[data-holiday-date]');
+    const rows = $$('li[data-holiday-date], li[data-event-end]');
     for (const row of rows) {
-        row.hidden = row.dataset.holidayDate < today;
-        if (row.dataset.holidayDate === today) continue;
+        const day = row.dataset.holidayDate ?? row.dataset.eventDate;
+        row.hidden = row.dataset.eventEnd ? Date.parse(row.dataset.eventEnd) <= now : day < today;
+        if (day === today) continue;
 
-        $$('[data-holiday-today]', row).forEach((label) => label.remove());
-        $$('[data-holiday-weekday]', row).forEach((day) => (day.textContent = day.dataset.holidayWeekday));
+        $$('[data-holiday-today], [data-event-today]', row).forEach((label) => label.remove());
+        $$('[data-holiday-weekday], [data-event-weekday]', row).forEach(
+            (label) => (label.textContent = label.dataset.holidayWeekday ?? label.dataset.eventWeekday),
+        );
     }
 
     const dates = $('#fechas');
     if (dates && rows.length > 0 && rows.every((row) => row.hidden)) dates.hidden = true;
 }
 
-if (fromCache) correctSavedHolidays();
+if (fromCache) correctSavedDates();
 
 showConnection();
 window.addEventListener('online', showConnection);

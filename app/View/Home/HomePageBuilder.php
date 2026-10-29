@@ -8,6 +8,7 @@ use App\Catalog\AppSearch;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\Company;
+use App\Models\Event;
 use App\Models\User;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
@@ -34,9 +35,11 @@ use InvalidArgumentException;
  *   the account is not linked);
  * - the next Colombian holidays for «Mi día» and the date line (computed,
  *   no query), from today in `config('app.timezone')`;
+ * - the upcoming company events the user may see (one query), merged with
+ *   the holidays in «Próximas fechas»;
  * - the index of the «Ctrl K» search (App\Search\HomeSearchIndex): every
- *   app on the page, the announcements of the same query and the holidays
- *   of the next twelve months.
+ *   app on the page, the announcements of the same query, and the holidays
+ *   and events of the next twelve months.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -53,6 +56,12 @@ final class HomePageBuilder
 
     /** How far ahead «Próximas fechas» looks; with nothing in it, the next holiday is shown alone. */
     public const UPCOMING_HOLIDAY_DAYS = 60;
+
+    /** Events in «Próximas fechas» start within this many days (the holidays' horizon). */
+    public const UPCOMING_EVENT_DAYS = self::UPCOMING_HOLIDAY_DAYS;
+
+    /** Entries in «Próximas fechas», holidays and events together. */
+    public const UPCOMING_DATE_LIMIT = self::UPCOMING_HOLIDAY_LIMIT;
 
     /** Roles offered the «Administración» link (each lands on its own section). */
     public const ADMIN_ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
@@ -93,6 +102,8 @@ final class HomePageBuilder
         $company = $user->company;
         $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
         $upcoming = $this->upcomingHolidays($today);
+        $events = $this->events($user, $today);
+        $upcomingDates = self::upcomingDates($upcoming, $events, $today);
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
@@ -127,7 +138,10 @@ final class HomePageBuilder
                 $announcements,
                 $this->holidaysAhead($today, $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS)->subDay()),
                 $today,
+                $events,
             ),
+            upcomingDates: $upcomingDates,
+            hasEvents: array_filter($upcomingDates, fn (HolidayDay|EventDate $date) => $date instanceof EventDate) !== [],
         );
     }
 
@@ -209,6 +223,60 @@ final class HomePageBuilder
             ->ordered()
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * The events of «Próximas fechas» and of the search index, in one
+     * query: not over yet and starting within HomeSearchIndex::HOLIDAY_MONTHS,
+     * soonest first, at most HomeSearchIndex::EVENT_LIMIT. No query for a
+     * user without a company, who sees none.
+     *
+     * @return list<EventDate>
+     */
+    private function events(User $user, CarbonImmutable $today): array
+    {
+        if ($user->company_id === null) {
+            return [];
+        }
+
+        return Event::query()
+            ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
+            ->visibleTo($user)
+            ->where('starts_at', '<', $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS))
+            ->chronological()
+            ->limit(HomeSearchIndex::EVENT_LIMIT)
+            ->get()
+            ->map(fn (Event $event) => EventDate::from($event, $today))
+            ->all();
+    }
+
+    /**
+     * Holidays and events that start within UPCOMING_EVENT_DAYS, by start
+     * (a holiday before the events of its day), at most UPCOMING_DATE_LIMIT.
+     *
+     * @param  list<HolidayDay>  $holidays
+     * @param  list<EventDate>  $events  Soonest first.
+     * @return list<HolidayDay|EventDate>
+     */
+    private static function upcomingDates(array $holidays, array $events, CarbonImmutable $today): array
+    {
+        $horizon = $today->addDays(self::UPCOMING_EVENT_DAYS + 1);
+        $dates = [
+            ...$holidays,
+            ...array_filter($events, fn (EventDate $event) => $event->start < $horizon),
+        ];
+
+        usort($dates, fn (HolidayDay|EventDate $a, HolidayDay|EventDate $b) => self::sortKey($a) <=> self::sortKey($b));
+
+        return array_slice($dates, 0, self::UPCOMING_DATE_LIMIT);
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    public static function sortKey(HolidayDay|EventDate $date): array
+    {
+        return $date instanceof EventDate ? $date->sortKey() : [$date->date->getTimestamp(), 0, 0];
     }
 
     /**

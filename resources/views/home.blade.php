@@ -217,12 +217,32 @@
 
         {{-- «Mi día»: beside the apps on wide screens, after them on phones and tablets. --}}
         <aside id="mi-dia" aria-label="Mi día" class="flex min-w-0 flex-col divide-y divide-line rounded-card border border-line bg-surface lg:w-[340px] lg:shrink-0 xl:w-[360px]">
-            @if ($page->upcomingHolidays !== [])
+            @if ($page->upcomingDates !== [])
                 <section id="fechas" aria-labelledby="fechas-titulo" class="flex scroll-mt-6 flex-col gap-3.5 p-5">
-                    <h2 id="fechas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Próximas fechas</h2>
-                    {{-- data-holiday-*: home.js corrects the saved copy replayed on a later day. --}}
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="fechas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Próximas fechas</h2>
+                        @if ($page->hasEvents)
+                            <a href="{{ route('events.index') }}" class="-my-3 inline-flex min-h-touch items-center text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Ver eventos</a>
+                        @endif
+                    </div>
+                    {{-- data-holiday-* and data-event-*: home.js corrects the saved copy replayed later. --}}
                     <ul class="flex flex-col gap-3">
-                        @foreach ($page->upcomingHolidays as $holiday)
+                        @foreach ($page->upcomingDates as $date)
+                            @if ($date instanceof \App\View\Home\EventDate)
+                                <li class="flex items-center gap-3" data-event-date="{{ $date->isoDate() }}" data-event-end="{{ $date->overIso() }}">
+                                    <time datetime="{{ $date->isoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
+                                        <span class="text-lg font-bold">{{ $date->dayNumber() }}</span>
+                                        <span class="text-xs">{{ $date->shortMonth() }}</span>
+                                    </time>
+                                    <div class="flex min-w-0 flex-col gap-0.5">
+                                        <span class="sr-only">@if ($date->isToday)<span data-event-today>Hoy, </span>@endif{{ $date->dateAndTime() }}, evento:</span>
+                                        <a href="{{ $date->href() }}" class="text-sm leading-snug font-bold break-words underline-offset-4 hover:underline">{{ $date->title }}</a>
+                                        <p class="text-xs text-fg-muted" aria-hidden="true"><span data-event-weekday="{{ $date->dayName() }}">{{ $date->weekday() }}</span>@if ($detail = $date->shortDetail()) · {{ $detail }}@endif · Evento</p>
+                                    </div>
+                                </li>
+                                @continue
+                            @endif
+                            @php($holiday = $date)
                             <li class="flex items-center gap-3" data-holiday-date="{{ $holiday->isoDate() }}">
                                 <time datetime="{{ $holiday->isoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
                                     <span class="text-lg font-bold">{{ $holiday->dayNumber() }}</span>

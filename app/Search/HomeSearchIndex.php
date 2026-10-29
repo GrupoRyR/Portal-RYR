@@ -5,6 +5,7 @@ namespace App\Search;
 use App\Catalog\AppSearch;
 use App\Models\Announcement;
 use App\View\Home\AppCard;
+use App\View\Home\EventDate;
 use App\View\Home\HolidayDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -14,8 +15,10 @@ use Illuminate\Support\Str;
  * the page as JSON (resources/views/components/home/search-dialog.blade.php),
  * so it also works in the saved copy of the page. Only what the viewer can
  * already see: their openable apps, the announcements addressed to their
- * company (App\Models\Announcement::scopeVisibleTo) and upcoming Colombian
- * holidays. No people and no other accounts.
+ * company (App\Models\Announcement::scopeVisibleTo), upcoming Colombian
+ * holidays and the upcoming company events they may see
+ * (App\Models\Event::scopeVisibleTo), which link to /eventos#e-{id}. No
+ * people and no other accounts.
  *
  * Every entry carries `search`, its text through AppSearch::normalize(), so
  * resources/js/home.js matches it exactly like the server search does.
@@ -25,8 +28,11 @@ final readonly class HomeSearchIndex
     /** Most recent visible announcements in the index (pinned first). */
     public const ANNOUNCEMENT_LIMIT = 50;
 
-    /** How far ahead the holidays go. */
+    /** How far ahead the holidays and the events go. */
     public const HOLIDAY_MONTHS = 12;
+
+    /** Soonest upcoming events in the index (all of them on the first /eventos page). */
+    public const EVENT_LIMIT = 50;
 
     /** Characters of an announcement's text in its excerpt; the body never ships whole. */
     public const EXCERPT_LENGTH = 90;
@@ -34,7 +40,7 @@ final readonly class HomeSearchIndex
     /**
      * @param  list<array{title: string, detail: string, search: string, href: string, newTab: bool}>  $apps
      * @param  list<array{title: string, detail: string, search: string, href: string}>  $announcements
-     * @param  list<array{title: string, detail: string, search: string, date: string}>  $dates
+     * @param  list<array{title: string, detail: string, search: string, date: string, href?: string}>  $dates  Holidays and events by start; `date` is the last day, after which a saved copy hides it.
      */
     public function __construct(
         public array $apps,
@@ -47,8 +53,9 @@ final readonly class HomeSearchIndex
      * @param  iterable<Announcement>  $announcements  Visible to the viewer, in Announcement::scopeOrdered() order (the order of /anuncios).
      * @param  list<HolidayDay>  $holidays
      * @param  CarbonImmutable  $today  Midnight today in the calendar timezone.
+     * @param  list<EventDate>  $events  Visible to the viewer, soonest first.
      */
-    public static function build(array $cards, iterable $announcements, array $holidays, CarbonImmutable $today): self
+    public static function build(array $cards, iterable $announcements, array $holidays, CarbonImmutable $today, array $events = []): self
     {
         $apps = array_map(fn (AppCard $card) => [
             'title' => $card->name,
@@ -75,18 +82,32 @@ final readonly class HomeSearchIndex
             ];
         }
 
-        $dates = array_map(function (HolidayDay $day) use ($today) {
+        $dates = [];
+        foreach ($holidays as $day) {
             $date = $day->longDate().($day->date->year === $today->year ? '' : " de {$day->date->year}");
 
-            return [
+            $dates[] = [[$day->date->getTimestamp(), 0, 0], [
                 'title' => $day->label(),
                 'detail' => "Festivo · {$date}",
                 'search' => AppSearch::normalize("{$day->label()} festivo {$date}"),
                 'date' => $day->isoDate(),
-            ];
-        }, $holidays);
+            ]];
+        }
 
-        return new self(array_values($apps), $notices, array_values($dates));
+        foreach (array_slice($events, 0, self::EVENT_LIMIT) as $event) {
+            $dates[] = [$event->sortKey(), [
+                'title' => $event->title,
+                'detail' => $event->searchDetail(),
+                'search' => AppSearch::normalize("{$event->title} evento {$event->dateAndTime()}"),
+                'date' => $event->lastIsoDate(),
+                'href' => $event->href(),
+            ]];
+        }
+
+        // By start, a holiday before the events of its day (HomePageBuilder::sortKey()).
+        usort($dates, fn (array $a, array $b) => $a[0] <=> $b[0]);
+
+        return new self(array_values($apps), $notices, array_column($dates, 1));
     }
 
     /**

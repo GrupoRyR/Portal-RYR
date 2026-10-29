@@ -168,11 +168,19 @@ final readonly class EventDate
     }
 
     /**
+     * «jueves 5 de noviembre, 15:00» (no time when it is all day).
+     */
+    public function dateAndTime(): string
+    {
+        return $this->longDate().($this->allDay ? '' : ', '.$this->start->format('H:i'));
+    }
+
+    /**
      * «Evento · jueves 5 de noviembre, 15:00», for the «Ctrl K» search.
      */
     public function searchDetail(): string
     {
-        return 'Evento · '.$this->longDate().($this->allDay ? '' : ', '.$this->start->format('H:i'));
+        return 'Evento · '.$this->dateAndTime();
     }
 
     /** The event on /eventos. */
