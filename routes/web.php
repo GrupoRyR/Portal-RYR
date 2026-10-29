@@ -15,6 +15,8 @@ use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
+use App\Http\Controllers\EventCalendarController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Pwa\ManifestController;
@@ -114,6 +116,15 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('announcement')
         ->middleware('throttle:announcement-read')
         ->name('announcements.read');
+
+    // Company events the user may see (App\Models\Event::scopeVisibleTo),
+    // soonest first, and «Agregar a mi calendario» of one of them: an .ics
+    // file, or a 404 when the user cannot see it right now.
+    Route::get('/eventos', [EventController::class, 'index'])->name('events.index');
+    Route::get('/eventos/{event}.ics', EventCalendarController::class)
+        ->whereNumber('event')
+        ->middleware('throttle:60,1')
+        ->name('events.calendar');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
