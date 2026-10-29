@@ -41,7 +41,17 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
   - Visibilidad: solo la cuenta activa (`tenant_id` + `azure_oid`), solo `pending`, solo integraciones no revocadas (§4).
   - Sin entrada de Auditoría por `PUT`/`DELETE` (§6.5): queda en «Último uso». Los cambios de app y URL base en Integraciones sí quedan (`integration.work_app_changed`).
   - Evidencia: RED 75/75 (`Integration::WORK_WRITE` no existía) y GREEN 75/75 en `WorkItemsApiTest`; RED 4 y GREEN en `IntegrationsPageTest`; suite completa 1333/1333; `pint --test` limpio. Commits `0a45140` (plan), `bcc396c` (API), `39df1cd` (Integraciones), `aff6d74` (docs). Unas 1.712 líneas: 886 de código, 696 de pruebas y 130 de documentación. Pasa de las ~400 por las pruebas de cada regla del contrato y por el formulario de Integraciones; no se partió para no separar las reglas de sus pruebas.
-  - Pendiente fuera de la superficie de T1: programar la limpieza en `routes/console.php` (`Schedule::command('model:prune', ['--model' => [WorkItem::class]])->daily()`). Hasta entonces, el rastro de 30 días ya se respeta al escribir (`WorkItemWriter`), pero las filas viejas no se borran.
+  - **Correcciones de la revisión independiente** (ruta: delegada, escritor; RED antes de cada una):
+    - [x] `due_at` se guardaba en la zona equivocada (`22:00Z` quedaba como 22:00 de Bogotá, 5 h tarde). Ahora se convierte a `config('app.timezone')` antes de guardar. RED 2/3 (`Z` y `+02:00`) y GREEN 3/3.
+    - [x] Carrera de los primeros `PUT` y del límite de 500: cada escritura (`PUT` y `DELETE`) bloquea primero la fila de su integración (`lockForUpdate`) dentro de la transacción, así las escrituras de una integración van en fila. SQLite ignora `FOR UPDATE`; la prueba comprueba que la primera consulta de cada transacción es ese bloqueo y que el resultado no cambia.
+    - [x] `external_id` con intercalación binaria (`utf8mb4_bin`) solo en MySQL/MariaDB, en la misma migración (aún no desplegada). La prueba genera el SQL de MySQL con `pretend`, sin conectarse.
+    - [x] Elementos varados: `WorkItem::visibleTo()` exige además que la integración tenga hoy `work:write` y `app_id`. Si pierde cualquiera, sus elementos se ocultan (no se borran) y vuelven al recuperarlos.
+    - [x] Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft (`RecentMicrosoftLogin`, igual que crear o rotar). Quitar permisos sigue siendo un clic. La cuenta de emergencia recibe 403 con el mensaje nuevo. Guardar los mismos valores no pide nada.
+    - [x] Limpieza diaria programada: `model:prune` de `WorkItem` a las 03:00 de Bogotá, sin solaparse.
+    - [x] Ambigüedad 2: un `:443` escrito equivale a no tener puerto, en el enlace y en la app del catálogo; cualquier otro puerto (también `:0443` o `:` vacío) debe coincidir exacto.
+    - [x] Ambigüedad 3: el título rechaza también U+200E, U+200F, U+061C, U+200B y U+FEFF. `TrimStrings` ya los quita de los bordes, así que solo cuentan dentro del título.
+    - [x] Pruebas de enlaces nuevas: `https:\evil`, host con `%`, `https:///…` (rechazados) y `@` en la ruta (permitido).
+    - Evidencia: RED 11 en `WorkItemsApiTest` + `WorkItemsSchemaTest` y 3 en `IntegrationsPageTest` + `WorkItemPruneScheduleTest`; GREEN en todas; suite completa 1355/1355; `pint --test` limpio. Commits `bd54690` (limpieza), `3e2830b` (Integraciones), `9bfc004` (API).
 - [ ] T2. **«Mi día» en el inicio.** Lista «Por aprobar» y «Tareas» con «Ver tarea» y «Ver aprobación» (§4, §5). Depende de la cadena del inicio (#69 a #73). Ruta: por decidir.
 - [ ] T3. **«Completar» firmado.** Secreto `ryrsig_` cifrado, llamada `POST {app_base_url}/api/portal/v1/tasks/{external_id}/complete` con HMAC-SHA256, 5 s, sin redirecciones, Auditoría `work_item.completed` y `work_item.complete_failed` (§6). Ruta: por decidir.
 - [ ] T4. **Carga inicial y conciliación.** Bloqueada: pregunta abierta 1 del contrato (§11).
@@ -72,20 +82,22 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
 Ambigüedades del contrato v0.1 encontradas en T1. Se implementó la lectura más segura; el contrato no se cambió.
 
 1. **`version` igual con otro `kind` o `assignee`** (§3.3 punto 3 contra §3.7). Con la misma versión, el portal responde `unchanged` sin comparar, como dice §3.3. El `422` por cambio de `kind` o de `assignee` solo sale cuando la versión es mayor y el cambio se aplicaría. ¿Está bien?
-2. **Puerto en los enlaces** (§5, «y el puerto, si lo trae»). Se compara la autoridad exacta: `https://tareas…:443/x` no sirve si la app del catálogo no trae puerto. ¿Está bien?
-3. **Caracteres del título** (§3.2, «caracteres de control»). Además de los de control, se rechazan los separadores de línea y párrafo de Unicode y los de dirección del texto (U+202A a U+202E, U+2066 a U+2069), que sirven para disfrazar títulos.
+2. **Puerto en los enlaces** (§5, «y el puerto, si lo trae»). *Decidido en la revisión:* `:443` escrito es igual a sin puerto; todo lo demás es `host[:puerto]` exacto. El catálogo hoy no acepta direcciones con puerto.
+3. **Caracteres del título** (§3.2, «caracteres de control»). *Decidido en la revisión:* además de los de control, los separadores de línea y párrafo, y los de dirección del texto (U+202A a U+202E, U+2066 a U+2069), se rechazan U+200E, U+200F, U+061C, U+200B y U+FEFF.
 4. **Inquilino de una empresa registrada** (§3.5). Se acepta cualquier empresa registrada, también una inactiva (sus cuentas no entran, así que no ven nada). ¿Se debe exigir una empresa activa?
 5. **Qué app del catálogo se puede elegir** (§2.1). Se listan las apps web con dirección, también las ocultas. ¿Se deben excluir las ocultas?
 6. **`user_id` del elemento.** El contrato pide guardar solo sus campos (§8.6) y mostrar por `{tenant_id, oid}` (§4.1), así que no se guarda `user_id`: `WorkItem::visibleTo($user)` compara `tenant_id` y `azure_oid` de la cuenta activa. Así funciona también para cuentas que entran por primera vez.
 7. **Fecha sin segundos.** `due_at` acepta `2026-11-05T17:00-05:00` y fracciones de segundo, siempre con zona.
+8. **Confirmar con Microsoft al guardar la app de tareas.** Si la confirmación venció, **Guardar app** lleva a Microsoft y al volver hay que escribir otra vez la app y la URL base (el formulario de crear token sí se abre solo después de confirmar). ¿Basta así, o se quiere un paso «Editar» que confirme antes de escribir?
 
 ## Progreso
 
 - 2026-10-29: documento creado. T1 en curso.
 - 2026-10-29: T1 hecho en `feat/tareas-1-api` (sin push ni PR). Ruta: delegada (escritor).
+- 2026-10-29: correcciones de la revisión independiente de T1 (9 puntos) hechas y comprobadas. Sin push ni PR.
 
 ## Siguiente paso
 
-- Jhon: responder las preguntas 1 a 5 y decidir si la limpieza diaria (`model:prune`) entra en T1 o en T3.
-- Revisión de código de T1 y PR contra `main`.
+- Jhon: responder las preguntas 1, 4, 5 y 8 (la 2 y la 3 ya se decidieron en la revisión; puede cambiarlas).
+- PR de T1 contra `main`.
 - T2 cuando la cadena del inicio (#69 a #73) esté en `main`.
