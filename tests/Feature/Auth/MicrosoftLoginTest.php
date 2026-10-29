@@ -8,9 +8,11 @@ use App\Auth\RecentMicrosoftLogin;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
@@ -721,6 +723,21 @@ class MicrosoftLoginTest extends TestCase
         $this->assertNull($user->last_login_at);
         $this->assertSame(0, Activity::query()->where('log_name', 'security')->count());
         $this->assertGuest();
+    }
+
+    /**
+     * Only Graph problems are kept from blocking a sign-in. A database
+     * error (on MySQL a deadlock has rolled the transaction back) ends it.
+     */
+    public function test_a_database_failure_while_syncing_is_not_taken_for_a_graph_failure(): void
+    {
+        $this->fakeGraph(groups: [['id' => 'bbbbbbbb-0000-0000-0000-000000000009', 'displayName' => 'APP-Cartera']]);
+        Schema::drop('user_groups');
+        $identity = new MicrosoftIdentity(self::SEGUREX_TENANT, self::OID, 'ana@segurex.com', 'Ana Pérez', 'graph-access-token', self::SEGUREX_TENANT);
+
+        $this->expectException(QueryException::class);
+
+        $this->app->make(MicrosoftLogin::class)->admit($identity);
     }
 
     public function test_a_socialite_error_shows_a_retry_message(): void

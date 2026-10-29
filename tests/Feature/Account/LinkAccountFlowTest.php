@@ -20,6 +20,7 @@ use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -306,6 +307,7 @@ class LinkAccountFlowTest extends TestCase
         $this->assertSame($person->id, $this->current->fresh()->person_id);
 
         $this->assertSame(0, Activity::query()->where('event', SecurityLog::MICROSOFT)->count());
+        $this->assertSame(0, Activity::query()->where('event', SecurityLog::ROLES_SYNCED)->count(), 'No role changed.');
         $entry = Activity::query()->where('event', SecurityLog::ACCOUNT_LINKED)->sole();
         $this->assertTrue($entry->causer->is($this->current));
         $this->assertTrue($entry->subject->is($other));
@@ -446,24 +448,61 @@ class LinkAccountFlowTest extends TestCase
     }
 
     /**
-     * A rule that only fails once admit() has written (a concurrent link
-     * took the company meanwhile) rolls the new account back as well.
+     * A concurrent link takes the company after the rules were read (here
+     * the rules see nothing at all): admit() has written the new account,
+     * the unique index stops the link, and everything is rolled back.
      */
-    public function test_a_refusal_after_the_other_account_was_admitted_leaves_no_trace(): void
+    public function test_a_link_stopped_by_the_unique_index_after_admit_leaves_no_trace(): void
     {
         $this->app->instance(LinkedAccounts::class, new class($this->app->make(LinkedAccountNotifier::class)) extends LinkedAccounts
         {
-            public function link(User $current, User $other): Person
-            {
-                throw new LinkRefused(LinkRefused::COMPANY_ALREADY_LINKED);
-            }
+            public function check(User $current, User $other): void {}
         });
+        $this->personWith($this->current, User::factory()->microsoft($this->derivados)->create());
         $before = $this->snapshot();
         $this->microsoftAnswers();
         $this->fakeGraph();
 
         $this->assertRefused($this->hitCallback(), LinkRefused::COMPANY_ALREADY_LINKED, $before);
+        $this->assertSame(0, User::query()->where('azure_oid', self::OTHER_OID)->count());
+    }
+
+    /**
+     * A database error while admit() refreshes the other account (on MySQL a
+     * deadlock has already rolled the transaction back) must end the link,
+     * not be taken for a Graph failure.
+     */
+    public function test_a_database_failure_while_admitting_the_other_account_refuses_the_link(): void
+    {
+        $this->microsoftAnswers();
+        $this->fakeGraph();
+        Schema::drop('user_groups');
+
+        $this->hitCallback()
+            ->assertRedirect('/')
+            ->assertSessionHas('status', LinkRefused::RETRY);
+
+        $this->assertAuthenticatedAs($this->current);
         $this->assertSame(1, User::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame('provider_error', Activity::query()->where('event', SecurityLog::ACCOUNT_LINK_REFUSED)->sole()->properties['reason']);
+    }
+
+    public function test_role_changes_on_the_other_account_reach_the_audit(): void
+    {
+        config(['portal.super_admin_emails' => ['edward@derivados.com']]);
+        $this->microsoftAnswers();
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertSessionHas('status', 'Vinculaste tu cuenta de Soluciones y Derivados.');
+
+        $other = User::query()->where('azure_oid', self::OTHER_OID)->sole();
+        $this->assertTrue($other->hasRole('super_admin'));
+
+        $entry = Activity::query()->where('event', SecurityLog::ROLES_SYNCED)->sole();
+        $this->assertTrue($entry->subject->is($other));
+        $this->assertSame(['super_admin'], $entry->properties['roles_added']);
+        $this->assertSame([], $entry->properties['roles_removed']);
     }
 
     public function test_a_refusal_is_readable_in_the_audit(): void

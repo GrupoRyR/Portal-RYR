@@ -118,6 +118,10 @@ class AutomaticUnlinkTest extends TestCase
         $this->assertModelMissing($person);
         $this->assertNull($this->moving->fresh()->person_id);
         $this->assertNull($sdcAccount->fresh()->person_id);
+        $this->assertEqualsCanonicalizing(
+            [$this->moving->id, $sdcAccount->id],
+            Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->where('properties->reason', LinkedAccounts::COMPANY_CHANGED)->pluck('subject_id')->all(),
+        );
     }
 
     public function test_a_linked_account_moving_to_a_free_company_stays_linked(): void
@@ -142,7 +146,8 @@ class AutomaticUnlinkTest extends TestCase
         $this->assertTrue($admitted->is($this->moving));
         $this->assertNull($admitted->person_id);
         $this->assertTrue($this->moving->fresh()->company->is($this->sdc));
-        $this->assertSame(1, Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->count());
+        // The moving account and the last account of the dissolved person.
+        $this->assertSame(2, Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->count());
         $this->assertSame(0, Activity::query()->where('event', SecurityLog::MICROSOFT)->count());
     }
 }

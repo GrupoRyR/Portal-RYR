@@ -6,6 +6,10 @@ use App\Audit\SecurityLog;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\LinkedAccountNotifier;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -19,6 +23,10 @@ use LogicException;
  * or name. It never gives a session and never authorizes anything. Every
  * rule is checked before any write, so a refusal ({@see LinkRefused})
  * changes nothing.
+ *
+ * Writes lock the accounts involved and every account of their people in
+ * one statement, by id, so that linking and unlinking take their locks in
+ * the same order.
  */
 class LinkedAccounts
 {
@@ -56,11 +64,19 @@ class LinkedAccounts
 
         // The account without a person joins the other one's, whose company
         // must still be free (accounts already linked together fail here).
+        // A locking read: inside link() it sees what other transactions
+        // committed, not the snapshot of an earlier read.
         [$personId, $joining] = $current->person_id !== null
             ? [$current->person_id, $other]
             : [$other->person_id, $current];
 
-        if ($personId !== null && User::query()->where('person_id', $personId)->where('company_id', $joining->company_id)->exists()) {
+        $taken = $personId !== null && User::query()
+            ->where('person_id', $personId)
+            ->where('company_id', $joining->company_id)
+            ->lockForUpdate()
+            ->first() !== null;
+
+        if ($taken) {
             throw new LinkRefused(LinkRefused::COMPANY_ALREADY_LINKED);
         }
     }
@@ -80,16 +96,10 @@ class LinkedAccounts
         }
 
         $person = DB::transaction(function () use ($current, $other) {
-            $locked = User::query()
-                ->whereKey([$current->getKey(), $other->getKey()])
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
+            $locked = $this->lockWithPeople($current->getKey(), $other->getKey());
 
             $current = $locked->get($current->getKey()) ?? throw new LogicException('The account to link is gone.');
             $other = $locked->get($other->getKey()) ?? throw new LogicException('The account to link is gone.');
-            $this->lockPeopleOf($current, $other);
 
             $this->check($current, $other);
 
@@ -99,10 +109,16 @@ class LinkedAccounts
                 default => Person::query()->create(),
             };
 
-            foreach ([$current, $other] as $account) {
-                if ($account->person_id !== $person->id) {
-                    $account->forceFill(['person_id' => $person->id])->save();
+            try {
+                foreach ([$current, $other] as $account) {
+                    if ($account->person_id !== $person->id) {
+                        $account->forceFill(['person_id' => $person->id])->save();
+                    }
                 }
+            } catch (UniqueConstraintViolationException) {
+                // UNIQUE(person_id, company_id): a concurrent link took the
+                // company after the rules were read.
+                throw new LinkRefused(LinkRefused::COMPANY_ALREADY_LINKED);
             }
 
             SecurityLog::accountLinked($current, $other, $person->id);
@@ -119,46 +135,16 @@ class LinkedAccounts
 
     /**
      * Takes the account out of its person. A person left with one account
-     * (or none) is deleted and that last account is no longer linked
-     * either. False when the account was not linked.
+     * (or none) is deleted and that last account is unlinked too; each
+     * unlinked account is a security event. False when the account was not
+     * linked.
      *
      * @param  string  $reason  {@see COMPANY_CHANGED}, {@see ADMIN} or {@see User}.
      * @param  User|null  $actor  Who did it; null when the system did.
      */
     public function unlink(User $account, string $reason, ?User $actor = null): bool
     {
-        $unlinked = DB::transaction(function () use ($account, $reason, $actor) {
-            $locked = User::query()->whereKey($account->getKey())->lockForUpdate()->first();
-            $personId = $locked?->person_id;
-
-            if ($personId === null) {
-                return false;
-            }
-
-            $rest = User::query()
-                ->where('person_id', $personId)
-                ->whereKeyNot($locked->getKey())
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
-
-            $locked->forceFill(['person_id' => null])->save();
-
-            if ($rest->count() <= 1) {
-                $rest->each(fn (User $last) => $last->forceFill(['person_id' => null])->save());
-                Person::query()->whereKey($personId)->delete();
-            }
-
-            SecurityLog::accountUnlinked($locked, $reason, $actor);
-
-            return true;
-        });
-
-        if ($unlinked) {
-            self::remember($account, null);
-        }
-
-        return $unlinked;
+        return $this->detach($account, $reason, $actor);
     }
 
     /**
@@ -173,30 +159,85 @@ class LinkedAccounts
             return false;
         }
 
-        return DB::transaction(function () use ($account) {
-            $taken = User::query()
-                ->where('person_id', $account->person_id)
-                ->where('company_id', $account->company_id)
-                ->whereKeyNot($account->getKey())
-                ->lockForUpdate()
-                ->get()
-                ->isNotEmpty();
+        $companyId = $account->company_id;
 
-            return $taken && $this->unlink($account, self::COMPANY_CHANGED);
-        });
+        return $this->detach(
+            $account,
+            self::COMPANY_CHANGED,
+            null,
+            fn (Collection $rest) => $rest->contains(fn (User $other) => $other->company_id === $companyId),
+        );
     }
 
     /**
-     * Locks the other accounts of the people involved, so that no
-     * concurrent link takes one of their companies meanwhile.
+     * @param  (Closure(Collection<int, User>): bool)|null  $only  Unlinks only when it holds for the person's other accounts (locked).
      */
-    private function lockPeopleOf(User ...$accounts): void
+    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null): bool
     {
-        $people = collect($accounts)->pluck('person_id')->filter()->unique()->values();
-
-        if ($people->isNotEmpty()) {
-            User::query()->whereIn('person_id', $people)->orderBy('id')->lockForUpdate()->get();
+        if (! $account->exists) {
+            return false;
         }
+
+        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only) {
+            $target = $this->lockWithPeople($account->getKey())->get($account->getKey());
+            $personId = $target?->person_id;
+
+            if ($personId === null) {
+                return false;
+            }
+
+            // Already locked above, unless the person changed in between.
+            $rest = User::query()
+                ->where('person_id', $personId)
+                ->whereKeyNot($target->getKey())
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($only !== null && ! $only($rest)) {
+                return false;
+            }
+
+            $target->forceFill(['person_id' => null])->save();
+            SecurityLog::accountUnlinked($target, $reason, $actor);
+
+            if ($rest->count() <= 1) {
+                foreach ($rest as $last) {
+                    $last->forceFill(['person_id' => null])->save();
+                    SecurityLog::accountUnlinked($last, $reason, $actor);
+                }
+
+                Person::query()->whereKey($personId)->delete();
+            }
+
+            return true;
+        });
+
+        if ($unlinked) {
+            self::remember($account, null);
+        }
+
+        return $unlinked;
+    }
+
+    /**
+     * Locks the given accounts and every account of their people in one
+     * statement, by id. The people are read first without a lock; if one
+     * changes before the lock, the rules and the unique index, both run
+     * on locked rows afterwards, still catch it.
+     *
+     * @return Collection<int, User> keyed by id
+     */
+    private function lockWithPeople(int ...$ids): Collection
+    {
+        $people = User::query()->whereKey($ids)->whereNotNull('person_id')->distinct()->pluck('person_id')->all();
+
+        return User::query()
+            ->where(fn (Builder $query) => $query->whereKey($ids)->orWhereIn('person_id', $people))
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
     }
 
     /**

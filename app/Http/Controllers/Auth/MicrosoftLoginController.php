@@ -210,7 +210,14 @@ class MicrosoftLoginController extends Controller
             $linkedAccounts->check($user, $login->preview($identity));
 
             $other = DB::transaction(function () use ($user, $identity, $login, $linkedAccounts) {
-                $other = $login->admit($identity)['user'];
+                ['user' => $other, 'roleChanges' => $roleChanges] = $login->admit($identity);
+
+                // No sign-in event carries them here, so the roles admit()
+                // gave or took from the other account are recorded apart.
+                if ($roleChanges['added'] !== [] || $roleChanges['removed'] !== []) {
+                    SecurityLog::rolesSynced($other, $roleChanges);
+                }
+
                 $linkedAccounts->link($user, $other);
 
                 return $other;

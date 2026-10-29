@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Tenancy\TenantDirectory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PDOException;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
@@ -186,7 +187,8 @@ class MicrosoftLogin
 
     /**
      * Each Graph read is independent: a failure is logged and the stored
-     * value is kept, so Graph problems never block a sign-in.
+     * value is kept, so Graph problems never block a sign-in. Database
+     * errors are not Graph problems and propagate.
      */
     private function syncFromGraph(User $user, string $accessToken): void
     {
@@ -214,6 +216,12 @@ class MicrosoftLogin
     {
         try {
             $callback();
+        } catch (PDOException $e) {
+            // A database error (QueryException, DeadlockException) is not a
+            // Graph problem: on MySQL a deadlock has already rolled the
+            // surrounding transaction back, so carrying on would write
+            // outside it.
+            throw $e;
         } catch (Throwable $e) {
             Log::warning("Microsoft Graph {$what} sync failed at sign-in; keeping stored data.", [
                 'user_id' => $user->id,
