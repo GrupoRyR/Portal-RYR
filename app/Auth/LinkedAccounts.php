@@ -158,6 +158,27 @@ class LinkedAccounts
     }
 
     /**
+     * The accounts the signed-in user may switch to ({@see canSwitch()}),
+     * oldest first, with their company. No query for an account that is
+     * not linked.
+     *
+     * @return Collection<int, User>
+     */
+    public function switchTargets(User $current): Collection
+    {
+        if (! $current->exists || $current->is_emergency || $current->person_id === null) {
+            return new Collection;
+        }
+
+        return $current->linkedAccounts()
+            ->with('company')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (User $target) => $this->canSwitch($current, $target))
+            ->values();
+    }
+
+    /**
      * Takes the account out of its person. A person left with one account
      * (or none) is deleted and that last account is unlinked too; each
      * unlinked account is a security event. False when the account was not

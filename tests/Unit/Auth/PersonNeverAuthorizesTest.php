@@ -38,6 +38,9 @@ class PersonNeverAuthorizesTest extends TestCase
         // LinkedAccounts::canSwitch(); the controller only calls it, and
         // the switch is still a Microsoft sign-in with the target account.
         'app/Http/Controllers/Account/SwitchAccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // The header switcher only lists what LinkedAccounts::switchTargets()
+        // (canSwitch) allows; each entry is still a POST to the switch above.
+        'app/View/Components/AccountSwitcher.php' => ['LinkedAccounts'],
     ];
 
     private static function root(): string
