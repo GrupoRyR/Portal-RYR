@@ -224,3 +224,9 @@ Todas las respuestas de error son JSON, aunque la llamada no envíe `Accept: app
 **¿Qué pasa si el token se filtra?** Rótelo en Integraciones. El token anterior deja de funcionar de inmediato; ponga el nuevo en su sistema.
 
 **¿Cómo pruebo sin afectar a las personas?** Envíe `operational` a una app que esté normal: no cambia lo que se ve. Las apps ocultas no sirven para probar, porque responden `404`.
+
+---
+
+## 7. Tareas y aprobaciones (planeado)
+
+El portal todavía no tiene esta parte. El contrato con la futura app de tareas y aprobaciones (permiso `work:write`, `PUT` y `DELETE /api/v1/work-items/{external_id}`, y la llamada firmada para completar tareas) está en [`contrato-tareas-aprobaciones.md`](contrato-tareas-aprobaciones.md).
