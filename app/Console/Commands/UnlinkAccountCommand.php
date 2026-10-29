@@ -62,8 +62,10 @@ class UnlinkAccountCommand extends Command
             $linked->is($account) ? 'se desvincula' : '',
         ])->all());
 
-        if ($accounts->count() <= 2) {
-            $last = $accounts->first(fn (User $linked) => ! $linked->is($account));
+        // A person whose only account is this one has no other to name.
+        $last = $accounts->count() <= 2 ? $accounts->first(fn (User $linked) => ! $linked->is($account)) : null;
+
+        if ($last !== null) {
             $this->warn('La persona queda con una sola cuenta: '.self::describe($last).' también se desvincula.');
         }
 
@@ -71,7 +73,10 @@ class UnlinkAccountCommand extends Command
             return $this->failWith('No se cambió nada.');
         }
 
-        $linkedAccounts->unlink($account, LinkedAccounts::ADMIN);
+        // Unlinked or moved to another person since the list above.
+        if (! $linkedAccounts->unlink($account, LinkedAccounts::ADMIN)) {
+            return $this->failWith('La cuenta ya no estaba vinculada. No se cambió nada.');
+        }
 
         $this->info('Cuenta desvinculada: '.self::describe($account).'.');
 

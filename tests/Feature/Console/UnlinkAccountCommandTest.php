@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\LinkedAccountNotice;
+use App\Notifications\LinkedAccountNotifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Activitylog\Models\Activity;
@@ -184,5 +185,43 @@ class UnlinkAccountCommandTest extends TestCase
 
         $this->assertSame($this->person->id, $this->segurexAccount->fresh()->person_id);
         $this->assertSame($this->person->id, $this->derivadosAccount->fresh()->person_id);
+    }
+
+    public function test_an_account_unlinked_before_the_command_gets_to_it_changes_nothing(): void
+    {
+        // Someone else unlinks it between the list of accounts and the unlink.
+        $this->app->instance(LinkedAccounts::class, new class($this->app->make(LinkedAccountNotifier::class)) extends LinkedAccounts
+        {
+            public function unlink(User $account, string $reason, ?User $actor = null): bool
+            {
+                User::query()->whereKey($account->id)->update(['person_id' => null]);
+
+                return parent::unlink($account, $reason, $actor);
+            }
+        });
+
+        $this->artisan('portal:unlink-account', ['email' => 'edward@derivados.com', '--force' => true])
+            ->expectsOutputToContain('La cuenta ya no estaba vinculada. No se cambió nada.')
+            ->doesntExpectOutputToContain('Cuenta desvinculada')
+            ->assertFailed();
+
+        $this->assertSame($this->person->id, $this->segurexAccount->fresh()->person_id);
+        $this->assertSame(0, Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_a_person_with_a_single_account_names_no_other_account(): void
+    {
+        $alone = User::factory()->microsoft(Company::factory()->create(['name' => 'Andina Química']))->create(['email' => 'luis@andina.com']);
+        $person = $this->personWith($alone);
+
+        $this->artisan('portal:unlink-account', ['email' => 'luis@andina.com', '--force' => true])
+            ->doesntExpectOutputToContain('La persona queda con una sola cuenta')
+            ->doesntExpectOutputToContain('()')
+            ->expectsOutputToContain('Cuenta desvinculada: Andina Química (luis@andina.com).')
+            ->assertSuccessful();
+
+        $this->assertModelMissing($person);
+        $this->assertNull($alone->fresh()->person_id);
     }
 }
