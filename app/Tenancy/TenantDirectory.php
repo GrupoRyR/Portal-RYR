@@ -45,6 +45,11 @@ class TenantDirectory
      * The active company of a tenant. When several companies share the
      * tenant, the email domain decides; otherwise the tenant's primary
      * company is used. Returns null rather than guessing.
+     *
+     * Also null for a user of a deactivated company of the tenant (an
+     * email domain only inactive companies of the tenant own), so that
+     * they never land in another company, even the tenant's only active
+     * one.
      */
     public function resolveCompany(string $tenantId, ?string $email): ?Company
     {
@@ -54,7 +59,16 @@ class TenantDirectory
             return null;
         }
 
-        $companies = Company::active()->where('tenant_id', $tenantId)->get();
+        [$companies, $inactive] = Company::query()
+            ->where('tenant_id', $tenantId)
+            ->get()
+            ->partition(fn (Company $company) => $company->is_active);
+
+        $owns = fn (Company $company) => $email !== null && $company->ownsEmailDomain($email);
+
+        if ($inactive->contains($owns) && ! $companies->contains($owns)) {
+            return null;
+        }
 
         if ($companies->count() <= 1) {
             return $companies->first();

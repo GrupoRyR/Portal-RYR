@@ -217,6 +217,24 @@ class MicrosoftLoginTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_a_user_of_a_deactivated_company_sharing_the_tenant_is_not_moved_to_the_other(): void
+    {
+        $shared = Company::factory()->inactive()
+            ->forTenant(self::SEGUREX_TENANT, ['sdc.com'], primary: false)
+            ->create();
+        $user = User::factory()->microsoft($shared)->create(['azure_oid' => self::OID, 'email' => 'luis@sdc.com']);
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::OID],
+            ['mail' => 'luis@sdc.com', 'userPrincipalName' => 'luis@sdc.com'],
+        );
+
+        $this->hitCallback()->assertSessionHasErrors(['login' => self::TENANT_MESSAGE]);
+
+        $this->assertGuest();
+        $this->assertTrue($user->fresh()->company->is($shared));
+        $this->assertSame('no_company', Activity::query()->where('event', 'login.microsoft_rejected')->sole()->properties['reason']);
+    }
+
     public function test_a_derivados_guest_in_segurex_becomes_a_separate_segurex_user(): void
     {
         $home = User::factory()->microsoft($this->derivados)->create([
