@@ -33,11 +33,11 @@
 @else
     <nav {{ $attributes }} aria-label="Cambiar de empresa" data-account-switcher>
         <ul role="list" class="flex gap-1 rounded-control border border-white/40 p-1">
-            <li aria-current="true" class="flex min-h-touch min-w-0 flex-1 items-center justify-center rounded-[10px] bg-brand-tint px-3 text-sm font-semibold text-brand-ink">
+            <li aria-current="true" class="flex min-h-touch min-w-0 flex-1 items-center justify-center md:flex-none rounded-[10px] bg-brand-tint px-3 text-sm font-semibold text-brand-ink">
                 <span class="sr-only">Empresa actual: </span><span class="min-w-0 truncate">{{ $switcher['current'] }}</span>
             </li>
             @foreach ($switcher['targets'] as $target)
-                <li class="flex min-w-0 flex-1">
+                <li class="flex min-w-0 flex-1 md:flex-none">
                     <form method="POST" action="{{ route('account.switch', $target['id']) }}" class="flex w-full">
                         @csrf
                         <button type="submit" class="flex min-h-touch w-full min-w-0 cursor-pointer items-center justify-center rounded-[10px] px-3 text-sm font-semibold hover:bg-white/10">
