@@ -180,6 +180,24 @@ account?.addEventListener('keydown', (event) => {
     }
 });
 
+// «Secciones» (phones): a plain <details>; this only closes it after a
+// jump, on Escape and on a click elsewhere.
+const sectionsMenu = $('[data-sections]');
+
+document.addEventListener('click', (event) => {
+    if (!sectionsMenu?.open) return;
+    if (event.target.closest('[data-sections] a') || !sectionsMenu.contains(event.target)) {
+        sectionsMenu.open = false;
+    }
+});
+
+sectionsMenu?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && sectionsMenu.open) {
+        sectionsMenu.open = false;
+        $('summary', sectionsMenu).focus();
+    }
+});
+
 // Offline notice (docs/diseno/PhoneDark): without network, or when the
 // service worker answered with the saved copy of this page.
 const notice = $('[data-offline-notice]');

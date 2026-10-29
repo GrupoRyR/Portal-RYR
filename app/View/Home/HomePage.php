@@ -60,6 +60,37 @@ final readonly class HomePage
     }
 
     /**
+     * The «Secciones» menu of phones: only sections the view renders, as
+     * anchors (home.blade.php keeps the same conditions).
+     *
+     * @return list<array{href: string, label: string}>
+     */
+    public function sections(): array
+    {
+        $sections = [['href' => '#contenido', 'label' => 'Inicio']];
+
+        if ($this->hasApps()) {
+            $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
+
+            if ($this->recents !== []) {
+                $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
+            }
+
+            $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+        }
+
+        if ($this->upcomingHolidays !== []) {
+            $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
+        }
+
+        if ($this->quickLinks !== []) {
+            $sections[] = ['href' => '#m365', 'label' => 'Microsoft 365'];
+        }
+
+        return $sections;
+    }
+
+    /**
      * The announcement of the phone and tablet banner.
      */
     public function topAnnouncement(): ?AnnouncementCard
