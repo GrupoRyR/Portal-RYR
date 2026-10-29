@@ -33,6 +33,11 @@ class PersonNeverAuthorizesTest extends TestCase
         'app/Audit/SecurityLog.php' => ['person_id'],
         'app/Auth/MicrosoftLogin.php' => ['LinkedAccounts', 'linkedAccounts'],
         'app/Http/Controllers/Auth/MicrosoftLoginController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // Switching company is the one place where the person decides
+        // something: which accounts may be switched to. The rule lives in
+        // LinkedAccounts::canSwitch(); the controller only calls it, and
+        // the switch is still a Microsoft sign-in with the target account.
+        'app/Http/Controllers/Account/SwitchAccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
     ];
 
     private static function root(): string

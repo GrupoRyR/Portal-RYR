@@ -59,7 +59,7 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - Desvinculación automática con el motivo `company_changed`.
   - Corrección de `resolveCompany`.
   - Eventos de `SecurityLog` y aviso `LinkedAccountNotice`.
-- [ ] T3. **PR3, cambio de empresa.** Ruta: delegada.
+- [x] T3. **PR3, cambio de empresa.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: controlador nuevo, callback, `LinkedAccounts`, auditoría y pruebas.
   - POST `/cuenta/cambiar/{user}` con intención `switch`, `prompt=none` y un reintento.
   - Secuencia de sesión: invalidar, iniciar sesión, nuevo token CSRF, `Clear-Site-Data` y redirigir a `/`.
   - Eventos `account.switched` y `account.switch_failed`.
@@ -164,7 +164,32 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     - GREEN, suite completa: 1.249 de 1.249 (5.874 aserciones). `pint --test`: sin cambios.
     - Commits: `c4a6eaf` `fix(accounts)`, `5bddccb` `fix(tenancy)` y `fix(accounts)` de textos y guarda, que lleva este registro.
 - 2026-10-29: PR #63, #64 y #65 abiertos (T2).
+- 2026-10-29: #61 a #65 fusionados en `main` (`54cb72c`).
+- 2026-10-29: T3 hecha (ruta delegada, un escritor), en `feat/cuentas-vinculadas-3-cambio` desde `origin/main` (`54cb72c`). Sin `push` ni PR.
+  - RED: `tests/Feature/Account/SwitchAccountTest.php` nueva, 38 pruebas: 13 en verde, 9 fallas y 16 errores. Las 13 en verde eran los 10 casos de 404 (la ruta aún no existía, así que también daba 404) y los 3 de intenciones inservibles, que T1 ya rechazaba.
+  - GREEN: `SwitchAccountTest` 38 de 38. Account + Auth + `tests/Unit/Auth`: 355 de 355 (1.538 aserciones).
+  - GREEN, suite completa: 1.288 de 1.288 (6.348 aserciones). Son 39 pruebas nuevas (38 y la entrada nueva de la guarda).
+  - `vendor/bin/pint --test`: sin cambios.
+  - Commits:
+    - `252e082` `feat(accounts)`: cambio de empresa con un inicio de sesión de Microsoft.
+    - `docs(odd)`: este registro.
+  - Qué hace:
+    - POST `/cuenta/cambiar/{user}` (`account.switch`, `auth`, CSRF, `throttle:20,1`). Responde 404 si la cuenta no es otra de la misma persona, si su empresa no está activa, si es de invitado (o no se sabe), de emergencia o local, o si la actual es de emergencia. Si no, inicia la intención `switch` (intento 1) y manda a Microsoft con `prompt=none` y `login_hint` (o el correo).
+    - Callback, `error`: con `login_required`, `interaction_required`, `consent_required` o `account_selection_required` en el intento 1, un solo reintento con `prompt=login` (intento 2). Cualquier otro error, o el intento 2, deja la sesión y registra `account.switch_failed` con el código limpio. Las demás intenciones y la reautenticación siguen como en T1.
+    - Callback, éxito: solo vale la cuenta de destino (mismo `tid` y `oid`). Luego `MicrosoftLogin::handle()` (comprobaciones, perfil, grupos, roles, `last_login_at` y `login.microsoft`). Después: invalidar la sesión, `Auth::login`, nueva sesión y token CSRF, `Clear-Site-Data: "cache"` y `/`. `PortalUserKey` ya nombra al usuario nuevo en esa respuesta, sin cambios. Registra `account.switched` (de y hacia: cuenta y empresa).
+    - Otra cuenta (`wrong_account`), una cuenta que dejó de servir (`target_unavailable`) o una comprobación fallida (por ejemplo `missing_email`) no cambian la sesión ni ninguna fila. La excepción es la misma que en un inicio de sesión normal: un error de infraestructura después de que `admit()` guarda la cuenta (Graph, roles, `last_login_at` o la auditoría) deja la sesión y registra `provider_error`, pero la fila de destino queda actualizada con sus datos reales de Microsoft. `handle()` no va en una transacción a propósito, porque la dejaría abierta durante las llamadas a Graph.
+  - Decisiones:
+    - La regla «otra cuenta de la misma persona» vive en `LinkedAccounts::canSwitch()`. `SwitchAccountController` entra en la lista de la guarda solo para llamarla; el comentario de la prueba dice por qué.
+    - Un cambio silencioso no es una confirmación reciente: solo se confirma si `RecentMicrosoftLogin::verify()` da `confirmed` (`auth_time` reciente), como en la reautenticación. El inicio de sesión normal sigue contando como confirmación (decisión de T1).
+    - La causa de `account.switched` y `account.switch_failed` es la cuenta de la que se sale; el sujeto es la de destino.
+    - Textos: «No pudimos cambiar de empresa. Sigues en tu cuenta actual.» y «Microsoft respondió con otra cuenta. Sigues en tu cuenta actual.». Al cambiar: «Ahora estás en tu cuenta de …».
+  - Seguimiento:
+    - Autoridad del inquilino de destino: no se pudo. El proveedor de Microsoft toma el inquilino de su configuración para la autorización y para el token, así que hoy no se elige por solicitud. Se sigue usando `organizations` con `login_hint`. Va con el seguimiento de `domain_hint` de T1.
+    - `regenerate()` y `regenerateToken()` van después de `invalidate()` + `Auth::login`, como pide el diseño. La prueba ve que cambian el ID y el token, pero no puede ver cada llamada por separado: quitar una sola no hace fallar la prueba.
+    - `/` aún no muestra el mensaje `status` (PR4).
+  - Tamaño: ~975 líneas (~340 de código con comentarios, ~635 de pruebas). Supera las 400 por las pruebas; el código solo queda cerca. Se puede abrir como un PR con `size:exception`.
+- 2026-10-29: la revisión independiente de T3 salió bien, con un solo hallazgo bajo: un error de infraestructura después de `admit()` puede dejar la fila de destino actualizada. Se documentó en `switchAccount()` y en este registro, sin cambiar el comportamiento. Commit `docs(accounts)`: lo que un cambio fallido puede dejar actualizado.
 
 ## Siguiente paso
 
-Jhon revisa y fusiona #61 a #65 en orden. Cuando uno se fusiona, el siguiente pasa a `main`: se fusiona `main` en su rama y se cambia la base, sin `force-push`. Después, delegar el escritor del T3.
+Revisar T3 (`/code-review` y `/security-review`), abrir el PR de `feat/cuentas-vinculadas-3-cambio` a `main` y hacer la prueba manual con dos cuentas reales (cambio silencioso, con MFA y con una cuenta desactivada). Después, delegar el escritor del T4.
