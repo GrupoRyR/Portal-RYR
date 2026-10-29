@@ -46,10 +46,11 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
   - Pruebas con las listas completas de 2025, 2026 y 2027.
   - Hecho y verificado (ver el registro del WU1).
 - [ ] WU2. **PR2, fechas por empresa en Admin.** Bloqueada: decisión de Jhon.
-- [ ] WU3. **PR3, distribución del inicio.** Ruta: por decidir al empezar.
+- [x] WU3. **PR3, distribución del inicio.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: `HomePageBuilder`, `HomePage`, `home.blade.php` y sus pruebas.
   - Columna «Mi día»: festivos, tarjeta de anuncios y enlaces de Microsoft 365.
   - Menú «Secciones» (`<details>`) en el celular.
   - Sin «Ver como». Consultas del inicio ≤ 12.
+  - Hecho y verificado (ver el registro del WU3).
 - [ ] WU4. **PR4, búsqueda `Ctrl K`.** Ruta: por decidir al empezar.
   - Índice JSON incrustado que reutiliza `App\Catalog\AppSearch::normalize`.
   - Apps, anuncios visibles (`Announcement::scopeVisibleTo`) y fechas.
@@ -60,13 +61,13 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 1. Etiquetas de «puente»: ¿se muestran? (no se construyen todavía).
 2. WU2: ¿quién administra las fechas de cada empresa?, ¿cada empresa tiene las suyas?, ¿fechas que se repiten cada año o de una sola vez?
 3. Búsqueda de personas: Ley 1581 de 2012 (datos personales) y hoy solo existen en el portal las personas que ya iniciaron sesión.
-4. ¿La barra inferior del celular se queda al lado de «Secciones»?
+4. ¿La barra inferior del celular se queda al lado de «Secciones»? (WU3 la dejó; las dos conviven.)
 5. Chiquinquirá (Ley 2578 de 2026, art. 6): ya está desde 2026, pero hay una demanda ante la Corte Constitucional (radicada el 9 de junio de 2026, sin fallo conocido). Si la Corte la tumba, se pone en `ColombianHolidays::LAST_CHIQUINQUIRA_YEAR` el último año que se festejó; `FIRST_CHIQUINQUIRA_YEAR` no se toca, porque el fallo no es retroactivo y el 13 de julio de 2026 sí fue festivo.
 
 ## Criterios de aceptación
 
 - WU1: las listas de 2025, 2026 y 2027 coinciden con las fuentes; `nextOnOrAfter` cruza del 31 de diciembre al 1 de enero; años lejanos (2000, 2100) no fallan.
-- WU3: el inicio no hace más de 12 consultas y no carga Livewire ni Alpine.
+- WU3: el inicio no hace más de 12 consultas y no carga Livewire ni Alpine; «Secciones» solo enlaza secciones que están en la página; dos festivos el mismo día muestran los dos nombres; sin desborde horizontal a 390 px.
 - WU4: la búsqueda encuentra apps, anuncios visibles para quien busca y fechas, sin tildes ni mayúsculas.
 
 ## Chequeos
@@ -78,7 +79,7 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 ## Entrega
 
 - **Estrategia:** `ask-on-risk`, con cadena `stacked-to-main` (ya elegida por el coordinador): un PR por WU, encadenados encima de #68 (`feat/cuentas-vinculadas-4-interfaz`).
-- **Ramas:** `feat/inicio-1-festivos` (WU1), desde `feat/cuentas-vinculadas-4-interfaz`.
+- **Ramas:** `feat/inicio-1-festivos` (WU1), desde `feat/cuentas-vinculadas-4-interfaz`; `feat/inicio-2-mi-dia` (WU3), desde `feat/inicio-1-festivos`.
 - **Pronóstico:** WU1 ~400 líneas (más de la mitad, pruebas). Salió con 625 (este documento ~130, código ~210, pruebas ~280).
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
@@ -111,6 +112,20 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
   - GREEN: 28 de 28 (133 aserciones); suite completa 1.380 de 1.380 (6.735 aserciones); `vendor/bin/pint --test` sin cambios.
   - Commits: `3069abc` `fix(calendar)`; `docs(odd)`: este registro.
 
+- 2026-10-29: WU3 hecha (ruta delegada, un escritor). Rama `feat/inicio-2-mi-dia`. Sin `push` ni PR.
+  - RED: `HomeMyDayTest` y `HolidayDayTest` nuevas, 13 pruebas: 1 en verde (sin «Ver como»), 5 fallas y 7 errores (`HolidayDay`, `upcomingHolidays` y `UPCOMING_HOLIDAY_LIMIT` no existían; sin «Secciones» ni `#mi-dia`).
+  - GREEN, datos (`a25573c` `feat(home)`): `HolidayDay` (un día con uno o dos nombres), `HomePage::$upcomingHolidays`, `$nextHoliday` y `holidayNotice()`, y `HomePageBuilder::UPCOMING_HOLIDAY_LIMIT` (5) y `UPCOMING_HOLIDAY_DAYS` (60). Pruebas del builder en `HomeUpcomingHolidaysTest`.
+  - GREEN, interfaz (`98e456e` `feat(home)`): columna «Mi día» (`<aside id="mi-dia">`) al lado de las apps desde 1024 px y debajo en tableta y celular, con «Próximas fechas», la tarjeta de anuncios y Microsoft 365; «Próximo festivo» u «Hoy es festivo» junto a la fecha; menú «Secciones» en el celular; `public/build` reconstruido.
+  - Suite completa: 1.397 de 1.397 (6.833 aserciones). `vendor/bin/pint --test`: sin cambios. Consultas del inicio: sin cambio (los festivos se calculan).
+  - Capturas a 390, 768 y 1440 px, claro y oscuro, con y sin cuentas vinculadas, más el menú «Secciones» abierto: sin desborde horizontal.
+  - Decisiones:
+    - El límite cuenta días, no festivos: dos festivos el mismo día ocupan una fila con los dos nombres. En la línea de la fecha se separan con punto y coma («Sagrado Corazón; San Pedro y San Pablo»), porque los nombres ya llevan «y».
+    - La lista empieza hoy: un festivo de hoy sale como «Hoy». Si no hay festivos en 60 días, sale solo el siguiente (del 13 de enero al 23 de marzo de 2026).
+    - La tarjeta de anuncios se ve solo con la columna al lado (desde 1024 px, antes desde 1280 px); en tableta y celular sigue el banner con el primero. Mismas reglas de visibilidad (`Announcement::scopeVisibleTo`).
+    - «Secciones» lista Inicio, Favoritos, Recientes (si hay), Aplicaciones, Próximas fechas y Microsoft 365; no lista Anuncios porque en el celular el banner ya está arriba. La lista sale de `HomePage::sections()`, con las mismas condiciones de la vista.
+    - Encabezado sin cambios de marca: buscador, selector de cuenta y menú de cuenta como estaban; «Secciones» comparte fila con el buscador en el celular.
+  - Pendiente: la prueba `test_the_favorite_star_works_without_javascript` (anterior a WU3) falló una vez por texto aleatorio de Faker sin «a»; pasó en 6 de 6 reintentos. Lighthouse: pendiente.
+
 ## Siguiente paso
 
-Abrir el PR de `feat/inicio-1-festivos` encima de #68 (decisión de Jhon). Después, WU3: distribución del inicio con «Mi día». WU2 y la búsqueda de personas esperan las respuestas de Jhon.
+Abrir los PR de `feat/inicio-1-festivos` (encima de #68) y `feat/inicio-2-mi-dia` (encima del anterior): decisión de Jhon. Después, WU4: búsqueda `Ctrl K`. WU2, la barra inferior junto a «Secciones» y la búsqueda de personas esperan las respuestas de Jhon.
