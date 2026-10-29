@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\WorkItem;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -40,5 +41,12 @@ Schedule::command('backup:monitor')
 // «Respaldar ahora» (Configuración) only leaves a request; this runs it.
 Schedule::command('portal:run-requested-backup')
     ->everyMinute()
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
+// Tasks and approvals (docs/contrato-tareas-aprobaciones.md §3.6): remove
+// deletion traces, done and cancelled items older than 30 days.
+Schedule::command('model:prune', ['--model' => [WorkItem::class]])
+    ->dailyAt('03:00')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
