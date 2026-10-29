@@ -27,7 +27,8 @@ use InvalidArgumentException;
  *   out (one emptied by favorites stays, empty, for the favorite toggle);
  * - up to five recent apps;
  * - Microsoft 365 quick links;
- * - up to three announcements for the user's company (one query);
+ * - up to three announcements for the user's company, with the user's
+ *   read state of the mandatory ones (one query);
  * - the «Soporte TI» link when a support URL is configured;
  * - the person's other accounts for «Cambiar de empresa» (no query when
  *   the account is not linked);
@@ -191,6 +192,7 @@ final class HomePageBuilder
     /**
      * The announcements of the cards and of the search index, in one query:
      * the first ANNOUNCEMENT_LIMIT make the cards.
+     * The viewer's read state of mandatory ones comes in the same query.
      *
      * @return Collection<int, Announcement>
      */
@@ -201,10 +203,12 @@ final class HomePageBuilder
         }
 
         return Announcement::query()
+            ->select(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned', 'requires_read'])
+            ->withReadAtFor($user)
             ->visibleTo($user)
             ->ordered()
             ->limit($limit)
-            ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned']);
+            ->get();
     }
 
     /**

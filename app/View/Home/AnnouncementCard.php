@@ -10,6 +10,10 @@ use Illuminate\Support\Carbon;
  * One announcement as the home screen, the /anuncios page and the admin
  * preview print it (resources/views/components/announcements/*). The text
  * is plain: the views escape it and keep its line breaks.
+ *
+ * A mandatory one carries the viewer's read state: `readOn` is the date
+ * they confirmed it («29 de octubre»), from the `viewer_read_at` column of
+ * Announcement::scopeWithReadAtFor(), or null while it is pending.
  */
 final readonly class AnnouncementCard
 {
@@ -20,6 +24,8 @@ final readonly class AnnouncementCard
         public ?string $imageUrl,
         public bool $pinned,
         public string $date,
+        public bool $requiresRead = false,
+        public ?string $readOn = null,
     ) {}
 
     /**
@@ -27,6 +33,8 @@ final readonly class AnnouncementCard
      */
     public static function from(Announcement $announcement, ?string $imageUrl = null, ?CarbonInterface $now = null): self
     {
+        $readAt = $announcement->getAttribute('viewer_read_at');
+
         return new self(
             id: $announcement->exists ? $announcement->id : null,
             title: (string) $announcement->title,
@@ -34,6 +42,8 @@ final readonly class AnnouncementCard
             imageUrl: $imageUrl ?? $announcement->imageUrl(),
             pinned: (bool) $announcement->is_pinned,
             date: self::date($announcement->starts_at ?? $now ?? Carbon::now(), $now ?? Carbon::now()),
+            requiresRead: (bool) $announcement->requires_read,
+            readOn: $readAt instanceof CarbonInterface ? self::date($readAt, $now ?? Carbon::now()) : null,
         );
     }
 
@@ -47,6 +57,15 @@ final readonly class AnnouncementCard
         $sameYear = $local->year === $now->toImmutable()->setTimezone(Greeting::TIMEZONE)->year;
 
         return $local->isoFormat($sameYear ? 'D [de] MMMM' : 'D [de] MMMM [de] YYYY');
+    }
+
+    /**
+     * Whether the viewer still has to confirm it: mandatory, saved (the
+     * admin preview has no id) and not read yet.
+     */
+    public function pendingRead(): bool
+    {
+        return $this->requiresRead && $this->id !== null && $this->readOn === null;
     }
 
     /** Where the phone/tablet banner leads: the announcement on /anuncios. */

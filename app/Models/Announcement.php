@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
@@ -22,6 +23,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * an optional 16:9 WebP image, for every company or for chosen ones, shown
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
  *
+ * A mandatory one (`requires_read`) asks each person who sees it to
+ * confirm they read it ({@see markReadBy()}).
+ *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
 #[Fillable([
@@ -32,6 +36,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'starts_at',
     'ends_at',
     'is_pinned',
+    'requires_read',
     'author_id',
 ])]
 class Announcement extends Model
@@ -85,6 +90,7 @@ class Announcement extends Model
     protected $attributes = [
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
+        'requires_read' => false,
     ];
 
     protected function casts(): array
@@ -94,6 +100,7 @@ class Announcement extends Model
             'ends_at' => 'datetime',
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
+            'requires_read' => 'boolean',
         ];
     }
 
@@ -138,6 +145,26 @@ class Announcement extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    /**
+     * @return HasMany<AnnouncementRead, $this>
+     */
+    public function reads(): HasMany
+    {
+        return $this->hasMany(AnnouncementRead::class);
+    }
+
+    /**
+     * Records that the user read it, once: a second call keeps the first
+     * date. Whether the user may see it is the caller's job.
+     */
+    public function markReadBy(User $user): AnnouncementRead
+    {
+        return AnnouncementRead::query()->createOrFirst(
+            ['announcement_id' => $this->id, 'user_id' => $user->id],
+            ['read_at' => now()],
+        );
     }
 
     /**
@@ -282,6 +309,23 @@ class Announcement extends Model
         $query->where('audience', self::AUDIENCE_COMPANIES)
             ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
             ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
+    }
+
+    /**
+     * Adds `viewer_read_at`: when the user confirmed reading each
+     * announcement, or null. A subquery, so it costs no extra query.
+     * Select the announcement columns before calling it.
+     *
+     * @param  Builder<Announcement>  $query
+     */
+    public function scopeWithReadAtFor(Builder $query, User $user): void
+    {
+        $query->addSelect(['viewer_read_at' => AnnouncementRead::query()
+            ->select('read_at')
+            ->whereColumn('announcement_reads.announcement_id', 'announcements.id')
+            ->where('announcement_reads.user_id', $user->id)
+            ->limit(1),
+        ])->withCasts(['viewer_read_at' => 'datetime']);
     }
 
     /**

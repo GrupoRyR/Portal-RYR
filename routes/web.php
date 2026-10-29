@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -106,6 +107,11 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('announcement')
         ->middleware('throttle:60,1')
         ->name('announcements.show');
+    // «Confirmar lectura» of a mandatory announcement (once per account).
+    Route::post('/anuncios/{announcement}/leido', [AnnouncementReadController::class, 'store'])
+        ->whereNumber('announcement')
+        ->middleware('throttle:30,1')
+        ->name('announcements.read');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
