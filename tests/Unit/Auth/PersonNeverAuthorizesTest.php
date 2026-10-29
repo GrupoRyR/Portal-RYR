@@ -44,6 +44,9 @@ class PersonNeverAuthorizesTest extends TestCase
         // «Cuentas vinculadas» lists the person's accounts and unlinks one;
         // which accounts it may touch is LinkedAccounts::canUnlink().
         'app/Http/Controllers/Account/AccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // portal:unlink-account: an administrator unlinks through the same
+        // service; the email only finds the row.
+        'app/Console/Commands/UnlinkAccountCommand.php' => ['LinkedAccounts', 'linkedAccounts'],
     ];
 
     private static function root(): string
