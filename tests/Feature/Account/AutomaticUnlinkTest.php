@@ -11,6 +11,7 @@ use App\Models\Person;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Socialite\Facades\Socialite;
 use Mockery;
 use SocialiteProviders\Microsoft\MicrosoftUser;
@@ -122,6 +123,23 @@ class AutomaticUnlinkTest extends TestCase
             [$this->moving->id, $sdcAccount->id],
             Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->where('properties->reason', LinkedAccounts::COMPANY_CHANGED)->pluck('subject_id')->all(),
         );
+    }
+
+    /**
+     * It happens during a sign-in and the mail is sent synchronously, so
+     * the automatic unlink tells no one, not even the dissolved person.
+     */
+    public function test_an_unlink_during_a_sign_in_sends_no_notice(): void
+    {
+        Notification::fake();
+        $sdcAccount = User::factory()->microsoft($this->sdc)->create();
+        $this->personWith($this->moving, $sdcAccount);
+
+        $this->signInMovingToSdc();
+
+        $this->assertNull($this->moving->fresh()->person_id);
+        $this->assertSame(2, Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->count());
+        Notification::assertNothingSent();
     }
 
     public function test_a_linked_account_moving_to_a_free_company_stays_linked(): void

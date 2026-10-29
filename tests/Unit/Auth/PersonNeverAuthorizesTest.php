@@ -38,6 +38,15 @@ class PersonNeverAuthorizesTest extends TestCase
         // LinkedAccounts::canSwitch(); the controller only calls it, and
         // the switch is still a Microsoft sign-in with the target account.
         'app/Http/Controllers/Account/SwitchAccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // The header switcher only lists what LinkedAccounts::switchTargets()
+        // (canSwitch) allows; each entry is still a POST to the switch above.
+        'app/View/Components/AccountSwitcher.php' => ['LinkedAccounts'],
+        // «Cuentas vinculadas» lists the person's accounts and unlinks one;
+        // which accounts it may touch is LinkedAccounts::canUnlink().
+        'app/Http/Controllers/Account/AccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // portal:unlink-account: an administrator unlinks through the same
+        // service; the email only finds the row.
+        'app/Console/Commands/UnlinkAccountCommand.php' => ['LinkedAccounts', 'linkedAccounts'],
     ];
 
     private static function root(): string

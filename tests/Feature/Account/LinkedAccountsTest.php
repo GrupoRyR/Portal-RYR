@@ -421,6 +421,46 @@ class LinkedAccountsTest extends TestCase
         $this->assertSame(0, Activity::query()->where('log_name', SecurityLog::LOG)->count());
     }
 
+    /**
+     * The caller checked the account against the person it read (e.g.
+     * canUnlink()); if the account joins another person before the lock,
+     * that other person is left alone.
+     */
+    public function test_unlinking_an_account_that_moved_to_another_person_does_nothing(): void
+    {
+        $current = $this->account($this->segurex);
+        $other = $this->account($this->derivados);
+        $this->personWith($current, $other);
+        $this->assertTrue($this->linkedAccounts()->canUnlink($current, $other));
+
+        // Meanwhile, $other leaves and joins someone else's person.
+        $stranger = $this->account(Company::factory()->create());
+        $elsewhere = Person::create();
+        User::query()->whereKey([$other->id, $stranger->id])->update(['person_id' => $elsewhere->id]);
+        $users = $this->personIds();
+
+        $this->assertFalse($this->linkedAccounts()->unlink($other, LinkedAccounts::USER, $current));
+
+        $this->assertSame($users, $this->personIds());
+        $this->assertModelExists($elsewhere);
+        $this->assertSame(0, Activity::query()->where('log_name', SecurityLog::LOG)->count());
+    }
+
+    public function test_unlinking_an_account_unlinked_meanwhile_does_nothing(): void
+    {
+        $current = $this->account($this->segurex);
+        $other = $this->account($this->derivados);
+        $third = $this->account(Company::factory()->create());
+        $this->personWith($current, $other, $third);
+
+        User::query()->whereKey($other->id)->update(['person_id' => null]);
+
+        $this->assertFalse($this->linkedAccounts()->unlink($other, LinkedAccounts::USER, $current));
+
+        $this->assertNotNull($current->fresh()->person_id);
+        $this->assertSame(0, Activity::query()->where('log_name', SecurityLog::LOG)->count());
+    }
+
     public function test_an_account_without_a_person_has_no_linked_accounts(): void
     {
         $this->account($this->derivados);

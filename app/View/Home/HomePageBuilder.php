@@ -9,6 +9,7 @@ use App\Models\App;
 use App\Models\Company;
 use App\Models\User;
 use App\Settings\PortalSettings;
+use App\View\Components\AccountSwitcher;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
@@ -23,7 +24,9 @@ use Illuminate\Support\Str;
  * - up to five recent apps;
  * - Microsoft 365 quick links;
  * - up to three announcements for the user's company (one query);
- * - the «Soporte TI» link when a support URL is configured.
+ * - the «Soporte TI» link when a support URL is configured;
+ * - the person's other accounts for «Cambiar de empresa» (no query when
+ *   the account is not linked).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents.
  * Runs a fixed number of queries whatever the size of the catalog.
@@ -88,6 +91,8 @@ final class HomePageBuilder
             resultCount: count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
             announcements: $this->announcements($user, $now),
             supportHref: $this->settings->supportUrl() === null ? null : route('support'),
+            switcher: AccountSwitcher::for($user),
+            accountsHref: $user->is_emergency ? null : route('account.show'),
         );
     }
 
