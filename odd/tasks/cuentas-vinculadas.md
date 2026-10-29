@@ -95,7 +95,10 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
   - `feat/cuentas-vinculadas-1-confirmacion`: commits `49efaf4` y `5164e0a` (308 líneas).
   - `feat/cuentas-vinculadas-1-callback`: el commit de intenciones, la corrección de auditoría y este documento (~570 líneas, de las cuales 120 son este documento y ~250 son pruebas). Lleva la nota `size:exception`.
   - PR #61 (`-1-confirmacion`) y PR #62 (`-1-callback`, encima de #61) se abrieron el 2026-10-29.
-  - `feat/cuentas-vinculadas-2-personas` sale de `-1-callback`: los 4 commits del T2.
+  - T2 salió con ~2.525 líneas y se partió en tres PR encadenados, todos con `size:exception`:
+    - PR #63 `feat/cuentas-vinculadas-2a-personas` (`ab678de`), base `-1-callback`.
+    - PR #64 `feat/cuentas-vinculadas-2b-vincular` (`61080ad`), base `-2a-personas`.
+    - PR #65 `feat/cuentas-vinculadas-2c-ajustes` (`93573e4` en adelante), base `-2b-vincular`. Las correcciones de revisión del código de 2a y 2b van aquí.
   - Después vienen `-3-cambio` y `-4-interfaz`.
 - **Pronóstico:** ~1.600 líneas, unas 400 por PR.
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
@@ -160,7 +163,8 @@ Personas y vínculos, flujo de vincular, flujo de cambiar, selector en el encabe
     - RED antes de cada parte: roles, errores, carreras y bitácora (234 pruebas, 226 en verde, 6 fallas y 2 errores); `resolveCompany` (22, 21 en verde y 1 falla); textos (59, 56 en verde, 1 falla y 2 errores); la guarda falló con un archivo de prueba que leía `person_id`.
     - GREEN, suite completa: 1.249 de 1.249 (5.874 aserciones). `pint --test`: sin cambios.
     - Commits: `c4a6eaf` `fix(accounts)`, `5bddccb` `fix(tenancy)` y `fix(accounts)` de textos y guarda, que lleva este registro.
+- 2026-10-29: PR #63, #64 y #65 abiertos (T2).
 
 ## Siguiente paso
 
-Revisar las correcciones y decidir si PR2 se parte por commits. Abrirlo cuando Jhon fusione #61 y #62. Después, delegar el escritor del T3.
+Jhon revisa y fusiona #61 a #65 en orden. Cuando uno se fusiona, el siguiente pasa a `main`: se fusiona `main` en su rama y se cambia la base, sin `force-push`. Después, delegar el escritor del T3.
