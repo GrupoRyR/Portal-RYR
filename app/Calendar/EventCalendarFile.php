@@ -12,6 +12,11 @@ use Illuminate\Support\Str;
  * (`Z`), so no VTIMEZONE block is needed; all-day events are dates
  * (`VALUE=DATE`) with the exclusive end the day after the last one. Text
  * is escaped, lines are folded at 75 octets and end in CRLF.
+ *
+ * SEQUENCE is the Unix time of the last change (`updated_at`), so it only
+ * grows: a calendar app that imports the file again, with the same UID,
+ * takes it as an update of the copy it already has. Two changes within the
+ * same second share a number; it fits RFC 5545's 32-bit INTEGER until 2038.
  */
 final class EventCalendarFile
 {
@@ -34,6 +39,12 @@ final class EventCalendarFile
             'UID:event-'.$event->id.'@'.$host,
             'DTSTAMP:'.self::utc($stamp),
         ];
+
+        $changed = $event->updated_at ?? $event->created_at;
+        if ($changed !== null) {
+            $lines[] = 'SEQUENCE:'.$changed->getTimestamp();
+            $lines[] = 'LAST-MODIFIED:'.self::utc($changed);
+        }
 
         if ($event->all_day) {
             $lines[] = 'DTSTART;VALUE=DATE:'.self::date($event->starts_at);

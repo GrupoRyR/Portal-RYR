@@ -53,6 +53,8 @@ class EventCalendarFileTest extends TestCase
             'BEGIN:VEVENT',
             "UID:event-{$event->id}@localhost",
             'DTSTAMP:20261029T150000Z',
+            'SEQUENCE:1793286000',
+            'LAST-MODIFIED:20261029T150000Z',
             'DTSTART:20261105T200000Z',
             'DTEND:20261105T220000Z',
             'SUMMARY:Reunión general\; cierre\, de mes',
@@ -61,6 +63,23 @@ class EventCalendarFileTest extends TestCase
             'END:VEVENT',
             'END:VCALENDAR',
         ])."\r\n", $response->getContent());
+    }
+
+    public function test_an_edited_event_has_a_higher_sequence_and_its_last_change(): void
+    {
+        $event = Event::factory()->create(['title' => 'Reunión general']);
+        $before = $this->lines($this->download($event));
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-30 09:30', 'America/Bogota'));
+        $event->update(['location' => 'Sala de juntas']);
+        $after = $this->lines($this->download($event->fresh()));
+
+        $this->assertContains('SEQUENCE:1793286000', $before);
+        $this->assertContains('SEQUENCE:1793370600', $after);
+        $this->assertContains('LAST-MODIFIED:20261030T143000Z', $after);
+        // The same UID, so calendar apps update the copy they already have.
+        $uid = fn (array $lines) => array_values(array_filter($lines, fn (string $line) => str_starts_with($line, 'UID:')));
+        $this->assertSame($uid($before), $uid($after));
     }
 
     public function test_an_all_day_event_uses_dates_with_the_next_day_as_its_end(): void
