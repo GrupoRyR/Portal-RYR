@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\LinkedAccountController;
 use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
@@ -66,6 +67,20 @@ Route::middleware('auth')->group(function () {
         ->name('auth.microsoft.confirm');
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
+
+    // «Cuentas vinculadas»: the person's accounts. Unlinking one is a
+    // confirmation page and a POST, both behind a fresh Microsoft
+    // confirmation that the controller checks itself (a 404, not the 403
+    // of microsoft.recent, for emergency accounts).
+    Route::get('/cuenta', [AccountController::class, 'show'])->name('account.show');
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::get('/cuenta/desvincular/{user}', [AccountController::class, 'confirmUnlink'])
+            ->whereNumber('user')
+            ->name('account.unlink.confirm');
+        Route::post('/cuenta/desvincular/{user}', [AccountController::class, 'unlink'])
+            ->whereNumber('user')
+            ->name('account.unlink');
+    });
 
     // Linking another company's account (App\Auth\LinkedAccounts): a fresh
     // Microsoft confirmation first, then a sign-in to the other account.

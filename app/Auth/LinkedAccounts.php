@@ -179,17 +179,53 @@ class LinkedAccounts
     }
 
     /**
+     * Every account of the user's person, the user's own included, oldest
+     * first, with their company (Cuentas vinculadas). Empty, without a
+     * query, for an account that is not linked.
+     *
+     * @return Collection<int, User>
+     */
+    public function accountsOf(User $user): Collection
+    {
+        if (! $user->exists || $user->person_id === null) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->where('person_id', $user->person_id)
+            ->with('company')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Whether the signed-in user may unlink the target: one of the
+     * accounts of their own person, their own included. Emergency accounts
+     * are never linked.
+     */
+    public function canUnlink(User $current, User $target): bool
+    {
+        return $current->exists
+            && $target->exists
+            && ! $current->is_emergency
+            && $current->person_id !== null
+            && $current->person_id === $target->person_id;
+    }
+
+    /**
      * Takes the account out of its person. A person left with one account
      * (or none) is deleted and that last account is unlinked too; each
-     * unlinked account is a security event. False when the account was not
+     * unlinked account is a security event. Unless the system did it
+     * ({@see COMPANY_CHANGED}, during a sign-in), every account the person
+     * had is told by mail once it commits. False when the account was not
      * linked.
      *
-     * @param  string  $reason  {@see COMPANY_CHANGED}, {@see ADMIN} or {@see User}.
-     * @param  User|null  $actor  Who did it; null when the system did.
+     * @param  string  $reason  {@see self::COMPANY_CHANGED}, {@see self::ADMIN} or {@see self::USER}.
+     * @param  User|null  $actor  Who did it; null when the system or a console command did.
      */
     public function unlink(User $account, string $reason, ?User $actor = null): bool
     {
-        return $this->detach($account, $reason, $actor);
+        return $this->detach($account, $reason, $actor, notify: $reason !== self::COMPANY_CHANGED);
     }
 
     /**
@@ -216,14 +252,15 @@ class LinkedAccounts
 
     /**
      * @param  (Closure(Collection<int, User>): bool)|null  $only  Unlinks only when it holds for the person's other accounts (locked).
+     * @param  bool  $notify  Mail every account the person had (after the commit).
      */
-    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null): bool
+    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null, bool $notify = false): bool
     {
         if (! $account->exists) {
             return false;
         }
 
-        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only) {
+        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only, $notify) {
             $target = $this->lockWithPeople($account->getKey())->get($account->getKey());
             $personId = $target?->person_id;
 
@@ -253,6 +290,12 @@ class LinkedAccounts
                 }
 
                 Person::query()->whereKey($personId)->delete();
+            }
+
+            if ($notify) {
+                // Read before the person is gone: everyone it had, the
+                // unlinked account included.
+                $this->notifier->notifyUnlinked($rest->toBase()->prepend($target), $target, $reason, $personId);
             }
 
             return true;

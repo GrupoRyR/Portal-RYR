@@ -41,6 +41,9 @@ class PersonNeverAuthorizesTest extends TestCase
         // The header switcher only lists what LinkedAccounts::switchTargets()
         // (canSwitch) allows; each entry is still a POST to the switch above.
         'app/View/Components/AccountSwitcher.php' => ['LinkedAccounts'],
+        // «Cuentas vinculadas» lists the person's accounts and unlinks one;
+        // which accounts it may touch is LinkedAccounts::canUnlink().
+        'app/Http/Controllers/Account/AccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
     ];
 
     private static function root(): string

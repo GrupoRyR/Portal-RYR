@@ -17,6 +17,7 @@ final readonly class HomePage
      * @param  list<AnnouncementCard>  $announcements  Newest pinned first; at most HomePageBuilder::ANNOUNCEMENT_LIMIT.
      * @param  string|null  $supportHref  «Soporte TI» link (`/soporte`); null hides the button.
      * @param  array{current: string, targets: list<array{id: int, label: string}>, menu: bool}|null  $switcher  «Cambiar de empresa» (App\View\Components\AccountSwitcher::for()); null hides it.
+     * @param  string|null  $accountsHref  «Cuentas vinculadas» (`/cuenta`) in the account menu; null hides it (emergency accounts).
      */
     public function __construct(
         public string $salutation,
@@ -37,6 +38,7 @@ final readonly class HomePage
         public array $announcements = [],
         public ?string $supportHref = null,
         public ?array $switcher = null,
+        public ?string $accountsHref = null,
     ) {}
 
     /**

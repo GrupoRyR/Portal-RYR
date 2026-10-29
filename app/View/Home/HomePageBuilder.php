@@ -92,6 +92,7 @@ final class HomePageBuilder
             announcements: $this->announcements($user, $now),
             supportHref: $this->settings->supportUrl() === null ? null : route('support'),
             switcher: AccountSwitcher::for($user),
+            accountsHref: $user->is_emergency ? null : route('account.show'),
         );
     }
 
