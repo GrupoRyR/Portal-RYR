@@ -200,6 +200,9 @@ if (dialog) {
 
     field.addEventListener('input', () => renderResults(index));
     field.addEventListener('keydown', (event) => {
+        // Enter or an arrow that confirms an IME composition is not ours.
+        if (event.isComposing) return;
+
         if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && found.length > 0) {
             event.preventDefault();
             const step = event.key === 'ArrowDown' ? 1 : -1;
@@ -210,9 +213,22 @@ if (dialog) {
         }
     });
 
-    $('[data-search-results]', dialog).addEventListener('click', (event) => {
-        const option = event.target.closest('[role="option"]');
-        if (option) openResult(found.findIndex((result) => result.option === option));
+    const results = $('[data-search-results]', dialog);
+    const positionOf = (target) => {
+        const option = target.closest('[role="option"]');
+        return option ? found.findIndex((result) => result.option === option) : -1;
+    };
+
+    results.addEventListener('click', (event) => {
+        const position = positionOf(event.target);
+        if (position >= 0) openResult(position);
+    });
+    // The pointer moves the active option, so only one row ever looks
+    // active; pointermove (not pointerover) leaves the arrow keys in charge
+    // while the mouse rests on a row.
+    results.addEventListener('pointermove', (event) => {
+        const position = positionOf(event.target);
+        if (position >= 0 && position !== active) selectResult(position);
     });
 
     // A click on the backdrop lands on the <dialog> itself.
@@ -234,6 +250,11 @@ if (dialog) {
 }
 
 document.addEventListener('keydown', (event) => {
+    if (event.isComposing) return;
+
+    // Ctrl K / Cmd K works from any field, inputs included: the command
+    // palette convention, and no browser text field uses it. «/» below does
+    // not, since it is typed in text.
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k' && dialog) {
         event.preventDefault();
         if (dialog.open) dialog.close();

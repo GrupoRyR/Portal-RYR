@@ -5,6 +5,9 @@
     input is a combobox and the active result goes in aria-activedescendant.
     A closed <dialog> shows nothing, so without JavaScript the page keeps its
     plain GET search. toJson() escapes <, > and &: no title can end the script.
+    One row looks active at a time: the pointer moves the active option
+    (home.js) instead of a separate hover style, and the active one gets an
+    inset outline besides the tint, which also shows in forced colors.
 --}}
 @props(['index'])
 @use('App\Catalog\AppSearch')
@@ -32,7 +35,7 @@
             <ul role="group" aria-labelledby="busqueda-grupo-{{ $key }}" data-search-group="{{ $key }}" hidden class="flex flex-col py-1">
                 <li role="presentation" id="busqueda-grupo-{{ $key }}" class="px-3 pt-2 pb-1 text-xs font-bold text-fg-muted">{{ $group['label'] }}</li>
                 <template>
-                    <li role="option" aria-selected="false" class="flex min-h-touch items-center gap-3 rounded-control px-3 py-2 hover:bg-subtle aria-selected:bg-subtle data-link:cursor-pointer">
+                    <li role="option" aria-selected="false" class="flex min-h-touch items-center gap-3 rounded-control px-3 py-2 aria-selected:bg-subtle aria-selected:outline-2 aria-selected:-outline-offset-2 aria-selected:outline-brand-ink data-link:cursor-pointer">
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-ink">
                             <x-home.icon :name="$group['icon']" class="size-[18px]" />
                         </span>
