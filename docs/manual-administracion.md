@@ -134,7 +134,13 @@ Se muestran en el inicio entre su fecha de inicio y de fin: en el computador, en
 
 Un editor de anuncios solo publica para su propia empresa. Los anuncios no se borran.
 
-**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y personas lo leyeron» y, en **Quién falta**, los nombres de quienes no lo han confirmado (hasta 200, en orden alfabético). Solo la ve quien puede editar ese anuncio. Y cuenta a las personas de las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
+**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y cuentas lo leyeron» y, en **Cuentas que faltan**, las cuentas que no lo han confirmado, con el nombre y la empresa de cada una (hasta 200, en orden alfabético; si faltan más, «Y N más»). Solo la ve quien puede editar ese anuncio. Las cifras se cuentan al abrir la página y se actualizan cada minuto o al recargarla.
+
+- **Se cuenta por cuenta, no por persona.** Quien tiene cuenta en dos empresas (cuentas vinculadas) confirma una vez con cada cuenta, y cada una aparece por separado.
+- **Y** cuenta las cuentas de las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
+- Una cuenta de la que todavía no se sabe si es invitada (no ha vuelto a iniciar sesión desde que el portal lo guarda) **sí se cuenta**: es mejor que sobre una cuenta pendiente que dejar por fuera a alguien que debía leerlo. En su siguiente inicio de sesión queda clara.
+- Se cuenta según la empresa actual de la cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando.
+- Si alguien pulsa **Confirmar lectura** en una página vieja de un anuncio que ya no la pide (retirado, vencido o ya no obligatorio), el portal lo devuelve con el aviso «Este anuncio ya no pide confirmación.» y no guarda nada.
 
 ### 2.5 Roles
 
