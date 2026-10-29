@@ -75,7 +75,10 @@ class AccountController extends Controller
         }
 
         $company = Company::displayName($user->company);
-        $linkedAccounts->unlink($user, LinkedAccounts::USER, $current);
+
+        // canUnlink() read without a lock: an account unlinked or moved to
+        // another person since then is answered like any account not linked.
+        abort_unless($linkedAccounts->unlink($user, LinkedAccounts::USER, $current), 404);
 
         return redirect()->route('account.show')->with('status', "Desvinculaste la cuenta de {$company}.");
     }

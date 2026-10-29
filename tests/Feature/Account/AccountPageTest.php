@@ -286,6 +286,35 @@ class AccountPageTest extends TestCase
         $this->confirmed()->post('/cuenta/desvincular/999999')->assertNotFound();
     }
 
+    /**
+     * The account joins another person after the controller checked it and
+     * before the unlink (the confirmation check is that point here): a 404
+     * like any account that is not linked, and the other person keeps it.
+     */
+    public function test_an_account_that_moved_to_another_person_meanwhile_is_a_404(): void
+    {
+        Notification::fake();
+        $derivados = $this->accountIn($this->derivados);
+        $this->personWith($this->current, $derivados);
+        $stranger = $this->accountIn(Company::factory()->create());
+        $elsewhere = Person::query()->create();
+
+        $this->partialMock(RecentMicrosoftLogin::class, function ($mock) use ($derivados, $stranger, $elsewhere) {
+            $mock->shouldReceive('isFresh')->andReturnUsing(function () use ($derivados, $stranger, $elsewhere) {
+                User::query()->whereKey([$derivados->id, $stranger->id])->update(['person_id' => $elsewhere->id]);
+
+                return true;
+            });
+        });
+
+        $this->confirmed()->post(route('account.unlink', $derivados))->assertNotFound();
+
+        $this->assertSame($elsewhere->id, $derivados->fresh()->person_id);
+        $this->assertSame($elsewhere->id, $stranger->fresh()->person_id);
+        $this->assertSame(0, Activity::query()->where('event', SecurityLog::ACCOUNT_UNLINKED)->count());
+        Notification::assertNothingSent();
+    }
+
     public function test_emergency_accounts_cannot_unlink(): void
     {
         $emergency = User::factory()->emergency()->create();

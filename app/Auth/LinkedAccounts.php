@@ -217,15 +217,23 @@ class LinkedAccounts
      * (or none) is deleted and that last account is unlinked too; each
      * unlinked account is a security event. Unless the system did it
      * ({@see COMPANY_CHANGED}, during a sign-in), every account the person
-     * had is told by mail once it commits. False when the account was not
-     * linked.
+     * had is told by mail once it commits.
+     *
+     * The caller checked the account against the person on the given model
+     * (e.g. {@see canUnlink()}, read without a lock). False, and nothing
+     * changes, when the locked account is no longer in that person: not
+     * linked, unlinked meanwhile or moved to another person.
      *
      * @param  string  $reason  {@see self::COMPANY_CHANGED}, {@see self::ADMIN} or {@see self::USER}.
      * @param  User|null  $actor  Who did it; null when the system or a console command did.
      */
     public function unlink(User $account, string $reason, ?User $actor = null): bool
     {
-        return $this->detach($account, $reason, $actor, notify: $reason !== self::COMPANY_CHANGED);
+        if ($account->person_id === null) {
+            return false;
+        }
+
+        return $this->detach($account, $reason, $actor, notify: $reason !== self::COMPANY_CHANGED, expectedPersonId: (int) $account->person_id);
     }
 
     /**
@@ -253,18 +261,19 @@ class LinkedAccounts
     /**
      * @param  (Closure(Collection<int, User>): bool)|null  $only  Unlinks only when it holds for the person's other accounts (locked).
      * @param  bool  $notify  Mail every account the person had (after the commit).
+     * @param  int|null  $expectedPersonId  Unlinks only from this person (as the locked row has it); null for whichever it has.
      */
-    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null, bool $notify = false): bool
+    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null, bool $notify = false, ?int $expectedPersonId = null): bool
     {
         if (! $account->exists) {
             return false;
         }
 
-        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only, $notify) {
+        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only, $notify, $expectedPersonId) {
             $target = $this->lockWithPeople($account->getKey())->get($account->getKey());
             $personId = $target?->person_id;
 
-            if ($personId === null) {
+            if ($personId === null || ($expectedPersonId !== null && (int) $personId !== $expectedPersonId)) {
                 return false;
             }
 
