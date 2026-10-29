@@ -103,6 +103,7 @@ class MicrosoftLogin
 
         $user->email = $identity->email;
         $user->microsoft_login_hint = $identity->loginHint;
+        $user->is_guest = ! $identity->isHomeSignIn();
         $user->company_id = $company->id;
         $user->save();
 

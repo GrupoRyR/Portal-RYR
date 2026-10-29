@@ -65,7 +65,7 @@ class UserFactory extends Factory
 
     /**
      * A user signed in with Microsoft: an object ID in the tenant of the
-     * given (or a new) company.
+     * given (or a new) company, as a home account (not a B2B guest).
      */
     public function microsoft(?Company $company = null): static
     {
@@ -76,6 +76,7 @@ class UserFactory extends Factory
                 'azure_oid' => (string) Str::uuid(),
                 'tenant_id' => $company->tenant_id,
                 'company_id' => $company->id,
+                'is_guest' => false,
             ];
         });
     }

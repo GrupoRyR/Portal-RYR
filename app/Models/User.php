@@ -25,8 +25,14 @@ use Spatie\Permission\Traits\HasRoles;
  * `photo_path` is no longer used: sign-in stores no photo and
  * `portal:purge-public-avatars` clears it.
  *
- * `microsoft_login_hint` is written only by the Microsoft sign-in
- * (App\Auth\MicrosoftLogin), so it is not fillable.
+ * `microsoft_login_hint` and `is_guest` are written only by the Microsoft
+ * sign-in (App\Auth\MicrosoftLogin), so they are not fillable. `is_guest`
+ * is null until the account signs in again after it was added: not known.
+ *
+ * `person_id` links the accounts one person has in several companies. Only
+ * App\Auth\LinkedAccounts writes it, so it is not fillable either, and it
+ * never authorizes anything: roles, groups, favorites and app access stay
+ * per account.
  *
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
@@ -61,6 +67,7 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'password' => 'hashed',
             'is_emergency' => 'boolean',
+            'is_guest' => 'boolean',
             'two_factor_secret' => 'encrypted',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_timestep' => 'integer',
@@ -73,6 +80,25 @@ class User extends Authenticatable
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * @return BelongsTo<Person, $this>
+     */
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
+    }
+
+    /**
+     * The other accounts of this account's person (none when it is not
+     * linked). Not for eager loading: it leaves out this model's own key.
+     *
+     * @return HasMany<User, $this>
+     */
+    public function linkedAccounts(): HasMany
+    {
+        return $this->hasMany(self::class, 'person_id', 'person_id')->whereKeyNot($this->getKey());
     }
 
     /**

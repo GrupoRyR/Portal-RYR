@@ -67,6 +67,12 @@ final class AuditPresenter
         'provider_error' => 'error de Microsoft',
     ];
 
+    private const UNLINK_REASONS = [
+        'company_changed' => 'por cambio de empresa',
+        'admin' => 'por un administrador',
+        'user' => 'por la misma persona',
+    ];
+
     private const ROLE_LABELS = [
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
@@ -223,8 +229,19 @@ final class AuditPresenter
                 .$this->roleChanges($properties->get('roles_added', []), $properties->get('roles_removed', [])),
             SecurityLog::REAUTH_FAILED => 'Otra cuenta de Microsoft intentó confirmar su identidad, o no fue un inicio reciente',
             SecurityLog::REAUTH_UNAVAILABLE => 'No se pudo comprobar su identidad: falta configurar auth_time en Microsoft',
+            SecurityLog::ACCOUNT_LINKED => 'Vinculó su cuenta de '.$this->account($properties->get('linked_company'), $properties->get('linked_email')),
+            SecurityLog::ACCOUNT_UNLINKED => 'Desvinculó la cuenta de '.$this->account($properties->get('company'), $properties->get('email'))
+                .' · '.(self::UNLINK_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason')),
             default => (string) $activity->description,
         };
+    }
+
+    /**
+     * «Empresa (correo)» of a linked account.
+     */
+    private function account(?string $company, ?string $email): string
+    {
+        return ($company ?? 'otra empresa').($email ? " ({$email})" : '');
     }
 
     /**

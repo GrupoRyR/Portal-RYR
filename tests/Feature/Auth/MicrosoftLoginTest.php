@@ -628,6 +628,34 @@ class MicrosoftLoginTest extends TestCase
     }
 
     /**
+     * Whether the account is a B2B guest of the tenant it signed in to: the
+     * `idp` claim of each sign-in decides it (linked accounts refuse guests).
+     */
+    public function test_each_sign_in_records_whether_the_account_is_a_guest(): void
+    {
+        $home = User::factory()->microsoft($this->segurex)->create(['azure_oid' => self::OID, 'is_guest' => null]);
+        $this->signInAs(['tid' => self::SEGUREX_TENANT, 'oid' => self::OID]);
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertFalse($home->fresh()->is_guest);
+    }
+
+    public function test_a_guest_sign_in_is_recorded_as_a_guest(): void
+    {
+        $this->signInAs(
+            ['tid' => self::SEGUREX_TENANT, 'oid' => self::GUEST_OID, 'idp' => self::DERIVADOS_IDP],
+            ['mail' => 'luis@derivados.com', 'userPrincipalName' => 'luis_derivados.com#EXT#@segurex.onmicrosoft.com'],
+        );
+        $this->fakeGraph();
+
+        $this->hitCallback()->assertRedirect('/');
+
+        $this->assertTrue(User::sole()->is_guest);
+    }
+
+    /**
      * Without the `login_hint` claim the sign-in name is the next best hint;
      * the stored email (which prefers `mail`) is the last resort.
      *

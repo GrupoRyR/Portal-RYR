@@ -6,10 +6,11 @@ use App\Models\User;
 use App\Support\DeviceClassifier;
 
 /**
- * Sign-ins and re-authentications in the activity log (log name
- * {@see LOG}), shown in Auditoría as «Seguridad». Never a secret: no
- * password, code, token, IP address or User-Agent — only the device type.
- * The Laravel log lines written by the sign-in classes stay as they are.
+ * Sign-ins, re-authentications and linked accounts in the activity log
+ * (log name {@see LOG}), shown in Auditoría as «Seguridad». Never a
+ * secret: no password, code, token, IP address or User-Agent — only the
+ * device type. The Laravel log lines written by the sign-in classes stay
+ * as they are.
  */
 final class SecurityLog
 {
@@ -30,6 +31,10 @@ final class SecurityLog
     public const ROLES_SYNCED = 'roles.synced';
 
     public const REAUTH_UNAVAILABLE = 'reauth.unavailable';
+
+    public const ACCOUNT_LINKED = 'account.linked';
+
+    public const ACCOUNT_UNLINKED = 'account.unlinked';
 
     /**
      * @param  array{added: list<string>, removed: list<string>}  $roleChanges  Roles synced at this sign-in.
@@ -108,6 +113,34 @@ final class SecurityLog
             'reason' => $reason,
             'device' => DeviceClassifier::classify($userAgent),
         ]);
+    }
+
+    /**
+     * The signed-in account linked another account (the subject) to its
+     * person (App\Auth\LinkedAccounts).
+     */
+    public static function accountLinked(User $current, User $other, int $personId): void
+    {
+        self::write(self::ACCOUNT_LINKED, $current, [
+            'linked_company' => $other->company?->name,
+            'linked_email' => $other->email,
+            'person_id' => $personId,
+        ], $other);
+    }
+
+    /**
+     * An account (the subject) left its person. Without an actor (reason
+     * `company_changed`) Auditoría shows «Sistema».
+     *
+     * @param  string  $reason  `company_changed`, `admin` or `user`.
+     */
+    public static function accountUnlinked(User $account, string $reason, ?User $actor): void
+    {
+        self::write(self::ACCOUNT_UNLINKED, $actor, [
+            'reason' => $reason,
+            'company' => $account->company?->name,
+            'email' => $account->email,
+        ], $account);
     }
 
     /**
