@@ -348,8 +348,10 @@ final class DirectorySync
     }
 
     /**
-     * The day of the hire in the app timezone (Bogotá): Entra keeps it as
-     * a moment in UTC.
+     * The day of the hire. Entra keeps a moment in UTC that stands for a
+     * day: midnight UTC when set in the admin center (in Bogotá, 19:00 of
+     * the day before), or midnight of some local time. The UTC day twelve
+     * hours later is that day for any midnight between UTC-12 and UTC+12.
      */
     private static function hireDate(mixed $value): ?string
     {
@@ -358,7 +360,7 @@ final class DirectorySync
         }
 
         try {
-            return CarbonImmutable::parse($value)->setTimezone(config('app.timezone'))->toDateString();
+            return CarbonImmutable::parse($value)->utc()->addHours(12)->toDateString();
         } catch (Throwable) {
             return null;
         }

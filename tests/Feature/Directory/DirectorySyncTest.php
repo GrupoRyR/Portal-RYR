@@ -306,19 +306,28 @@ class DirectorySyncTest extends TestCase
         $this->assertSame(1, DirectoryEntry::query()->count());
     }
 
-    public function test_the_hire_date_is_the_day_in_bogota(): void
+    /**
+     * Entra keeps the hire date as a moment in UTC, usually midnight UTC
+     * (the admin center) or midnight of some local time. The day is the UTC
+     * day twelve hours after that moment, so neither lands on the day before.
+     */
+    public function test_the_hire_date_is_the_day_entra_wrote_whatever_the_midnight(): void
     {
         Company::factory()->forTenant(self::TENANT)->create();
         $this->pages[self::TENANT] = [[
-            $this->graphUser(['mail' => 'a@x.com', 'employeeHireDate' => '2020-03-15T03:00:00Z']),
+            $this->graphUser(['mail' => 'a@x.com', 'employeeHireDate' => '2014-01-01T00:00:00Z']),
             $this->graphUser(['mail' => 'b@x.com', 'employeeHireDate' => '2021-06-01T05:00:00Z']),
-            $this->graphUser(['mail' => 'c@x.com', 'employeeHireDate' => 'no es una fecha']),
+            $this->graphUser(['mail' => 'c@x.com', 'employeeHireDate' => '2019-08-31T22:00:00-02:00']),
+            $this->graphUser(['mail' => 'd@x.com', 'employeeHireDate' => '2022-02-27T22:00:00Z']),
+            $this->graphUser(['mail' => 'e@x.com', 'employeeHireDate' => '2020-03-15T03:00:00Z']),
+            $this->graphUser(['mail' => 'f@x.com', 'employeeHireDate' => 'no es una fecha']),
         ]];
 
         $this->sync();
 
         $dates = DirectoryEntry::query()->orderBy('email')->get()->map(fn (DirectoryEntry $entry) => $entry->hire_date?->toDateString())->all();
-        $this->assertSame(['2020-03-14', '2021-06-01', null], $dates);
+        // Midnight UTC, midnight in Bogotá, midnight UTC written with an offset, midnight in UTC+2, 3 a.m. UTC.
+        $this->assertSame(['2014-01-01', '2021-06-01', '2019-09-01', '2022-02-28', '2020-03-15', null], $dates);
     }
 
     public function test_a_tenant_bigger_than_the_cap_fails_and_keeps_its_entries(): void
