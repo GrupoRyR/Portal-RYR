@@ -352,6 +352,48 @@ Haga esto una sola vez, por SSH:
 
 4. Abra **Administración › Configuración**: la tarjeta **Respaldo diario de la base de datos** debe mostrar la fecha de esa copia y «correcto».
 
+### 1.13 Conector de Claude (MCP)
+
+El portal puede funcionar como «conector propio» de Claude: cada persona conecta su cuenta de Claude y Claude consulta, solo para leer, lo que esa persona ya ve en el portal. Está **apagado** hasta que se active aquí. Mientras está apagado, `/mcp/portal`, `/oauth/*` y `/.well-known/oauth-*` responden 404 y no se registra nada. El diseño está en `odd/tasks/conector-mcp.md`.
+
+1. **Migraciones.** El despliegue de rutina (paso 2.2) crea las tablas de OAuth (`oauth_clients`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes` y `oauth_device_codes`) y las de las conexiones (`mcp_connections` y `mcp_connection_accounts`) con `php artisan migrate --force`.
+2. **Llaves para firmar los tokens.** Se usa **una** de estas dos formas:
+   - **En `.env` (recomendado).** Genere el par una sola vez, en el servidor y fuera de `public/`:
+
+     ```bash
+     cd /home/<usuario>/<ruta-app>
+     php artisan passport:keys
+     cat storage/oauth-private.key   # va en PASSPORT_PRIVATE_KEY
+     cat storage/oauth-public.key    # va en PASSPORT_PUBLIC_KEY
+     ```
+
+     Copie cada llave completa en `.env`, entre comillas dobles y con sus saltos de línea (`"-----BEGIN PRIVATE KEY-----` … `-----END PRIVATE KEY-----"`). Después borre los dos archivos (`rm storage/oauth-*.key`) y ejecute `php artisan optimize`.
+   - **En archivos.** Deje los archivos que crea `php artisan passport:keys` en `storage/` (nunca en `public/`) y no ponga `PASSPORT_PRIVATE_KEY` ni `PASSPORT_PUBLIC_KEY` en `.env`. Ajuste los permisos: `chmod 600 storage/oauth-private.key` y `chmod 600 storage/oauth-public.key` (también sirven 400, 440, 640 o 660). Con otros permisos la librería de OAuth lanza un aviso que Laravel convierte en error 500 al conectar o al llamar al conector.
+
+   Cambiar las llaves invalida todos los tokens: cada persona tendrá que volver a conectar Claude. Nunca las suba al repositorio ni las comparta por chat.
+3. **Encender el conector.** En `.env`:
+
+   ```dotenv
+   PORTAL_MCP_ENABLED=true
+   ```
+
+   y `php artisan optimize`. Para apagarlo, `PORTAL_MCP_ENABLED=false` y otra vez `php artisan optimize`: todo vuelve a responder 404 al instante. (Más adelante habrá un interruptor en Administración.)
+4. **Compruebe las direcciones públicas** después del despliegue. AutoSSL o ModSecurity de cPanel podrían interceptar `/.well-known/`:
+
+   ```bash
+   curl -s https://apps.segurexlatam.net/.well-known/oauth-protected-resource/mcp/portal
+   curl -s https://apps.segurexlatam.net/.well-known/oauth-authorization-server
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://apps.segurexlatam.net/mcp/portal
+   ```
+
+   La primera debe devolver un JSON con `"resource":"https://apps.segurexlatam.net/mcp/portal"`; la segunda, un JSON con `authorization_endpoint`, `token_endpoint` y `registration_endpoint` bajo `https://apps.segurexlatam.net/oauth/`; la tercera, `401`. Si responden 404 con el conector encendido, revise que `php artisan optimize` corrió después de cambiar `.env`. Si responden una página de cPanel o un 403 de ModSecurity, pida a GoDaddy que deje pasar `/.well-known/oauth-*` a la aplicación.
+5. **Limpieza diaria.** El cron (paso 1.9) ejecuta dos tareas:
+   - `passport:purge` a las 4:00: borra los tokens y códigos revocados, sin importar su edad, y los vencidos hace más de 7 días.
+   - `portal:purge-mcp-clients` a las 4:15: borra los clientes del conector con más de un día que nunca llegaron a ser una conexión, con sus códigos y tokens. `passport:purge` no borra clientes, y registrar uno es público.
+6. **Límites.** Registrar clientes: 10 por minuto por dirección; los metadatos `/.well-known/*`: 60. Cada conexión: 120 llamadas por minuto. Una dirección con más de 30 llamadas rechazadas (401) en un minuto recibe 429 en todas hasta que pase el minuto.
+
+Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)
@@ -545,6 +587,8 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | `portal:mail-test` dice `HTTP 403 (ErrorAccessDenied)` | Que la app tenga el rol `Application Mail.Send` con el ámbito del buzón (`Test-ServicePrincipalAuthorization` debe dar `InScope True`), que `MAIL_FROM_ADDRESS` sea ese buzón y que hayan pasado hasta 2 horas desde el cambio (paso 1.10) |
 | `portal:mail-test` dice `HTTP 401`, `invalid_client`, `AADSTS7000215` o `AADSTS7000222` | El secreto de la app es incorrecto o venció: cree uno nuevo en Entra, cámbielo en `MICROSOFT_CLIENT_SECRET` y ejecute `php artisan optimize` |
 | `portal:mail-test` dice «The graph mailer is not configured» | Falta la clave de `.env` que nombra el mensaje (paso 1.10); luego `php artisan optimize` |
+| Claude dice que no puede conectarse al portal | Que `PORTAL_MCP_ENABLED=true` esté en `.env` y que corrió `php artisan optimize`, y que los tres `curl` del paso 1.13 respondan como allí se indica |
+| Error 500 al aprobar la conexión o al pedir el token, con `Key path`, `Unable to read key` o `permissions are not correct` en el log | Faltan las llaves de Passport, están incompletas en `.env` o los archivos tienen otros permisos (paso 1.13) |
 
 ---
 
