@@ -106,6 +106,22 @@ class EventPageTest extends TestCase
         $this->page()->assertSeeText('En curso · hasta el viernes 30 de octubre, 18:00');
     }
 
+    public function test_a_yearly_event_is_listed_on_its_next_occurrence(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-20')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2020-03-15')->yearly()->create(['title' => 'Cierre contable', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2026-12-01')->create(['title' => 'Jornada de salud']);
+
+        $response = $this->page()
+            ->assertSeeInOrder(['Aniversario', 'Jornada de salud', 'Cierre contable'])
+            ->assertSeeText('Viernes 20 de noviembre · Todo el día')
+            ->assertSeeText('Lunes 15 de marzo de 2027 · Todo el día')
+            ->assertDontSeeText('2020');
+
+        $badge = $this->xpath($response)->query('//*[@id="e-'.$anniversary->id.'"]//time')->item(0);
+        $this->assertSame('2026-11-20', $badge->getAttribute('datetime'));
+    }
+
     public function test_a_cut_list_says_so(): void
     {
         Event::factory()->count(EventController::LIMIT)->create();

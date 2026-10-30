@@ -33,6 +33,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * all-day, when its last day ends; timed, at `ends_at`, or when its day
  * ends if it has no end.
  *
+ * An all-day event can repeat every year (`repeats_yearly`,
+ * odd/tasks/ajustes-inicio-y-tareas.md T3): its stored days are the first
+ * occurrence, it is never over, and the home screen, the search and
+ * /eventos show its next occurrence ({@see occurrenceStart()}).
+ *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
 #[Fillable([
@@ -42,6 +47,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'starts_at',
     'ends_at',
     'all_day',
+    'repeats_yearly',
     'audience',
     'published_at',
     'created_by',
@@ -95,6 +101,7 @@ class Event extends Model
     protected $attributes = [
         'audience' => self::AUDIENCE_ALL,
         'all_day' => false,
+        'repeats_yearly' => false,
     ];
 
     protected function casts(): array
@@ -105,6 +112,7 @@ class Event extends Model
             'published_at' => 'datetime',
             'withdrawn_at' => 'datetime',
             'all_day' => 'boolean',
+            'repeats_yearly' => 'boolean',
         ];
     }
 
@@ -177,7 +185,8 @@ class Event extends Model
 
     /**
      * When it is over: the end of its last day (all-day), its end, or the
-     * end of its day when a timed event has no end.
+     * end of its day when a timed event has no end. A yearly event: the end
+     * of its current occurrence, so it is never over.
      */
     public function endsAtMoment(): CarbonImmutable
     {
@@ -185,7 +194,58 @@ class Event extends Model
             return self::local($this->ends_at);
         }
 
-        return $this->lastDay()->addDay();
+        return $this->occurrenceLastDay()->addDay();
+    }
+
+    /**
+     * Only an all-day event repeats, whatever the stored flag says.
+     */
+    public function repeatsYearly(): bool
+    {
+        return (bool) $this->repeats_yearly && (bool) $this->all_day;
+    }
+
+    /**
+     * The start of the occurrence shown now: the stored start of a one-time
+     * event. A yearly one is on its stored month and day (29 February on
+     * 28 February in common years), as long as its stored days: this
+     * year's occurrence until it is over today (app timezone), then next
+     * year's; one under way since last year (30 December to 3 January)
+     * stays. Never before its first date. Midnight, local.
+     */
+    public function occurrenceStart(): CarbonImmutable
+    {
+        $start = self::local($this->starts_at);
+
+        if (! $this->repeatsYearly()) {
+            return $start;
+        }
+
+        $first = $start->startOfDay();
+        $length = $this->lengthInDays();
+        $today = self::local(Carbon::now())->startOfDay();
+
+        foreach ([$today->year - 1, $today->year] as $year) {
+            $candidate = self::onYear($first, $year);
+            if ($candidate->addDays($length) >= $today) {
+                return $candidate < $first ? $first : $candidate;
+            }
+        }
+
+        $next = self::onYear($first, $today->year + 1);
+
+        return $next < $first ? $first : $next;
+    }
+
+    /**
+     * Midnight of the last day of the occurrence shown now ({@see lastDay()}
+     * for a one-time event).
+     */
+    public function occurrenceLastDay(): CarbonImmutable
+    {
+        return $this->repeatsYearly()
+            ? $this->occurrenceStart()->addDays($this->lengthInDays())
+            : $this->lastDay();
     }
 
     /**
@@ -203,7 +263,8 @@ class Event extends Model
     }
 
     /**
-     * Not over yet, whatever its status: the same rule as endsAtMoment().
+     * Not over yet, whatever its status: the same rule as endsAtMoment(). A
+     * yearly event (all day) is never over.
      *
      * @param  Builder<Event>  $query
      */
@@ -215,7 +276,8 @@ class Event extends Model
         $query->where(fn (Builder $query) => $query
             ->where(fn (Builder $query) => $query->whereNull('ends_at')->where('starts_at', '>=', $today))
             ->orWhere(fn (Builder $query) => $query->where('all_day', true)->whereNotNull('ends_at')->where('ends_at', '>=', $today))
-            ->orWhere(fn (Builder $query) => $query->where('all_day', false)->whereNotNull('ends_at')->where('ends_at', '>', $now)));
+            ->orWhere(fn (Builder $query) => $query->where('all_day', false)->whereNotNull('ends_at')->where('ends_at', '>', $now))
+            ->orWhere(fn (Builder $query) => $query->where('all_day', true)->where('repeats_yearly', true)));
     }
 
     /**
@@ -245,6 +307,27 @@ class Event extends Model
     public function scopeChronological(Builder $query): void
     {
         $query->orderBy('starts_at')->orderBy('id');
+    }
+
+    /**
+     * Days from the first day to the last one: 0 for a one-day event.
+     */
+    private function lengthInDays(): int
+    {
+        $first = self::local($this->starts_at)->startOfDay();
+
+        return max(0, (int) round($first->diffInDays($this->lastDay())));
+    }
+
+    /**
+     * The same month and day in another year; a day the month lacks there
+     * (29 February) becomes its last day.
+     */
+    private static function onYear(CarbonImmutable $day, int $year): CarbonImmutable
+    {
+        $month = $day->setDate($year, $day->month, 1);
+
+        return $month->setDate($year, $day->month, min($day->day, $month->daysInMonth));
     }
 
     /**

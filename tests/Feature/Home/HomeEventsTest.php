@@ -187,6 +187,30 @@ class HomeEventsTest extends TestCase
         $this->assertLessThan(array_search('Navidad', $titles, true), array_search('Vacaciones colectivas', $titles, true));
     }
 
+    public function test_a_yearly_event_shows_on_its_next_occurrence_within_the_window(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-03')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        // Next on 20 January 2027: past the 60 days of the list, within the search's twelve months.
+        Event::factory()->allDay('2020-01-20')->yearly()->create(['title' => 'Cierre contable', 'published_at' => '2020-01-01 08:00:00']);
+
+        $titles = $this->titles($this->build());
+        $this->assertSame(['Todos los Santos', 'Aniversario', 'Independencia de Cartagena'], array_slice($titles, 0, 3));
+        $this->assertNotContains('Cierre contable', $titles);
+
+        $xpath = $this->xpath($this->home());
+        $row = $xpath->query('//section[@id="fechas"]//li[@data-event-end]')->item(0);
+        $this->assertSame('2026-11-03', $row->getAttribute('data-event-date'));
+        $this->assertSame('2026-11-04T00:00:00-05:00', $row->getAttribute('data-event-end'));
+        $this->assertSame('2026-11-03', $xpath->query('.//time', $row)->item(0)->getAttribute('datetime'));
+        $this->assertSame(1, $xpath->query('.//a[@href="'.route('events.index').'#e-'.$anniversary->id.'"]', $row)->length);
+
+        $dates = $this->index()['dates'];
+        $closing = $dates[array_search('Cierre contable', array_column($dates, 'title'), true)];
+        $this->assertSame('2027-01-20', $closing['date']);
+        $this->assertSame('2027-01-21T00:00:00-05:00', $closing['end']);
+        $this->assertStringContainsString('miércoles 20 de enero de 2027', $closing['detail']);
+    }
+
     public function test_events_cost_one_query_whatever_their_number(): void
     {
         $this->openableApp();

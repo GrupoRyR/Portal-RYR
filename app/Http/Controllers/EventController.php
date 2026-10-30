@@ -24,7 +24,7 @@ class EventController extends Controller
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
 
         $events = Event::query()
-            ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
+            ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'repeats_yearly'])
             ->visibleTo($request->user())
             ->chronological()
             // One more than shown: whether the list was cut, in the same query.
@@ -32,7 +32,7 @@ class EventController extends Controller
             ->get();
 
         return view('events.index', [
-            'events' => $events->take(self::LIMIT)->map(fn (Event $event) => EventDate::from($event, $today))->all(),
+            'events' => EventDate::soonestFirst($events->take(self::LIMIT), $today),
             'cut' => $events->count() > self::LIMIT,
         ]);
     }

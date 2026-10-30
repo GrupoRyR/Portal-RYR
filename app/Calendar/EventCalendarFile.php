@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
  * «Agregar a mi calendario»: one event as an iCalendar file (RFC 5545)
  * that Outlook, Google Calendar and phones import. Timed events are in UTC
  * (`Z`), so no VTIMEZONE block is needed; all-day events are dates
- * (`VALUE=DATE`) with the exclusive end the day after the last one. Text
+ * (`VALUE=DATE`) with the exclusive end the day after the last one; a
+ * yearly one keeps its first date and adds `RRULE:FREQ=YEARLY`. Text
  * is escaped, lines are folded at 75 octets and end in CRLF.
  *
  * SEQUENCE is the Unix time of the last change (`updated_at`), so it only
@@ -49,6 +50,10 @@ final class EventCalendarFile
         if ($event->all_day) {
             $lines[] = 'DTSTART;VALUE=DATE:'.self::date($event->starts_at);
             $lines[] = 'DTEND;VALUE=DATE:'.self::date($event->lastDay()->addDay());
+            // From its stored first date: the calendar app repeats it.
+            if ($event->repeatsYearly()) {
+                $lines[] = self::yearlyRule($event);
+            }
         } else {
             $lines[] = 'DTSTART:'.self::utc($event->starts_at);
             // Without an end the event is a moment (RFC 5545 §3.6.1).
@@ -112,6 +117,20 @@ final class EventCalendarFile
         $parts[] = $current;
 
         return implode("\r\n", $parts);
+    }
+
+    /**
+     * Every year on its first date. RFC 5545 skips a 29 February in common
+     * years, so that one repeats on the last day of February, as the portal
+     * shows it (Event::occurrenceStart()).
+     */
+    private static function yearlyRule(Event $event): string
+    {
+        $first = $event->starts_at->toImmutable()->setTimezone(config('app.timezone'));
+
+        return $first->month === 2 && $first->day === 29
+            ? 'RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1'
+            : 'RRULE:FREQ=YEARLY';
     }
 
     private static function utc(CarbonInterface $moment): string
