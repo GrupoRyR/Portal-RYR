@@ -8,6 +8,8 @@ use App\View\Home\HolidayDay;
 use App\View\Home\HomePage;
 use App\View\Home\HomePageBuilder;
 use Carbon\CarbonImmutable;
+use DOMDocument;
+use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -96,6 +98,55 @@ class HomeUpcomingHolidaysTest extends TestCase
         $this->assertNull($page->holidayNotice());
     }
 
+    public function test_monday_and_friday_holidays_are_bridges(): void
+    {
+        // A holiday on Monday or Friday makes a three-day weekend: a «puente».
+        $page = $this->build('2026-10-29 10:00');
+
+        $this->assertSame([
+            '2026-11-02' => 'Puente festivo', // Monday, moved by the Ley Emiliani
+            '2026-11-16' => 'Puente festivo', // Monday
+            '2026-12-08' => 'Festivo', // Tuesday
+            '2026-12-25' => 'Puente festivo', // Friday
+        ], $this->kinds($page->upcomingHolidays));
+        $this->assertTrue($page->upcomingHolidays[3]->isBridge());
+        $this->assertFalse($page->upcomingHolidays[2]->isBridge());
+    }
+
+    public function test_midweek_and_weekend_holidays_are_plain_holidays(): void
+    {
+        $page = $this->build('2027-11-16 10:00');
+
+        $this->assertSame([
+            '2027-12-08' => 'Festivo', // Wednesday
+            '2027-12-25' => 'Festivo', // Saturday
+            '2028-01-01' => 'Festivo', // Saturday
+            '2028-01-10' => 'Puente festivo', // Monday
+        ], $this->kinds($page->upcomingHolidays));
+    }
+
+    public function test_holiday_rows_of_the_home_screen_name_bridges(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-29 10:00', 'America/Bogota'));
+        $rows = $this->holidayRows();
+        $this->assertStringContainsString('Lunes · Puente festivo', $rows['2026-11-02']);
+        $this->assertStringContainsString('Martes · Festivo', $rows['2026-12-08']);
+        $this->assertStringNotContainsString('Puente', $rows['2026-12-08']);
+        $this->assertStringContainsString('Viernes · Puente festivo', $rows['2026-12-25']);
+
+        $this->travelTo(CarbonImmutable::parse('2027-11-16 10:00', 'America/Bogota'));
+        $rows = $this->holidayRows();
+        $this->assertStringContainsString('Miércoles · Festivo', $rows['2027-12-08']);
+        $this->assertStringNotContainsString('Puente', $rows['2027-12-08']);
+    }
+
+    public function test_a_bridge_today_keeps_its_label(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 08:00', 'America/Bogota'));
+
+        $this->assertStringContainsString('Hoy · Puente festivo', $this->holidayRows()['2026-11-02']);
+    }
+
     private function build(string $time, string $timezone = 'America/Bogota'): HomePage
     {
         return app(HomePageBuilder::class)->build($this->user->fresh(), null, CarbonImmutable::parse($time, $timezone));
@@ -108,5 +159,32 @@ class HomeUpcomingHolidaysTest extends TestCase
     private function dates(array $days): array
     {
         return array_map(fn (HolidayDay $day) => $day->isoDate(), $days);
+    }
+
+    /**
+     * @param  list<HolidayDay>  $days
+     * @return array<string, string>
+     */
+    private function kinds(array $days): array
+    {
+        return array_combine($this->dates($days), array_map(fn (HolidayDay $day) => $day->kind(), $days));
+    }
+
+    /**
+     * The text of each holiday row of «Próximas fechas», by date.
+     *
+     * @return array<string, string>
+     */
+    private function holidayRows(): array
+    {
+        $document = new DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8"?>'.$this->actingAs($this->user->fresh())->get('/')->assertOk()->getContent());
+
+        $rows = [];
+        foreach ((new DOMXPath($document))->query('//section[@id="fechas"]//li[@data-holiday-date]') as $row) {
+            $rows[$row->getAttribute('data-holiday-date')] = trim((string) preg_replace('/\s+/u', ' ', $row->textContent));
+        }
+
+        return $rows;
     }
 }
