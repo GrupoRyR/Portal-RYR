@@ -118,6 +118,8 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
   - [x] C2a. **OAuth, consentimiento y conexión con la cuenta que aprueba:** paquetes, interruptor, registro de clientes solo para claude.ai, pantalla de consentimiento, `mcp_connections`, revisión de cuentas en cada llamada y la herramienta de prueba `quien_soy`. Commits `5648b31` y, tras la revisión, `46e57c7` (C2a-R).
   - [x] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`. Commit `c773266`.
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
+  - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73`.
+  - [ ] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items`. Espera a que #74 esté en la base.
 - [ ] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría.
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
 
@@ -251,8 +253,56 @@ Ruta: el mismo escritor delegado, después de una revisión independiente del C2
 - Suite completa: 1.836 pruebas, todas pasan (1.831 antes).
 - Pint: sin cambios pendientes.
 
+## Registro del C3a
+
+Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-mcp-3-herramientas` sobre `feat/conector-mcp-2-cuentas` (#84). Commit `c6afd73` (`feat(mcp): add the read-only portal tools for Claude (C3a)`).
+
+### Qué quedó
+
+- **Base común (`App\Mcp\Tools\PortalTool`):** cada herramienta lee una vez por cada cuenta usable de la llamada (las que `mcp.connection` deja en la petición), primero la que aprobó, con esa cuenta como la que mira. Etiqueta cada resultado con el nombre corto de su empresa («Segurex», «Derivados»). Fechas en ISO 8601 con la hora de Bogotá, más un texto en español. `quien_soy` usa la misma base.
+- **Una sola vez (`App\Mcp\SeenByAccounts`):** si dos cuentas ven lo mismo (un anuncio para todas, un evento, una app), sale una vez con las dos empresas. Solo se listan las empresas de las cuentas que lo ven, nunca las del anuncio o el evento, que pueden estar fuera de la conexión.
+- **Herramientas** (todas `#[IsReadOnly]`, con descripción y esquema en español):
+
+| Herramienta | Entrada | Máximo | Reutiliza |
+|---|---|---|---|
+| `anuncios_pendientes` | — | 20, del más reciente | `Announcement::scopeVisibleTo()` y el nuevo `scopeUnreadByPersonOf()` (la misma regla por persona de `scopeWithReadAtFor()`) |
+| `anuncio` | `id` | 1 | `scopeVisibleTo()` y `scopeWithReadAtFor()`; el mismo error si no existe o no se ve |
+| `proximas_fechas` | `dias` 1–90 (30) | 30 | `ColombianHolidays`, `HolidayDay` («Festivo» / «Puente festivo»), `Event::visibleSoonest()`, `EventDate` (fechas anuales y su texto) y `HomePageBuilder::sortKey()` |
+| `cumpleanos_y_aniversarios` | `dias` 0–31 (7) | 30 | `DirectoryEntry::companyIdFor()`, el nuevo `DirectoryEntry::scopeWithShownBirthday()` y `Celebration::within()` |
+| `buscar_personas` | `texto` 2–60 | 20 | `companyIdFor()`, `scopeMatching()` y las columnas de /personas |
+| `mis_apps` | — | 100 | `AppCatalog::visibleApps()` |
+
+- **Datos que nunca salen:** celular (el directorio no lo tiene), año de nacimiento (el portal no lo guarda), cumpleaños sin la casilla «mostrar», fecha de ingreso, enlaces de Teams ni datos de una empresa que no está entre las cuentas. Los cumpleaños dicen día y mes; los aniversarios, los años cumplidos.
+- **Servidor:** `PortalServer` registra las siete herramientas y sus instrucciones las describen.
+
+### Pruebas
+
+- RED (antes de implementar), `tests/Feature/Mcp` y `tests/Unit/Mcp`: 212 pruebas, 136 pasan, 70 fallan y 6 con error (herramientas, clases y consultas inexistentes).
+- GREEN: las 212 pasan; con `tests/Unit/Mcp` y `PersonNeverAuthorizesTest`, 410 en esa corrida.
+- Por herramienta (`tests/Feature/Mcp/Tools`): dos cuentas vinculadas en dos empresas ven lo de las dos, etiquetado; lo de «Otra» (fuera de la conexión) nunca sale, tampoco en las empresas de un anuncio o evento compartido con ella; al desvincular, la cuenta pasa a invitada o a emergencia, o su empresa se desactiva, lo de esa empresa sale; los límites; y las claves prohibidas no aparecen. Además, la lista de herramientas (solo lectura, descripción y esquema) y las dos consultas nuevas.
+- `ConnectionTest` espera ahora siete herramientas en `tools/list`.
+- Suite completa: 1.919 pruebas, todas pasan (1.836 antes).
+- Pint: sin cambios pendientes.
+
+### Decisiones
+
+- **Las consultas nuevas van en los modelos** (`Announcement`, `DirectoryEntry`), junto a las que ya existían. `HomePageBuilder::people()` todavía tiene su propia copia de la unión con el cumpleaños: estaba fuera de los archivos permitidos. Queda como seguimiento que use `scopeWithShownBirthday()`.
+- **`Celebration::within()` mira 7 días** y estaba fuera de los archivos permitidos. Para ventanas de hasta 31 días se llama con ventanas seguidas de 8 días (de hoy, de hoy + 8…) y se descarta lo que pasa del límite. Seguimiento posible: darle un parámetro de días.
+- **Festivos:** son los mismos para todas, así que salen con todas las empresas de la conexión.
+- **`mis_apps` enlaza al lanzador del portal** (`/apps/{slug}`), que revisa el acceso otra vez con la cuenta de la sesión del navegador.
+- **`anuncio` devuelve el texto tal como está guardado:** los anuncios son texto plano y el portal nunca los guarda en HTML.
+- **Validación:** errores en español que nombran el campo. Un `texto` de solo espacios o que no deja palabras se rechaza, para no devolver todo el directorio.
+- **Sin registro de contenido:** las herramientas no escriben nada en los registros (la línea de auditoría por llamada es del C4).
+
+### No hecho o no verificado
+
+- C3b (`mis_tareas`, `mis_aprobaciones`): espera a #74.
+- No se probó contra claude.ai real.
+- El inicio `/` no cambió: no se tocó su código (`HomeScreenTest` pasa en la suite completa).
+- Tamaño: unas 930 líneas de código (con comentarios) y 1.240 de pruebas. Pasa de la cifra orientativa de 400 porque las seis herramientas comparten la base, la regla de una sola vez y las pruebas de la conexión con dos cuentas.
+
 ## Siguiente paso
 
-C3, herramientas de solo lectura. Necesita `work_items` (#74): parte de una rama que lo tenga o espera a que se fusione.
+C3b, `mis_tareas` y `mis_aprobaciones`, cuando #74 (`work_items`) esté en la base. Mientras tanto, C4 (`/cuenta`, Admin y Auditoría) puede avanzar.
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom
