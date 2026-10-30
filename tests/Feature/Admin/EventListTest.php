@@ -81,6 +81,17 @@ class EventListTest extends TestCase
             ->assertDontSee('>Próximo<', false);
     }
 
+    public function test_yearly_events_are_marked_and_never_past(): void
+    {
+        Event::factory()->allDay('2020-03-15')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2026-11-16')->create(['title' => 'Jornada de salud']);
+
+        Livewire::actingAs($this->admin)->test(EventList::class)
+            ->assertSeeText('Lunes 15 de marzo de 2027 · Todo el día · Cada año · Todas las empresas')
+            ->assertSeeText('Lunes 16 de noviembre · Todo el día · Todas las empresas')
+            ->assertSeeText(['Publicados · 2', 'Pasados · 0']);
+    }
+
     public function test_people_without_the_role_cannot_list(): void
     {
         $nobody = User::factory()->microsoft($this->segurex)->create();

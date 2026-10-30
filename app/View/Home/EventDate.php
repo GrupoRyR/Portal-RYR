@@ -234,11 +234,20 @@ final readonly class EventDate
     }
 
     /**
-     * «Evento · jueves 5 de noviembre, 15:00», for the «Ctrl K» search.
+     * «Cada año» for a yearly event, «Evento» otherwise: its kind beside
+     * the date, as «Festivo» is a holiday's.
+     */
+    public function kind(): string
+    {
+        return $this->repeatsYearly ? 'Cada año' : 'Evento';
+    }
+
+    /**
+     * «Evento · jueves 5 de noviembre, 15:00» («Cada año · …»), for the «Ctrl K» search.
      */
     public function searchDetail(): string
     {
-        return 'Evento · '.$this->dateAndTime();
+        return $this->kind().' · '.$this->dateAndTime();
     }
 
     /** The event on /eventos. */

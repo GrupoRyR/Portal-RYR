@@ -122,6 +122,17 @@ class EventPageTest extends TestCase
         $this->assertSame('2026-11-20', $badge->getAttribute('datetime'));
     }
 
+    public function test_a_yearly_event_says_it_repeats(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-20')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        $once = Event::factory()->allDay('2026-12-01')->create(['title' => 'Jornada de salud']);
+
+        $xpath = $this->xpath($this->page());
+
+        $this->assertStringContainsString('Cada año', $xpath->query('//*[@id="e-'.$anniversary->id.'"]')->item(0)->textContent);
+        $this->assertStringNotContainsString('Cada año', $xpath->query('//*[@id="e-'.$once->id.'"]')->item(0)->textContent);
+    }
+
     public function test_a_cut_list_says_so(): void
     {
         Event::factory()->count(EventController::LIMIT)->create();

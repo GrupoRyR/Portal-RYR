@@ -211,6 +211,23 @@ class HomeEventsTest extends TestCase
         $this->assertStringContainsString('miércoles 20 de enero de 2027', $closing['detail']);
     }
 
+    public function test_a_yearly_event_reads_every_year_instead_of_event(): void
+    {
+        Event::factory()->allDay('2020-11-03')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2026-11-05')->create(['title' => 'Jornada de salud']);
+
+        $rows = $this->eventRows();
+        $this->assertStringContainsString('Martes · Cada año', $rows['Aniversario']);
+        $this->assertStringNotContainsString('Evento', $rows['Aniversario']);
+        $this->assertStringContainsString('3 de noviembre, cada año:', $rows['Aniversario']);
+        $this->assertStringContainsString('Jueves · Evento', $rows['Jornada de salud']);
+
+        $dates = $this->index()['dates'];
+        $entry = $dates[array_search('Aniversario', array_column($dates, 'title'), true)];
+        $this->assertSame('Cada año · martes 3 de noviembre', $entry['detail']);
+        $this->assertSame('aniversario cada ano martes 3 de noviembre', $entry['search']);
+    }
+
     public function test_events_cost_one_query_whatever_their_number(): void
     {
         $this->openableApp();

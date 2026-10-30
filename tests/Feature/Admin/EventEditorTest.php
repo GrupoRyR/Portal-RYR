@@ -166,6 +166,53 @@ class EventEditorTest extends TestCase
         $this->assertEqualsCanonicalizing([$this->segurex->id, $this->derivados->id], $event->companies()->pluck('companies.id')->all());
     }
 
+    public function test_an_all_day_event_can_repeat_every_year(): void
+    {
+        Livewire::actingAs($this->admin)->test(EventEditor::class)
+            ->assertDontSeeText('Se repite cada año')
+            ->set('title', 'Aniversario de Segurex')
+            ->set('allDay', true)
+            ->assertSeeText('Se repite cada año')
+            ->set('startsAt', '2026-03-15')
+            ->set('repeatsYearly', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $event = Event::query()->sole();
+        $this->assertTrue($event->repeats_yearly);
+        $this->assertTrue($event->repeatsYearly());
+        // Its first date passed this year: it is still published, for next year.
+        $this->assertSame(Event::STATUS_PUBLISHED, $event->status);
+
+        $this->editorFor($event, $this->admin)
+            ->assertSet('repeatsYearly', true)
+            ->set('repeatsYearly', false)
+            ->call('save')
+            ->assertHasNoErrors();
+        $this->assertFalse($event->fresh()->repeats_yearly);
+    }
+
+    public function test_only_an_all_day_event_can_repeat_every_year(): void
+    {
+        // Unticking «Todo el día» clears it.
+        Livewire::actingAs($this->admin)->test(EventEditor::class)
+            ->set('allDay', true)
+            ->set('repeatsYearly', true)
+            ->set('allDay', false)
+            ->assertSet('repeatsYearly', false);
+
+        // A timed event sent with it anyway is refused.
+        Livewire::actingAs($this->admin)->test(EventEditor::class)
+            ->set('title', 'Reunión general')
+            ->set('startsAt', '2026-11-05T15:00')
+            ->set('repeatsYearly', true)
+            ->call('save')
+            ->assertHasErrors(['repeatsYearly' => 'declined'])
+            ->assertSeeText('Solo un evento de todo el día puede repetirse cada año.');
+
+        $this->assertSame(0, Event::query()->count());
+    }
+
     // --- Validation -------------------------------------------------------
 
     public function test_the_fields_are_required_and_limited(): void

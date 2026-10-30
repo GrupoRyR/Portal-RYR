@@ -152,6 +152,7 @@ final class AuditPresenter
         'companies' => 'Empresas',
         'location' => 'Lugar',
         'all_day' => 'Todo el día',
+        'repeats_yearly' => 'Se repite cada año',
         'published_at' => 'Se muestra desde',
         'created_by' => 'Creado por',
         'position' => 'Posición',

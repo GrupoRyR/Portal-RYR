@@ -93,6 +93,16 @@
                 <input type="checkbox" role="switch" wire:model.live="allDay" aria-describedby="e-all-day-h"
                        class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
             </label>
+            @if ($allDay)
+                <div class="flex flex-col gap-1.5">
+                    <label class="flex min-h-10 cursor-pointer items-center gap-3 text-[0.9375rem]">
+                        <input type="checkbox" wire:model="repeatsYearly" aria-describedby="e-yearly-h" class="{{ $check }}" {!! $invalid('repeatsYearly', 'e-yearly-error') !!}>
+                        Se repite cada año
+                    </label>
+                    <span id="e-yearly-h" class="{{ $hint }} pl-[30px]">Aniversarios, cierres, entregas: vuelve cada año en la misma fecha y no pasa a «Pasados».</span>
+                </div>
+            @endif
+            @error('repeatsYearly') <p id="e-yearly-error" class="{{ $error }}">{{ $message }}</p> @enderror
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="flex flex-col gap-1.5">
                     <label for="e-from" class="{{ $label }}">{{ $allDay ? 'Primer día' : 'Empieza' }}</label>
