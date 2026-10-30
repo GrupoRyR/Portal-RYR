@@ -42,7 +42,7 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 - [x] WU1. **PR1, directorio desde Microsoft.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, token de aplicación, sincronización, comando, horario, índice, vistas, pruebas, documentación).
 - [x] WU1-R. Arreglos de la revisión independiente del PR1. Ruta: delegada (escritor), 2 o más archivos no triviales (sincronización, comando, modelo, vista, JS, pruebas, documentación).
 - [x] WU2. **PR2, cumpleaños y aniversarios.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, solicitud, controlador, vistas, constructor del inicio, JS, pruebas, documentación).
-- [ ] WU2-R. Arreglos de la revisión independiente del PR2.
+- [x] WU2-R. Arreglos de la revisión independiente del PR2. Ruta: delegada (escritor), mismo hilo que el WU2 (controlador, vista, pruebas, documentación).
 
 ## Preguntas para Jhon
 
@@ -67,6 +67,7 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 
 ## Progreso
 
+- 2026-10-30: WU2-R hecho en dos commits más el registro (ver «Registro del WU2-R»).
 - 2026-10-30: WU2 hecho en tres commits más el registro (ver «Registro del WU2»).
 - 2026-10-30: WU1-R hecho en seis commits (ver «Registro del WU1-R»).
 - 2026-10-30: WU1 hecho en tres commits (ver «Registro del WU1»).
@@ -180,6 +181,27 @@ Los dos commits de funcionalidad pasan de las ~400 líneas por las pruebas (unas
 - Capturas a 390 y 1.440 px de `/cuenta` y «Mi día» (no se hicieron).
 - Revisión independiente del PR2 (WU2-R).
 
+## Registro del WU2-R
+
+Ruta: delegada (escritor), en el mismo hilo que el WU2. Rama `feat/personas-2-cumpleanos`, sin push. Arreglos de la revisión independiente del PR2, con su prueba primero.
+
+| Commit | Qué | Líneas (+/−) |
+|---|---|---|
+| `ffd22f0` fix(account): let a person remove their birthday without a directory | (Media, Ley 1581) `BirthdayController::destroy` ya no pide directorio: borra solo el cumpleaños de quien llama (cuentas de emergencia siguen con 404, como `/cuenta`). `/cuenta` muestra **Quitar mi cumpleaños** siempre que haya uno guardado; sin directorio (invitado, sin empresa, empresa inactiva) solo eso, con una línea que explica que nadie lo ve. Guardar sigue pidiendo directorio. Manual §9.5: quitar u ocultar vale de inmediato en el servidor, pero la copia guardada del inicio de un compañero puede mostrarlo hasta 24 horas (hallazgo bajo de documentación, en el mismo commit). | 80 / 11 |
+| `e9a9400` fix(account): word the shown birthday without promising who sees it | (Baja) «Lo ven las personas de tu empresa.» pasa a «Se muestra en «Mi día» a las personas de tu empresa.»: una cuenta aún fuera del directorio no se muestra a nadie. | 4 / 2 |
+
+**RED → GREEN** (`tests/Feature/Account/BirthdayTest.php`)
+
+- Quitar sin directorio: 32 pruebas, 5 fallan (empresa desactivada → `DELETE` daba 404; invitado, sin empresa y empresa inactiva con cumpleaños guardado no veían **Quitar**; más la del texto, aparcada para su propio commit) → 32/32 con la del texto como antes. `test_accounts_without_a_directory_neither_see_nor_use_it` pasa a `…_neither_see_nor_save_it` (ya no espera 404 al quitar). Prueba nueva: quitar no toca el cumpleaños de otra cuenta aunque se mande su id.
+- Texto: 32 pruebas, 1 falla → 32/32.
+- Enfocadas: `tests/Feature/Account` 160/160.
+- Completa: `php artisan test --compact` 1.635/1.635 (antes 1.630, 5 pruebas nuevas). `vendor/bin/pint --test` pasa. Sin cambios de JS ni de clases nuevas: no hizo falta `npm run build`.
+
+**Pendiente**
+
+- Espejo en Engram de este documento (lo hace el orquestador).
+- Capturas a 390 y 1.440 px de `/cuenta` y «Mi día» (siguen sin hacerse).
+
 ## Siguiente paso
 
-WU2-R: revisión independiente del PR2.
+PR2 listo para que Jhon lo revise; sin fusionar ni desplegar.
