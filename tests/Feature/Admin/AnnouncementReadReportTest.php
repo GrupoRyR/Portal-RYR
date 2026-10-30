@@ -2,14 +2,18 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Auth\LinkedAccounts;
 use App\Livewire\Admin\AnnouncementEditor;
 use App\Models\Announcement;
 use App\Models\Company;
+use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Features\SupportComputed\CannotCallComputedDirectlyException;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -17,11 +21,13 @@ use Tests\TestCase;
 
 /**
  * Mandatory reading in Admin (odd/tasks/inicio-fase-2.md WU1): whoever may
- * edit an announcement marks it mandatory and sees «X de Y cuentas lo
- * leyeron» and the accounts that are missing. Y is the accounts that see
- * it: those of the announcement's active companies, without emergency or
- * guest accounts. Per account, not per person: someone with an account in
- * two companies confirms once with each.
+ * edit an announcement marks it mandatory and sees «X de Y personas lo
+ * leyeron» and the people who are missing. Y is the people behind the
+ * accounts that see it: those of the announcement's active companies,
+ * without emergency or guest accounts. Per person
+ * (odd/tasks/ajustes-inicio-y-tareas.md T4): linked accounts are one
+ * person, who confirms once with any of them; an account that is not
+ * linked is a person of its own.
  */
 class AnnouncementReadReportTest extends TestCase
 {
@@ -121,13 +127,13 @@ class AnnouncementReadReportTest extends TestCase
         // Segurex: the editor, Ana and Luis (not the guest).
         $this->assertSame(['read' => 1, 'total' => 3], $announcement->readCounts());
         $this->assertSame([
-            ['name' => 'Editora Segurex', 'company' => 'Segurex'],
-            ['name' => 'Luis Gómez', 'company' => 'Segurex'],
+            ['name' => 'Editora Segurex', 'companies' => ['Segurex']],
+            ['name' => 'Luis Gómez', 'companies' => ['Segurex']],
         ], $announcement->pendingReaders());
 
         Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
-            ->assertSeeText('1 de 3 cuentas lo leyeron')
-            ->assertSeeText('Cuentas que faltan (2)')
+            ->assertSeeText('1 de 3 personas lo leyeron')
+            ->assertSeeText('Personas que faltan (2)')
             ->assertSeeText('Luis Gómez')
             ->assertSeeText('Editora Segurex')
             ->assertDontSeeText('Ana Pérez')
@@ -148,7 +154,7 @@ class AnnouncementReadReportTest extends TestCase
         $this->assertSame(['read' => 1, 'total' => 2], $announcement->readCounts());
 
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
-            ->assertSeeText('1 de 2 cuentas lo leyeron')
+            ->assertSeeText('1 de 2 personas lo leyeron')
             ->assertSeeText('Editora Segurex')
             ->assertDontSeeText('Persona de empresa inactiva');
     }
@@ -187,7 +193,7 @@ class AnnouncementReadReportTest extends TestCase
         $announcement = Announcement::factory()->mandatory()->forCompanies($this->segurex)->create();
 
         $editor = Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
-            ->assertSeeText('0 de 1 cuenta lo leyó')
+            ->assertSeeText('0 de 1 persona lo leyó')
             ->assertSee('data-read-report', false);
 
         $this->editor->removeRole('announcements_editor');
@@ -214,8 +220,8 @@ class AnnouncementReadReportTest extends TestCase
         $this->assertCount(Announcement::PENDING_READERS_LIMIT, $announcement->pendingReaders());
 
         Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
-            ->assertSeeText("0 de {$missing} cuentas lo leyeron")
-            ->assertSeeText("Cuentas que faltan ({$missing})")
+            ->assertSeeText("0 de {$missing} personas lo leyeron")
+            ->assertSeeText("Personas que faltan ({$missing})")
             ->assertSeeText('Y 3 más.');
     }
 
@@ -248,7 +254,7 @@ class AnnouncementReadReportTest extends TestCase
         User::factory()->microsoft($this->segurex)->create(['name' => 'Luis Gómez']);
 
         $editor = Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
-            ->assertSeeText('0 de 2 cuentas lo leyeron');
+            ->assertSeeText('0 de 2 personas lo leyeron');
 
         $announcement->markReadBy($this->editor);
 
@@ -261,7 +267,7 @@ class AnnouncementReadReportTest extends TestCase
 
         $editor->set('title', 'Otro título')
             ->set('body', 'Otro texto')
-            ->assertSeeText('0 de 2 cuentas lo leyeron')
+            ->assertSeeText('0 de 2 personas lo leyeron')
             ->assertSeeText('Luis Gómez');
 
         $this->assertSame(0, $readQueries);
@@ -277,5 +283,132 @@ class AnnouncementReadReportTest extends TestCase
 
         Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
             ->call('readReport');
+    }
+
+    // --- Per person (odd/tasks/ajustes-inicio-y-tareas.md T4) -------------
+
+    public function test_linked_accounts_count_as_one_person(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->forCompanies($this->segurex, $this->derivados)->create();
+        [$ana, $anaDerivados] = $this->linked('Ana Pérez');
+        User::factory()->microsoft($this->segurex)->create(['name' => 'Luis Gómez']);
+
+        // The editor, Ana (two accounts) and Luis.
+        $this->assertSame(['read' => 0, 'total' => 3], $announcement->readCounts());
+        $this->assertSame([
+            ['name' => 'Ana Pérez', 'companies' => ['Derivados', 'Segurex']],
+            ['name' => 'Editora Segurex', 'companies' => ['Segurex']],
+            ['name' => 'Luis Gómez', 'companies' => ['Segurex']],
+        ], $announcement->pendingReaders());
+
+        $announcement->markReadBy($anaDerivados);
+
+        $this->assertSame(['read' => 1, 'total' => 3], $announcement->readCounts());
+        $this->assertSame(['Editora Segurex', 'Luis Gómez'], array_column($announcement->pendingReaders(), 'name'));
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('1 de 3 personas lo leyeron')
+            ->assertSeeText('Personas que faltan (2)')
+            ->assertDontSeeText('Ana Pérez');
+    }
+
+    public function test_the_missing_list_shows_only_the_companies_of_the_announcement(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->forCompanies($this->segurex)->create();
+        $this->linked('Ana Pérez');
+
+        $this->assertSame(['read' => 0, 'total' => 2], $announcement->readCounts());
+        $this->assertSame([
+            ['name' => 'Ana Pérez', 'companies' => ['Segurex']],
+            ['name' => 'Editora Segurex', 'companies' => ['Segurex']],
+        ], $announcement->pendingReaders());
+
+        // The Segurex editor never learns that Ana also works in Derivados.
+        Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('Personas que faltan (2)')
+            ->assertSeeText('Ana Pérez')
+            ->assertDontSeeText('Derivados');
+    }
+
+    public function test_a_read_by_another_account_of_the_person_counts_even_outside_the_audience(): void
+    {
+        // Ana confirmed with Derivados while it was for every company; now
+        // it is only for Segurex. Her Segurex account shows «Leído», so the
+        // report counts her as read too.
+        $announcement = Announcement::factory()->mandatory()->forCompanies($this->segurex)->create();
+        [, $anaDerivados] = $this->linked('Ana Pérez');
+        $announcement->markReadBy($anaDerivados);
+
+        $this->assertSame(['read' => 1, 'total' => 2], $announcement->readCounts());
+        $this->assertSame(['Editora Segurex'], array_column($announcement->pendingReaders(), 'name'));
+    }
+
+    public function test_accounts_that_are_not_linked_are_separate_people(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->create();
+        $ana = User::factory()->microsoft($this->segurex)->create(['name' => 'Ana Pérez']);
+        User::factory()->microsoft($this->derivados)->create(['name' => 'Ana Pérez']);
+        $announcement->markReadBy($ana);
+
+        // The editor and two people called Ana.
+        $this->assertSame(['read' => 1, 'total' => 3], $announcement->readCounts());
+        $this->assertSame([
+            ['name' => 'Ana Pérez', 'companies' => ['Derivados']],
+            ['name' => 'Editora Segurex', 'companies' => ['Segurex']],
+        ], $announcement->pendingReaders());
+    }
+
+    public function test_after_unlinking_the_accounts_count_apart_again(): void
+    {
+        Mail::fake();
+        Notification::fake();
+        $announcement = Announcement::factory()->mandatory()->create();
+        [$ana, $anaDerivados] = $this->linked('Ana Pérez');
+        $announcement->markReadBy($ana);
+
+        $this->assertSame(['read' => 1, 'total' => 2], $announcement->readCounts());
+
+        app(LinkedAccounts::class)->unlink($anaDerivados, LinkedAccounts::ADMIN, $this->admin);
+
+        $this->assertSame(['read' => 1, 'total' => 3], $announcement->readCounts());
+        $this->assertSame([
+            ['name' => 'Ana Pérez', 'companies' => ['Derivados']],
+            ['name' => 'Editora Segurex', 'companies' => ['Segurex']],
+        ], $announcement->pendingReaders());
+    }
+
+    public function test_the_list_of_missing_people_stops_at_the_limit(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->forCompanies($this->segurex, $this->derivados)->create();
+        foreach (range(1, Announcement::PENDING_READERS_LIMIT + 1) as $i) {
+            $this->linked(sprintf('Persona %03d', $i));
+        }
+        $missing = Announcement::PENDING_READERS_LIMIT + 2; // With the editor.
+
+        $pending = $announcement->pendingReaders();
+        $this->assertCount(Announcement::PENDING_READERS_LIMIT, $pending);
+        $this->assertSame(['name' => 'Editora Segurex', 'companies' => ['Segurex']], $pending[0]);
+        $this->assertSame(['name' => 'Persona 001', 'companies' => ['Derivados', 'Segurex']], $pending[1]);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText("0 de {$missing} personas lo leyeron")
+            ->assertSeeText("Personas que faltan ({$missing})")
+            ->assertSeeText('Persona 001 · Derivados, Segurex')
+            ->assertSeeText('Y 2 más.');
+    }
+
+    /**
+     * One person with an account in Segurex and one in Derivados.
+     *
+     * @return array{User, User}
+     */
+    private function linked(string $name): array
+    {
+        $person = Person::query()->create();
+
+        return [
+            User::factory()->microsoft($this->segurex)->create(['name' => $name, 'person_id' => $person->id]),
+            User::factory()->microsoft($this->derivados)->create(['name' => $name, 'person_id' => $person->id]),
+        ];
     }
 }

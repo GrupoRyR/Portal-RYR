@@ -201,17 +201,17 @@
         @php($missing = $reads['total'] - $reads['read'])
         <section class="{{ $card }} gap-3" aria-labelledby="n-reads" data-read-report>
             <h2 id="n-reads" class="{{ $heading }}">Lectura</h2>
-            <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'cuenta lo leyó' : 'cuentas lo leyeron' }}</p>
-            <p class="{{ $hint }}">Incluye las cuentas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuenta en dos empresas confirma una vez con cada una.</p>
+            <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'persona lo leyó' : 'personas lo leyeron' }}</p>
+            <p class="{{ $hint }}">Incluye a las personas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuentas vinculadas en dos empresas cuenta como una persona y confirma una sola vez.</p>
             @if ($missing > 0)
                 <details class="group">
                     {{-- list-none + its own chevron: inline-flex would hide the native marker. --}}
                     <summary class="inline-flex min-h-touch cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-fg-soft [&::-webkit-details-marker]:hidden">
-                        <x-home.icon name="chevron-right" stroke-width="2" class="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" />Cuentas que faltan ({{ $missing }})
+                        <x-home.icon name="chevron-right" stroke-width="2" class="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" />Personas que faltan ({{ $missing }})
                     </summary>
                     <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                        @foreach ($reads['pending'] as $account)
-                            <li class="break-words">{{ $account['name'] }}@if ($account['company'] !== '') <span class="text-fg-muted">· {{ $account['company'] }}</span>@endif</li>
+                        @foreach ($reads['pending'] as $person)
+                            <li class="break-words">{{ $person['name'] }}@if ($person['companies'] !== []) <span class="text-fg-muted">· {{ implode(', ', $person['companies']) }}</span>@endif</li>
                         @endforeach
                     </ul>
                     @if ($missing > count($reads['pending']))

@@ -57,7 +57,7 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 2. WU3: ¿el resumen de los lunes va por correo (bloqueado como WU4) o basta con verlo en el portal?
 3. WU1: «Y» solo cuenta a quien ya entró al portal (las cuentas se crean al iniciar sesión). ¿Sirve así o hace falta traer el directorio de Microsoft?
 4. WU1: ¿quien no ha leído debe recibir un recordatorio (correo o aviso)? Hoy no se construye.
-5. WU1: ¿contar por persona entre cuentas vinculadas? Hoy se cuenta por cuenta (decisión del coordinador): quien tiene cuenta en dos empresas confirma una vez con cada una y aparece dos veces en «Cuentas que faltan». Contar por persona necesitaría un ayudante dentro de `App\Auth\LinkedAccounts` y una entrada nueva en `tests/Unit/Auth/PersonNeverAuthorizesTest.php`, porque `person_id` no decide nada fuera de ahí.
+5. ~~WU1: ¿contar por persona entre cuentas vinculadas?~~ **Decidida (Jhon, 2026-10-30): por persona.** Hecho en T4 de `odd/tasks/ajustes-inicio-y-tareas.md` (`0be536c`): quien tiene cuentas vinculadas confirma una vez, el reporte dice «X de Y personas» y «Personas que faltan», con un ayudante en `App\Auth\LinkedAccounts` y una entrada razonada en `tests/Unit/Auth/PersonNeverAuthorizesTest.php`.
 6. WU2: los eventos los manejan las mismas personas que los anuncios (sin rol nuevo; el editor de anuncios, solo los de su empresa). ¿Sirve así o hace falta un «Editor de eventos»?
 7. WU2: el `.ics` ya lleva `SEQUENCE` y `LAST-MODIFIED` (WU2-R): si la persona vuelve a descargarlo, su calendario actualiza la copia. Pero nadie recibe los cambios solo (no hay suscripción). ¿Basta así, o hace falta un calendario suscrito (`webcal://`) por empresa?
 

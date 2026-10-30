@@ -37,6 +37,15 @@ class LinkedAccounts
 
     public const USER = 'user';
 
+    /**
+     * One value per person, to group accounts in SQL (mandatory reading,
+     * App\Models\Announcement): odd for a linked account (its person),
+     * even for one that is not (the account alone), so the two never
+     * collide. Plain arithmetic, the same on SQLite and MySQL, and never
+     * negative (MySQL ids are unsigned). It groups; it never authorizes.
+     */
+    public const PERSON_KEY = 'CASE WHEN users.person_id IS NULL THEN users.id * 2 ELSE users.person_id * 2 + 1 END';
+
     public function __construct(private readonly LinkedAccountNotifier $notifier) {}
 
     /**
@@ -196,6 +205,22 @@ class LinkedAccounts
             ->with('company')
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * The ids of every account of the user's person, the user's own
+     * included, to group what the person did with any of them (mandatory
+     * reading counts per person): a subquery with the person as a bound
+     * value, so it costs the caller no query of its own; just the user's
+     * id when the account is not linked. It groups; it never authorizes.
+     *
+     * @return list<int>|Builder<User>
+     */
+    public static function idsOfSamePerson(User $user): array|Builder
+    {
+        return $user->person_id === null
+            ? [(int) $user->getKey()]
+            : User::query()->select('id')->where('person_id', $user->person_id);
     }
 
     /**
