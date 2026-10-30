@@ -5,6 +5,7 @@
     Alpine. $accounts is empty when the account is not linked. «Mi cumpleaños»
     (day, month and whether the company sees it) when $birthdayMonths is set;
     without it, only «Quitar mi cumpleaños» for a birthday still stored.
+    «Conexiones con Claude» when $claudeConnections is set (connector on).
 --}}
 @use('App\Models\Company')
 <x-layouts.app title="Cuentas vinculadas" brand-band noindex>
@@ -130,6 +131,62 @@
                         @method('DELETE')
                         <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center text-sm font-semibold text-status-failure underline-offset-4 hover:underline">Quitar mi cumpleaños</button>
                     </form>
+                @endif
+            </section>
+        @endif
+
+        {{-- «Conexiones con Claude» (App\Http\Controllers\Account\ClaudeConnectionController): the active
+             connections this account takes part in; null (hidden) only while the connector is off and there are none.
+             With the connector off they stay listed and «Desconectar» works, with a note ($claudeOff). --}}
+        @if ($claudeConnections !== null)
+            @php($longDate = 'D [de] MMMM [de] YYYY')
+            <section id="claude" aria-labelledby="claude-titulo" class="flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6">
+                <div class="flex flex-col gap-2">
+                    <h2 id="claude-titulo" class="font-sans text-lg font-bold tracking-normal">Conexiones con Claude</h2>
+                    <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Claude lee, solo para consultar, lo que estas cuentas ven en el portal. Al desconectar una conexión se corta completa, con todas sus cuentas; para volver a usarla hay que conectarla de nuevo desde Claude.</p>
+                </div>
+
+                @if ($claudeOff && $claudeConnections->isNotEmpty())
+                    <p role="note" class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">
+                        {{ $claudeConnections->count() === 1
+                            ? 'El conector de Claude está apagado: esta conexión no funciona por ahora, pero vuelve a funcionar si lo encienden. Puedes desconectarla.'
+                            : 'El conector de Claude está apagado: estas conexiones no funcionan por ahora, pero vuelven a funcionar si lo encienden. Puedes desconectarlas.' }}
+                    </p>
+                @endif
+
+                @if ($claudeConnections->isEmpty())
+                    <p class="text-[0.9375rem] font-semibold">Esta cuenta no tiene conexiones con Claude.</p>
+                @else
+                    <ul role="list" class="flex flex-col divide-y divide-line rounded-card border border-line">
+                        @foreach ($claudeConnections as $connection)
+                            <li data-claude-connection class="flex flex-col gap-3 px-5 py-4">
+                                <span class="flex min-w-0 flex-col">
+                                    <span class="font-semibold">{{ $connection->client?->name ?? 'Cliente eliminado' }}</span>
+                                    @if ($connection->client?->created_at)
+                                        <span class="text-[0.8125rem] text-fg-muted">Cliente registrado el {{ $connection->client->created_at->timezone(config('app.timezone'))->locale('es')->isoFormat($longDate) }}</span>
+                                    @endif
+                                </span>
+                                <ul role="list" aria-label="Cuentas de la conexión" class="flex flex-col gap-1.5">
+                                    @foreach (\App\Mcp\Connections::accountsOf($connection) as $account)
+                                        <li class="flex min-w-0 flex-col text-sm">
+                                            <span class="font-semibold">{{ $account->name }}</span>
+                                            <span class="truncate text-[0.8125rem] text-fg-muted">{{ $account->email }} · {{ Company::displayName($account->company) }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <span class="flex flex-col text-[0.8125rem] text-fg-muted">
+                                    <span>Conectada el {{ $connection->created_at->timezone(config('app.timezone'))->locale('es')->isoFormat($longDate.', HH:mm') }}</span>
+                                    <span>{{ $connection->last_used_at ? 'Último uso: '.$connection->last_used_at->timezone(config('app.timezone'))->locale('es')->isoFormat($longDate.', HH:mm') : 'Aún no se ha usado' }}</span>
+                                </span>
+                                <form method="POST" action="{{ route('account.claude.disconnect', $connection) }}">
+                                    @csrf
+                                    <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center text-sm font-semibold text-status-failure underline-offset-4 hover:underline">
+                                        Desconectar<span class="sr-only"> {{ $connection->client?->name }}</span>
+                                    </button>
+                                </form>
+                            </li>
+                        @endforeach
+                    </ul>
                 @endif
             </section>
         @endif

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\BirthdayController;
+use App\Http\Controllers\Account\ClaudeConnectionController;
 use App\Http\Controllers\Account\LinkedAccountController;
 use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
@@ -94,6 +95,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/cuenta/cumpleanos', [BirthdayController::class, 'update'])->name('account.birthday.update');
         Route::delete('/cuenta/cumpleanos', [BirthdayController::class, 'destroy'])->name('account.birthday.destroy');
     });
+
+    // «Conexiones con Claude» on /cuenta: «Desconectar» ends a connection
+    // the account takes part in (404 otherwise). It works with the connector
+    // off too: turning it on again resumes every connection, so people must
+    // be able to end theirs first. No fresh Microsoft confirmation: it only
+    // removes access.
+    Route::post('/cuenta/claude/{connection}/desconectar', [ClaudeConnectionController::class, 'destroy'])
+        ->whereNumber('connection')
+        ->middleware('throttle:20,1')
+        ->name('account.claude.disconnect');
 
     // Linking another company's account (App\Auth\LinkedAccounts): a fresh
     // Microsoft confirmation first, then a sign-in to the other account.
