@@ -198,7 +198,7 @@ class EventEditor extends Component
             'allDay' => ['boolean'],
             'repeatsYearly' => $this->allDay ? ['boolean'] : ['boolean', 'declined'],
             'startsAt' => ['required', 'date_format:'.$format],
-            'endsAt' => ['nullable', 'date_format:'.$format, $this->allDay ? 'after_or_equal:startsAt' : 'after:startsAt'],
+            'endsAt' => ['nullable', 'date_format:'.$format, $this->allDay ? 'after_or_equal:startsAt' : 'after:startsAt', ...$this->yearlyLengthRule()],
             'audience' => ['required', Rule::in(Event::AUDIENCES)],
             'companyIds' => $specific ? ['required', 'array'] : ['array'],
             'companyIds.*' => ['distinct', Rule::exists('companies', 'id')],
@@ -222,6 +222,7 @@ class EventEditor extends Component
             'endsAt.date_format' => $this->allDay ? 'Elige una fecha válida.' : 'Elige una fecha y hora válidas.',
             'endsAt.after' => '«Termina» debe ser posterior a «Empieza».',
             'endsAt.after_or_equal' => 'El último día no puede ser anterior al primero.',
+            'endsAt.before' => 'Una fecha que se repite cada año debe durar menos de un año.',
             'repeatsYearly.declined' => 'Solo un evento de todo el día puede repetirse cada año.',
             'audience.in' => 'Elige para quién es el evento.',
             'companyIds.required' => 'Elige al menos una empresa.',
@@ -242,6 +243,26 @@ class EventEditor extends Component
                 : Company::query()->orderBy('name')->get(['id', 'name', 'short_name', 'is_active']),
             'status' => $this->event?->status,
         ]);
+    }
+
+    /**
+     * A yearly event ends before its first day comes back: its last day is
+     * before the same date a year later (28 February after a 29 February).
+     *
+     * @return list<string>
+     */
+    private function yearlyLengthRule(): array
+    {
+        if (! $this->allDay || ! $this->repeatsYearly) {
+            return [];
+        }
+
+        $start = \DateTime::createFromFormat('!'.self::DATE_FORMAT, $this->startsAt);
+        if ($start === false || $start->format(self::DATE_FORMAT) !== $this->startsAt) {
+            return [];
+        }
+
+        return ['before:'.Carbon::instance($start)->addYearNoOverflow()->format(self::DATE_FORMAT)];
     }
 
     /**

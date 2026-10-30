@@ -192,6 +192,32 @@ class EventEditorTest extends TestCase
         $this->assertFalse($event->fresh()->repeats_yearly);
     }
 
+    public function test_a_yearly_event_lasts_less_than_a_year(): void
+    {
+        $editor = Livewire::actingAs($this->admin)->test(EventEditor::class)
+            ->set('title', 'Temporada de cierre')
+            ->set('allDay', true)
+            ->set('repeatsYearly', true)
+            ->set('startsAt', '2026-03-15')
+            ->set('endsAt', '2027-03-15')
+            ->call('save')
+            ->assertHasErrors(['endsAt' => 'before'])
+            ->assertSeeText('Una fecha que se repite cada año debe durar menos de un año.');
+        $this->assertSame(0, Event::query()->count());
+
+        $editor->set('endsAt', '2027-03-14')->call('save')->assertHasNoErrors();
+        $this->assertSame('2027-03-14', Event::query()->sole()->ends_at->toDateString());
+
+        // A one-time event may last longer.
+        Livewire::actingAs($this->admin)->test(EventEditor::class)
+            ->set('title', 'Proyecto largo')
+            ->set('allDay', true)
+            ->set('startsAt', '2026-03-15')
+            ->set('endsAt', '2027-06-15')
+            ->call('save')
+            ->assertHasNoErrors();
+    }
+
     public function test_only_an_all_day_event_can_repeat_every_year(): void
     {
         // Unticking «Todo el día» clears it.
