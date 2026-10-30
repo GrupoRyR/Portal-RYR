@@ -115,6 +115,8 @@ final class AuditPresenter
         'tenant_id' => 'Inquilino',
         'is_primary_for_tenant' => 'Principal del inquilino',
         'domains' => 'Dominios',
+        'all_staff_email' => 'Lista de todo el personal',
+        'mail_sender' => 'Buzón remitente',
         'logo_light_path' => 'Logo claro',
         'logo_dark_path' => 'Logo oscuro',
         'icon_path' => 'Ícono',
