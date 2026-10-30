@@ -49,3 +49,10 @@ Schedule::command('portal:run-requested-backup')
     ->everyMinute()
     ->timezone('America/Bogota')
     ->withoutOverlapping();
+
+// Claude connector (Passport): drop the tokens and codes that expired or
+// were revoked more than a week ago (`passport:purge`, default 7 days).
+Schedule::command('passport:purge')
+    ->dailyAt('04:00')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();

@@ -224,6 +224,21 @@ class LinkedAccounts
     }
 
     /**
+     * Whether two different saved accounts are still linked under the same
+     * person. The Claude connector (App\Mcp\ConnectionAccounts) uses it
+     * only to drop an account confirmed for a connection once it was
+     * unlinked; it never adds an account.
+     */
+    public function stillLinked(User $account, User $other): bool
+    {
+        return $account->exists
+            && $other->exists
+            && ! $account->is($other)
+            && $account->person_id !== null
+            && $account->person_id === $other->person_id;
+    }
+
+    /**
      * Whether the signed-in user may unlink the target: one of the
      * accounts of their own person, their own included. Emergency accounts
      * are never linked.

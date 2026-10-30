@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\AuthorizeIntegrationRequest;
+use App\Http\Middleware\EnsureAccountMayConnect;
+use App\Http\Middleware\EnsureMcpConnection;
+use App\Http\Middleware\EnsureMcpEnabled;
 use App\Http\Middleware\RequireRecentMicrosoftLogin;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -47,13 +50,18 @@ return Application::configure(basePath: dirname(__DIR__))
             // API (routes/api.php): token abilities and integration checks.
             'abilities' => CheckAbilities::class,
             'integration' => AuthorizeIntegrationRequest::class,
+            // Claude connector (routes/ai.php): the switch, who may approve
+            // a connection and the connection behind each MCP call.
+            'mcp.enabled' => EnsureMcpEnabled::class,
+            'mcp.account' => EnsureAccountMayConnect::class,
+            'mcp.connection' => EnsureMcpConnection::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // API routes always answer JSON (401, 403, 404, 422, 429...), even
-        // without an `Accept: application/json` header.
+        // API and MCP routes always answer JSON (401, 403, 404, 422,
+        // 429...), even without an `Accept: application/json` header.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*', 'mcp/*') || $request->expectsJson(),
         );
 
         // A missing app or route: no model class names in API answers.

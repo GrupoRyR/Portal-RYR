@@ -42,6 +42,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Bearer tokens of the Claude connector (Laravel Passport, only
+        // on /mcp/portal). /api/v1 keeps its Sanctum integration tokens.
+        'api' => [
+            'driver' => 'passport',
+            'provider' => 'users',
+        ],
     ],
 
     /*

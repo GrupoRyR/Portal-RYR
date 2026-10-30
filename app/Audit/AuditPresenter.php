@@ -5,6 +5,7 @@ namespace App\Audit;
 use App\Api\StatusReporter;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
+use App\Mcp\Connections;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
@@ -279,6 +280,7 @@ final class AuditPresenter
                 .(self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
                 .' · hacia '.$this->account($properties->get('to_company'), $properties->get('to_email'))
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
+            Connections::CONNECTED => 'Conectó Claude («'.$properties->get('client').'») con su cuenta de '.$this->account($properties->get('company'), $properties->get('email')),
             default => (string) $activity->description,
         };
     }

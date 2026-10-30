@@ -104,4 +104,20 @@ return [
 
     'api_status_ttl_hours' => 2,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Claude connector (MCP)
+    |--------------------------------------------------------------------------
+    |
+    | The portal as a custom MCP connector for Claude (routes/ai.php,
+    | odd/tasks/conector-mcp.md). Off until PORTAL_MCP_ENABLED=true: while
+    | off, the server, the OAuth routes and the metadata answer 404. Read
+    | only through App\Mcp\McpSwitch.
+    |
+    */
+
+    'mcp' => [
+        'enabled' => (bool) env('PORTAL_MCP_ENABLED', false),
+    ],
+
 ];
