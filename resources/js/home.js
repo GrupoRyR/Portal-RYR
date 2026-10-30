@@ -113,6 +113,9 @@ const isOver = (entry, today, now) => (entry.end ? Date.parse(entry.end) <= now 
 // matched like the server search. Absent on a server search (?q=).
 const dialog = $('[data-search-dialog]');
 const SEARCH_GROUP_LIMIT = 6;
+// Idle status line when the dialog has no data-idle (e.g. a page cached
+// before it existed).
+const SEARCH_IDLE_STATUS = 'Escribe para buscar aplicaciones, anuncios y fechas.';
 let found = [];
 let active = -1;
 let opener = null;
@@ -167,7 +170,7 @@ function renderResults(index) {
     field.setAttribute('aria-expanded', String(found.length > 0));
     $('[data-search-status]', dialog).textContent =
         terms.length === 0
-            ? $('[data-search-status]', dialog).dataset.idle
+            ? $('[data-search-status]', dialog).dataset.idle || SEARCH_IDLE_STATUS
             : found.length === 0
               ? `No encontramos resultados para «${query}».`
               : found.length === 1
