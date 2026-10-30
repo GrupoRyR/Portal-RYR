@@ -40,13 +40,13 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 ## Tareas
 
 - [x] WU1. **PR1, directorio desde Microsoft.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, token de aplicación, sincronización, comando, horario, índice, vistas, pruebas, documentación).
-- [ ] WU1-R. Arreglos de la revisión independiente del PR1.
+- [x] WU1-R. Arreglos de la revisión independiente del PR1. Ruta: delegada (escritor), 2 o más archivos no triviales (sincronización, comando, modelo, vista, JS, pruebas, documentación).
 - [ ] WU2. **PR2, cumpleaños y aniversarios.** Ruta: delegada (escritor).
 - [ ] WU2-R. Arreglos de la revisión independiente del PR2.
 
 ## Preguntas para Jhon
 
-1. ¿Más de 1.000 personas en alguna empresa? El inicio carga hasta 1.000 por nombre; `/personas` siempre tiene todas.
+1. ¿Más de 1.000 personas en alguna empresa? El inicio carga hasta 1.000 por nombre; `/personas` siempre tiene todas. **Respuesta (Jhon, 2026-10-30): ninguna empresa llega a 1.000 personas.** El límite se queda como está.
 
 ## Criterios de aceptación
 
@@ -67,6 +67,7 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 
 ## Progreso
 
+- 2026-10-30: WU1-R hecho en seis commits (ver «Registro del WU1-R»).
 - 2026-10-30: WU1 hecho en tres commits (ver «Registro del WU1»).
 - 2026-10-30: mapa del código hecho (token de aplicación en `app/Mail/GraphAccessToken.php`, regla de empresa en `TenantDirectory::resolveCompany`, índice en `app/Search/HomeSearchIndex.php`, `routes/console.php` para el horario). Ya existe una tabla `people` para cuentas vinculadas: el directorio usa `directory_entries`.
 
@@ -96,7 +97,7 @@ Pasa de las ~400 líneas por tarea: el commit del directorio lleva unas 600 lín
 - Columna extra `search_text` (texto por `AppSearch::normalize`): la búsqueda de `/personas` ignora tildes en SQLite y MySQL con `LIKE … escape '!'` (`App\Support\Like`), igual que el Ctrl K.
 - Quién ve el directorio (`DirectoryEntry::companyIdFor()`): cuenta normal de empresa activa. Sin directorio: emergencia, sin empresa, empresa inactiva e **invitados** (`is_guest = true`); `is_guest = null` cuenta como miembro, como en los anuncios. Lo de los invitados es una decisión del escritor: revisar con Jhon.
 - Las personas de inquilinos sin empresa activa se borran en la copia (una empresa desactivada sale del directorio).
-- Las entradas no vistas se borran por `synced_at` anterior al inicio de la copia (segundos); el horario es `withoutOverlapping()`.
+- Las entradas no vistas se borran por `synced_at` anterior al inicio de la copia (segundos); el horario es `withoutOverlapping()`. *(Cambiado en WU1-R: se borran por `azure_oid` no visto y el comando toma un candado.)*
 - El índice del Ctrl K lleva por persona nombre, «Cargo · Área», el texto de búsqueda (incluye oficina y correo) y `href` = `/personas?q=<nombre>`; nunca teléfono ni fechas. En la búsqueda del servidor (`?q=`) no se lee el directorio. El inicio queda en ≤ 12 consultas.
 - El menú «Secciones» del celular no lleva «Personas»: `HomeMyDayTest` exige solo anclas de la página y una lista exacta (fuera de las superficies permitidas). El enlace está en «Mi día» (sección «Personas», «Ver directorio»), donde están «Ver eventos» y «Ver todos».
 - `home.js` toma el texto de espera del buscador de `data-idle`, así el diálogo menciona «personas» solo cuando hay.
@@ -106,6 +107,42 @@ Pasa de las ~400 líneas por tarea: el commit del directorio lleva unas 600 lín
 - Capturas a 390 y 1.440 px, claro y oscuro, de `/personas` y de «Mi día» (no se hicieron).
 - Revisión independiente del PR1 (WU1-R).
 
+## Registro del WU1-R
+
+Ruta: delegada (escritor), por la regla de 2 o más archivos no triviales. Rama `feat/personas-1-directorio`, sin push. Arreglos de la revisión independiente del PR1, uno por commit, cada uno con su prueba.
+
+| Commit | Qué | Líneas (+/−, sin `public/build`) |
+|---|---|---|
+| `1666625` fix(directory): keep the hire date on the day Entra wrote | La fecha de contratación es el día UTC 12 horas después del momento que guarda Entra: medianoche UTC (centro de administración), medianoche de Bogotá u otra zona dan el día escrito. Antes, medianoche UTC quedaba un día antes. | 18 / 7 |
+| `953e99f` fix(directory): keep people without a user type in the directory | Solo `userType = Guest` queda fuera; `null` o sin el campo cuenta como miembro, como `is_guest = null` al ver. | 25 / 2 |
+| `d664f13` fix(directory): fail a tenant on any error, a redirect or an empty answer | Cualquier error de un inquilino (no solo `GraphAppException`) lo marca fallido, conserva sus datos y la copia sigue, incluida la limpieza de empresas desactivadas; el log lleva solo la clase del error si no es nuestro. Graph sin seguir redirecciones (`withoutRedirecting()`, un 3xx falla). Una respuesta sin nadie que copiar cuando el inquilino ya tiene personas falla y conserva. Documentado en `docs/despliegue.md` §1.10 y `docs/manual-administracion.md` §9.2. | 150 / 22 |
+| `6573b67` fix(directory): remove only people a run did not see, one run at a time | Se borran los `azure_oid` del inquilino que esta copia no vio (ids calculados en PHP y borrados en bloques de 500), no por `synced_at`. `portal:sync-directory` toma `Cache::lock('portal:sync-directory', 2 h)`: si está tomado, dice «Ya hay una copia del directorio en curso…», no copia y termina con error. Prueba nueva de un dominio que pasa a otra empresa del mismo inquilino. Documentado en las mismas secciones. | 132 / 17 |
+| `b573edb` fix(people): store only valid emails and encode the mail link | La copia usa `mail` o `userPrincipalName` solo si es una dirección válida (`FILTER_VALIDATE_EMAIL`, con Unicode); si ninguno lo es, la persona no entra. `/personas` arma el `mailto:` con `DirectoryEntry::mailtoHref()` (partes codificadas). | 54 / 3 |
+| `df7b1ab` fix(home): fall back to the default idle text of the search | `home.js` vuelve al texto de espera de siempre si falta `data-idle`. `public/build` recompilado. | 4 / 1 |
+
+**RED → GREEN** (`tests/Feature/Directory`)
+
+- Fecha de contratación: 32 pruebas, 1 falla (`2013-12-31` en vez de `2014-01-01`, y tres casos más un día antes) → 32/32. La prueba `test_the_hire_date_is_the_day_in_bogota` pasa a `test_the_hire_date_is_the_day_entra_wrote_whatever_the_midnight` (medianoche UTC, `T05:00:00Z`, `T22:00:00-02:00`, medianoche UTC+2, 03:00 UTC, texto inválido).
+- Tipo de usuario: 33 pruebas, 1 falla (sin `userType` y `null` quedaban fuera) → 33/33.
+- Fallos de inquilino: 39 pruebas, 5 fallan (conexión perdida sin `exception` en el log, `RuntimeException` sin capturar, redirección seguida a otro host, respuesta vacía y solo invitados borraban el inquilino) → 39/39.
+- Borrado y candado: 43 pruebas, 2 fallan (entrada no vista con sello posterior conservada; comando con el candado tomado copiaba) → 43/43. La de 1.100 entradas no vistas y la del dominio movido pasaban ya: cubren huecos, no fallos.
+- Correos: 45 pruebas, 2 fallan (correo con `?cc=` guardado; `mailto:` sin codificar) → 45/45.
+- `home.js`: sin ejecutor de pruebas JS en el proyecto; chequeo estructural: el paquete `public/build/assets/home-DcM_FsJZ.js` lleva `dataset.idle||` y el texto por defecto.
+- Completa: `php artisan test --compact` 1.579/1.579 (base 1.566, 13 pruebas nuevas). `vendor/bin/pint --test` pasa. `npm run build` hecho.
+
+**Decisiones**
+
+- Invitado: la comparación con «Guest» ignora mayúsculas (más estricta que `=== 'Guest'`, sin efecto con lo que manda Graph).
+- `GraphAppException` sigue llevando al log su mensaje, estado y códigos AADSTS (los arma el portal, sin secretos); cualquier otro error, solo su clase.
+- La respuesta vacía se juzga después de filtrar: si nadie queda (solo invitados o deshabilitados) y el inquilino tiene personas, falla. Un inquilino sin personas aún puede copiar cero sin error. Consecuencia: si una empresa de verdad se queda sin nadie, sus personas no se borran solas; se desactiva la empresa.
+- Candado de 2 horas (`LOCK_SECONDS`): de sobra para la copia; si el proceso muere, se libera solo. Es aparte del `withoutOverlapping()` del horario.
+- Correo válido según `FILTER_VALIDATE_EMAIL`: un `?` dentro de la parte local es válido, por eso el `mailto:` además se codifica.
+
+**Pendiente**
+
+- Espejo en Engram de este documento (lo hace el orquestador).
+- Capturas a 390 y 1.440 px de `/personas` y «Mi día» (siguen sin hacerse, del WU1).
+
 ## Siguiente paso
 
-WU1-R: revisión independiente del PR1; luego WU2.
+WU2: cumpleaños y aniversarios.
