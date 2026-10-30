@@ -229,6 +229,61 @@ class WorkItemsApiTest extends TestCase
         $this->assertSame(3, $this->item()->version);
     }
 
+    public function test_the_same_version_with_another_kind_answers_422(): void
+    {
+        $this->putItem($this->task())->assertCreated();
+
+        $this->putItem($this->task(['kind' => 'approval', 'completable_from_portal' => false]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kind' => 'The kind cannot change for an existing item.']);
+
+        $item = $this->item();
+        $this->assertSame(['task', true, 3], [$item->kind, $item->completable_from_portal, $item->version]);
+    }
+
+    public static function otherAssignees(): array
+    {
+        return [
+            'other tenant' => ['tenant_id', '6f1c2a9e-0000-4000-8000-000000000009'],
+            'other oid' => ['oid', '5c2e8d14-0000-4000-8000-000000000003'],
+        ];
+    }
+
+    #[DataProvider('otherAssignees')]
+    public function test_the_same_version_with_another_assignee_answers_422(string $field, string $value): void
+    {
+        $this->putItem($this->task())->assertCreated();
+
+        if ($field === 'tenant_id') {
+            activity()->withoutLogs(fn () => Company::factory()->forTenant($value)->create());
+        }
+
+        $assignee = array_replace(['tenant_id' => self::TENANT, 'oid' => self::OID], [$field => $value]);
+
+        $this->putItem($this->task(['assignee' => $assignee]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assignee' => 'The assignee cannot change for an existing item.']);
+
+        $item = $this->item();
+        $this->assertSame([self::TENANT, self::OID, 3], [$item->assignee_tenant_id, $item->assignee_oid, $item->version]);
+    }
+
+    public function test_the_same_version_and_assignee_in_capitals_changes_nothing(): void
+    {
+        $this->putItem($this->task())->assertCreated();
+
+        $this->putItem($this->task([
+            'title' => 'Otro título',
+            'status' => 'done',
+            'assignee' => ['tenant_id' => strtoupper(self::TENANT), 'oid' => strtoupper(self::OID)],
+        ]))
+            ->assertOk()
+            ->assertExactJson(['data' => ['external_id' => self::ID, 'result' => 'unchanged', 'version' => 3]]);
+
+        $item = $this->item();
+        $this->assertSame(['Enviar el acta de la reunión de HSE', 'pending'], [$item->title, $item->status]);
+    }
+
     // --- Deleting -------------------------------------------------------------
 
     public function test_delete_answers_204_whether_or_not_the_item_exists(): void

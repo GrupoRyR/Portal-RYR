@@ -12,7 +12,8 @@ use Illuminate\Validation\ValidationException;
  * Applies the PUT and DELETE of the tasks app to the portal's copy
  * (docs/contrato-tareas-aprobaciones.md §3.2 to §3.4). Calls may arrive out
  * of order or repeated, so `version` decides: higher replaces every field,
- * equal changes nothing (the content is not compared), lower is ignored.
+ * equal changes nothing (only kind and assignee are compared, since they
+ * never change), lower is ignored.
  * A deletion trace keeps its version for WorkItem::RETENTION_DAYS.
  *
  * An integration only ever reads and writes its own `external_id`s.
@@ -105,6 +106,8 @@ final class WorkItemWriter
                 }
 
                 if ($item['version'] === $current->version) {
+                    $this->throwIfAny($this->fixedFieldErrors($item, $current));
+
                     return ['result' => self::UNCHANGED, 'version' => $current->version];
                 }
             }
@@ -152,15 +155,7 @@ final class WorkItemWriter
      */
     private function guard(Integration $integration, string $externalId, array $item, ?WorkItem $existing): void
     {
-        $errors = [];
-
-        if ($existing !== null && $existing->kind !== $item['kind']) {
-            $errors['kind'] = 'The kind cannot change for an existing item.';
-        }
-
-        if ($existing !== null && [$existing->assignee_tenant_id, $existing->assignee_oid] !== [$item['assignee_tenant_id'], $item['assignee_oid']]) {
-            $errors['assignee'] = 'The assignee cannot change for an existing item.';
-        }
+        $errors = $existing !== null ? $this->fixedFieldErrors($item, $existing) : [];
 
         $newPending = $item['status'] === WorkItem::STATUS_PENDING && $existing?->status !== WorkItem::STATUS_PENDING;
 
@@ -168,6 +163,38 @@ final class WorkItemWriter
             $errors['assignee'] = 'The assignee already has '.WorkItem::MAX_PENDING_PER_PERSON.' pending items from this integration.';
         }
 
+        $this->throwIfAny($errors);
+    }
+
+    /**
+     * Kind and assignee never change for an `external_id`, whatever the
+     * version: checked on a higher version and also on the same one.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, string>
+     */
+    private function fixedFieldErrors(array $item, WorkItem $existing): array
+    {
+        $errors = [];
+
+        if ($existing->kind !== $item['kind']) {
+            $errors['kind'] = 'The kind cannot change for an existing item.';
+        }
+
+        if ([$existing->assignee_tenant_id, $existing->assignee_oid] !== [$item['assignee_tenant_id'], $item['assignee_oid']]) {
+            $errors['assignee'] = 'The assignee cannot change for an existing item.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     *
+     * @throws ValidationException
+     */
+    private function throwIfAny(array $errors): void
+    {
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
