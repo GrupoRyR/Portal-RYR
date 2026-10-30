@@ -11,9 +11,12 @@ use Illuminate\Validation\ValidationException;
 /**
  * Applies the PUT and DELETE of the tasks app to the portal's copy
  * (docs/contrato-tareas-aprobaciones.md §3.2 to §3.4). Calls may arrive out
- * of order or repeated, so `version` decides: higher replaces every field,
- * equal changes nothing (only kind and assignee are compared, since they
- * never change), lower is ignored.
+ * of order or repeated, so `version` decides: higher replaces every field
+ * but the kind, which never changes, and may move the item to another
+ * assignee (it leaves one person's portal for the other's, since
+ * WorkItem::visibleTo() reads the stored assignee); equal changes nothing,
+ * but answers 422 when the kind or the assignee differ, since changing the
+ * assignee needs a higher version; lower is ignored.
  * A deletion trace keeps its version for WorkItem::RETENTION_DAYS.
  *
  * An integration only ever reads and writes its own `external_id`s.
@@ -106,7 +109,7 @@ final class WorkItemWriter
                 }
 
                 if ($item['version'] === $current->version) {
-                    $this->throwIfAny($this->fixedFieldErrors($item, $current));
+                    $this->throwIfAny($this->sameVersionErrors($item, $current));
 
                     return ['result' => self::UNCHANGED, 'version' => $current->version];
                 }
@@ -145,9 +148,12 @@ final class WorkItemWriter
     }
 
     /**
-     * The rules that depend on what the portal already has (§3.7): kind
-     * and assignee are fixed for an `external_id`, and a person has at most
+     * The rules that depend on what the portal already has (§3.7): the kind
+     * is fixed for an `external_id`, and a person has at most
      * WorkItem::MAX_PENDING_PER_PERSON pending items of each integration.
+     * The limit applies whenever the person gains a pending item: a new
+     * one, one that comes back to pending, or a pending one reassigned to
+     * them.
      *
      * @param  array<string, mixed>  $item
      *
@@ -155,11 +161,12 @@ final class WorkItemWriter
      */
     private function guard(Integration $integration, string $externalId, array $item, ?WorkItem $existing): void
     {
-        $errors = $existing !== null ? $this->fixedFieldErrors($item, $existing) : [];
+        $errors = $existing !== null ? $this->kindErrors($item, $existing) : [];
 
-        $newPending = $item['status'] === WorkItem::STATUS_PENDING && $existing?->status !== WorkItem::STATUS_PENDING;
+        $gainsPending = $item['status'] === WorkItem::STATUS_PENDING
+            && ($existing?->status !== WorkItem::STATUS_PENDING || ! $this->sameAssignee($item, $existing));
 
-        if (! isset($errors['assignee']) && $newPending && $this->pendingOf($integration, $externalId, $item) >= WorkItem::MAX_PENDING_PER_PERSON) {
+        if ($gainsPending && $this->pendingOf($integration, $externalId, $item) >= WorkItem::MAX_PENDING_PER_PERSON) {
             $errors['assignee'] = 'The assignee already has '.WorkItem::MAX_PENDING_PER_PERSON.' pending items from this integration.';
         }
 
@@ -167,25 +174,43 @@ final class WorkItemWriter
     }
 
     /**
-     * Kind and assignee never change for an `external_id`, whatever the
-     * version: checked on a higher version and also on the same one.
+     * The kind never changes for an `external_id`, whatever the version:
+     * for another kind the app deletes the item and creates it with another
+     * `external_id`.
      *
      * @param  array<string, mixed>  $item
      * @return array<string, string>
      */
-    private function fixedFieldErrors(array $item, WorkItem $existing): array
+    private function kindErrors(array $item, WorkItem $existing): array
     {
-        $errors = [];
+        return $existing->kind !== $item['kind'] ? ['kind' => 'The kind cannot change for an existing item.'] : [];
+    }
 
-        if ($existing->kind !== $item['kind']) {
-            $errors['kind'] = 'The kind cannot change for an existing item.';
-        }
+    /**
+     * With the same version nothing is compared except kind and assignee:
+     * the kind never changes, and a new assignee needs a higher version, so
+     * the app is told it forgot to raise it instead of getting `unchanged`.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, string>
+     */
+    private function sameVersionErrors(array $item, WorkItem $existing): array
+    {
+        $errors = $this->kindErrors($item, $existing);
 
-        if ([$existing->assignee_tenant_id, $existing->assignee_oid] !== [$item['assignee_tenant_id'], $item['assignee_oid']]) {
-            $errors['assignee'] = 'The assignee cannot change for an existing item.';
+        if (! $this->sameAssignee($item, $existing)) {
+            $errors['assignee'] = 'The assignee changed but the version did not; send a higher version to change it.';
         }
 
         return $errors;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function sameAssignee(array $item, WorkItem $existing): bool
+    {
+        return [$existing->assignee_tenant_id, $existing->assignee_oid] === [$item['assignee_tenant_id'], $item['assignee_oid']];
     }
 
     /**

@@ -254,6 +254,7 @@ Reglas que el portal ya aplica:
 - `due_at` se guarda como el mismo instante, venga en la zona que venga (`Z`, `+02:00`, `-05:00`).
 - La persona se identifica solo por `assignee.tenant_id` y `assignee.oid`. El inquilino debe ser el de una empresa del portal. La persona no tiene que haber entrado al portal.
 - Cada persona tiene como máximo 500 elementos pendientes por integración.
+- Con una `version` mayor, un `PUT` puede cambiar el `assignee`: el elemento pasa del portal de una persona al de la otra y cuenta en los 500 pendientes de la nueva. Con la misma `version`, otro `assignee` responde `422` y pide subir la versión. `kind` nunca cambia: otro `kind` responde `422` con cualquier `version` (contrato §3.3).
 - Cada integración ve y cambia solo sus propios `external_id`, que distinguen mayúsculas de minúsculas (`TAREA-1` y `tarea-1` son dos elementos).
 - Si la integración pierde `work:write` o su app del catálogo, sus elementos dejan de verse (no se borran) hasta que recupere las dos cosas.
 - Cada noche (3:00, hora de Bogotá) se borran los rastros de borrado y los elementos hechos o cancelados de más de 30 días.

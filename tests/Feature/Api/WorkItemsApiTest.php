@@ -34,6 +34,10 @@ class WorkItemsApiTest extends TestCase
 
     private const ID = '8812:0b7d5e3a-0000-4000-8000-000000000002';
 
+    private const OTHER_TENANT = '6f1c2a9e-0000-4000-8000-000000000009';
+
+    private const OTHER_OID = '5c2e8d14-0000-4000-8000-000000000003';
+
     private Company $segurex;
 
     private App $tareas;
@@ -214,19 +218,86 @@ class WorkItemsApiTest extends TestCase
         $this->assertSame('Enviar el acta de la reunión de HSE', $this->item()->title);
     }
 
-    public function test_the_kind_and_the_assignee_cannot_change(): void
+    public function test_a_higher_version_moves_the_item_to_another_person(): void
+    {
+        $old = User::factory()->microsoft($this->segurex)->create(['azure_oid' => self::OID]);
+        $new = User::factory()->microsoft($this->segurex)->create(['azure_oid' => self::OTHER_OID]);
+        $visible = fn (User $user) => WorkItem::query()->visibleTo($user)->pluck('external_id')->all();
+
+        $this->putItem($this->task())->assertCreated();
+        $this->assertSame([self::ID], $visible($old));
+        $this->assertSame([], $visible($new));
+
+        $this->putItem($this->task(['assignee' => ['tenant_id' => self::TENANT, 'oid' => self::OTHER_OID], 'version' => 4]))
+            ->assertOk()
+            ->assertExactJson(['data' => ['external_id' => self::ID, 'result' => 'updated', 'version' => 4]]);
+
+        $this->assertSame([], $visible($old));
+        $this->assertSame([self::ID], $visible($new));
+        $item = $this->item();
+        $this->assertSame([self::TENANT, self::OTHER_OID, 4], [$item->assignee_tenant_id, $item->assignee_oid, $item->version]);
+    }
+
+    public function test_a_higher_version_moves_the_item_to_a_person_of_another_company(): void
+    {
+        $derivados = activity()->withoutLogs(fn () => Company::factory()->forTenant(self::OTHER_TENANT)->create(['slug' => 'derivados']));
+        $old = User::factory()->microsoft($this->segurex)->create(['azure_oid' => self::OID]);
+        $new = User::factory()->microsoft($derivados)->create(['azure_oid' => self::OID]);
+        $visible = fn (User $user) => WorkItem::query()->visibleTo($user)->pluck('external_id')->all();
+
+        $this->putItem($this->task())->assertCreated();
+
+        $this->putItem($this->task(['assignee' => ['tenant_id' => strtoupper(self::OTHER_TENANT), 'oid' => self::OID], 'version' => 4]))
+            ->assertOk()
+            ->assertJsonPath('data.result', 'updated');
+
+        $this->assertSame([], $visible($old));
+        $this->assertSame([self::ID], $visible($new));
+        $this->assertSame(self::OTHER_TENANT, $this->item()->assignee_tenant_id);
+    }
+
+    public function test_the_kind_cannot_change_even_with_a_higher_version(): void
     {
         $this->putItem($this->task())->assertCreated();
+        $this->putItem($this->task(['kind' => 'approval', 'completable_from_portal' => false]), 'aprobacion')->assertCreated();
 
         $this->putItem($this->task(['kind' => 'approval', 'completable_from_portal' => false, 'version' => 4]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['kind']);
+            ->assertJsonValidationErrors(['kind' => 'The kind cannot change for an existing item.']);
 
-        $this->putItem($this->task(['assignee' => ['tenant_id' => self::TENANT, 'oid' => '5c2e8d14-0000-4000-8000-000000000003'], 'version' => 4]))
+        $this->putItem($this->task(['version' => 4]), 'aprobacion')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kind' => 'The kind cannot change for an existing item.']);
+
+        $this->assertSame(['task', 3], [$this->item()->kind, $this->item()->version]);
+        $approval = WorkItem::query()->where('external_id', 'aprobacion')->sole();
+        $this->assertSame(['approval', 3], [$approval->kind, $approval->version]);
+    }
+
+    public function test_a_higher_version_with_another_kind_does_not_move_the_item_either(): void
+    {
+        $this->putItem($this->task())->assertCreated();
+
+        $this->putItem($this->task(['kind' => 'approval', 'completable_from_portal' => false, 'assignee' => ['tenant_id' => self::TENANT, 'oid' => self::OTHER_OID], 'version' => 4]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kind'])
+            ->assertJsonMissingValidationErrors(['assignee']);
+
+        $item = $this->item();
+        $this->assertSame(['task', self::OID, 3], [$item->kind, $item->assignee_oid, $item->version]);
+    }
+
+    public function test_a_higher_version_still_validates_the_new_assignee(): void
+    {
+        $this->putItem($this->task())->assertCreated();
+
+        // The new tenant must be the one of a portal company.
+        $this->putItem($this->task(['assignee' => ['tenant_id' => '11111111-0000-4000-8000-000000000009', 'oid' => self::OID], 'version' => 4]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['assignee']);
 
-        $this->assertSame(3, $this->item()->version);
+        $item = $this->item();
+        $this->assertSame([self::TENANT, self::OID, 3], [$item->assignee_tenant_id, $item->assignee_oid, $item->version]);
     }
 
     public function test_the_same_version_with_another_kind_answers_422(): void
@@ -262,7 +333,7 @@ class WorkItemsApiTest extends TestCase
 
         $this->putItem($this->task(['assignee' => $assignee]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['assignee' => 'The assignee cannot change for an existing item.']);
+            ->assertJsonValidationErrors(['assignee' => 'The assignee changed but the version did not; send a higher version to change it.']);
 
         $item = $this->item();
         $this->assertSame([self::TENANT, self::OID, 3], [$item->assignee_tenant_id, $item->assignee_oid, $item->version]);
@@ -563,6 +634,29 @@ class WorkItemsApiTest extends TestCase
         // Another integration has its own budget.
         [, $other] = $this->workIntegration(['name' => 'Otra app']);
         $this->putItem($this->task(), self::ID, $other)->assertCreated();
+    }
+
+    public function test_reassigning_a_pending_item_respects_the_limit_of_the_new_person(): void
+    {
+        $this->putItem($this->task())->assertCreated();
+        WorkItem::factory()->count(WorkItem::MAX_PENDING_PER_PERSON)->for($this->integration)->create([
+            'assignee_tenant_id' => self::TENANT,
+            'assignee_oid' => self::OTHER_OID,
+        ]);
+        $fullPerson = ['tenant_id' => self::TENANT, 'oid' => self::OTHER_OID];
+
+        $this->putItem($this->task(['assignee' => $fullPerson, 'title' => 'Reasignada', 'version' => 4]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assignee' => 'The assignee already has '.WorkItem::MAX_PENDING_PER_PERSON.' pending items from this integration.']);
+
+        $item = $this->item();
+        $this->assertSame([self::OID, 'Enviar el acta de la reunión de HSE', 3], [$item->assignee_oid, $item->title, $item->version]);
+
+        // A finished item may still go to that person: it adds no pending one.
+        $this->putItem($this->task(['assignee' => $fullPerson, 'status' => 'done', 'version' => 5]))
+            ->assertOk()
+            ->assertJsonPath('data.result', 'updated');
+        $this->assertSame(self::OTHER_OID, $this->item()->assignee_oid);
     }
 
     // --- Isolation ------------------------------------------------------------
