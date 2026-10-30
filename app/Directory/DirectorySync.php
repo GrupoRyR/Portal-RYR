@@ -271,7 +271,11 @@ final class DirectorySync
      */
     private function row(string $tenantId, Collection $tenantCompanies, array $user, CarbonInterface $runAt): ?array
     {
-        if (($user['accountEnabled'] ?? null) === false || ($user['userType'] ?? null) !== 'Member') {
+        // Only an explicit guest stays out: no user type counts as a member,
+        // like `is_guest = null` on the viewer side.
+        $guest = is_string($user['userType'] ?? null) && strcasecmp(trim($user['userType']), 'Guest') === 0;
+
+        if (($user['accountEnabled'] ?? null) === false || $guest) {
             return null;
         }
 

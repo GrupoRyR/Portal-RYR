@@ -135,7 +135,6 @@ class DirectorySyncTest extends TestCase
         $this->pages[self::TENANT] = [[
             $this->graphUser(['accountEnabled' => false]),
             $this->graphUser(['userType' => 'Guest']),
-            $this->graphUser(['userType' => null]),
             $this->graphUser(['mail' => null, 'userPrincipalName' => 'socio_otra.com#EXT#@segurex.onmicrosoft.com']),
             $this->graphUser(['mail' => '', 'userPrincipalName' => null]),
             $upnOnly,
@@ -147,6 +146,26 @@ class DirectorySyncTest extends TestCase
         $this->assertSame($upnOnly['id'], $entry->azure_oid);
         $this->assertSame('luis.gomez@segurex.com', $entry->email);
         $this->assertSame($company->id, $entry->company_id);
+    }
+
+    /**
+     * Like the viewer side (`is_guest = null` is a member): only an
+     * explicit «Guest» stays out.
+     */
+    public function test_people_without_a_user_type_count_as_members(): void
+    {
+        Company::factory()->forTenant(self::TENANT, ['segurex.com'])->create();
+        $missing = $this->graphUser(['mail' => 'sin.tipo@segurex.com']);
+        unset($missing['userType']);
+        $this->pages[self::TENANT] = [[
+            $this->graphUser(['mail' => 'nulo@segurex.com', 'userType' => null]),
+            $missing,
+            $this->graphUser(['mail' => 'invitado@segurex.com', 'userType' => 'Guest']),
+        ]];
+
+        $this->sync();
+
+        $this->assertSame(['nulo@segurex.com', 'sin.tipo@segurex.com'], DirectoryEntry::query()->orderBy('email')->pluck('email')->all());
     }
 
     public function test_the_mobile_phone_is_never_stored(): void
