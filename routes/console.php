@@ -52,14 +52,16 @@ Schedule::command('portal:run-requested-backup')
 
 // «Enviar recordatorio» (Admin, mandatory announcements) only records the
 // request; this mails a batch of it every minute
-// (App\Announcements\AnnouncementReminders).
+// (App\Announcements\AnnouncementReminders). The overlap lock expires
+// after 10 minutes, so a killed run does not block it for a day.
 Schedule::command('portal:send-announcement-reminders')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
 
 // Announcements that ask for it go to each company's all-staff list from
 // the company's own mailbox (App\Announcements\AnnouncementListEmails),
-// once each, when they are published.
+// once each, when they are published. A run sends at most 10 emails of
+// a few seconds each; the overlap lock expires after 10 minutes.
 Schedule::command('portal:send-announcement-list-emails')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);

@@ -175,7 +175,7 @@
                     <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
                         <span class="flex flex-col gap-0.5">
                             <span class="text-[0.9375rem] font-semibold">Enviar también por correo a la lista de cada empresa</span>
-                            <span id="n-lists-h" class="{{ $hint }}">Lo reciben: {{ \App\Announcements\AnnouncementListEmails::sentence($listRecipients) }}. Sale una sola vez, al publicarse, desde el buzón de cada empresa; si lo editas después, no se vuelve a enviar.</span>
+                            <span id="n-lists-h" class="{{ $hint }}">Lo reciben: {{ \App\Announcements\AnnouncementListEmails::sentence($listRecipients) }}. Se envía al guardar con la casilla marcada, cuando el anuncio esté publicado, desde el buzón de cada empresa y una sola vez por empresa. Si después agregas una empresa o se configura su lista, vuelve a guardar para enviárselo; las que ya lo recibieron no lo reciben de nuevo.</span>
                         </span>
                         <input type="checkbox" role="switch" wire:model.live="emailLists" aria-describedby="n-lists-h"
                                class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
@@ -298,6 +298,12 @@
                             @case('off')
                                 <span class="text-sm text-fg-soft">No se envía: la casilla de correo está desmarcada.</span>
                                 @break
+                            @case('company_unavailable')
+                                <span class="text-sm text-fg-soft">No se envía: la empresa está inactiva o ya no tiene lista y buzón remitente.</span>
+                                @break
+                            @case('not_queued')
+                                <span class="text-sm text-fg-soft">Sin enviar: guarda el anuncio con la casilla marcada para enviárselo.</span>
+                                @break
                             @default
                                 <span class="text-sm text-fg-soft">Pendiente: sale en los próximos minutos.</span>
                         @endswitch
@@ -305,7 +311,7 @@
                 @endforeach
             </ul>
             @error('listEmail') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
-            <p class="{{ $hint }}">Cada lista recibe el anuncio una sola vez. Si lo editas después de enviado, no se vuelve a enviar.</p>
+            <p class="{{ $hint }}">Cada lista recibe el anuncio una sola vez. Si lo editas después de enviado, no se vuelve a enviar; guardar de nuevo solo lo envía a las empresas que aún no lo tienen.</p>
         </section>
     @endif
 </div>

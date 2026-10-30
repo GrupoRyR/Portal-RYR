@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Announcements\AnnouncementListEmails;
 use App\Audit\AuditPresenter;
 use App\Livewire\Admin\AnnouncementEditor;
 use App\Models\Announcement;
@@ -11,6 +12,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -160,6 +162,7 @@ class AnnouncementListEmailEditorTest extends TestCase
         $announcement = Announcement::factory()->emailLists()->create();
         $this->row($announcement, $this->segurex, AnnouncementListEmail::STATUS_SENT, ['sent_at' => now()->subHour()]);
         $this->row($announcement, $this->derivados, AnnouncementListEmail::STATUS_FAILED, ['last_error' => 'ErrorAccessDenied']);
+        $this->row($announcement, $third, AnnouncementListEmail::STATUS_PENDING, ['attempts' => 0]);
 
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
             ->assertSeeText('Correo a las listas')
@@ -169,14 +172,13 @@ class AnnouncementListEmailEditorTest extends TestCase
             ->assertSeeText('No se pudo enviar (ErrorAccessDenied)')
             ->assertSeeText('El buzón remitente no tiene permiso de envío. Revisa los pasos de Exchange en docs/despliegue.md.')
             ->assertSeeText('Tercera · todos@tercera.com')
-            ->assertSeeText('Pendiente')
+            ->assertSeeText('Pendiente: sale en los próximos minutos.')
             ->assertSeeText('Reintentar');
-        $this->assertNotNull($third);
     }
 
     public function test_a_scheduled_announcement_says_when_its_email_goes_out(): void
     {
-        $announcement = Announcement::factory()->emailLists()->create(['starts_at' => now()->addDay()]);
+        $announcement = $this->queued(Announcement::factory()->emailLists()->create(['starts_at' => now()->addDay()]));
 
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
             ->assertSeeText('Pendiente: sale cuando se publique, el 31 de octubre a las 10:00.');
@@ -184,7 +186,7 @@ class AnnouncementListEmailEditorTest extends TestCase
 
     public function test_a_withdrawn_announcement_says_its_email_will_not_go_out(): void
     {
-        $announcement = Announcement::factory()->emailLists()->withdrawn()->create();
+        $announcement = $this->queued(Announcement::factory()->emailLists()->withdrawn()->create());
 
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
             ->assertSeeText('No se envía mientras el anuncio no esté publicado.');
@@ -277,6 +279,123 @@ class AnnouncementListEmailEditorTest extends TestCase
 
         $component->call('retryListEmail', $row->id)->assertForbidden();
         $this->assertSame(AnnouncementListEmail::STATUS_FAILED, $row->fresh()->status);
+    }
+
+    public function test_saving_with_the_box_ticked_queues_one_email_per_company_that_can_get_it(): void
+    {
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class)
+            ->set('title', 'Cierre de oficinas')
+            ->set('body', 'Las oficinas cierran el viernes.')
+            ->set('emailLists', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // Derivados has no list: nothing for it.
+        $row = AnnouncementListEmail::query()->sole();
+        $this->assertSame($this->segurex->id, $row->company_id);
+        $this->assertSame(AnnouncementListEmail::STATUS_PENDING, $row->status);
+        $this->assertSame(0, $row->attempts);
+    }
+
+    public function test_saving_without_the_box_queues_nothing(): void
+    {
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class)
+            ->set('title', 'Cierre de oficinas')
+            ->set('body', 'Texto.')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, AnnouncementListEmail::query()->count());
+    }
+
+    public function test_a_company_added_later_gets_it_once_when_saved_again_and_the_first_one_not_again(): void
+    {
+        config([
+            'services.microsoft.client_id' => 'client-id',
+            'services.microsoft.client_secret' => 'SECRET-VALUE-NEVER-SHOWN',
+        ]);
+        Http::fake([
+            'login.microsoftonline.com/*' => Http::response(['access_token' => 'token', 'expires_in' => 3600]),
+            'graph.microsoft.com/*' => Http::response(null, 202),
+        ]);
+        $this->giveDerivadosAList();
+        $announcement = Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+        $sent = $this->row($announcement, $this->segurex, AnnouncementListEmail::STATUS_SENT, ['sent_at' => now()->subHour()]);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->set('companyIds', [(string) $this->segurex->id, (string) $this->derivados->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $sends = Http::recorded(fn (Request $request) => str_starts_with($request->url(), 'https://graph.microsoft.com/'));
+        $this->assertCount(1, $sends);
+        $this->assertSame('https://graph.microsoft.com/v1.0/users/derivados.info@derivadoscol.com/sendMail', $sends->first()[0]->url());
+        $this->assertTrue($sent->fresh()->sent_at->equalTo(now()->subHour()));
+        $this->assertSame(2, AnnouncementListEmail::query()->count());
+    }
+
+    public function test_a_company_that_can_get_it_but_was_not_queued_waits_for_a_save(): void
+    {
+        $announcement = Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('Segurex · todos@segurex.com')
+            ->assertSeeText('Sin enviar: guarda el anuncio con la casilla marcada para enviárselo.')
+            ->assertDontSeeText('Pendiente');
+    }
+
+    public function test_a_company_with_an_address_outside_its_domains_is_not_shown_as_pending(): void
+    {
+        $this->segurex->forceFill(['mail_sender' => 'info@otro.com'])->saveQuietly();
+        $announcement = Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertDontSeeText('Pendiente')
+            ->assertDontSeeText('Sin enviar')
+            ->assertDontSeeText(self::CHECKBOX);
+    }
+
+    public function test_a_pending_email_of_a_company_that_can_no_longer_get_it_says_so(): void
+    {
+        $announcement = $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create());
+        $this->segurex->update(['all_staff_email' => null, 'mail_sender' => null]);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('No se envía: la empresa está inactiva o ya no tiene lista y buzón remitente.');
+    }
+
+    public function test_a_timeout_or_a_server_error_warns_that_the_email_may_have_left(): void
+    {
+        $this->giveDerivadosAList();
+        $announcement = Announcement::factory()->emailLists()->create();
+        $this->row($announcement, $this->segurex, AnnouncementListEmail::STATUS_FAILED, ['last_error' => 'Unavailable']);
+        $this->row($announcement, $this->derivados, AnnouncementListEmail::STATUS_FAILED, ['last_error' => 'HTTP 503']);
+
+        $html = Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])->html();
+
+        $this->assertSame(2, substr_count($html, 'no se sabe si salió. Revisa la lista antes de reintentar.'));
+    }
+
+    public function test_a_title_with_line_breaks_is_refused(): void
+    {
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class)
+            ->set('title', "Aviso\n\n[Entra aquí](https://evil.example/login)")
+            ->set('body', 'Texto.')
+            ->call('save')
+            ->assertHasErrors(['title' => 'not_regex'])
+            ->assertSeeText('El título va en una sola línea.');
+
+        $this->assertSame(0, Announcement::query()->count());
+    }
+
+    private function queued(Announcement $announcement): Announcement
+    {
+        app(AnnouncementListEmails::class)->queue($announcement);
+
+        return $announcement;
     }
 
     private function giveDerivadosAList(): void

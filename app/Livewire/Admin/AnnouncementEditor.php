@@ -170,6 +170,10 @@ class AnnouncementEditor extends Component
             $this->removeImage,
         );
 
+        // Sending is explicit: only the companies that can get it now and
+        // have no email of it yet (App\Announcements\AnnouncementListEmails::queue()).
+        app(AnnouncementListEmails::class)->queue($announcement);
+
         session()->flash('status', $creating ? 'Anuncio creado.' : 'Cambios guardados.');
 
         return $this->redirectRoute('admin.announcements.edit', $announcement);
@@ -272,7 +276,8 @@ class AnnouncementEditor extends Component
         $specific = $this->audience === Announcement::AUDIENCE_COMPANIES;
 
         return [
-            'title' => ['required', 'string', 'max:'.Announcement::TITLE_MAX],
+            // One line: the title also goes in an email read as Markdown.
+            'title' => ['required', 'string', 'max:'.Announcement::TITLE_MAX, 'not_regex:/[\r\n]/'],
             'body' => ['required', 'string', 'max:'.Announcement::BODY_MAX],
             'audience' => ['required', Rule::in(Announcement::AUDIENCES)],
             'companyIds' => $specific ? ['required', 'array'] : ['array'],
@@ -300,6 +305,7 @@ class AnnouncementEditor extends Component
             'required' => 'Este campo es obligatorio.',
             'title.required' => 'Escribe el título.',
             'title.max' => 'Usa como máximo '.Announcement::TITLE_MAX.' caracteres.',
+            'title.not_regex' => 'El título va en una sola línea.',
             'body.required' => 'Escribe el texto del anuncio.',
             'body.max' => 'Usa como máximo '.Announcement::BODY_MAX.' caracteres.',
             'audience.in' => 'Elige para quién es el anuncio.',

@@ -4,7 +4,10 @@
     (App\Branding\MailBrand). Laravel renders it as Markdown, so the user's
     text sits on one line inside an HTML block: CommonMark keeps it as it is
     (escaped here, with <br> for its line breaks) and never reads it as
-    Markdown. No line may start with four spaces (that is a code block).
+    Markdown; the title and the company name come without line breaks
+    (App\Announcements\AnnouncementListEmails::oneLine()), since a blank
+    line would end the block. No line may start with four spaces (that is
+    a code block).
 --}}
 <x-mail::message :brand="$brand">
 <h1 style="color: {{ $brand->ink }};">{{ $title }}</h1>
@@ -16,6 +19,6 @@
 Ver en el portal
 </x-mail::button>
 <x-slot:subcopy>
-<p>Este anuncio se publicó en el portal para {{ $brand->name }} y llega a la lista {{ $list }}. Si el botón «Ver en el portal» no funciona, copia y pega esta dirección en tu navegador: <a href="{{ $url }}" style="color: {{ $brand->ink }};">{{ $url }}</a></p>
+<p>Este anuncio se publicó en el portal para {{ $companyName }} y llega a la lista {{ $list }}. Si el botón «Ver en el portal» no funciona, copia y pega esta dirección en tu navegador: <a href="{{ $url }}" style="color: {{ $brand->ink }};">{{ $url }}</a></p>
 </x-slot:subcopy>
 </x-mail::message>

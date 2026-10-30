@@ -66,10 +66,10 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_it_emails_each_company_list_from_its_own_mailbox_with_its_own_tenant_token(): void
     {
         $this->fakeMicrosoft();
-        $announcement = Announcement::factory()->emailLists()->create([
+        $announcement = $this->queued(Announcement::factory()->emailLists()->create([
             'title' => 'Cierre de oficinas el viernes',
             'body' => "Las oficinas cierran a las 2 p. m.\nGracias.",
-        ]);
+        ]));
 
         $this->artisan('portal:send-announcement-list-emails')
             ->expectsOutputToContain('2 correos enviados')
@@ -126,7 +126,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->fakeMicrosoft();
         $this->segurex->update(['color_dark' => '#8F360B']);
         $this->derivados->update(['color_dark' => '#123456']);
-        Announcement::factory()->emailLists()->create();
+        $this->queued(Announcement::factory()->emailLists()->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -141,11 +141,12 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_it_sends_each_email_only_once(): void
     {
         $this->fakeMicrosoft();
-        $announcement = Announcement::factory()->emailLists()->create();
+        $announcement = $this->queued(Announcement::factory()->emailLists()->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
-        // Editing it afterwards does not send it again.
+        // Editing and saving it again with the box ticked does not send it again.
         $announcement->update(['title' => 'Título corregido', 'body' => 'Texto corregido']);
+        $this->queued($announcement);
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
         $this->assertSame(2, $this->sendRequests());
@@ -155,11 +156,11 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_a_scheduled_announcement_goes_out_when_its_start_arrives(): void
     {
         $this->fakeMicrosoft();
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['starts_at' => now()->addHour()]);
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['starts_at' => now()->addHour()]));
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
         $this->assertSame(0, $this->sendRequests());
-        $this->assertSame(0, AnnouncementListEmail::query()->count());
+        $this->assertSame(AnnouncementListEmail::STATUS_PENDING, AnnouncementListEmail::query()->sole()->status);
 
         $this->travel(61)->minutes();
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
@@ -171,14 +172,87 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_withdrawn_expired_and_announcements_without_the_option_are_not_sent(): void
     {
         $this->fakeMicrosoft();
-        Announcement::factory()->emailLists()->withdrawn()->create();
-        Announcement::factory()->emailLists()->expired()->create();
-        Announcement::factory()->create();
+        $this->queued(Announcement::factory()->emailLists()->withdrawn()->create());
+        $this->queued(Announcement::factory()->emailLists()->expired()->create());
+        $this->queued(Announcement::factory()->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
         Http::assertNothingSent();
-        $this->assertSame(0, AnnouncementListEmail::query()->count());
+        // Waiting, in case one is published again; none for the one without the option.
+        $this->assertSame(4, AnnouncementListEmail::query()->where('status', AnnouncementListEmail::STATUS_PENDING)->count());
+    }
+
+    public function test_unticking_the_box_stops_the_emails_still_pending(): void
+    {
+        $this->fakeMicrosoft();
+        $announcement = $this->queued(Announcement::factory()->emailLists()->create());
+        $announcement->update(['email_lists' => false]);
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_company_whose_list_is_configured_later_gets_nothing(): void
+    {
+        $this->fakeMicrosoft();
+        $later = Company::factory()->forTenant('33333333-3333-3333-3333-333333333333', ['tercera.com'])->create(['short_name' => 'Tercera']);
+        $this->queued(Announcement::factory()->emailLists()->create());
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $later->update(['all_staff_email' => 'todos@tercera.com', 'mail_sender' => 'info@tercera.com']);
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $this->assertSame(2, $this->sendRequests());
+        $this->assertFalse(AnnouncementListEmail::query()->where('company_id', $later->id)->exists());
+    }
+
+    public function test_a_company_activated_later_gets_nothing(): void
+    {
+        $this->fakeMicrosoft();
+        $this->derivados->update(['is_active' => false]);
+        $this->queued(Announcement::factory()->emailLists()->create());
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $this->derivados->update(['is_active' => true]);
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $this->assertSame(1, $this->sendRequests());
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::DERIVADOS_SEND_URL);
+    }
+
+    public function test_a_pending_email_waits_while_its_company_is_inactive(): void
+    {
+        $this->fakeMicrosoft();
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->derivados)->create());
+        $this->derivados->update(['is_active' => false]);
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        Http::assertNothingSent();
+        $this->assertSame(AnnouncementListEmail::STATUS_PENDING, AnnouncementListEmail::query()->sole()->status);
+    }
+
+    public function test_a_title_with_line_breaks_never_becomes_markdown(): void
+    {
+        $this->fakeMicrosoft();
+        // Written behind the editor's back (the editor refuses line breaks in the title).
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create([
+            'title' => "Aviso\n\n[Entra aquí](https://evil.example/login) ![x](https://evil.example/t.png)\r\n\r\nFin",
+        ]));
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        Http::assertSent(function (Request $request) {
+            $content = (string) data_get($request->data(), 'message.body.content');
+
+            return $request->url() === self::SEGUREX_SEND_URL
+                && data_get($request->data(), 'message.subject') === 'Aviso [Entra aquí](https://evil.example/login) ![x](https://evil.example/t.png) Fin'
+                && ! str_contains($content, 'href="https://evil.example')
+                && ! str_contains($content, 'src="https://evil.example')
+                && str_contains($content, '[Entra aquí](https://evil.example/login)');
+        });
     }
 
     public function test_only_active_companies_of_the_audience_with_both_fields_get_it(): void
@@ -186,8 +260,8 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->fakeMicrosoft();
         Company::factory()->inactive()->withListEmail('todos@inactiva.com', 'info@inactiva.com')->create(['domains' => ['inactiva.com']]);
         Company::factory()->create(['domains' => ['sinlista.com']]);
-        Announcement::factory()->emailLists()->create();
-        Announcement::factory()->emailLists()->forCompanies($this->derivados)->create();
+        $this->queued(Announcement::factory()->emailLists()->create());
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->derivados)->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -204,7 +278,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->fakeMicrosoft([
             self::SEGUREX_SEND_URL => Http::response(['error' => ['code' => 'ErrorAccessDenied', 'message' => 'Access is denied. Check credentials and try again.']], 403),
         ]);
-        Announcement::factory()->emailLists()->create();
+        $this->queued(Announcement::factory()->emailLists()->create());
 
         $this->artisan('portal:send-announcement-list-emails')
             ->expectsOutputToContain('1 correos enviados, 1 con error')
@@ -231,7 +305,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_a_refused_token_is_recorded_with_its_entra_code(): void
     {
         $this->fakeMicrosoft(token: Http::response(['error' => 'invalid_client', 'error_codes' => [7000215]], 401));
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -247,7 +321,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
             self::SEGUREX_SEND_URL => Http::response(['error' => ['code' => 'MailboxNotEnabledForRESTAPI', 'message' => 'REST API is not yet supported for this mailbox.']], 404),
             self::DERIVADOS_SEND_URL => Http::response('<html>bad gateway</html>', 502),
         ]);
-        Announcement::factory()->emailLists()->create();
+        $this->queued(Announcement::factory()->emailLists()->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -260,7 +334,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->fakeMicrosoft([
             self::SEGUREX_SEND_URL => Http::response('', 302, ['Location' => 'https://elsewhere.example/steal']),
         ]);
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -274,7 +348,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->fakeMicrosoft([self::SEGUREX_SEND_URL => function () use (&$answers) {
             return array_shift($answers);
         }]);
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create());
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -285,10 +359,10 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_the_text_is_escaped_never_sent_as_html_or_markdown(): void
     {
         $this->fakeMicrosoft();
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create([
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create([
             'title' => 'Aviso <b>importante</b>',
             'body' => "<script>alert(1)</script> [clic](javascript:alert(1))\n\n**negrita** <img src=x onerror=alert(1)>",
-        ]);
+        ]));
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -310,7 +384,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_the_image_goes_as_an_absolute_https_link_and_never_as_an_attachment(): void
     {
         $this->fakeMicrosoft();
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['image_path' => 'announcements/1/foto.webp']);
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['image_path' => 'announcements/1/foto.webp']));
         config(['filesystems.disks.public.url' => 'https://apps.segurexlatam.net/storage']);
         Storage::forgetDisk('public');
 
@@ -324,7 +398,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_an_image_without_an_https_address_is_left_out(): void
     {
         $this->fakeMicrosoft();
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['image_path' => 'announcements/1/foto.webp']);
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create(['image_path' => 'announcements/1/foto.webp']));
         config(['filesystems.disks.public.url' => 'http://localhost/storage']);
         Storage::forgetDisk('public');
 
@@ -337,9 +411,9 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     public function test_a_sender_or_list_outside_the_company_domains_is_refused_without_calling_graph(): void
     {
         $this->fakeMicrosoft();
-        // Written behind the editor's back: the cron checks again.
+        $this->queued(Announcement::factory()->emailLists()->forCompanies($this->segurex)->create());
+        // Written behind the editor's back after it was queued: the cron checks again.
         $this->segurex->forceFill(['mail_sender' => 'derivados.info@derivadoscol.com'])->saveQuietly();
-        Announcement::factory()->emailLists()->forCompanies($this->segurex)->create();
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
 
@@ -418,7 +492,7 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
     {
         $this->fakeMicrosoft();
         $count = intdiv(AnnouncementListEmails::BATCH, 2) + 1;
-        Announcement::factory()->count($count)->emailLists()->create();
+        Announcement::factory()->count($count)->emailLists()->create()->each(fn (Announcement $announcement) => $this->queued($announcement));
 
         $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
         $this->assertSame(AnnouncementListEmails::BATCH, $this->sendRequests());
@@ -448,6 +522,30 @@ class SendAnnouncementListEmailsCommandTest extends TestCase
         $this->assertNotNull($event, 'portal:send-announcement-list-emails is not scheduled.');
         $this->assertSame('* * * * *', $event->expression);
         $this->assertTrue($event->withoutOverlapping);
+    }
+
+    public function test_a_killed_run_blocks_the_mail_commands_for_ten_minutes_at_most(): void
+    {
+        foreach (['portal:send-announcement-list-emails', 'portal:send-announcement-reminders'] as $command) {
+            /** @var Event|null $event */
+            $event = collect($this->app->make(Schedule::class)->events())
+                ->first(fn (Event $event) => str_contains((string) $event->command, $command));
+
+            $this->assertNotNull($event, "{$command} is not scheduled.");
+            $this->assertTrue($event->withoutOverlapping, $command);
+            $this->assertSame(10, $event->expiresAt, $command);
+        }
+    }
+
+    /**
+     * What saving the announcement with the box ticked does: a pending
+     * email for each company that can get it now and has none yet.
+     */
+    private function queued(Announcement $announcement): Announcement
+    {
+        app(AnnouncementListEmails::class)->queue($announcement);
+
+        return $announcement;
     }
 
     /**
