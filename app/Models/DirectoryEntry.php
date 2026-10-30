@@ -1,0 +1,193 @@
+<?php
+
+namespace App\Models;
+
+use App\Catalog\AppSearch;
+use App\Support\Like;
+use Database\Factories\DirectoryEntryFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * One person of a company's directory, copied from Microsoft Graph every
+ * night (App\Directory\DirectorySync). Only the company's own people see
+ * it (companyIdFor()): the «Ctrl K» search of the home screen and
+ * /personas.
+ *
+ * @property int $id
+ * @property int $company_id
+ * @property string $tenant_id
+ * @property string $azure_oid
+ * @property string $display_name
+ * @property string|null $job_title
+ * @property string|null $department
+ * @property string|null $office_location
+ * @property string|null $business_phone
+ * @property string $email
+ * @property Carbon|null $hire_date
+ * @property string $search_text
+ * @property Carbon $synced_at
+ */
+#[Fillable([
+    'company_id',
+    'tenant_id',
+    'azure_oid',
+    'display_name',
+    'job_title',
+    'department',
+    'office_location',
+    'business_phone',
+    'email',
+    'hire_date',
+    'synced_at',
+])]
+class DirectoryEntry extends Model
+{
+    /** @use HasFactory<DirectoryEntryFactory> */
+    use HasFactory;
+
+    public $timestamps = false;
+
+    /**
+     * The search text follows the fields on every save; the copy writes
+     * it itself, as an upsert fires no model events.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $entry) {
+            $entry->search_text = self::searchTextFor($entry->only(self::SEARCHED));
+        });
+    }
+
+    /** Fields the search looks through, in this order. */
+    public const SEARCHED = ['display_name', 'job_title', 'department', 'office_location', 'email'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'hire_date' => 'date',
+            'synced_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Tenant IDs are GUIDs; Microsoft may send them in any case.
+     */
+    protected function tenantId(): Attribute
+    {
+        return Attribute::make(set: fn (string $value) => strtolower(trim($value)));
+    }
+
+    /**
+     * Object IDs are GUIDs too.
+     */
+    protected function azureOid(): Attribute
+    {
+        return Attribute::make(set: fn (string $value) => strtolower(trim($value)));
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * The company whose directory the user may see: their own, while it is
+     * active. None for emergency accounts, accounts without a company and
+     * guests (B2B) of another organization, who are not in the directory
+     * either. Uses the user's loaded company.
+     */
+    public static function companyIdFor(?User $user): ?int
+    {
+        if ($user === null || $user->is_emergency || $user->is_guest === true || $user->company_id === null) {
+            return null;
+        }
+
+        return $user->company?->is_active === true ? (int) $user->company_id : null;
+    }
+
+    /**
+     * @param  array<string, string|null>  $fields
+     */
+    public static function searchTextFor(array $fields): string
+    {
+        return AppSearch::normalize(implode(' ', array_filter(array_map(fn ($value) => (string) $value, $fields))));
+    }
+
+    /**
+     * Entries holding every word of the search, ignoring accents and case
+     * (App\Catalog\AppSearch), like the home search.
+     *
+     * @param  Builder<DirectoryEntry>  $query
+     */
+    public function scopeMatching(Builder $query, AppSearch $search): void
+    {
+        $terms = $search->isActive() ? explode(' ', AppSearch::normalize($search->query())) : [];
+
+        foreach ($terms as $term) {
+            $query->whereRaw('search_text like ? '.Like::ESCAPE, [Like::contains($term)]);
+        }
+    }
+
+    /**
+     * «Cargo · Área», with whichever of the two is known.
+     */
+    public function roleLine(): string
+    {
+        return implode(' · ', array_filter([trim((string) $this->job_title), trim((string) $this->department)], fn (string $part) => $part !== ''));
+    }
+
+    /**
+     * `tel:` link of the office phone: digits and a leading «+» only.
+     */
+    public function phoneHref(): ?string
+    {
+        $phone = trim((string) $this->business_phone);
+        $digits = preg_replace('/[^\d+]/', '', $phone);
+
+        if ($digits === null || $digits === '' || $digits === '+') {
+            return null;
+        }
+
+        return 'tel:'.(str_starts_with($digits, '+') ? '+' : '').str_replace('+', '', $digits);
+    }
+
+    /**
+     * `mailto:` link of the email, each part percent-encoded: a `?`, `&`
+     * or `%` in the address never adds headers (cc, subject, body).
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc6068
+     */
+    public function mailtoHref(): string
+    {
+        $email = (string) $this->email;
+        $at = strrpos($email, '@');
+
+        if ($at === false) {
+            return 'mailto:'.rawurlencode($email);
+        }
+
+        return 'mailto:'.rawurlencode(substr($email, 0, $at)).'@'.rawurlencode(substr($email, $at + 1));
+    }
+
+    /**
+     * A Teams chat with the person (opens Teams or its web app).
+     *
+     * @see https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/build-and-test/deep-link-teams
+     */
+    public function teamsChatUrl(): string
+    {
+        return 'https://teams.microsoft.com/l/chat/0/0?users='.rawurlencode($this->email);
+    }
+}

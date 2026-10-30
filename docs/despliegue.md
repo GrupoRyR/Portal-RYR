@@ -231,6 +231,33 @@ PORTAL_SUPER_ADMIN_EMAILS=<correo1>,<correo2>
 
 Referencias de Microsoft Learn: [user: sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [adjuntos de más de 3 MB](https://learn.microsoft.com/en-us/graph/outlook-large-attachments), [RBAC para aplicaciones en Exchange Online](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac), [flujo de credenciales de cliente](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow).
 
+**Directorio de personas (copia nocturna desde Microsoft).** El buscador del inicio y la página `/personas` muestran a las personas de la empresa con su cargo, área, oficina, teléfono de la oficina y correo. El portal los copia de Microsoft Entra cada noche con la misma app «Portal RYR» y el mismo `MICROSOFT_CLIENT_SECRET`; no hay claves nuevas en `.env`.
+
+1. **Permiso en Entra (una sola vez).** En el centro de administración de Microsoft Entra del inquilino de Segurex, abra **Registros de aplicaciones** › **Portal RYR** › **Permisos de API** › **Agregar un permiso** › **Microsoft Graph** › **Permisos de aplicación**, busque **User.Read.All**, márquelo y pulse **Agregar permisos**. Debe ser de tipo *Aplicación*, no *Delegado*.
+2. **Consentimiento en Segurex.** En la misma página pulse **Conceder consentimiento de administrador para Segurex** y confirme. La columna **Estado** de `User.Read.All` debe quedar en verde («Concedido»). Antes de pulsar, revise la lista: el botón concede todos los permisos que aparezcan en ella.
+3. **Consentimiento en las demás empresas.** Cada empresa con otro inquilino debe dar su propio consentimiento. Un administrador global de esa empresa abre este enlace (cambie `<inquilino>` por el Id. de inquilino de la empresa, `<id>` por `MICROSOFT_CLIENT_ID` y `<MICROSOFT_REDIRECT_URI>` por el valor de `.env`):
+
+   ```text
+   https://login.microsoftonline.com/<inquilino>/adminconsent?client_id=<id>&redirect_uri=<MICROSOFT_REDIRECT_URI>
+   ```
+
+   Si la empresa dio el consentimiento del asistente antes de agregar `User.Read.All`, tiene que volver a abrir el enlace para aceptar el permiso nuevo. Las empresas que comparten el inquilino de Segurex no necesitan nada más.
+4. **Primera copia a mano**, por SSH:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   php artisan portal:sync-directory
+   ```
+
+   Muestra cuántas personas copió y cuántas quitó en cada empresa. Si un inquilino falla (sin consentimiento, permiso no concedido, Microsoft sin respuesta, una redirección, o una respuesta sin nadie que copiar cuando el directorio ya tiene personas de ese inquilino), lo dice, termina con error y ese inquilino conserva las personas de la copia anterior; el motivo, sin secretos, queda en `storage/logs` («Directory copy failed…», con el código HTTP y los códigos AADSTS, o solo el tipo de error si fue otra cosa). Un 403 casi siempre es `User.Read.All` sin consentimiento en ese inquilino. Solo corre una copia a la vez: si ya hay otra en curso (por ejemplo la de las 03:30), la copia a mano dice «Ya hay una copia del directorio en curso», termina con error sin copiar nada y basta repetirla cuando la otra termine.
+5. **Después no hay que hacer nada:** el cron del paso 1.9 la ejecuta cada noche a las 03:30 (hora de Bogotá). `php artisan schedule:list` debe mostrar `30 3 * * *  php artisan portal:sync-directory`.
+
+- Solo se copian las cuentas habilitadas de miembros con correo: nunca los invitados (B2B), las cuentas deshabilitadas ni el celular personal (`mobilePhone`).
+- Cada persona queda en la empresa que le daría el inicio de sesión (la única empresa del inquilino; si lo comparten varias, la dueña del dominio de su correo; si no, la principal). Las de empresas inactivas no se copian, y si una empresa se desactiva, sus personas salen del directorio en la siguiente copia.
+- Quien sale de Entra, o queda deshabilitado, desaparece en la siguiente copia.
+
+Referencias de Microsoft Learn: [List users](https://learn.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0), [consentimiento de administrador](https://learn.microsoft.com/en-us/entra/identity-platform/v2-admin-consent).
+
 **Logos de las empresas.** Se guardan en `storage/app/public/brand/<empresa>/` y se publican en `/storage/...`. El script de despliegue ya crea el enlace; si los logos no se ven, ejecútelo a mano:
 
 ```bash
