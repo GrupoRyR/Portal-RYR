@@ -151,6 +151,25 @@
                 </div>
                 @error('newDomain') <p id="c-new-domain-error" class="{{ $error }}">{{ $message }}</p> @enderror
             </div>
+
+            {{-- Announcements by email (App\Announcements\AnnouncementListEmails): both or neither, at the company's domains. --}}
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                    <label for="c-all-staff" class="{{ $label }}">Lista de todo el personal</label>
+                    <input id="c-all-staff" type="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="todos@{{ $domains[0] ?? 'ejemplo.com' }}"
+                           wire:model="allStaffEmail" class="{{ $field }}" aria-describedby="c-list-help{{ $errors->has('allStaffEmail') ? ' c-all-staff-error' : '' }}"
+                           @error('allStaffEmail') aria-invalid="true" @enderror>
+                    @error('allStaffEmail') <p id="c-all-staff-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label for="c-mail-sender" class="{{ $label }}">Buzón remitente</label>
+                    <input id="c-mail-sender" type="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="info@{{ $domains[0] ?? 'ejemplo.com' }}"
+                           wire:model="mailSender" class="{{ $field }}" aria-describedby="c-list-help{{ $errors->has('mailSender') ? ' c-mail-sender-error' : '' }}"
+                           @error('mailSender') aria-invalid="true" @enderror>
+                    @error('mailSender') <p id="c-mail-sender-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p id="c-list-help" class="-mt-2 text-[0.8125rem] text-fg-muted">Opcional, los dos o ninguno. Los anuncios marcados «Enviar también por correo» llegan a esta lista desde el buzón remitente, con Microsoft Graph. Los dos deben ser de un dominio de la empresa, y el buzón necesita el permiso de envío de Exchange de su inquilino (docs/despliegue.md).</p>
         </section>
 
         {{-- Quick links --}}
