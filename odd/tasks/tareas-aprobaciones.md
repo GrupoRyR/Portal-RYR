@@ -79,25 +79,25 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
 
 ## Preguntas para Jhon
 
-Ambigüedades del contrato v0.1 encontradas en T1. Se implementó la lectura más segura; el contrato no se cambió.
+Ambigüedades del contrato v0.1 encontradas en T1. Todas decididas; solo la 1 cambió el contrato (v0.1.1).
 
-1. **`version` igual con otro `kind` o `assignee`** (§3.3 punto 3 contra §3.7). Con la misma versión, el portal responde `unchanged` sin comparar, como dice §3.3. El `422` por cambio de `kind` o de `assignee` solo sale cuando la versión es mayor y el cambio se aplicaría. ¿Está bien?
+1. **`version` igual con otro `kind` o `assignee`** (§3.3 punto 3 contra §3.7). Con la misma versión, el portal responde `unchanged` sin comparar, como dice §3.3. El `422` por cambio de `kind` o de `assignee` solo sale cuando la versión es mayor y el cambio se aplicaría. *Decidido (Jhon, 2026-10-30):* con la misma versión, otro `kind` u otro `assignee` responde `422`, como con una versión mayor; lo demás sigue sin compararse. Para cambiar de persona o de tipo se borra y se crea con otro `external_id`. Contrato v0.1.1, commit `633629f`.
 2. **Puerto en los enlaces** (§5, «y el puerto, si lo trae»). *Decidido en la revisión:* `:443` escrito es igual a sin puerto; todo lo demás es `host[:puerto]` exacto. El catálogo hoy no acepta direcciones con puerto.
 3. **Caracteres del título** (§3.2, «caracteres de control»). *Decidido en la revisión:* además de los de control, los separadores de línea y párrafo, y los de dirección del texto (U+202A a U+202E, U+2066 a U+2069), se rechazan U+200E, U+200F, U+061C, U+200B y U+FEFF.
-4. **Inquilino de una empresa registrada** (§3.5). Se acepta cualquier empresa registrada, también una inactiva (sus cuentas no entran, así que no ven nada). ¿Se debe exigir una empresa activa?
-5. **Qué app del catálogo se puede elegir** (§2.1). Se listan las apps web con dirección, también las ocultas. ¿Se deben excluir las ocultas?
+4. **Inquilino de una empresa registrada** (§3.5). Se acepta cualquier empresa registrada, también una inactiva (sus cuentas no entran, así que no ven nada). *Decidido (Jhon, 2026-10-30):* se queda así, para poder precargar elementos de empresas que aún no están activas.
+5. **Qué app del catálogo se puede elegir** (§2.1). Se listan las apps web con dirección, también las ocultas. *Decidido (Jhon, 2026-10-30):* se queda así, se listan también las ocultas.
 6. **`user_id` del elemento.** El contrato pide guardar solo sus campos (§8.6) y mostrar por `{tenant_id, oid}` (§4.1), así que no se guarda `user_id`: `WorkItem::visibleTo($user)` compara `tenant_id` y `azure_oid` de la cuenta activa. Así funciona también para cuentas que entran por primera vez.
 7. **Fecha sin segundos.** `due_at` acepta `2026-11-05T17:00-05:00` y fracciones de segundo, siempre con zona.
-8. **Confirmar con Microsoft al guardar la app de tareas.** Si la confirmación venció, **Guardar app** lleva a Microsoft y al volver hay que escribir otra vez la app y la URL base (el formulario de crear token sí se abre solo después de confirmar). ¿Basta así, o se quiere un paso «Editar» que confirme antes de escribir?
+8. **Confirmar con Microsoft al guardar la app de tareas.** Si la confirmación venció, **Guardar app** lleva a Microsoft y al volver hay que escribir otra vez la app y la URL base (el formulario de crear token sí se abre solo después de confirmar). *Decidido (Jhon, 2026-10-30):* se queda así, sin paso «Editar».
 
 ## Progreso
 
 - 2026-10-29: documento creado. T1 en curso.
 - 2026-10-29: T1 hecho en `feat/tareas-1-api` (sin push ni PR). Ruta: delegada (escritor).
 - 2026-10-29: correcciones de la revisión independiente de T1 (9 puntos) hechas y comprobadas. Sin push ni PR.
+- 2026-10-30: Jhon decidió las preguntas 1, 4, 5 y 8. La 1 cambia el código: misma `version` con otro `kind` o `assignee` responde `422` (`633629f`, contrato v0.1.1; 1.359 pruebas en verde). Sin push.
 
 ## Siguiente paso
 
-- Jhon: responder las preguntas 1, 4, 5 y 8 (la 2 y la 3 ya se decidieron en la revisión; puede cambiarlas).
-- PR de T1 contra `main`.
+- Push de `633629f` al PR #74 de T1 y revisión de Jhon.
 - T2 cuando la cadena del inicio (#69 a #73) esté en `main`.
