@@ -1,6 +1,6 @@
 # Manual de administración — Portal RYR
 
-Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes, la lista de pruebas en celulares y tablets antes de publicar cambios y las cuentas vinculadas de las personas que trabajan en varias empresas (§8).
+Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes, la lista de pruebas en celulares y tablets antes de publicar cambios, las cuentas vinculadas de las personas que trabajan en varias empresas (§8) y cómo conectar Claude al portal (§10).
 
 - **Dirección:** https://apps.segurexlatam.net
 - **Para instalar o publicar el portal** en el servidor, vea `docs/despliegue.md`.
@@ -510,3 +510,94 @@ El inicio muestra, en **Mi día**, el bloque **Cumpleaños y aniversarios** con 
 - Van por fecha y luego por nombre, hasta 8; si hay más, **Ver directorio** lleva a `/personas`. Sin nada en esos días, el bloque no aparece.
 - Salen de las mismas 1.000 personas que lleva el buscador del inicio (sección 9). En una búsqueda sin JavaScript (`/?q=`) el bloque no aparece.
 - La copia del inicio guardada en el equipo (hasta 24 horas) quita las filas de días pasados y corrige **Hoy** y **Mañana**; los días nuevos aparecen con la siguiente conexión.
+
+---
+
+## 10. Conectar Claude al portal
+
+Esta sección es para todas las personas, no solo para los administradores. Explica cómo conectar Claude (claude.ai) al portal para hacerle preguntas sobre lo que usted ya ve en él. La parte de administración está en §2.8 (Auditoría) y §2.10 (Configuración › **Conector de Claude**); la instalación en el servidor, en `docs/despliegue.md` §1.13.
+
+### 10.1 Qué hace
+
+Claude consulta el portal con sus cuentas y responde con lo mismo que usted ve al entrar. Es **solo lectura**: Claude no puede confirmar lecturas, cambiar datos ni abrir apps por usted.
+
+Lo que puede consultar:
+
+- **Anuncios pendientes:** los anuncios que piden **Confirmar lectura** y que usted aún no ha confirmado. La lectura se confirma en el portal.
+- **Un anuncio:** el texto completo de uno de esos anuncios.
+- **Próximas fechas:** festivos de Colombia, eventos de su empresa y fechas que se repiten cada año.
+- **Cumpleaños y aniversarios:** de las personas de su empresa, como en **Mi día** (§9.6).
+- **Buscar personas:** en el directorio de su empresa, como en `/personas` (§9).
+- **Mis apps:** las aplicaciones que usted puede abrir, con el enlace del portal. El enlace abre la app con la cuenta que tenga la sesión del portal en su navegador.
+- **Quién soy:** con qué cuentas del portal está conectado Claude.
+
+Cada respuesta dice de qué empresa es cada dato («Segurex», «Derivados»). Si incluye sus cuentas vinculadas (§8), Claude lee con todas ellas, y cada una ve solo lo de su empresa, con sus propias reglas.
+
+Sus tareas y aprobaciones llegarán después. La pantalla de permiso ya las nombra, pero por ahora Claude no puede consultarlas.
+
+### 10.2 Cómo conectar
+
+Necesita una cuenta de Claude (claude.ai). El plan gratuito permite un solo conector propio.
+
+1. En Claude, abra **Customize › Connectors** (en español, «Personalizar › Conectores») y pulse **Add custom connector** («Agregar conector personalizado»).
+2. Escriba un nombre, por ejemplo «Portal RYR», y esta dirección:
+
+   ```text
+   https://apps.segurexlatam.net/mcp/portal
+   ```
+
+   No escriba un ID ni un secreto de OAuth. Si Claude pregunta cómo identificarse ante el servidor, elija **Register automatically** («Registrar automáticamente»). Pulse **Add**.
+3. Pulse **Connect** en el conector. Claude abre el portal.
+4. Si no tiene la sesión abierta, entre con su cuenta de Microsoft de la empresa.
+5. Revise la pantalla **¿Conectar «Claude» con el portal?**:
+   - El nombre del cliente y «Después de aprobar, volverás a **claude.ai**». Lea el aviso: «Aprueba solo si acabas de agregar el conector en tu propio Claude. Si no lo pediste, elige Rechazar.» Si usted no acaba de pulsar **Connect** en su Claude, pulse **Rechazar**: alguien pudo enviarle ese enlace.
+   - En **Las cuentas que usará**, la cuenta con la que entró aparece primero, «Siempre incluida».
+   - Si tiene cuentas vinculadas, cada una tiene **Incluir**. Al pulsarlo, el portal lo lleva a Microsoft para entrar con esa cuenta (a veces sin preguntar nada, a veces con la contraseña o el segundo factor). Al volver dice «Confirmaste tu cuenta de Derivados. Se incluirá al aprobar.» (con el nombre de esa empresa), y la cuenta muestra «Confirmada a las …» y **Quitar**. Solo entran las cuentas que confirme antes de aprobar.
+   - **Solo lectura: lo que podrá consultar** resume lo de §10.1.
+6. Pulse **Aprobar**. El portal lo devuelve a Claude con el conector listo.
+
+En una conversación, el conector se enciende o se apaga con el botón **+** del chat › **Connectors**. Claude puede pedir permiso antes de usar cada herramienta del portal.
+
+**En un plan Team o Enterprise de Claude**, el propietario de la organización agrega el conector en **Organization settings › Connectors** (**Add › Custom**, con la misma dirección). Cada persona lo encuentra después en **Customize › Connectors**, con la etiqueta **Custom**, y pulsa **Connect**.
+
+Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de Anthropic está en https://claude.com/docs/connectors/custom.
+
+### 10.3 Privacidad
+
+- **Cuentas personales de Claude.** El conector funciona con cuentas personales de Claude (Free, Pro o Max), no solo con las de la empresa. El líder de IA del grupo aceptó este riesgo el 2026-10-30: lo que Claude lee del portal pasa por esa cuenta de Claude.
+- **Apague la mejora de modelos.** En una cuenta personal, abra en Claude **Settings › Privacy** (Configuración › Privacidad, `https://claude.ai/settings/data-privacy-controls`) y apague la opción que permite usar sus chats para mejorar los modelos («Help improve Claude»; la ayuda de Anthropic la llama «Help Improve our AI models»). Así sus conversaciones nuevas no se usan para entrenar modelos.
+- **No copie datos del portal a otros lugares:** ni a otros chats o servicios de IA, ni a documentos públicos o compartidos.
+- **Lo que nunca sale del portal**, aunque Claude lo pida: el celular personal, el año de nacimiento, el cumpleaños de quien no marcó **Mostrar mi cumpleaños a las personas de mi empresa** y los datos de una empresa que no está entre las cuentas de la conexión.
+- **Queda registro.** Cada consulta de Claude queda en Auditoría con la herramienta y la hora, nunca con lo que preguntó ni con lo que respondió el portal (§2.8).
+
+### 10.4 Cómo desconectar
+
+1. En el inicio, toque su avatar y elija **Cuentas vinculadas** (página `/cuenta`).
+2. En **Conexiones con Claude** verá cada conexión con sus cuentas, cuándo se conectó y su último uso.
+3. Pulse **Desconectar**. El portal confirma: «Desconectaste Claude («Claude»). Ya no puede leer los datos de esas cuentas.»
+
+- Se corta la conexión completa, con todas sus cuentas. Cualquier cuenta de la conexión puede cortarla, también una incluida.
+- Funciona aunque el conector esté apagado. En ese caso la sección lo avisa: «El conector de Claude está apagado: esta conexión no funciona por ahora, pero vuelve a funcionar si lo encienden. Puedes desconectarla.»
+- Quite también el conector en Claude: **Customize › Connectors** › **Remove** (o el menú de tres puntos). Quitarlo solo en Claude no corta la conexión en el portal: desconéctela además en `/cuenta`.
+- Si perdió el acceso a su cuenta de Claude, desconecte en `/cuenta` de inmediato. No pide confirmar con Microsoft.
+
+### 10.5 Qué preguntar primero
+
+- «¿Con qué cuentas estás conectado al portal?»
+- «¿Qué anuncios tengo pendientes por leer en el portal?»
+- «¿Qué festivos y eventos hay en los próximos 30 días?»
+- «¿Quién cumple años o aniversario esta semana?»
+- «Busca a las personas de Contabilidad en el portal.»
+- «¿Qué apps tengo en el portal?»
+
+### 10.6 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| Claude dice que el conector no está disponible o no responde, o la dirección da 404. | El conector está apagado en el portal (Configuración, §2.10) o en el servidor (`docs/despliegue.md` §1.13). | Pregunte a TI. Sus conexiones no se borran: vuelven a funcionar cuando lo enciendan. |
+| Al conectar aparece «Esta cuenta no puede conectar Claude.» | La cuenta es de invitado, es la cuenta de emergencia o su empresa no tiene acceso al portal. | Entre con su propia cuenta de Microsoft de una empresa del grupo. |
+| «No pudimos confirmar esa cuenta. No se incluyó en la conexión.» o «Microsoft respondió con otra cuenta. No se incluyó en la conexión.» | Microsoft no confirmó la cuenta de **Incluir**, o entró con otra. | Pulse **Incluir** otra vez y elija la cuenta correcta en Microsoft. |
+| Claude ya no ve lo de una de sus empresas. | La cuenta incluida se desvinculó (§8.4), su empresa se desactivó o pasó a invitada. Sale sola en la siguiente consulta; la cuenta que aprobó sigue funcionando. | Pregunte a Claude «¿Con qué cuentas estás conectado al portal?». Si la cuenta vuelve a estar vinculada, conecte otra vez desde Claude e inclúyala. |
+| Quiere agregar otra cuenta a una conexión que ya existe. | Las cuentas se eligen solo en la pantalla de permiso. | Conecte otra vez desde Claude e incluya todas las cuentas que quiera: al aprobar, la lista nueva reemplaza la anterior. |
+| Claude pide conectar otra vez después de un tiempo sin usarlo. | La conexión vence tras 30 días sin uso. | En Claude, **Customize › Connectors** › **Connect**. Pasa de nuevo por Microsoft y por la pantalla de permiso; incluya otra vez sus cuentas vinculadas. |
+| En `/cuenta` aparece una conexión que ya no usa. | Por ejemplo, quitó el conector en Claude y lo agregó otra vez. | Pulse **Desconectar** en la que no usa. |
