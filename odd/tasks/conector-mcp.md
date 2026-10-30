@@ -118,7 +118,7 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
   - [x] C2a. **OAuth, consentimiento y conexión con la cuenta que aprueba:** paquetes, interruptor, registro de clientes solo para claude.ai, pantalla de consentimiento, `mcp_connections`, revisión de cuentas en cada llamada y la herramienta de prueba `quien_soy`. Commits `5648b31` y, tras la revisión, `46e57c7` (C2a-R).
   - [x] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`. Commit `c773266`.
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
-  - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73`.
+  - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73` y, tras la revisión, `e6d30a0` (C3a-R).
   - [ ] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items`. Espera a que #74 esté en la base.
 - [ ] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría.
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
@@ -272,7 +272,7 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 | `buscar_personas` | `texto` 2–60 | 20 | `companyIdFor()`, `scopeMatching()` y las columnas de /personas |
 | `mis_apps` | — | 100 | `AppCatalog::visibleApps()` |
 
-- **Datos que nunca salen:** celular (el directorio no lo tiene), año de nacimiento (el portal no lo guarda), cumpleaños sin la casilla «mostrar», fecha de ingreso, enlaces de Teams ni datos de una empresa que no está entre las cuentas. Los cumpleaños dicen día y mes; los aniversarios, los años cumplidos.
+- **Datos que nunca salen:** celular (el directorio no lo tiene), año de nacimiento (el portal no lo guarda), cumpleaños sin la casilla «mostrar», enlaces de Teams ni datos de una empresa que no está entre las cuentas. Los cumpleaños dicen día y mes. De los aniversarios sale solo el día del aniversario y los años cumplidos (lo mismo que ya muestra el inicio).
 - **Servidor:** `PortalServer` registra las siete herramientas y sus instrucciones las describen.
 
 ### Pruebas
@@ -286,8 +286,8 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 
 ### Decisiones
 
-- **Las consultas nuevas van en los modelos** (`Announcement`, `DirectoryEntry`), junto a las que ya existían. `HomePageBuilder::people()` todavía tiene su propia copia de la unión con el cumpleaños: estaba fuera de los archivos permitidos. Queda como seguimiento que use `scopeWithShownBirthday()`.
-- **`Celebration::within()` mira 7 días** y estaba fuera de los archivos permitidos. Para ventanas de hasta 31 días se llama con ventanas seguidas de 8 días (de hoy, de hoy + 8…) y se descarta lo que pasa del límite. Seguimiento posible: darle un parámetro de días.
+- **Las consultas nuevas van en los modelos** (`Announcement`, `DirectoryEntry`), junto a las que ya existían. `HomePageBuilder::people()` todavía tiene su propia copia de la unión con el cumpleaños: estaba fuera de los archivos permitidos. Queda como seguimiento que use `scopeWithShownBirthday()` (hecho en el C3a-R).
+- **`Celebration::within()` mira 7 días** y estaba fuera de los archivos permitidos. Para ventanas de hasta 31 días se llama con ventanas seguidas de 8 días (de hoy, de hoy + 8…) y se descarta lo que pasa del límite. Seguimiento posible: darle un parámetro de días (hecho en el C3a-R).
 - **Festivos:** son los mismos para todas, así que salen con todas las empresas de la conexión.
 - **`mis_apps` enlaza al lanzador del portal** (`/apps/{slug}`), que revisa el acceso otra vez con la cuenta de la sesión del navegador.
 - **`anuncio` devuelve el texto tal como está guardado:** los anuncios son texto plano y el portal nunca los guarda en HTML.
@@ -300,6 +300,37 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 - No se probó contra claude.ai real.
 - El inicio `/` no cambió: no se tocó su código (`HomeScreenTest` pasa en la suite completa).
 - Tamaño: unas 930 líneas de código (con comentarios) y 1.240 de pruebas. Pasa de la cifra orientativa de 400 porque las seis herramientas comparten la base, la regla de una sola vez y las pruebas de la conexión con dos cuentas.
+
+## Registro del C3a-R
+
+Ruta: el mismo escritor delegado, después de una revisión independiente del C3a (sin hallazgos altos ni medios, 6 bajos). Para esta ronda también se permitió editar `app/View/Home/**` y `app/Catalog/AppCatalog.php`, solo para quitar la duplicación. Commit `e6d30a0` (`fix(mcp): harden the portal tools after review (C3a-R)`).
+
+### Qué cambió
+
+- **L1, cumpleaños de homónimos:** las filas se unían por tipo, fecha, nombre y texto. Dos «Juan Pérez» con el mismo cumpleaños quedaban en una fila, y dos «María Gómez» de dos empresas, en una sola con las dos empresas.
+  - Ahora `Celebration` lleva la entrada del directorio (`entryId`) y sale una fila por entrada y por empresa.
+  - Solo se unen las filas de la persona de la propia conexión: sus cuentas ya se confirmaron con Microsoft y siguen vinculadas (`ConnectionAccounts`). Por eso su cumpleaños en los dos directorios sale una vez, con las dos empresas.
+  - La persona de nadie más se lee: las cuentas vinculadas de otra persona quedan en una fila por empresa. Así no hace falta `LinkedAccounts` ni ampliar `PersonNeverAuthorizesTest`.
+- **L2, el mismo directorio que el inicio:** la consulta del inicio pasó a `DirectoryEntry::homeDirectory()` (por nombre, máximo `HomeSearchIndex::PEOPLE_LIMIT`, con `scopeWithShownBirthday()`). `HomePageBuilder::people()` y la herramienta usan esa misma consulta. Antes la herramienta filtraba antes del tope de 1.000 personas y el inicio no. El inicio sigue con una consulta para el directorio.
+- **Ventana:** `Celebration::within()` recibe los días (7 por defecto, lo del inicio). La herramienta ya no recorre ventanas de 8 días.
+- **L3, el texto del documento:** en «Datos que nunca salen», de los aniversarios sale solo el día del aniversario y los años cumplidos, lo mismo que muestra el inicio.
+- **L4, `mis_apps`:**
+  - `en_mantenimiento` sale del mismo estado que la tarjeta del inicio (`AppCardStatus::of()`).
+  - `nota` dice que el enlace abre la app con la cuenta del portal que tenga la sesión en el navegador, y con qué cuenta abrirla: «… usa tu cuenta de Segurex (jhon.castro@segurex.com) o de Derivados (…)».
+- **L5, `buscar_personas`:** pide al menos una palabra de 2 caracteres o más. «a e» se rechaza.
+- **L6:** una categoría vacía sale como `null`, y `quien_soy` usa el nombre corto de la empresa, como las demás herramientas.
+
+### Pruebas
+
+- RED, `tests/Feature/Mcp` y `tests/Unit/Mcp`: 219 pruebas, 205 pasan, 13 fallan y 1 con error. Fallaban los dos casos de homónimos, el tope de 1.000, el mantenimiento y la categoría, la nota, «a e» y `quien_soy` con el nombre corto. La de cuentas vinculadas de otra persona y «  a  » ya pasaban.
+- GREEN: las 219 pasan. Con `tests/Feature/Home`, `tests/Feature/Search` y `PersonNeverAuthorizesTest`, 564, incluidos `HomeScreenTest` (no más de 12 consultas) y `HomeCelebrationsTest`.
+- Suite completa: 1.926 pruebas, todas pasan (1.919 antes).
+- Pint: sin cambios pendientes.
+- Tamaño: unas 220 líneas de código y 100 de pruebas.
+
+### No hecho
+
+- `AppCatalog.php` no cambió: no tenía duplicación que quitar.
 
 ## Siguiente paso
 
