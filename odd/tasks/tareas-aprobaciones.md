@@ -52,6 +52,8 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
     - [x] Ambigüedad 3: el título rechaza también U+200E, U+200F, U+061C, U+200B y U+FEFF. `TrimStrings` ya los quita de los bordes, así que solo cuentan dentro del título.
     - [x] Pruebas de enlaces nuevas: `https:\evil`, host con `%`, `https:///…` (rechazados) y `@` en la ruta (permitido).
     - Evidencia: RED 11 en `WorkItemsApiTest` + `WorkItemsSchemaTest` y 3 en `IntegrationsPageTest` + `WorkItemPruneScheduleTest`; GREEN en todas; suite completa 1355/1355; `pint --test` limpio. Commits `bd54690` (limpieza), `3e2830b` (Integraciones), `9bfc004` (API).
+  - [x] **Contrato v0.2: cambiar la persona** (decisión de Jhon, 2026-10-30; ruta: delegada, escritor). La app puede equivocarse: con una `version` mayor, un `PUT` cambia el `assignee` y el elemento pasa del portal de una persona al de la otra (`WorkItem::visibleTo()` lee el `tenant_id` y el `oid` guardados). Al reasignar un elemento pendiente se comprueba el límite de 500 de la persona nueva (antes no se comprobaba porque el elemento ya estaba pendiente). Con la misma `version`, otro `assignee` responde `422` pidiendo subir la versión. `kind` sigue sin cambiar con ninguna versión (Jhon corrigió el primer planteamiento, que también lo dejaba cambiar). Quien envía el elemento no entra en el contrato.
+    - Evidencia: RED 7/101 con el primer planteamiento y RED 3/102 tras la corrección de `kind`; GREEN 102/102 en `WorkItemsApiTest`; suite completa 1364/1364; `pint --test` limpio. Commit `593da49`.
 - [ ] T2. **«Mi día» en el inicio.** Lista «Por aprobar» y «Tareas» con «Ver tarea» y «Ver aprobación» (§4, §5). Depende de la cadena del inicio (#69 a #73). Ruta: por decidir.
 - [ ] T3. **«Completar» firmado.** Secreto `ryrsig_` cifrado, llamada `POST {app_base_url}/api/portal/v1/tasks/{external_id}/complete` con HMAC-SHA256, 5 s, sin redirecciones, Auditoría `work_item.completed` y `work_item.complete_failed` (§6). Ruta: por decidir.
 - [ ] T4. **Carga inicial y conciliación.** Bloqueada: pregunta abierta 1 del contrato (§11).
@@ -81,7 +83,7 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
 
 Ambigüedades del contrato v0.1 encontradas en T1. Todas decididas; solo la 1 cambió el contrato (v0.1.1).
 
-1. **`version` igual con otro `kind` o `assignee`** (§3.3 punto 3 contra §3.7). Con la misma versión, el portal responde `unchanged` sin comparar, como dice §3.3. El `422` por cambio de `kind` o de `assignee` solo sale cuando la versión es mayor y el cambio se aplicaría. *Decidido (Jhon, 2026-10-30):* con la misma versión, otro `kind` u otro `assignee` responde `422`, como con una versión mayor; lo demás sigue sin compararse. Para cambiar de persona o de tipo se borra y se crea con otro `external_id`. Contrato v0.1.1, commit `633629f`.
+1. **`version` igual con otro `kind` o `assignee`** (§3.3 punto 3 contra §3.7). Con la misma versión, el portal responde `unchanged` sin comparar, como dice §3.3. El `422` por cambio de `kind` o de `assignee` solo sale cuando la versión es mayor y el cambio se aplicaría. *Decidido (Jhon, 2026-10-30):* con la misma versión, otro `kind` u otro `assignee` responde `422`, como con una versión mayor; lo demás sigue sin compararse. Para cambiar de persona o de tipo se borra y se crea con otro `external_id`. Contrato v0.1.1, commit `633629f`. *Revisado (Jhon, 2026-10-30, contrato v0.2):* con una versión mayor la persona sí puede cambiar; con la misma versión, otro `assignee` responde `422` pidiendo subir la versión. El tipo sigue sin cambiar nunca. Commit `593da49`.
 2. **Puerto en los enlaces** (§5, «y el puerto, si lo trae»). *Decidido en la revisión:* `:443` escrito es igual a sin puerto; todo lo demás es `host[:puerto]` exacto. El catálogo hoy no acepta direcciones con puerto.
 3. **Caracteres del título** (§3.2, «caracteres de control»). *Decidido en la revisión:* además de los de control, los separadores de línea y párrafo, y los de dirección del texto (U+202A a U+202E, U+2066 a U+2069), se rechazan U+200E, U+200F, U+061C, U+200B y U+FEFF.
 4. **Inquilino de una empresa registrada** (§3.5). Se acepta cualquier empresa registrada, también una inactiva (sus cuentas no entran, así que no ven nada). *Decidido (Jhon, 2026-10-30):* se queda así, para poder precargar elementos de empresas que aún no están activas.
@@ -96,8 +98,9 @@ Ambigüedades del contrato v0.1 encontradas en T1. Todas decididas; solo la 1 ca
 - 2026-10-29: T1 hecho en `feat/tareas-1-api` (sin push ni PR). Ruta: delegada (escritor).
 - 2026-10-29: correcciones de la revisión independiente de T1 (9 puntos) hechas y comprobadas. Sin push ni PR.
 - 2026-10-30: Jhon decidió las preguntas 1, 4, 5 y 8. La 1 cambia el código: misma `version` con otro `kind` o `assignee` responde `422` (`633629f`, contrato v0.1.1; 1.359 pruebas en verde). Sin push.
+- 2026-10-30: contrato v0.2. Con una `version` mayor la persona puede cambiar y el elemento pasa a la nueva; el tipo no cambia nunca (`593da49`; 1.364 pruebas en verde). Sin push.
 
 ## Siguiente paso
 
-- Push de `633629f` al PR #74 de T1 y revisión de Jhon.
+- Push de `633629f` y `593da49` al PR #74 de T1 y revisión de Jhon.
 - T2 cuando la cadena del inicio (#69 a #73) esté en `main`.
