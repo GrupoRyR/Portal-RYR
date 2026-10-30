@@ -12,6 +12,8 @@ use App\Auth\MicrosoftLogin;
 use App\Auth\RecentMicrosoftLogin;
 use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Controller;
+use App\Mcp\AccountConfirmation;
+use App\Mcp\ConsentAccounts;
 use App\Microsoft\ConsentChecker;
 use App\Models\Company;
 use App\Models\User;
@@ -37,9 +39,10 @@ class MicrosoftLoginController extends Controller
 
     /**
      * `error` codes of a silent sign-in (prompt=none) that only mean the
-     * person has to act: a switch retries once asking for the credentials.
+     * person has to act: a switch, or the confirmation of an account for a
+     * Claude connection, retries once asking for the credentials.
      */
-    private const INTERACTION_ERRORS = ['login_required', 'interaction_required', 'consent_required', 'account_selection_required'];
+    public const INTERACTION_ERRORS = ['login_required', 'interaction_required', 'consent_required', 'account_selection_required'];
 
     public function show(): View
     {
@@ -163,12 +166,17 @@ class MicrosoftLoginController extends Controller
             return $this->failed(LoginFailed::RETRY);
         }
 
-        // Consumed either way: only a switch of this callback (its state,
-        // this user, not expired) has an answer of its own.
+        // Consumed either way: only a switch or a Claude confirmation of
+        // this callback (its state, this user, not expired) has an answer
+        // of its own.
         $intent = $intents->pull($request, $user);
 
         if (($intent['type'] ?? null) === AccountIntent::SWITCH) {
             return $this->switchError($user, $intent, $code, $intents, $linkedAccounts);
+        }
+
+        if (($intent['type'] ?? null) === AccountIntent::MCP_INCLUDE) {
+            return app(AccountConfirmation::class)->microsoftError($request, $user, $intent, $code, self::INTERACTION_ERRORS);
         }
 
         // A re-authentication that ends in an error is still a failed
@@ -237,7 +245,10 @@ class MicrosoftLoginController extends Controller
         return match ($intent['type'] ?? null) {
             AccountIntent::LINK => $this->linkAccount($user, $login, $linkedAccounts),
             AccountIntent::SWITCH => $this->switchAccount($request, $user, $intent, $login, $recent, $linkedAccounts),
-            default => $this->unusableIntent($user),
+            // Never signs the account in: it only joins the pending Claude
+            // connection (App\Mcp\AccountConfirmation).
+            AccountIntent::MCP_INCLUDE => app(AccountConfirmation::class)->answered($request, $user, $intent),
+            default => $this->unusableIntent($request, $user),
         };
     }
 
@@ -322,7 +333,11 @@ class MicrosoftLoginController extends Controller
             ->withHeaders(['Clear-Site-Data' => '"cache"']);
     }
 
-    private static function isAccount(User $account, MicrosoftIdentity $identity): bool
+    /**
+     * Whether Microsoft answered with this very account: the same tenant
+     * and object ID (a switch, or a confirmation for a Claude connection).
+     */
+    public static function isAccount(User $account, MicrosoftIdentity $identity): bool
     {
         return $account->tenant_id !== null
             && $account->azure_oid !== null
@@ -397,11 +412,17 @@ class MicrosoftLoginController extends Controller
         return redirect('/')->with('status', $refusal->getMessage());
     }
 
-    private function unusableIntent(User $user): RedirectResponse
+    /**
+     * Home, or back to the Claude consent screen when one is still pending
+     * for this user, so the person can try again from there.
+     */
+    private function unusableIntent(Request $request, User $user): RedirectResponse
     {
         Log::warning('Microsoft callback for an account intent that is expired, foreign or not handled; discarded.', ['user_id' => $user->id]);
 
-        return redirect('/')->with('status', AccountIntent::UNUSABLE_MESSAGE);
+        $consent = app(ConsentAccounts::class)->live($request, $user);
+
+        return redirect($consent['return'] ?? '/')->with('status', AccountIntent::UNUSABLE_MESSAGE);
     }
 
     private function confirmed(Request $request, User $user, RecentMicrosoftLogin $recent): RedirectResponse|Response

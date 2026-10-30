@@ -57,8 +57,18 @@ class ConnectionAccounts
             ->with('company')
             ->orderBy('id')
             ->get()
-            ->filter(fn (User $account) => $this->mayConnect($account)
-                && ($account->is($approver) || $this->links->stillLinked($approver, $account)))
+            ->filter(fn (User $account) => $this->usable($approver, $account))
             ->values();
+    }
+
+    /**
+     * Whether a confirmed account may be read for on behalf of the
+     * approving one: it can still connect and is the approving account or
+     * still linked to it. Also checked when «Aprobar» stores the accounts.
+     */
+    public function usable(User $approver, User $account): bool
+    {
+        return $this->mayConnect($account)
+            && ($account->is($approver) || $this->links->stillLinked($approver, $account));
     }
 }

@@ -8,9 +8,10 @@ use Illuminate\Http\Request;
 
 /**
  * A Microsoft round trip a signed-in user starts for something other than
- * a re-authentication: linking another company's account, or switching to
- * it. The shared callback gets it back once only, for the same user, with
- * the OAuth `state` of its own redirect, and within {@see TTL_SECONDS}.
+ * a re-authentication: linking another company's account, switching to
+ * it, or confirming it for a Claude connection (App\Mcp\AccountConfirmation).
+ * The shared callback gets it back once only, for the same user, with the
+ * OAuth `state` of its own redirect, and within {@see TTL_SECONDS}.
  *
  * An intent never grants a session: each flow still checks the identity
  * Microsoft answers with.
@@ -23,6 +24,9 @@ class AccountIntent
     public const LINK = 'link';
 
     public const SWITCH = 'switch';
+
+    /** Confirms a linked account for the pending Claude connection. */
+    public const MCP_INCLUDE = 'mcp_include';
 
     public const TTL_SECONDS = 600;
 
@@ -93,7 +97,7 @@ class AccountIntent
             || ! is_string($state)
             || ! hash_equals($intent['state'], $state)
             || ($intent['user_id'] ?? null) !== $user->getKey()
-            || ! in_array($intent['type'] ?? null, [self::LINK, self::SWITCH], true)
+            || ! in_array($intent['type'] ?? null, [self::LINK, self::SWITCH, self::MCP_INCLUDE], true)
             || ! is_int($intent['expires_at'] ?? null)
             || now()->getTimestamp() >= $intent['expires_at']) {
             return null;
