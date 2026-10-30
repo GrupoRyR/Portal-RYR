@@ -270,6 +270,103 @@ class DirectorySyncTest extends TestCase
         });
     }
 
+    /**
+     * @return array<string, array{0: Closure(Request): mixed}>
+     */
+    public static function unexpectedFailures(): array
+    {
+        return [
+            'connection lost on the users call' => [fn (Request $request) => (Http::failedConnection('cURL error 7: leaked-detail '.$request->url()))($request)],
+            'any other error' => [fn () => throw new \RuntimeException('leaked-detail')],
+        ];
+    }
+
+    #[DataProvider('unexpectedFailures')]
+    public function test_any_error_on_a_tenant_keeps_its_entries_and_the_rest_of_the_copy_goes_on(Closure $failure): void
+    {
+        Log::spy();
+        $failing = Company::factory()->forTenant(self::TENANT)->create();
+        $working = Company::factory()->forTenant(self::SHARED_TENANT)->create();
+        $inactive = Company::factory()->inactive()->forTenant('33333333-3333-3333-3333-333333333333')->create();
+        $kept = DirectoryEntry::factory()->forCompany($failing)->create(['synced_at' => now()->subDay()]);
+        DirectoryEntry::factory()->forCompany($inactive)->create(['synced_at' => now()->subDay()]);
+        $this->pages[self::SHARED_TENANT] = [[$this->graphUser()]];
+        $this->graph = fn (Request $request) => $request->header('Authorization') === ['Bearer token-'.self::TENANT]
+            ? $failure($request)
+            : $this->graphPage($request);
+
+        $result = $this->sync();
+
+        $this->assertSame([self::TENANT], $result->failedTenants);
+        $this->assertSame([$kept->id], DirectoryEntry::query()->where('tenant_id', self::TENANT)->pluck('id')->all());
+        $this->assertSame(1, DirectoryEntry::query()->where('company_id', $working->id)->count());
+        // The deactivated company still leaves the directory.
+        $this->assertSame(0, DirectoryEntry::query()->where('company_id', $inactive->id)->count());
+
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context) => $context['tenant_id'] === self::TENANT
+            && is_string($context['exception'] ?? null)
+            && ! str_contains($message.json_encode($context), 'leaked-detail')
+            && ! str_contains($message.json_encode($context), 'token-'));
+    }
+
+    public function test_a_redirect_from_graph_is_not_followed_and_fails_the_tenant(): void
+    {
+        $company = Company::factory()->forTenant(self::TENANT)->create();
+        $kept = DirectoryEntry::factory()->forCompany($company)->create(['synced_at' => now()->subDay()]);
+        $this->graph = fn () => Http::response('', 302, ['Location' => 'https://evil.example/v1.0/users']);
+
+        $result = $this->sync();
+
+        $this->assertSame([self::TENANT], $result->failedTenants);
+        $this->assertSame([$kept->id], DirectoryEntry::query()->pluck('id')->all());
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'evil'));
+    }
+
+    /**
+     * @return array<string, array{0: list<array<string, mixed>>}>
+     */
+    public static function answersWithNobodyToKeep(): array
+    {
+        return [
+            'nobody' => [[]],
+            'only guests and disabled accounts' => [[
+                ['id' => '99999999-9999-9999-9999-999999999991', 'mail' => 'invitado@segurex.com', 'userType' => 'Guest', 'accountEnabled' => true],
+                ['id' => '99999999-9999-9999-9999-999999999992', 'mail' => 'ex@segurex.com', 'userType' => 'Member', 'accountEnabled' => false],
+            ]],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $users
+     */
+    #[DataProvider('answersWithNobodyToKeep')]
+    public function test_an_answer_with_nobody_to_keep_fails_a_tenant_that_has_people(array $users): void
+    {
+        Log::spy();
+        $company = Company::factory()->forTenant(self::TENANT)->create();
+        $kept = DirectoryEntry::factory()->forCompany($company)->count(2)->create(['synced_at' => now()->subDay()]);
+        $this->pages[self::TENANT] = [$users];
+
+        $result = $this->sync();
+
+        $this->assertSame([self::TENANT], $result->failedTenants);
+        $this->assertSame($kept->pluck('id')->all(), DirectoryEntry::query()->orderBy('id')->pluck('id')->all());
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context) => $context['tenant_id'] === self::TENANT
+            && ! str_contains($message.json_encode($context), self::SECRET)
+            && ! str_contains($message.json_encode($context), 'token-'));
+    }
+
+    public function test_an_empty_answer_is_fine_for_a_tenant_without_people_yet(): void
+    {
+        $company = Company::factory()->forTenant(self::TENANT)->create();
+        $this->pages[self::TENANT] = [[]];
+
+        $result = $this->sync();
+
+        $this->assertSame([], $result->failedTenants);
+        $this->assertSame(['name' => $company->name, 'saved' => 0, 'removed' => 0], $result->companies[$company->id]);
+    }
+
     public function test_a_tenant_without_consent_keeps_its_entries(): void
     {
         $company = Company::factory()->forTenant(self::TENANT)->create();

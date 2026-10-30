@@ -33,9 +33,11 @@ use Throwable;
  * - The personal mobile phone is never asked for nor stored.
  * - A tenant is written only after all of its pages were read: then its
  *   people are saved and its entries not seen in this run removed. Any
- *   failure (token, 401 after one renewal, 403, 429, 5xx, a next link
- *   outside Graph, more than the cap) keeps that tenant's entries as they
- *   were, logs a warning without secrets and goes on with the next one.
+ *   failure (token, 401 after one renewal, 403, 429, 5xx, a redirect, a
+ *   next link outside Graph, more than the cap, nobody to keep while the
+ *   tenant has people, any other error) keeps that tenant's entries as
+ *   they were, logs a warning without secrets and goes on with the next
+ *   one.
  * - Entries of tenants without an active company are removed.
  *
  * @see https://learn.microsoft.com/en-us/graph/api/user-list
@@ -90,26 +92,41 @@ final class DirectorySync
 
         foreach ($tenantIds as $tenantId) {
             try {
-                $users = $this->read($tenantId);
-            } catch (GraphAppException $e) {
-                Log::warning('Directory copy failed; the tenant keeps its previous entries.', [
-                    'tenant_id' => $tenantId,
-                    'status' => $e->status,
-                    'aadsts' => $e->aadsts,
-                    'error' => $e->getMessage(),
-                ]);
+                $tenantCompanies = Company::query()->where('tenant_id', $tenantId)->get();
+                $rows = $this->rows($tenantId, $tenantCompanies, $this->read($tenantId), $runAt);
+
+                // An empty answer is far likelier a fault than everyone gone.
+                if ($rows === [] && DirectoryEntry::query()->where('tenant_id', $tenantId)->exists()) {
+                    throw new GraphAppException('Microsoft Graph listed nobody to keep while the tenant has people in the directory.');
+                }
+
+                $companies += $this->store($tenantId, $tenantCompanies, $rows, $runAt);
+            } catch (Throwable $e) {
+                Log::warning('Directory copy failed; the tenant keeps its previous entries.', self::failure($tenantId, $e));
                 $failed[] = $tenantId;
-
-                continue;
             }
-
-            $companies += $this->store($tenantId, Company::query()->where('tenant_id', $tenantId)->get(), $users, $runAt);
         }
 
         // A deactivated company's people leave the directory too.
         DirectoryEntry::query()->whereNotIn('tenant_id', $tenantIds)->delete();
 
         return new DirectorySyncResult($companies, $failed);
+    }
+
+    /**
+     * What the log may say about a failed tenant: our own messages and
+     * codes, and only the class of anything else (its message may echo a
+     * request or a secret).
+     *
+     * @return array<string, mixed>
+     */
+    private static function failure(string $tenantId, Throwable $e): array
+    {
+        if ($e instanceof GraphAppException) {
+            return ['tenant_id' => $tenantId, 'exception' => $e::class, 'status' => $e->status, 'aadsts' => $e->aadsts, 'error' => $e->getMessage()];
+        }
+
+        return ['tenant_id' => $tenantId, 'exception' => $e::class];
     }
 
     /**
@@ -175,6 +192,7 @@ final class DirectorySync
             $response = $this->get($tenantId, $url, $query);
         }
 
+        // A 3xx (redirect not followed) fails here too.
         if (! $response->successful()) {
             throw new GraphAppException(sprintf('Microsoft Graph answered HTTP %d.', $response->status()), $response->status());
         }
@@ -195,7 +213,8 @@ final class DirectorySync
      */
     private function get(string $tenantId, string $url, ?array $query): Response
     {
-        $request = $this->http->withToken($this->tokens->for($tenantId))->acceptJson()->timeout(self::TIMEOUT);
+        // A redirect is not followed: it would carry the token off Graph.
+        $request = $this->http->withToken($this->tokens->for($tenantId))->acceptJson()->timeout(self::TIMEOUT)->withoutRedirecting();
 
         try {
             return $query === null ? $request->get($url) : $request->get($url, $query);
@@ -206,14 +225,13 @@ final class DirectorySync
     }
 
     /**
-     * Saves the tenant's people and removes its entries not seen in this
-     * run, in one transaction.
+     * The entries of the tenant's users, one per object id.
      *
      * @param  Collection<int, Company>  $tenantCompanies  Every company of the tenant, active or not.
      * @param  list<array<string, mixed>>  $users
-     * @return array<int, array{name: string, saved: int, removed: int}>
+     * @return array<string, array<string, mixed>>
      */
-    private function store(string $tenantId, Collection $tenantCompanies, array $users, CarbonInterface $runAt): array
+    private function rows(string $tenantId, Collection $tenantCompanies, array $users, CarbonInterface $runAt): array
     {
         $rows = [];
 
@@ -225,6 +243,19 @@ final class DirectorySync
             }
         }
 
+        return $rows;
+    }
+
+    /**
+     * Saves the tenant's people and removes its entries not seen in this
+     * run, in one transaction.
+     *
+     * @param  Collection<int, Company>  $tenantCompanies  Every company of the tenant, active or not.
+     * @param  array<string, array<string, mixed>>  $rows
+     * @return array<int, array{name: string, saved: int, removed: int}>
+     */
+    private function store(string $tenantId, Collection $tenantCompanies, array $rows, CarbonInterface $runAt): array
+    {
         $summary = [];
 
         foreach ($tenantCompanies->where('is_active', true) as $company) {

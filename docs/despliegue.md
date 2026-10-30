@@ -249,7 +249,7 @@ Referencias de Microsoft Learn: [user: sendMail](https://learn.microsoft.com/en-
    php artisan portal:sync-directory
    ```
 
-   Muestra cuántas personas copió y cuántas quitó en cada empresa. Si un inquilino falla (sin consentimiento, permiso no concedido, Microsoft sin respuesta), lo dice, termina con error y ese inquilino conserva las personas de la copia anterior; el motivo, sin secretos, queda en `storage/logs` («Directory copy failed…», con el código HTTP y los códigos AADSTS). Un 403 casi siempre es `User.Read.All` sin consentimiento en ese inquilino.
+   Muestra cuántas personas copió y cuántas quitó en cada empresa. Si un inquilino falla (sin consentimiento, permiso no concedido, Microsoft sin respuesta, una redirección, o una respuesta sin nadie que copiar cuando el directorio ya tiene personas de ese inquilino), lo dice, termina con error y ese inquilino conserva las personas de la copia anterior; el motivo, sin secretos, queda en `storage/logs` («Directory copy failed…», con el código HTTP y los códigos AADSTS, o solo el tipo de error si fue otra cosa). Un 403 casi siempre es `User.Read.All` sin consentimiento en ese inquilino.
 5. **Después no hay que hacer nada:** el cron del paso 1.9 la ejecuta cada noche a las 03:30 (hora de Bogotá). `php artisan schedule:list` debe mostrar `30 3 * * *  php artisan portal:sync-directory`.
 
 - Solo se copian las cuentas habilitadas de miembros con correo: nunca los invitados (B2B), las cuentas deshabilitadas ni el celular personal (`mobilePhone`).
