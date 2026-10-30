@@ -4,6 +4,8 @@ namespace App\Livewire\Admin;
 
 use App\Announcements\AnnouncementImageStore;
 use App\Announcements\AnnouncementPublisher;
+use App\Announcements\AnnouncementReminders;
+use App\Announcements\ReminderNotAllowed;
 use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\User;
@@ -29,7 +31,9 @@ use Throwable;
  * as the home screen. A saved mandatory announcement also shows «X de Y
  * personas lo leyeron» and the people who are missing: counted once and
  * kept for READ_REPORT_SECONDS (typing in the form does not recount), while
- * who may see it (`viewReads`) is re-checked on every render.
+ * who may see it (`viewReads`) is re-checked on every render. From there,
+ * «Enviar recordatorio» asks the cron to email the people who are missing
+ * (App\Announcements\AnnouncementReminders, at most once a day).
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -175,6 +179,29 @@ class AnnouncementEditor extends Component
     }
 
     /**
+     * «Enviar recordatorio»: records a reminder for the cron to mail. The
+     * once-a-day limit and whether it may be sent at all are checked on the
+     * server ({@see AnnouncementReminders::request()}), whatever the page
+     * showed; a refusal is shown in the read report.
+     */
+    public function sendReminder(AnnouncementReminders $reminders): void
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('update', $this->announcement);
+        $this->resetErrorBag('reminder');
+
+        try {
+            $reminders->request($this->announcement, $this->user());
+            session()->flash('status', 'Recordatorio en camino: el portal lo envía por correo en los próximos minutos.');
+        } catch (ReminderNotAllowed $refused) {
+            $this->addError('reminder', $refused->getMessage());
+        } finally {
+            // Count again, with the reminder just requested (or the one that blocked it).
+            unset($this->readReport);
+        }
+    }
+
+    /**
      * The announcement as the form describes it right now, for the preview.
      */
     public function previewCard(): AnnouncementCard
@@ -264,12 +291,16 @@ class AnnouncementEditor extends Component
      * the form do not count again; reloading the page counts afresh.
      * Only read after {@see mayViewReads()}.
      *
-     * @return array{read: int, total: int, pending: list<array{name: string, companies: list<string>}>}
+     * @return array{read: int, total: int, pending: list<array{name: string, companies: list<string>}>, reminder: array<string, mixed>|null}
      */
     #[Computed(persist: true, seconds: self::READ_REPORT_SECONDS)]
     public function readReport(): array
     {
-        return [...$this->announcement->readCounts(), 'pending' => $this->announcement->pendingReaders()];
+        return [
+            ...$this->announcement->readCounts(),
+            'pending' => $this->announcement->pendingReaders(),
+            'reminder' => app(AnnouncementReminders::class)->lastFor($this->announcement),
+        ];
     }
 
     /**

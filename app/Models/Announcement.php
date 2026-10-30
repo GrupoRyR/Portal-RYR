@@ -8,6 +8,7 @@ use Database\Factories\AnnouncementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -159,6 +160,16 @@ class Announcement extends Model
     }
 
     /**
+     * «Enviar recordatorio» requests (App\Announcements\AnnouncementReminders).
+     *
+     * @return HasMany<AnnouncementReminder, $this>
+     */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(AnnouncementReminder::class);
+    }
+
+    /**
      * Records that the account read it, once: a second call keeps the
      * first date. Whether the user may see it is the caller's job; whether
      * the person already read it with another account is
@@ -282,6 +293,42 @@ class Announcement extends Model
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Who gets the reminder now: the people of the audience who have not
+     * confirmed yet (the rule of {@see pendingReaders()}, read at send
+     * time, so whoever confirmed meanwhile is left out) and were not
+     * recorded for this reminder yet. One account per person: the lowest
+     * id among their accounts in the audience, with its company (the
+     * email's brand). At most $limit, by person key.
+     *
+     * @return Collection<int, User> keyed by person key
+     */
+    public function reminderRecipients(AnnouncementReminder $reminder, int $limit): Collection
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $picked = $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->whereNotIn($key, $reminder->deliveries()->select('person_key'))
+            ->toBase()
+            ->selectRaw('min(users.id) as id, '.LinkedAccounts::PERSON_KEY.' as person_key')
+            ->groupBy($key)
+            ->orderBy('person_key')
+            ->limit($limit)
+            ->pluck('person_key', 'id');
+
+        if ($picked->isEmpty()) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->whereKey($picked->keys())
+            ->with('company')
+            ->orderBy('id')
+            ->get()
+            ->keyBy(fn (User $account) => (int) $picked->get($account->getKey()));
     }
 
     /**

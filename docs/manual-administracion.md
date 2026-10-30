@@ -143,6 +143,15 @@ Un editor de anuncios solo publica para su propia empresa. Los anuncios no se bo
 - Se cuenta según la empresa actual de cada cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando. Una persona que confirmó con una cuenta vinculada cuenta como leída aunque esa cuenta ya no esté entre las empresas del anuncio, porque en sus otras cuentas también ve «Leído».
 - Si alguien pulsa **Confirmar lectura** en una página vieja de un anuncio que ya no la pide (retirado, vencido o ya no obligatorio), el portal lo devuelve con el aviso «Este anuncio ya no pide confirmación.» y no guarda nada.
 
+**Recordatorios.** En la tarjeta **Lectura**, **Enviar recordatorio** manda un correo a cada persona que falta. Solo aparece en un anuncio publicado (no programado, vencido ni retirado) con lectura obligatoria y con alguien pendiente, y solo para quien puede editar ese anuncio.
+
+- **Uno cada 24 horas por anuncio.** Después de pedir uno, la tarjeta dice cuándo se puede pedir el siguiente («Podrás pedir otro recordatorio el …»). El portal lo comprueba también al recibir la petición: un doble clic o una página abierta desde antes no envían dos.
+- **Un correo por persona.** Quien tiene cuentas vinculadas recibe un solo correo, en la cuenta más antigua de las que ven el anuncio, con la marca de la empresa de esa cuenta. El correo trae el título y el botón **Ver el anuncio**; el texto del anuncio se lee en el portal.
+- **Lo envía el portal, no la pantalla.** El botón solo deja el pedido. El programador de tareas del portal (cada minuto) envía hasta 50 correos por vuelta, desde el buzón con el que el portal ya manda sus avisos. Mientras tanto la tarjeta dice «Enviando…»; al terminar, «Último recordatorio: pedido el … por … · enviado a N personas».
+- **Se calcula al enviar.** Quien confirma la lectura antes de que le llegue el turno ya no recibe el correo. Si el anuncio se retira, vence o deja de ser obligatorio, el recordatorio se detiene.
+- **Si un correo falla**, el portal lo anota en el log, sigue con los demás y no lo reintenta. Nadie recibe dos correos del mismo recordatorio.
+- Pedir un recordatorio queda en **Auditoría** («Pidió un recordatorio de lectura para el anuncio …», con las personas que faltaban).
+
 ### 2.5 Eventos
 
 Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi calendario**. Las personas los ven en **Próximas fechas** del inicio, junto a los festivos, y en la página **Eventos** (`/eventos`), desde **Se muestra desde** hasta que el evento termina. Cada evento descarga un archivo `.ics` que abren Outlook, Google Calendar y el calendario del celular.

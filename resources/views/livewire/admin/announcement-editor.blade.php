@@ -203,6 +203,30 @@
             <h2 id="n-reads" class="{{ $heading }}">Lectura</h2>
             <p class="text-[0.9375rem]"><span class="font-bold tabular-nums">{{ $reads['read'] }} de {{ $reads['total'] }}</span> {{ $reads['total'] === 1 ? 'persona lo leyó' : 'personas lo leyeron' }}</p>
             <p class="{{ $hint }}">Incluye a las personas de las empresas del anuncio que ya entraron al portal, sin cuentas de emergencia ni invitados. Quien tiene cuentas vinculadas en dos empresas cuenta como una persona y confirma una sola vez.</p>
+            {{-- Reminders (App\Announcements\AnnouncementReminders): the server checks the same rules again. --}}
+            {{-- One-line php directives only: a php block here would swallow the one-line directive above. --}}
+            @php($reminder = $reads['reminder'])
+            @php($remindable = $status === \App\Models\Announcement::STATUS_PUBLISHED && $missing > 0)
+            @php($canRemind = $remindable && ($reminder === null || ! $reminder['next_allowed_at']->isFuture()))
+            @php($when = fn ($moment) => \App\Announcements\AnnouncementReminders::when($moment))
+            <div class="flex flex-col gap-2" data-reminder>
+                @if ($reminder)
+                    <p class="text-sm">Último recordatorio: pedido el {{ $when($reminder['requested_at']) }} por {{ $reminder['requester'] ?? 'una cuenta que ya no existe' }} · {{ $reminder['finished'] ? 'enviado a '.$reminder['sent'].' '.($reminder['sent'] === 1 ? 'persona' : 'personas').'.' : 'Enviando…' }}</p>
+                @endif
+                @if ($canRemind)
+                    <div>
+                        <button type="button" wire:click="sendReminder" wire:loading.attr="disabled" wire:target="sendReminder"
+                                wire:confirm="¿Enviar un correo de recordatorio a {{ $missing === 1 ? 'la persona que falta' : 'las '.$missing.' personas que faltan' }}? Solo se puede pedir uno cada 24 horas."
+                                class="inline-flex h-11 items-center rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold hover:bg-subtle disabled:opacity-60">
+                            Enviar recordatorio
+                        </button>
+                    </div>
+                    <p class="{{ $hint }}">Cada persona que falta recibe un correo desde el buzón del portal, uno por persona aunque tenga varias cuentas. Se puede pedir uno cada 24 horas.</p>
+                @elseif ($remindable)
+                    <p class="{{ $hint }}">Podrás pedir otro recordatorio el {{ $when($reminder['next_allowed_at']) }}.</p>
+                @endif
+                @error('reminder') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
+            </div>
             @if ($missing > 0)
                 <details class="group">
                     {{-- list-none + its own chevron: inline-flex would hide the native marker. --}}
