@@ -65,7 +65,7 @@
                                 @if ($phone = $person->phoneHref())
                                     <a href="{{ $phone }}" class="inline-flex min-h-touch items-center break-all text-brand-ink underline-offset-4 hover:underline"><span class="sr-only">Teléfono: </span>{{ $person->business_phone }}</a>
                                 @endif
-                                <a href="mailto:{{ $person->email }}" class="inline-flex min-h-touch items-center break-all text-brand-ink underline-offset-4 hover:underline"><span class="sr-only">Correo: </span>{{ $person->email }}</a>
+                                <a href="{{ $person->mailtoHref() }}" class="inline-flex min-h-touch items-center break-all text-brand-ink underline-offset-4 hover:underline"><span class="sr-only">Correo: </span>{{ $person->email }}</a>
                                 <a href="{{ $person->teamsChatUrl() }}" target="_blank" rel="noopener" aria-describedby="persona-{{ $person->id }}" class="inline-flex min-h-touch items-center gap-1.5 text-brand-ink underline-offset-4 hover:underline">
                                     <x-home.icon name="teams" class="size-[18px]" />Chat en Teams
                                 </a>

@@ -168,6 +168,24 @@ class DirectorySyncTest extends TestCase
         $this->assertSame(['nulo@segurex.com', 'sin.tipo@segurex.com'], DirectoryEntry::query()->orderBy('email')->pluck('email')->all());
     }
 
+    public function test_an_email_that_is_not_a_valid_address_is_never_stored(): void
+    {
+        Company::factory()->forTenant(self::TENANT, ['segurex.com'])->create();
+        $fallsBack = $this->graphUser(['mail' => 'ana@segurex.com?cc=evil@example.com', 'userPrincipalName' => 'ana@segurex.com']);
+        $this->pages[self::TENANT] = [[
+            $fallsBack,
+            $this->graphUser(['mail' => 'luis@segurex.com?subject=hola', 'userPrincipalName' => 'luis gomez@segurex.com']),
+            $this->graphUser(['mail' => 'javascript:alert(1)//@segurex.com', 'userPrincipalName' => null]),
+        ]];
+
+        $this->sync();
+
+        $entry = DirectoryEntry::query()->sole();
+        $this->assertSame($fallsBack['id'], $entry->azure_oid);
+        $this->assertSame('ana@segurex.com', $entry->email);
+        $this->assertStringNotContainsString('?', $entry->search_text);
+    }
+
     public function test_the_mobile_phone_is_never_stored(): void
     {
         Company::factory()->forTenant(self::TENANT)->create();

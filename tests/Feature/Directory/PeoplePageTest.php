@@ -63,6 +63,19 @@ class PeoplePageTest extends TestCase
             ->assertDontSee('x-data', false);
     }
 
+    /**
+     * `?` is valid in the local part of an address, but in a `mailto:` it
+     * would start headers (cc, subject, body): it is percent-encoded.
+     */
+    public function test_the_mail_link_never_carries_extra_headers(): void
+    {
+        DirectoryEntry::factory()->forCompany($this->segurex)->create(['email' => 'x?cc=evil&body=hola@segurex.com']);
+
+        $this->page()
+            ->assertSee('href="mailto:x%3Fcc%3Devil%26body%3Dhola@segurex.com"', false)
+            ->assertDontSee('mailto:x?cc', false);
+    }
+
     public function test_the_search_looks_through_name_title_area_office_and_email_ignoring_accents(): void
     {
         DirectoryEntry::factory()->forCompany($this->segurex)->create(['display_name' => 'Luis Gómez', 'job_title' => 'Analista', 'department' => 'Finanzas', 'office_location' => 'Medellín', 'email' => 'lgomez@segurex.com']);

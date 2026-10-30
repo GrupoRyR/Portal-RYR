@@ -347,7 +347,8 @@ final class DirectorySync
     }
 
     /**
-     * `mail`, else the sign-in name unless it is a guest's (#EXT#).
+     * `mail`, else the sign-in name unless it is a guest's (#EXT#); only a
+     * valid address (anything appended, like `?cc=`, makes it invalid).
      *
      * @param  array<string, mixed>  $user
      */
@@ -356,7 +357,8 @@ final class DirectorySync
         foreach (['mail', 'userPrincipalName'] as $field) {
             $value = is_string($user[$field] ?? null) ? trim($user[$field]) : '';
 
-            if ($value !== '' && str_contains($value, '@') && stripos($value, '#EXT#') === false && strlen($value) <= 320) {
+            if ($value !== '' && stripos($value, '#EXT#') === false && strlen($value) <= 320
+                && filter_var($value, FILTER_VALIDATE_EMAIL, FILTER_FLAG_EMAIL_UNICODE) !== false) {
                 return $value;
             }
         }

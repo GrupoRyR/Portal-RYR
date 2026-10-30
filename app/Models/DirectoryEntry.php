@@ -164,6 +164,24 @@ class DirectoryEntry extends Model
     }
 
     /**
+     * `mailto:` link of the email, each part percent-encoded: a `?`, `&`
+     * or `%` in the address never adds headers (cc, subject, body).
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc6068
+     */
+    public function mailtoHref(): string
+    {
+        $email = (string) $this->email;
+        $at = strrpos($email, '@');
+
+        if ($at === false) {
+            return 'mailto:'.rawurlencode($email);
+        }
+
+        return 'mailto:'.rawurlencode(substr($email, 0, $at)).'@'.rawurlencode(substr($email, $at + 1));
+    }
+
+    /**
      * A Teams chat with the person (opens Teams or its web app).
      *
      * @see https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/build-and-test/deep-link-teams
