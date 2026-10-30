@@ -41,7 +41,7 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 
 - [x] WU1. **PR1, directorio desde Microsoft.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, token de aplicación, sincronización, comando, horario, índice, vistas, pruebas, documentación).
 - [x] WU1-R. Arreglos de la revisión independiente del PR1. Ruta: delegada (escritor), 2 o más archivos no triviales (sincronización, comando, modelo, vista, JS, pruebas, documentación).
-- [ ] WU2. **PR2, cumpleaños y aniversarios.** Ruta: delegada (escritor).
+- [x] WU2. **PR2, cumpleaños y aniversarios.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, solicitud, controlador, vistas, constructor del inicio, JS, pruebas, documentación).
 - [ ] WU2-R. Arreglos de la revisión independiente del PR2.
 
 ## Preguntas para Jhon
@@ -67,6 +67,7 @@ Que cada persona encuentre a sus compañeros de empresa (nombre, cargo, área, o
 
 ## Progreso
 
+- 2026-10-30: WU2 hecho en tres commits más el registro (ver «Registro del WU2»).
 - 2026-10-30: WU1-R hecho en seis commits (ver «Registro del WU1-R»).
 - 2026-10-30: WU1 hecho en tres commits (ver «Registro del WU1»).
 - 2026-10-30: mapa del código hecho (token de aplicación en `app/Mail/GraphAccessToken.php`, regla de empresa en `TenantDirectory::resolveCompany`, índice en `app/Search/HomeSearchIndex.php`, `routes/console.php` para el horario). Ya existe una tabla `people` para cuentas vinculadas: el directorio usa `directory_entries`.
@@ -143,6 +144,42 @@ Ruta: delegada (escritor), por la regla de 2 o más archivos no triviales. Rama 
 - Espejo en Engram de este documento (lo hace el orquestador).
 - Capturas a 390 y 1.440 px de `/personas` y «Mi día» (siguen sin hacerse, del WU1).
 
+## Registro del WU2
+
+Ruta: delegada (escritor), por la regla de 2 o más archivos no triviales. Rama `feat/personas-2-cumpleanos`, apilada sobre #75 (`23c0edd`), sin push.
+
+| Commit | Qué | Líneas (+/−, sin `public/build`) |
+|---|---|---|
+| `699b7e8` feat(account): let each person save their birthday on /cuenta | Migración `users.birthday_month`, `birthday_day` (tinyint, null) y `show_birthday` (falso por defecto), fuera de `#[Fillable]`. `BirthdayRequest` (día y mes que existen juntos en un año bisiesto, mensajes en español, 404 sin directorio) y `BirthdayController` (`POST` y `DELETE /cuenta/cumpleanos`, `throttle:20,1`). Sección «Mi cumpleaños» en `/cuenta` y enlace «Mi cumpleaños» en el menú de la cuenta del inicio. Manual §9.5. | 633 / 1 |
+| `b1fa0ad` test: raise the PHPUnit memory limit to 512M | `<ini name="memory_limit" value="512M"/>` en `phpunit.xml` (aprobado por el coordinador). | 1 / 0 |
+| `eb5b5a4` feat(home): show birthdays and work anniversaries in «Mi día» | `App\View\Home\Celebration` (hoy y 7 días, 29 de febrero el 28 en años comunes, aniversario desde 1 año, orden por fecha y nombre, máximo 8 y «Ver directorio»). La consulta del directorio del inicio hace `LEFT JOIN users` por inquilino, `azure_oid` y empresa con `show_birthday = true` (nunca `person_id`). «Felicitar» por Teams con saludo (`DirectoryEntry::teamsChatUrl($message)`), sin «Felicitar» en la fila propia. `home.js` corrige la copia guardada (`data-celebration-date`, `data-celebration-day`). «Secciones» lleva `#celebraciones`. Manual §9.1 y §9.6. `public/build` recompilado. | 737 / 15 |
+
+Los dos commits de funcionalidad pasan de las ~400 líneas por las pruebas (unas 300 y 330 líneas); son unidades que se entienden solas. No se recortó nada.
+
+**RED → GREEN**
+
+- Cumpleaños en `/cuenta`: `BirthdayTest` 27 pruebas, 1 pasa, 3 fallan y 23 errores (sin columnas ni rutas) → 27/27; `tests/Feature/Account` 155/155.
+- «Mi día»: `HomeCelebrationsTest` + `HomeScreenTest` + `HomeMyDayTest` 50 pruebas, 16 fallan (bloque, conteo de consultas, menú «Secciones») → 50/50. `HomeSearchIndexTest::test_the_people_come_in_one_capped_query_of_the_needed_columns` se ajustó a propósito: la consulta ahora lleva correo y fecha de contratación (siguen fuera teléfono, oficina y `*`); `HomeCelebrationsTest::test_the_search_index_carries_no_birthday_or_hire_date` vigila que el índice no los lleve.
+- Enfocadas: `tests/Feature/Home tests/Feature/Search tests/Feature/Directory tests/Feature/Account tests/Unit/Auth` 508/508.
+- Memoria: el pico de la suite completa era 128M en `23c0edd` (justo debajo del límite) y 130M en `699b7e8`; `php artisan test --compact` en `699b7e8` muere por memoria (`UserMicrosoftIdentityTest`). Con `b1fa0ad` pasa.
+- Completa: `php artisan test --compact` 1.630/1.630 (base 1.579, 51 pruebas nuevas). `vendor/bin/pint --test` pasa. `npm run build` hecho. `home.js`: sin ejecutor de pruebas JS; chequeo estructural del paquete `home-BIN7fZl0.js` (`celebrationDate`, «Mañana»).
+- El inicio sigue en ≤ 12 consultas con 40 cumpleaños y aniversarios en la semana (`HomeScreenTest`).
+
+**Decisiones**
+
+- Controlador y solicitud propios (`BirthdayController`, `BirthdayRequest`) en vez de crecer `AccountController`; la misma URL para guardar (`POST`) y quitar (`DELETE`).
+- En una búsqueda del servidor (`/?q=`) no hay bloque: esa página sigue sin leer el directorio.
+- Cumpleaños y aniversarios salen de las mismas 1.000 personas por nombre del buscador (ninguna empresa llega a 1.000).
+- Fila con la caja de fecha y «Hoy», «Mañana» o el día de la semana, como «Próximas fechas»; el lector de pantalla oye la fecha completa.
+- Saludos: «¡Feliz cumpleaños, Luis!» y «¡Feliz aniversario, Luis! Gracias por estos N años en Segurex.» (o «este primer año»). Aniversario con el nombre corto de la empresa.
+- Enlace «Mi cumpleaños» en el menú de la cuenta, para que la sección se encuentre.
+
+**Pendiente**
+
+- Espejo en Engram de este documento (lo hace el orquestador).
+- Capturas a 390 y 1.440 px de `/cuenta` y «Mi día» (no se hicieron).
+- Revisión independiente del PR2 (WU2-R).
+
 ## Siguiente paso
 
-WU2: cumpleaños y aniversarios.
+WU2-R: revisión independiente del PR2.
