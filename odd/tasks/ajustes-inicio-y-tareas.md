@@ -48,7 +48,7 @@ Aplicar cinco decisiones de Jhon:
 ## Tareas
 
 - [x] T1. **API de tareas: `422` con la misma versión y otro tipo o persona** (#74). Ruta: delegada (escritor), pocas líneas pero código, prueba y contrato. Hecho: `633629f` y `b31b06c` en `feat/tareas-1-api`, empujados a #74; contrato v0.1.1. RED 3 de 97, GREEN 97/97; suite 1.359/1.359; Pint limpio. Revisión: el coordinador leyó el diff (pequeño) y repitió las 97 pruebas.
-- [ ] T2. **«Puente festivo».** Ruta: delegada (escritor).
+- [x] T2. **«Puente festivo».** Ruta: delegada (escritor), código, vista y pruebas. Hecho: `ad00aa4` en `feat/inicio-6-puentes`, sin empujar. `HolidayDay::kind()` (con `isBridge()`) da la etiqueta en «Próximas fechas» y en el buscador; `/eventos` no lista festivos y el aviso de la línea de fecha no lleva tipo. RED 6 de 42, GREEN 159/159 en Home, Search y Unit/View; suite 1.639/1.639; Pint limpio; consultas de `/` sin cambio (≤ 12, `HomeScreenTest`); sin clases nuevas de Tailwind, así que sin `npm run build`. Manual §7.2 con una línea.
 - [ ] T3. **Fechas que se repiten cada año.** Ruta: delegada (escritor).
 - [ ] T4. **Lectura obligatoria por persona.** Ruta: delegada (escritor).
 - [ ] T5. **Recordatorios.** Ruta: delegada (escritor).
@@ -82,7 +82,8 @@ Aplicar cinco decisiones de Jhon:
 
 - 2026-10-30: documento creado.
 - 2026-10-30: T1 hecho y empujado a #74.
+- 2026-10-30: T2 hecho en `feat/inicio-6-puentes` (`ad00aa4`), sin empujar.
 
 ## Siguiente paso
 
-T2 en `feat/inicio-6-puentes`.
+T3 en `feat/inicio-7-fechas-anuales`, sobre T2.
