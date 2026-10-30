@@ -17,6 +17,7 @@ use App\View\Components\AccountSwitcher;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -42,7 +43,10 @@ use InvalidArgumentException;
  *   app on the page, the announcements of the same query, the holidays
  *   and events of the next twelve months, and the people of the user's
  *   company directory (one query, none on a server search);
- * - the «Personas» link (/personas) for users with a directory.
+ * - the «Personas» link (/personas) for users with a directory;
+ * - «Cumpleaños y aniversarios» (App\View\Home\Celebration) from the same
+ *   directory query: the birthdays people chose to show and the work
+ *   anniversaries of today and the next seven days (none on a server search).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -112,6 +116,9 @@ final class HomePageBuilder
         $events = array_values(array_filter($visibleEvents, fn (EventDate $event) => $event->start < $searchHorizon));
         $upcomingDates = self::upcomingDates($upcoming, $events, $today);
         $directoryCompanyId = DirectoryEntry::companyIdFor($user);
+        // A server search shows the cards only: no directory.
+        $people = $search->isActive() ? new Collection : $this->people($directoryCompanyId);
+        $celebrations = Celebration::within($people, $user, $today, $company?->short_name ?: Company::displayName($company));
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
@@ -147,12 +154,14 @@ final class HomePageBuilder
                 $this->holidaysAhead($today, $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS)->subDay()),
                 $today,
                 $events,
-                $this->people($directoryCompanyId),
+                $people,
             ),
             upcomingDates: $upcomingDates,
             hasEvents: $visibleEvents !== [],
             peopleHref: $directoryCompanyId === null ? null : route('people.index'),
             birthdayHref: $directoryCompanyId === null ? null : route('account.show').'#cumpleanos',
+            celebrations: array_slice($celebrations, 0, Celebration::LIMIT),
+            moreCelebrationsHref: count($celebrations) > Celebration::LIMIT ? route('people.index') : null,
         );
     }
 
@@ -263,9 +272,13 @@ final class HomePageBuilder
     }
 
     /**
-     * The company directory of the search index, in one query: by name, at
-     * most HomeSearchIndex::PEOPLE_LIMIT, only the columns the index ships.
-     * No query without a directory (DirectoryEntry::companyIdFor()).
+     * The company directory of the search index and of «Cumpleaños y
+     * aniversarios», in one query: by name, at most
+     * HomeSearchIndex::PEOPLE_LIMIT, only the columns those need. The
+     * birthday (`shown_birthday_month`, `shown_birthday_day`) comes only
+     * from the entry's own account, the one with its tenant, object ID and
+     * company, and only when that account chose to show it; never through
+     * `person_id`. No query without a directory (DirectoryEntry::companyIdFor()).
      *
      * @return Collection<int, DirectoryEntry>
      */
@@ -276,10 +289,29 @@ final class HomePageBuilder
         }
 
         return DirectoryEntry::query()
-            ->select(['id', 'display_name', 'job_title', 'department', 'search_text'])
-            ->where('company_id', $companyId)
+            ->select([
+                'directory_entries.id',
+                'directory_entries.tenant_id',
+                'directory_entries.azure_oid',
+                'directory_entries.display_name',
+                'directory_entries.job_title',
+                'directory_entries.department',
+                'directory_entries.email',
+                'directory_entries.hire_date',
+                'directory_entries.search_text',
+                'users.birthday_month as shown_birthday_month',
+                'users.birthday_day as shown_birthday_day',
+            ])
+            ->leftJoin('users', function (JoinClause $join) {
+                $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
+                    ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
+                    ->on('users.company_id', '=', 'directory_entries.company_id')
+                    ->where('users.show_birthday', true);
+            })
+            ->where('directory_entries.company_id', $companyId)
+            // Only directory_entries has display_name.
             ->orderBy('display_name')
-            ->orderBy('id')
+            ->orderBy('directory_entries.id')
             ->limit(HomeSearchIndex::PEOPLE_LIMIT)
             ->get();
     }

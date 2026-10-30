@@ -452,7 +452,7 @@ No se escriben en el portal: se copian de Microsoft Entra. Para corregir un dato
 | Oficina | Oficina |
 | Teléfono | Teléfono de la oficina (el primero) |
 | Correo | Correo electrónico; si no tiene, el nombre principal de usuario |
-| Fecha de contratación | Fecha de contratación del empleado (se guarda para los aniversarios; todavía no se muestra) |
+| Fecha de contratación | Fecha de contratación del empleado (para los aniversarios de **Mi día**, sección 9.6; no se muestra la fecha) |
 
 ### 9.2 Cada cuánto se actualiza
 
@@ -480,3 +480,14 @@ El cumpleaños no sale de Microsoft: cada persona lo escribe, si quiere, en **Mi
 - Es por cuenta: con cuentas vinculadas en dos empresas, cada cuenta tiene el suyo.
 - Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen.
 - Ninguna pantalla de Administración muestra ni cambia el cumpleaños.
+
+### 9.6 Cumpleaños y aniversarios en «Mi día»
+
+El inicio muestra, en **Mi día**, el bloque **Cumpleaños y aniversarios** con lo de hoy y los próximos 7 días (hora de Bogotá), solo de la empresa de la cuenta con la que se entró:
+
+- **Cumpleaños**: solo de quien lo escribió en **Mi cumpleaños** y marcó la casilla (sección 9.5), y solo si está en el directorio de esa empresa (la misma cuenta de Microsoft y la misma empresa). Quien nació el 29 de febrero aparece el 28 de febrero en los años que no son bisiestos.
+- **Aniversarios**: salen de la **Fecha de contratación** de Entra (sección 9.1), desde el primer año cumplido: «1 año en Segurex», «5 años en Segurex» (con el nombre corto de la empresa). Si la fecha está vacía en Entra, la persona no tiene aniversario; para corregirla, cámbiela en Entra y aparece después de la siguiente copia.
+- Cada fila dice **Hoy**, **Mañana** o el día de la semana, y **Felicitar** abre un chat de Teams con la persona y un saludo escrito, sin enviarlo. La fila propia no tiene **Felicitar**.
+- Van por fecha y luego por nombre, hasta 8; si hay más, **Ver directorio** lleva a `/personas`. Sin nada en esos días, el bloque no aparece.
+- Salen de las mismas 1.000 personas que lleva el buscador del inicio (sección 9). En una búsqueda sin JavaScript (`/?q=`) el bloque no aparece.
+- La copia del inicio guardada en el equipo (hasta 24 horas) quita las filas de días pasados y corrige **Hoy** y **Mañana**; los días nuevos aparecen con la siguiente conexión.
