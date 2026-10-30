@@ -8,21 +8,25 @@ use Illuminate\Http\Request;
 
 /**
  * A Microsoft round trip a signed-in user starts for something other than
- * a re-authentication: linking another company's account, or switching to
- * it. The shared callback gets it back once only, for the same user, with
- * the OAuth `state` of its own redirect, and within {@see TTL_SECONDS}.
+ * a re-authentication: linking another company's account, switching to
+ * it, or confirming it for a Claude connection (App\Mcp\AccountConfirmation).
+ * The shared callback gets it back once only, for the same user, with the
+ * OAuth `state` of its own redirect, and within {@see TTL_SECONDS}.
  *
  * An intent never grants a session: each flow still checks the identity
  * Microsoft answers with.
  */
 class AccountIntent
 {
-    /** ['type', 'user_id', 'target_id', 'attempt', 'state', 'expires_at']. */
+    /** ['type', 'user_id', 'target_id', 'attempt', 'binding', 'state', 'expires_at']. */
     public const SESSION_KEY = 'auth.account_intent';
 
     public const LINK = 'link';
 
     public const SWITCH = 'switch';
+
+    /** Confirms a linked account for the pending Claude connection. */
+    public const MCP_INCLUDE = 'mcp_include';
 
     public const TTL_SECONDS = 600;
 
@@ -37,8 +41,10 @@ class AccountIntent
      * Only one Microsoft round trip is pending at a time, so a pending
      * re-authentication and any older intent are dropped. Call
      * {@see bindState()} once Socialite's redirect() is built.
+     *
+     * @param  string|null  $binding  What the flow started for and must still find at the callback (the Claude consent's pending authorization).
      */
-    public function start(string $type, User $user, ?User $target = null, int $attempt = 1): void
+    public function start(string $type, User $user, ?User $target = null, int $attempt = 1, ?string $binding = null): void
     {
         $this->session->forget([RecentMicrosoftLogin::PENDING_KEY, self::SESSION_KEY]);
 
@@ -47,6 +53,7 @@ class AccountIntent
             'user_id' => $user->getKey(),
             'target_id' => $target?->getKey(),
             'attempt' => $attempt,
+            'binding' => $binding,
             'state' => null,
             'expires_at' => now()->getTimestamp() + self::TTL_SECONDS,
         ]);
@@ -81,7 +88,7 @@ class AccountIntent
      * callback's `state`, belongs to this user, has a known type and has not
      * expired; otherwise null.
      *
-     * @return array{type: string, user_id: int, target_id: int|null, attempt: int, state: string, expires_at: int}|null
+     * @return array{type: string, user_id: int, target_id: int|null, attempt: int, binding?: string|null, state: string, expires_at: int}|null
      */
     public function pull(Request $request, User $user): ?array
     {
@@ -93,7 +100,7 @@ class AccountIntent
             || ! is_string($state)
             || ! hash_equals($intent['state'], $state)
             || ($intent['user_id'] ?? null) !== $user->getKey()
-            || ! in_array($intent['type'] ?? null, [self::LINK, self::SWITCH], true)
+            || ! in_array($intent['type'] ?? null, [self::LINK, self::SWITCH, self::MCP_INCLUDE], true)
             || ! is_int($intent['expires_at'] ?? null)
             || now()->getTimestamp() >= $intent['expires_at']) {
             return null;

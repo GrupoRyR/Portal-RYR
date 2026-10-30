@@ -114,9 +114,9 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
 ## Tareas
 
 - [x] C1. **Verificar** la versión de `laravel/mcp` y Passport, y su convivencia con Sanctum, en la documentación oficial. Escribir el diseño de OAuth en este documento.
-- [ ] C2. **Servidor OAuth y conexión:** consentimiento, confirmación de cada cuenta con Microsoft y token con la lista de cuentas.
+- [x] C2. **Servidor OAuth y conexión:** consentimiento, confirmación de cada cuenta con Microsoft y token con la lista de cuentas.
   - [x] C2a. **OAuth, consentimiento y conexión con la cuenta que aprueba:** paquetes, interruptor, registro de clientes solo para claude.ai, pantalla de consentimiento, `mcp_connections`, revisión de cuentas en cada llamada y la herramienta de prueba `quien_soy`. Commits `5648b31` y, tras la revisión, `46e57c7` (C2a-R).
-  - [ ] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`.
+  - [x] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`. Commit `c773266`.
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
 - [ ] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría.
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
@@ -180,8 +180,79 @@ Ruta: el mismo escritor delegado, después de una revisión independiente del C2
 - La carrera real de dos `INSERT` no se puede reproducir en SQLite: se prueba que la base rechaza una segunda conexión activa y que una revocada deja lugar a una nueva. La rama que reutiliza la conexión ganadora tras el choque no tiene prueba propia.
 - Pint: sin cambios pendientes.
 
+## Registro del C2b
+
+Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-mcp-2-cuentas` sobre `feat/conector-mcp-1-oauth` (#82). Commit `c773266` (`feat(mcp): include linked accounts in the Claude connection (C2b)`).
+
+### Qué quedó
+
+- **Oferta:** la pantalla de consentimiento muestra «Las cuentas que usará». La que aprueba va primero, «Siempre incluida». Debajo, las cuentas vinculadas que podrían conectar, según `LinkedAccounts::switchTargets()` (activa, de empresa activa, no invitada, no de emergencia) y `ConnectionAccounts::mayConnect()`. Cada una tiene «Incluir». Las confirmadas muestran «Confirmada a las …» y «Quitar». Vincular solo ofrece: ninguna cuenta entra sin su propio inicio con Microsoft.
+- **Confirmar (`App\Mcp\AccountConfirmation`):**
+  - «Incluir» es un `POST /oauth/authorize/cuentas/{cuenta}` (`mcp.consent.include`, con CSRF y el `auth_token` de la pantalla). Inicia la intención `mcp_include` (`AccountIntent`, de un solo uso, con su `state`, la misma cuenta y 600 s) y manda a Microsoft con `prompt=none` y el `login_hint` de esa cuenta.
+  - Si Microsoft responde `login_required`, `interaction_required`, `consent_required` o `account_selection_required`, se reintenta una sola vez con `prompt=login`, igual que el cambio de empresa.
+  - Una cuenta no ofrecida da 404, como en el cambio de empresa, para no revelar qué cuentas están vinculadas.
+- **La respuesta de Microsoft** (callback compartido, `MicrosoftLoginController`) solo cuenta si cumple todo esto:
+  - Es exactamente esa cuenta (inquilino y `oid`).
+  - Pasa las reglas de un inicio: primero `MicrosoftLogin::preview()`, que no escribe nada, más `mayConnect`; luego `admit()`, que refresca su fila con los datos probados, sin registrar un inicio.
+  - Sigue vinculada y ofrecida a la que aprueba.
+- **Si algo falla:** la sesión sigue en la cuenta que aprueba (nunca se llama `Auth::login`), no se confirma nada y se vuelve a la pantalla con un mensaje en español. Una intención vencida, ajena o de otro `state` también vuelve a la pantalla si sigue pendiente.
+- **La autorización pendiente (`App\Mcp\ConsentAccounts`):**
+  - Passport guarda en la sesión una sola autorización pendiente: `authRequest` y un `authToken` al azar. Cada `GET /oauth/authorize` los reemplaza; aprobar, rechazar o un `auth_token` distinto los borran.
+  - La lista de confirmadas vive en la sesión (`mcp.consent`), atada a ese `authToken` y a una huella del pedido: cliente, cuenta, regreso, `state`, reto PKCE y alcances.
+  - Al volver de Microsoft se abre otra vez la misma dirección de `/oauth/authorize`. Passport crea un `authToken` nuevo y la lista pasa a él solo si el anterior seguía vivo y la huella es la misma.
+  - Otro pedido, otro cliente u otra cuenta empiezan con la lista vacía.
+  - Si la autorización pendiente ya no existe al volver de Microsoft (por ejemplo, se aprobó o rechazó en otra pestaña), sale el error normal de Passport (`InvalidAuthTokenException`, 403), no se confirma nada y nunca hay código.
+- **Aprobar:** `ApproveController` toma la lista solo si está atada al `auth_token` que Passport acaba de validar y a la huella de su `authRequest`. `Connections::approved()` guarda, en la misma transacción del código, la cuenta que aprueba y las confirmadas que todavía se pueden usar (`ConnectionAccounts::usable()`), cada una con su `confirmed_at`. Las confirmaciones sin terminar no existen para la lista. Aprobar de nuevo reemplaza la lista: las cuentas no confirmadas otra vez salen.
+- **En cada llamada:** sin cambios en la regla (solo quita). Nuevas pruebas de punta a punta: una cuenta incluida que se desvincula, se borra, pasa a invitada o a emergencia, o cuya empresa se desactiva, sale en la siguiente llamada y la que aprueba sigue funcionando. Las cuentas no tienen un «activa» propio: «desactivada» se probó como borrada.
+- **Auditoría (registro `security`):** `mcp.account_included` («Confirmó su cuenta de … para Claude («…»)») y `mcp.account_include_failed` con su razón (`wrong_account`, `target_unavailable`, `account_not_allowed`, `authorization_lost`, el código de Microsoft o la razón de un inicio rechazado). `mcp.connected` lista todas las cuentas (`accounts`) y dice «… e incluyó su cuenta de …».
+- **`quien_soy`:** devuelve `cuentas`, la lista de las cuentas que la llamada puede usar (nombre, correo y empresa), la que aprobó primero.
+- **Guardia:** `PersonNeverAuthorizesTest` suma `app/Mcp/ConsentAccounts.php` (solo `LinkedAccounts`, para ofrecer).
+- Sin migraciones, sin variables nuevas y sin clases nuevas de Tailwind (todas ya estaban en `public/build`). `docs/despliegue.md` no cambia.
+
+### Pruebas
+
+- RED (antes de implementar), con `tests/Feature/Mcp`, `tests/Unit/Mcp`, `tests/Feature/Auth` y `PersonNeverAuthorizesTest`: 437 pruebas, 390 pasan, 4 fallan y 43 con error (rutas y constantes inexistentes).
+- GREEN: `tests/Feature/Mcp`, `tests/Unit/Mcp` y `tests/Feature/Auth`, 251 pruebas, todas pasan. `IncludeAccountsTest` tiene 45.
+- Cubre: cuenta equivocada (otra del mismo inquilino, mismo `oid` en otro inquilino, la que aprueba); cuenta desvinculada, invitada, de emergencia, borrada o de empresa inactiva; inicio como invitado; regla de inicio fallida; intención vencida, ajena o de otro `state`; repetir el callback; un solo reintento; autorización pendiente perdida; la lista no pasa a otro cliente ni a otro pedido; «Quitar»; aprobar de nuevo reemplaza la lista; `/` sin cambios.
+- Suite completa: 1.831 pruebas, todas pasan (1.782 antes).
+- Pint: sin cambios pendientes.
+
+### Decisiones
+
+- **La lista vive en la sesión y no en la base** hasta «Aprobar», porque así muere con la autorización pendiente y nunca hay una cuenta en `mcp_connection_accounts` sin código emitido.
+- **Se ata al `authToken` y a una huella**, no solo al `authToken`, porque Passport cambia el `authToken` en cada pantalla, incluida la de vuelta de Microsoft.
+- **Se usa `admit()` después de `preview()`**, como al vincular. El costo es el mismo del cambio de empresa: una revisión posterior a `admit()` puede rechazar con la fila ya refrescada con datos probados de Microsoft.
+- **La pantalla recibe los datos con un decorador** de la respuesta de Passport (`ConsentView`), porque `Passport::authorizationView` no permite agregar parámetros.
+
+### No hecho o no verificado
+
+- No se probó contra Microsoft ni claude.ai reales: el ida y vuelta con `prompt=none` dentro de una autorización pendiente se probó con Socialite simulado.
+- `npm run build` no se corrió: las clases usadas ya estaban en el CSS compilado.
+- Tamaño: unas 850 líneas de código (con la vista y las rutas) y 900 de pruebas. Pasa de la cifra orientativa de 400 porque la oferta, la confirmación, la autorización pendiente y el guardado solo funcionan juntos.
+
+## Registro del C2b-R
+
+Ruta: el mismo escritor delegado, después de una revisión independiente del C2b (1 hallazgo medio y 1 bajo, los dos reproducidos con pruebas de sondeo). Commit `f54e692` (`fix(mcp): bind each account confirmation to its pending authorization`).
+
+### Qué cambió
+
+- **M1, la confirmación no estaba atada a su autorización pendiente:**
+  - Problema: la intención `mcp_include` guardaba la cuenta, la cuenta destino, el intento y el `state`, pero no la autorización pendiente. Si en el mismo navegador se abría otra pantalla de consentimiento antes de que Microsoft respondiera (otra pestaña, o una página que abre el enlace de un cliente registrado por cualquiera), la cuenta quedaba confirmada para esa otra autorización. «Aprobar» la guardaba en la conexión de ese otro cliente.
+  - Arreglo: al empezar la confirmación, la intención guarda la huella de la autorización pendiente (`binding`), no su `auth_token`, que cambia en cada pantalla. El reintento con `prompt=login` la conserva.
+  - En el callback, `answered()` y `microsoftError()` exigen que la autorización viva tenga esa misma huella y la misma cuenta. Si no, se registra `mcp.account_include_failed` con `authorization_lost`, no se confirma nada, no se reintenta y sale el error de Passport (403), sin llevar a la otra pantalla.
+  - Volver a abrir la misma pantalla mientras Microsoft responde (otro `auth_token`, el mismo pedido) sigue funcionando.
+- **L1, hora de `confirmed_at`:** `pullForApproval()` creaba la hora en UTC (Carbon 3 lee así una marca de tiempo sin zona) y la app guarda en America/Bogota, así que las cuentas incluidas quedaban 5 horas corridas. Ahora usa la zona de la app, igual que la pantalla (`ConsentAccounts::confirmedAt()`).
+
+### Pruebas
+
+- RED: 50 pruebas en `IncludeAccountsTest`: 44 pasan y 6 fallan (las 4 nuevas de la autorización pendiente, el reintento atado y la hora guardada en la prueba de «Aprobar»).
+- GREEN: las 50 pasan. `tests/Feature/Mcp`, `tests/Unit/Mcp` y `tests/Feature/Auth`: 256, todas pasan.
+- Nuevas: la confirmación no cae en otra autorización pendiente (otro cliente, u otro pedido del mismo cliente), y la otra pantalla no queda con la cuenta y guarda solo la que aprueba; un error de Microsoft con otra autorización abierta no reintenta; el reintento conserva el `binding`; reabrir la misma pantalla sigue confirmando. La prueba de «Aprobar» revisa `confirmed_at` en la base (09:20 para la que aprueba, 09:15 para la incluida).
+- Suite completa: 1.836 pruebas, todas pasan (1.831 antes).
+- Pint: sin cambios pendientes.
+
 ## Siguiente paso
 
-C2b, cuentas vinculadas en la conexión, sobre `feat/conector-mcp-1-oauth`. C3 necesita `work_items` (#74).
+C3, herramientas de solo lectura. Necesita `work_items` (#74): parte de una rama que lo tenga o espera a que se fusione.
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom

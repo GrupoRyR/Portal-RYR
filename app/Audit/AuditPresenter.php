@@ -5,6 +5,7 @@ namespace App\Audit;
 use App\Api\StatusReporter;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
+use App\Mcp\AccountConfirmation;
 use App\Mcp\Connections;
 use App\Models\Announcement;
 use App\Models\App;
@@ -99,6 +100,13 @@ final class AuditPresenter
         'consent_required' => 'falta un consentimiento en Microsoft',
         'account_selection_required' => 'Microsoft pidió elegir la cuenta',
         'access_denied' => 'cancelado o denegado en Microsoft',
+    ];
+
+    /** Reasons of a failed confirmation for a Claude connection beyond the switch ones. */
+    private const MCP_INCLUDE_FAILURE_REASONS = [
+        'account_not_allowed' => 'la cuenta no puede conectar Claude',
+        'authorization_lost' => 'la autorización pendiente ya no existe',
+        'microsoft_error' => 'error de Microsoft',
     ];
 
     private const ROLE_LABELS = [
@@ -280,8 +288,32 @@ final class AuditPresenter
                 .(self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
                 .' · hacia '.$this->account($properties->get('to_company'), $properties->get('to_email'))
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
-            Connections::CONNECTED => 'Conectó Claude («'.$properties->get('client').'») con su cuenta de '.$this->account($properties->get('company'), $properties->get('email')),
+            Connections::CONNECTED => 'Conectó Claude («'.$properties->get('client').'») con su cuenta de '.$this->account($properties->get('company'), $properties->get('email'))
+                .$this->includedAccounts($properties->get('accounts', [])),
+            AccountConfirmation::INCLUDED => 'Confirmó su cuenta de '.$this->account($properties->get('included_company'), $properties->get('included_email'))
+                .' para Claude («'.$properties->get('client').'»)',
+            AccountConfirmation::INCLUDE_FAILED => 'Confirmación de una cuenta para Claude rechazada · '
+                .(self::MCP_INCLUDE_FAILURE_REASONS[$properties->get('reason')] ?? self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
+                .' · '.$this->account($properties->get('included_company'), $properties->get('included_email'))
+                .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             default => (string) $activity->description,
+        };
+    }
+
+    /**
+     * « e incluyó su cuenta de …» for the linked accounts of a connection
+     * (`accounts` of mcp.connected, the approving one first); empty when it
+     * has only the approving account (or predates C2b).
+     */
+    private function includedAccounts(mixed $accounts): string
+    {
+        $included = collect(is_array($accounts) ? array_slice($accounts, 1) : [])
+            ->map(fn ($account) => $this->account($account['company'] ?? null, $account['email'] ?? null));
+
+        return match ($included->count()) {
+            0 => '',
+            1 => ' e incluyó su cuenta de '.$included->first(),
+            default => ' e incluyó sus cuentas de '.$included->implode(', '),
         };
     }
 
