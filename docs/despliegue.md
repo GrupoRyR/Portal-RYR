@@ -352,6 +352,96 @@ Haga esto una sola vez, por SSH:
 
 4. Abra **Administración › Configuración**: la tarjeta **Respaldo diario de la base de datos** debe mostrar la fecha de esa copia y «correcto».
 
+### 1.13 Anuncios por correo a las listas de cada empresa
+
+Un anuncio con la casilla **Enviar también por correo a la lista de cada empresa** sale, cuando se publica, a la lista de todo el personal de cada empresa del anuncio (por ejemplo `todos@segurex.com`), una vez por empresa. Lo envía el cron del paso 1.9 (`portal:send-announcement-list-emails`, cada minuto) con Microsoft Graph y la misma app «Portal RYR»; no usa SMTP, ni la contraseña de un buzón, ni `MAIL_FROM_ADDRESS`. No hay claves nuevas en `.env`.
+
+Las listas de Exchange solo aceptan remitentes de su propia organización. Por eso cada empresa envía **desde un buzón de su propio inquilino** y el portal pide el permiso con un token de ese inquilino: Segurex desde `segurex.info@segurex.com` (inquilino de Segurex) y Derivados desde `derivados.info@derivadoscol.com` (inquilino de Derivados). Las direcciones son datos de **Administración › Empresas**, no del código.
+
+Haga los pasos 1 a 4 **en cada inquilino** (primero Segurex, luego Derivados). Necesita un administrador global o de aplicaciones (paso 1) y un administrador de Exchange del grupo **Organization Management** (pasos 2 a 4) de ese inquilino.
+
+1. **Consentimiento de la app en el inquilino.** En el centro de administración de Microsoft Entra de ese inquilino abra **Aplicaciones empresariales** y busque **Portal RYR**. Si no aparece, la empresa todavía no dio el consentimiento: un administrador global abre el enlace del paso 1.10 («Directorio de personas», punto 3) con el Id. de inquilino de la empresa. Después copie de **Aplicaciones empresariales › Portal RYR** el **Id. de aplicación** (es el mismo en todos los inquilinos, `MICROSOFT_CLIENT_ID`) y el **Id. de objeto** (es **distinto en cada inquilino**). No use los de *Registros de aplicaciones*.
+
+2. **Permiso de envío solo para el buzón remitente** (RBAC para aplicaciones de Exchange Online), en PowerShell:
+
+   ```powershell
+   Install-Module ExchangeOnlineManagement -Scope CurrentUser   # solo la primera vez
+   Connect-ExchangeOnline -UserPrincipalName <administrador>@<dominio-de-la-empresa>
+
+   # Puntero en Exchange a la app de este inquilino. Si Get-ServicePrincipal ya la muestra, sáltese New-ServicePrincipal.
+   Get-ServicePrincipal | Where-Object AppId -eq '<id-de-aplicación>'
+   New-ServicePrincipal -AppId <id-de-aplicación> -ObjectId <id-de-objeto-de-este-inquilino> -DisplayName "Portal RYR"
+
+   # Ámbito con el buzón remitente; la vista previa debe mostrar solo ese buzón
+   New-ManagementScope -Name "Portal RYR - buzon de envio" -RecipientRestrictionFilter "PrimarySmtpAddress -eq '<buzón-remitente>'"
+   Get-Recipient -RecipientPreviewFilter "PrimarySmtpAddress -eq '<buzón-remitente>'"
+
+   # Rol de envío de la app, limitado a ese ámbito
+   New-ManagementRoleAssignment -Name "Portal RYR - Mail.Send" -App <id-de-objeto-de-este-inquilino> -Role "Application Mail.Send" -CustomResourceScope "Portal RYR - buzon de envio"
+
+   # Comprobación: InScope debe ser True para el buzón remitente y False para cualquier otro buzón
+   Test-ServicePrincipalAuthorization -Identity <id-de-objeto-de-este-inquilino> -Resource <buzón-remitente> | Format-Table
+   Test-ServicePrincipalAuthorization -Identity <id-de-objeto-de-este-inquilino> -Resource <otro-buzón> | Format-Table
+   ```
+
+   - **Derivados:** `<buzón-remitente>` es `derivados.info@derivadoscol.com`.
+   - **Segurex:** el buzón de los avisos del portal (`MAIL_FROM_ADDRESS`, paso 1.10) también envía con este permiso, así que **debe quedar dentro del mismo ámbito**. Si ya hizo el paso 1.10 y el remitente de la lista es el mismo `segurex.info@segurex.com`, el ámbito «Portal RYR - buzon de envio» ya lo cubre: no cree otro y pase a la comprobación. Si el remitente de la lista es otro buzón, amplíe el ámbito con los dos (no lo reemplace):
+
+     ```powershell
+     Set-ManagementScope -Identity "Portal RYR - buzon de envio" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'segurex.info@segurex.com' -or PrimarySmtpAddress -eq '<otro-buzón-remitente>'"
+     ```
+
+     Y compruebe los dos buzones con `Test-ServicePrincipalAuthorization` (`InScope True` en ambos).
+
+   `Test-ServicePrincipalAuthorization` responde al instante, pero Exchange tarda **entre 30 minutos y 2 horas** en aplicar el permiso a los envíos reales.
+
+3. **Quitar el permiso `Mail.Send` sin límite de Entra.** El permiso de Exchange del paso 2 **se suma** al de Entra: si la app también tiene **Microsoft Graph › Mail.Send (Aplicación)** concedido en Entra, puede enviar desde cualquier buzón del inquilino y el ámbito no limita nada. Hágalo solo cuando el paso 2 dé `InScope True`, porque desde ese momento el portal envía únicamente con el permiso de Exchange.
+   - **Antes, en Segurex:** confirme que `MAIL_FROM_ADDRESS` está en el ámbito (paso 2). Si no, los avisos del portal y las alertas de respaldo dejan de salir con `ErrorAccessDenied`.
+   - **En el inquilino de Segurex** (dueño del registro de la app): **Registros de aplicaciones › Portal RYR › Permisos de API**, en **Mail.Send (Aplicación)** pulse **…** › **Revocar el consentimiento del administrador** y luego **Quitar permiso**. Así la app ya no lo pide a ningún inquilino nuevo.
+   - **En cada inquilino que ya lo había concedido** (por ejemplo Derivados): revocar el permiso del registro no lo borra allí. Quítelo con Microsoft Graph PowerShell, conectado a ese inquilino:
+
+     ```powershell
+     Install-Module Microsoft.Graph -Scope CurrentUser   # solo la primera vez
+     Connect-MgGraph -TenantId <id-de-inquilino> -Scopes "AppRoleAssignment.ReadWrite.All","Application.Read.All"
+
+     $app = Get-MgServicePrincipal -Filter "appId eq '<id-de-aplicación>'"
+     $graph = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+     $mailSend = $graph.AppRoles | Where-Object { $_.Value -eq 'Mail.Send' -and $_.AllowedMemberTypes -contains 'Application' }
+
+     # Muestra la asignación de Mail.Send; si no muestra nada, ya no está concedido
+     Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $app.Id | Where-Object AppRoleId -eq $mailSend.Id
+
+     # La quita
+     Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $app.Id | Where-Object AppRoleId -eq $mailSend.Id |
+         ForEach-Object { Remove-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $app.Id -AppRoleAssignmentId $_.Id }
+     ```
+
+   - Esto cierra el riesgo aceptado de `Mail.Send` sin límite. Revise también en **Aplicaciones empresariales › Portal RYR › Permisos** de cada inquilino que ya no aparezca **Mail.Send**.
+
+4. **Que la lista acepte al remitente.** Por defecto una lista de Exchange acepta a cualquier remitente interno y no hace falta nada. Si la lista solo acepta mensajes de algunas personas, agregue el buzón remitente:
+
+   ```powershell
+   # Si AcceptMessagesOnlyFromSendersOrMembers sale vacío, la lista ya acepta a todos los internos
+   Get-DistributionGroup -Identity <lista> | Format-List AcceptMessagesOnlyFromSendersOrMembers,RequireSenderAuthenticationEnabled
+   Set-DistributionGroup -Identity <lista> -AcceptMessagesOnlyFromSendersOrMembers @{Add="<buzón-remitente>"}
+   ```
+
+   Si la lista es un grupo de Microsoft 365, use `Get-UnifiedGroup` y `Set-UnifiedGroup` con los mismos parámetros. También se puede hacer en el centro de administración de Exchange: **Destinatarios › Grupos ›** la lista **› Configuración › Administración de entrega**, agregando el buzón en **Remitentes especificados**. Si falta este paso, Graph acepta el envío pero Exchange devuelve al buzón remitente un aviso de no entrega `5.7.124`.
+
+5. **Datos de cada empresa.** En **Administración › Empresas**, abra la empresa y en la sección **Microsoft 365** escriba la **Lista de todo el personal** y el **Buzón remitente** (los dos deben ser de un dominio de la empresa). Guarde.
+
+6. **Comprobar.**
+   1. `php artisan schedule:list` debe mostrar `* * * * *  php artisan portal:send-announcement-list-emails`.
+   2. Para no escribirle a toda la empresa en la prueba, ponga primero como **Lista de todo el personal** una lista pequeña del mismo dominio (por ejemplo una con solo usted) y vuelva a la lista real al terminar.
+   3. Cree un anuncio solo para esa empresa con la casilla **Enviar también por correo a la lista de cada empresa** marcada y **Desde** ahora. En uno o dos minutos la tarjeta **Correo a las listas** del anuncio debe decir «Enviado el …», el correo debe llegar a la lista y quedar en **Elementos enviados** del buzón remitente. Retire después el anuncio de prueba.
+   4. Si dice «No se pudo enviar (ErrorAccessDenied)», el permiso del paso 2 todavía no se aplica (espere hasta 2 horas) o el buzón no está en el ámbito: compruebe con `Test-ServicePrincipalAuthorization` y pulse **Reintentar**. Con `MailboxNotEnabledForRESTAPI` o `HTTP 404`, el buzón remitente no existe o no es de Exchange Online. Con `AADSTS…`, falta el consentimiento de la app en ese inquilino (paso 1) o el secreto venció. El código, sin el token ni el texto del anuncio, queda también en `storage/logs` («Announcement list email could not be sent.»).
+   5. En Segurex, después del paso 3, ejecute `php artisan portal:mail-test <su-correo>` para confirmar que los avisos del portal siguen saliendo.
+
+- Cada lista recibe un anuncio una sola vez: editarlo después no lo reenvía. El portal no reintenta solo; **Reintentar** (en el anuncio) lo hace a pedido.
+- Cada vuelta del cron envía como máximo 10 correos; si hay más, siguen en el minuto siguiente.
+
+Referencias de Microsoft Learn: [RBAC para aplicaciones en Exchange Online](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac) (incluye por qué el permiso de Entra se suma al de Exchange), [user: sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [consentimiento de administrador](https://learn.microsoft.com/en-us/entra/identity-platform/v2-admin-consent), [Remove-MgServicePrincipalAppRoleAssignment](https://learn.microsoft.com/en-us/powershell/module/microsoft.graph.applications/remove-mgserviceprincipalapproleassignment?view=graph-powershell-1.0), [Set-DistributionGroup](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-distributiongroup?view=exchange-ps), [error de no entrega 5.7.124](https://learn.microsoft.com/en-us/troubleshoot/exchange/email-delivery/ndr/fix-error-code-5-7-124-in-exchange-online).
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)
@@ -545,6 +635,7 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | `portal:mail-test` dice `HTTP 403 (ErrorAccessDenied)` | Que la app tenga el rol `Application Mail.Send` con el ámbito del buzón (`Test-ServicePrincipalAuthorization` debe dar `InScope True`), que `MAIL_FROM_ADDRESS` sea ese buzón y que hayan pasado hasta 2 horas desde el cambio (paso 1.10) |
 | `portal:mail-test` dice `HTTP 401`, `invalid_client`, `AADSTS7000215` o `AADSTS7000222` | El secreto de la app es incorrecto o venció: cree uno nuevo en Entra, cámbielo en `MICROSOFT_CLIENT_SECRET` y ejecute `php artisan optimize` |
 | `portal:mail-test` dice «The graph mailer is not configured» | Falta la clave de `.env` que nombra el mensaje (paso 1.10); luego `php artisan optimize` |
+| Un anuncio dice «No se pudo enviar (ErrorAccessDenied)» en **Correo a las listas** | El permiso de envío del buzón remitente en el inquilino de esa empresa (paso 1.13): `Test-ServicePrincipalAuthorization` debe dar `InScope True`; después de un cambio, espere hasta 2 horas y pulse **Reintentar** |
 
 ---
 
