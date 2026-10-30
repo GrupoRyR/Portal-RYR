@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
@@ -159,6 +160,16 @@ class Announcement extends Model
     }
 
     /**
+     * «Enviar recordatorio» requests (App\Announcements\AnnouncementReminders).
+     *
+     * @return HasMany<AnnouncementReminder, $this>
+     */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(AnnouncementReminder::class);
+    }
+
+    /**
      * Records that the account read it, once: a second call keeps the
      * first date. Whether the user may see it is the caller's job; whether
      * the person already read it with another account is
@@ -282,6 +293,39 @@ class Announcement extends Model
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Who gets the reminder now: the people of the audience who have not
+     * confirmed yet (the rule of {@see pendingReaders()}, read at send
+     * time, so whoever confirmed meanwhile is left out) and were not
+     * mailed for this reminder yet: neither under the key recorded then
+     * nor with any of their accounts now (someone linked after being
+     * mailed has another key). One account per person: the lowest id
+     * among their accounts in the audience. At most $limit, by person key,
+     * in one query.
+     *
+     * @return Collection<int, int> person key by account id
+     */
+    public function reminderCandidates(AnnouncementReminder $reminder, int $limit): Collection
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $mailedNow = User::query()
+            ->whereIn('id', $reminder->deliveries()->select('user_id'))
+            ->select($key);
+
+        return $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->whereNotIn($key, $reminder->deliveries()->select('person_key'))
+            ->whereNotIn($key, $mailedNow)
+            ->toBase()
+            ->selectRaw('min(users.id) as id, '.LinkedAccounts::PERSON_KEY.' as person_key')
+            ->groupBy($key)
+            ->orderBy('person_key')
+            ->limit($limit)
+            ->pluck('person_key', 'id')
+            ->map(fn ($personKey) => (int) $personKey);
     }
 
     /**
