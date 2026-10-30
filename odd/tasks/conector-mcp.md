@@ -230,6 +230,27 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 - `npm run build` no se corrió: las clases usadas ya estaban en el CSS compilado.
 - Tamaño: unas 850 líneas de código (con la vista y las rutas) y 900 de pruebas. Pasa de la cifra orientativa de 400 porque la oferta, la confirmación, la autorización pendiente y el guardado solo funcionan juntos.
 
+## Registro del C2b-R
+
+Ruta: el mismo escritor delegado, después de una revisión independiente del C2b (1 hallazgo medio y 1 bajo, los dos reproducidos con pruebas de sondeo). Commit `f54e692` (`fix(mcp): bind each account confirmation to its pending authorization`).
+
+### Qué cambió
+
+- **M1, la confirmación no estaba atada a su autorización pendiente:**
+  - Problema: la intención `mcp_include` guardaba la cuenta, la cuenta destino, el intento y el `state`, pero no la autorización pendiente. Si en el mismo navegador se abría otra pantalla de consentimiento antes de que Microsoft respondiera (otra pestaña, o una página que abre el enlace de un cliente registrado por cualquiera), la cuenta quedaba confirmada para esa otra autorización. «Aprobar» la guardaba en la conexión de ese otro cliente.
+  - Arreglo: al empezar la confirmación, la intención guarda la huella de la autorización pendiente (`binding`), no su `auth_token`, que cambia en cada pantalla. El reintento con `prompt=login` la conserva.
+  - En el callback, `answered()` y `microsoftError()` exigen que la autorización viva tenga esa misma huella y la misma cuenta. Si no, se registra `mcp.account_include_failed` con `authorization_lost`, no se confirma nada, no se reintenta y sale el error de Passport (403), sin llevar a la otra pantalla.
+  - Volver a abrir la misma pantalla mientras Microsoft responde (otro `auth_token`, el mismo pedido) sigue funcionando.
+- **L1, hora de `confirmed_at`:** `pullForApproval()` creaba la hora en UTC (Carbon 3 lee así una marca de tiempo sin zona) y la app guarda en America/Bogota, así que las cuentas incluidas quedaban 5 horas corridas. Ahora usa la zona de la app, igual que la pantalla (`ConsentAccounts::confirmedAt()`).
+
+### Pruebas
+
+- RED: 50 pruebas en `IncludeAccountsTest`: 44 pasan y 6 fallan (las 4 nuevas de la autorización pendiente, el reintento atado y la hora guardada en la prueba de «Aprobar»).
+- GREEN: las 50 pasan. `tests/Feature/Mcp`, `tests/Unit/Mcp` y `tests/Feature/Auth`: 256, todas pasan.
+- Nuevas: la confirmación no cae en otra autorización pendiente (otro cliente, u otro pedido del mismo cliente), y la otra pantalla no queda con la cuenta y guarda solo la que aprueba; un error de Microsoft con otra autorización abierta no reintenta; el reintento conserva el `binding`; reabrir la misma pantalla sigue confirmando. La prueba de «Aprobar» revisa `confirmed_at` en la base (09:20 para la que aprueba, 09:15 para la incluida).
+- Suite completa: 1.836 pruebas, todas pasan (1.831 antes).
+- Pint: sin cambios pendientes.
+
 ## Siguiente paso
 
 C3, herramientas de solo lectura. Necesita `work_items` (#74): parte de una rama que lo tenga o espera a que se fusione.
