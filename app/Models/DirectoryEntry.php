@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Catalog\AppSearch;
+use App\Support\Like;
 use Database\Factories\DirectoryEntryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +15,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * One person of a company's directory, copied from Microsoft Graph every
- * night (App\Directory\DirectorySync).
+ * night (App\Directory\DirectorySync). Only the company's own people see
+ * it (companyIdFor()): the «Ctrl K» search of the home screen and
+ * /personas.
  *
  * @property int $id
  * @property int $company_id
@@ -99,10 +103,73 @@ class DirectoryEntry extends Model
     }
 
     /**
+     * The company whose directory the user may see: their own, while it is
+     * active. None for emergency accounts, accounts without a company and
+     * guests (B2B) of another organization, who are not in the directory
+     * either. Uses the user's loaded company.
+     */
+    public static function companyIdFor(?User $user): ?int
+    {
+        if ($user === null || $user->is_emergency || $user->is_guest === true || $user->company_id === null) {
+            return null;
+        }
+
+        return $user->company?->is_active === true ? (int) $user->company_id : null;
+    }
+
+    /**
      * @param  array<string, string|null>  $fields
      */
     public static function searchTextFor(array $fields): string
     {
         return AppSearch::normalize(implode(' ', array_filter(array_map(fn ($value) => (string) $value, $fields))));
+    }
+
+    /**
+     * Entries holding every word of the search, ignoring accents and case
+     * (App\Catalog\AppSearch), like the home search.
+     *
+     * @param  Builder<DirectoryEntry>  $query
+     */
+    public function scopeMatching(Builder $query, AppSearch $search): void
+    {
+        $terms = $search->isActive() ? explode(' ', AppSearch::normalize($search->query())) : [];
+
+        foreach ($terms as $term) {
+            $query->whereRaw('search_text like ? '.Like::ESCAPE, [Like::contains($term)]);
+        }
+    }
+
+    /**
+     * «Cargo · Área», with whichever of the two is known.
+     */
+    public function roleLine(): string
+    {
+        return implode(' · ', array_filter([trim((string) $this->job_title), trim((string) $this->department)], fn (string $part) => $part !== ''));
+    }
+
+    /**
+     * `tel:` link of the office phone: digits and a leading «+» only.
+     */
+    public function phoneHref(): ?string
+    {
+        $phone = trim((string) $this->business_phone);
+        $digits = preg_replace('/[^\d+]/', '', $phone);
+
+        if ($digits === null || $digits === '' || $digits === '+') {
+            return null;
+        }
+
+        return 'tel:'.(str_starts_with($digits, '+') ? '+' : '').str_replace('+', '', $digits);
+    }
+
+    /**
+     * A Teams chat with the person (opens Teams or its web app).
+     *
+     * @see https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/build-and-test/deep-link-teams
+     */
+    public function teamsChatUrl(): string
+    {
+        return 'https://teams.microsoft.com/l/chat/0/0?users='.rawurlencode($this->email);
     }
 }

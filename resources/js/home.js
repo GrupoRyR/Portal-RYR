@@ -109,8 +109,8 @@ const bogotaToday = () =>
 const isOver = (entry, today, now) => (entry.end ? Date.parse(entry.end) <= now : Boolean(entry.date) && entry.date < today);
 
 // «Ctrl K» search (x-home.search-dialog) over the index embedded in the page
-// (App\Search\HomeSearchIndex): apps, announcements and holidays, matched
-// like the server search. Absent on a server search (?q=).
+// (App\Search\HomeSearchIndex): apps, announcements, dates and people,
+// matched like the server search. Absent on a server search (?q=).
 const dialog = $('[data-search-dialog]');
 const SEARCH_GROUP_LIMIT = 6;
 let found = [];
@@ -167,7 +167,7 @@ function renderResults(index) {
     field.setAttribute('aria-expanded', String(found.length > 0));
     $('[data-search-status]', dialog).textContent =
         terms.length === 0
-            ? 'Escribe para buscar aplicaciones, anuncios y fechas.'
+            ? $('[data-search-status]', dialog).dataset.idle
             : found.length === 0
               ? `No encontramos resultados para «${query}».`
               : found.length === 1

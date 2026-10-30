@@ -7,6 +7,7 @@ use App\Models\AppAccessRule;
 use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\DirectoryEntry;
 use App\Models\User;
 use App\View\Home\QuickLinks;
 use Database\Seeders\RoleSeeder;
@@ -291,6 +292,24 @@ class HomeScreenTest extends TestCase
                 'launched_at' => now()->subMinutes($i),
             ]);
         }
+
+        $large = $this->countQueries();
+
+        $this->assertSame($small, $large);
+        $this->assertLessThanOrEqual(12, $large);
+    }
+
+    /**
+     * The directory (odd/tasks/personas.md WU1) is one query, whatever its size.
+     */
+    public function test_the_query_count_does_not_grow_with_the_directory(): void
+    {
+        $this->openableApp();
+        DirectoryEntry::factory()->forCompany($this->company)->create();
+        $small = $this->countQueries();
+
+        DirectoryEntry::factory()->forCompany($this->company)->count(60)->create();
+        DirectoryEntry::factory()->forCompany(Company::factory()->create())->count(10)->create();
 
         $large = $this->countQueries();
 

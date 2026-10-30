@@ -433,3 +433,40 @@ php artisan portal:unlink-account <correo>
 - El correo solo sirve para encontrar la cuenta: nunca vincula ni da acceso.
 - En Auditoría queda como «Sistema» con «por un administrador». Todas las cuentas de la persona reciben el correo.
 - Si la cuenta no está vinculada, no cambia nada.
+
+---
+
+## 9. Directorio de personas
+
+El buscador del inicio (**Ctrl K**, grupo **Personas**) y la página **Personas** (`/personas`, enlace **Ver directorio** en **Mi día**) muestran a las personas de la empresa: nombre, cargo, área, oficina, teléfono de la oficina, correo y **Chat en Teams**. La página busca por nombre, cargo, área, oficina o correo, sin importar tildes ni mayúsculas, y muestra 50 personas por página. El buscador del inicio lleva hasta 1.000 personas, por nombre; la página siempre las tiene todas.
+
+### 9.1 De dónde salen los datos
+
+No se escriben en el portal: se copian de Microsoft Entra. Para corregir un dato, cámbielo en Entra (centro de administración › **Usuarios** › la persona › **Propiedades**) y aparecerá en el portal después de la siguiente copia.
+
+| En el portal | Campo de Entra |
+|---|---|
+| Nombre | Nombre para mostrar |
+| Cargo | Puesto (Cargo) |
+| Área | Departamento |
+| Oficina | Oficina |
+| Teléfono | Teléfono de la oficina (el primero) |
+| Correo | Correo electrónico; si no tiene, el nombre principal de usuario |
+| Fecha de contratación | Fecha de contratación del empleado (se guarda para los aniversarios; todavía no se muestra) |
+
+### 9.2 Cada cuánto se actualiza
+
+Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-directory`. Quien se crea en Entra aparece al día siguiente; quien sale de Entra o queda deshabilitado desaparece en la misma copia. Si Microsoft no responde o falta el permiso en una empresa, esa empresa conserva los datos de la copia anterior (`docs/despliegue.md`, sección 1.10).
+
+### 9.3 Qué no se copia nunca
+
+- El celular personal.
+- Los invitados de otras organizaciones (B2B) y las cuentas deshabilitadas.
+- Las cuentas sin correo.
+- Las personas de empresas inactivas.
+
+### 9.4 Quién ve qué
+
+Cada persona ve solo el directorio de su propia empresa, la de la cuenta con la que entró: con una cuenta vinculada de otra empresa, ve el de esa otra. Las personas de la empresa se reparten como al iniciar sesión (la empresa dueña del dominio del correo, o la principal del inquilino). La cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no ven ningún directorio.
+
+El buscador del inicio guarda el directorio en el equipo hasta 24 horas, junto con la copia del inicio para usarlo sin conexión, igual que la libreta de direcciones de Outlook. En un equipo compartido, cierre la sesión al terminar (sección 6.5).
