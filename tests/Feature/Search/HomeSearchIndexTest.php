@@ -117,12 +117,17 @@ class HomeSearchIndexTest extends TestCase
 
         $this->assertSame('2026-11-02', $dates[0]['date']);
         $this->assertSame('Todos los Santos', $dates[0]['title']);
-        $this->assertSame('Festivo · lunes 2 de noviembre', $dates[0]['detail']);
-        $this->assertSame('todos los santos festivo lunes 2 de noviembre', $dates[0]['search']);
+        // Same label as «Próximas fechas» (HolidayDay::kind()): a Monday holiday is a «puente».
+        $this->assertSame('Puente festivo · lunes 2 de noviembre', $dates[0]['detail']);
+        $this->assertSame('todos los santos puente festivo lunes 2 de noviembre', $dates[0]['search']);
         $this->assertArrayNotHasKey('href', $dates[0]);
 
         $newYear = $dates[array_search('2027-01-01', array_column($dates, 'date'), true)];
-        $this->assertSame('Festivo · viernes 1 de enero de 2027', $newYear['detail']);
+        $this->assertSame('Puente festivo · viernes 1 de enero de 2027', $newYear['detail']);
+
+        $immaculate = $dates[array_search('2026-12-08', array_column($dates, 'date'), true)];
+        $this->assertSame('Festivo · martes 8 de diciembre', $immaculate['detail']);
+        $this->assertSame('inmaculada concepcion festivo martes 8 de diciembre', $immaculate['search']);
 
         $this->assertSame('2027-10-18', end($dates)['date']);
         $this->assertCount(19, $dates);
