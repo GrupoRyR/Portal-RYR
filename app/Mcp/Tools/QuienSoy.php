@@ -2,7 +2,6 @@
 
 namespace App\Mcp\Tools;
 
-use App\Models\Company;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -15,8 +14,8 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 /**
  * `quien_soy`: the accounts this connection may read for right now (the
  * ones `mcp.connection` left on the request: confirmed when connecting and
- * still usable), the approving account first. Name, email and company of
- * each, nothing else.
+ * still usable), the approving account first. Name, email and company
+ * (its short name, like every other tool) of each, nothing else.
  */
 #[Name('quien_soy')]
 #[Description('Devuelve las cuentas del Portal RYR que puede usar esta conexión, primero la que la aprobó: nombre, correo y empresa de cada una.')]
@@ -36,7 +35,7 @@ class QuienSoy extends PortalTool
                 ->map(fn (User $account) => [
                     'nombre' => $account->name,
                     'correo' => $account->email,
-                    'empresa' => Company::displayName($account->company),
+                    'empresa' => self::company($account),
                 ])
                 ->all(),
         ]);

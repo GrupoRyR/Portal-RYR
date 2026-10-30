@@ -67,12 +67,29 @@ class MisAppsTest extends TestCase
             'descripcion' => 'Descripción de Nómina',
             'categoria' => 'Operación',
             'url' => route('apps.open', $shared),
+            'en_mantenimiento' => false,
             'empresas' => ['Segurex', 'Derivados'],
+            'nota' => 'El enlace abre la app con la cuenta del portal que tenga la sesión en el navegador. Para esta app, usa tu cuenta de Segurex (jhon.castro@segurex.com) o de Derivados (derivados.info@derivados.com).',
         ], $apps['Nómina']);
         $this->assertSame(['Segurex'], $apps['Cámaras']['empresas']);
+        $this->assertSame('El enlace abre la app con la cuenta del portal que tenga la sesión en el navegador. Para esta app, usa tu cuenta de Segurex (jhon.castro@segurex.com).', $apps['Cámaras']['nota']);
         $this->assertSame(route('apps.open', $segurex), $apps['Cámaras']['url']);
         $this->assertSame(['Derivados'], $apps['Inventario']['empresas']);
         $this->assertSame(route('apps.open', $derivados), $apps['Inventario']['url']);
+    }
+
+    public function test_an_app_in_maintenance_says_so_and_an_empty_category_is_null(): void
+    {
+        $app = App::factory()->maintenance()->forCompanies($this->segurex)->create([
+            'name' => 'Cámaras',
+            'app_category_id' => AppCategory::factory()->create(['name' => '']),
+        ]);
+        AppAccessRule::forCompany($app, $this->segurex);
+
+        $apps = $this->apps();
+
+        $this->assertTrue($apps[0]['en_mantenimiento']);
+        $this->assertNull($apps[0]['categoria']);
     }
 
     public function test_apps_of_a_company_outside_the_connection_or_hidden_or_not_granted_never_appear(): void

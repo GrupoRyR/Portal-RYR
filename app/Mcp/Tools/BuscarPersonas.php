@@ -48,9 +48,12 @@ class BuscarPersonas extends PortalTool
         )['texto']);
         $search = new AppSearch($text);
 
-        // Only spaces or a single letter would match the whole directory.
-        if (mb_strlen($text) < self::MIN_LENGTH || ! $search->isActive()) {
-            return Response::error('El campo texto debe tener al menos '.self::MIN_LENGTH.' caracteres.');
+        // Spaces or one-letter words alone («a e») match most of the
+        // directory: at least one word must have MIN_LENGTH characters.
+        $words = $search->isActive() ? explode(' ', AppSearch::normalize($search->query())) : [];
+
+        if (! collect($words)->contains(fn (string $word) => mb_strlen($word) >= self::MIN_LENGTH)) {
+            return Response::error('El campo texto debe tener al menos una palabra de '.self::MIN_LENGTH.' caracteres o más.');
         }
 
         /** @var SeenByAccounts<DirectoryEntry> $seen */

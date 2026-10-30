@@ -103,7 +103,7 @@ class ConnectionTest extends TestCase
         $this->assertSame(['cuentas' => [[
             'nombre' => 'Jhon Castro',
             'correo' => 'jhon.castro@segurex.com',
-            'empresa' => 'Segurex Latam S.A.S.',
+            'empresa' => 'Segurex',
         ]]], $call->json('result.structuredContent'));
     }
 

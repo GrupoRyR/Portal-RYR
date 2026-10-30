@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Catalog\AppSearch;
+use App\Search\HomeSearchIndex;
 use App\Support\Like;
 use Database\Factories\DirectoryEntryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -149,10 +151,8 @@ class DirectoryEntry extends Model
      * Adds `shown_birthday_month` and `shown_birthday_day`: the birthday of
      * the entry's own account (the one with its tenant, object ID and
      * company), only when that account chose to show it; null otherwise.
-     * Never through `person_id`. The same join as the home screen's
-     * directory query (App\View\Home\HomePageBuilder::people()); used by
-     * `cumpleanos_y_aniversarios` of the Claude connector. Select the
-     * entry's columns with the table name before calling it.
+     * Never through `person_id`. Part of {@see homeDirectory()}. Select
+     * the entry's columns with the table name before calling it.
      *
      * @param  Builder<DirectoryEntry>  $query
      */
@@ -167,6 +167,40 @@ class DirectoryEntry extends Model
                 ->on('users.company_id', '=', 'directory_entries.company_id')
                 ->where('users.show_birthday', true);
         });
+    }
+
+    /**
+     * The company directory as the home screen reads it, in one query: the
+     * «Ctrl K» search index and «Cumpleaños y aniversarios» of «Mi día»
+     * (App\View\Home\HomePageBuilder), and `cumpleanos_y_aniversarios` of
+     * the Claude connector, so both list the same people. By name, at most
+     * HomeSearchIndex::PEOPLE_LIMIT, only the columns those need, with the
+     * shown birthday ({@see scopeWithShownBirthday()}). Whether the viewer
+     * may see this directory is the caller's job ({@see companyIdFor()}).
+     *
+     * @return Collection<int, DirectoryEntry>
+     */
+    public static function homeDirectory(int $companyId): Collection
+    {
+        return self::query()
+            ->select([
+                'directory_entries.id',
+                'directory_entries.tenant_id',
+                'directory_entries.azure_oid',
+                'directory_entries.display_name',
+                'directory_entries.job_title',
+                'directory_entries.department',
+                'directory_entries.email',
+                'directory_entries.hire_date',
+                'directory_entries.search_text',
+            ])
+            ->withShownBirthday()
+            ->where('directory_entries.company_id', $companyId)
+            // Only directory_entries has display_name.
+            ->orderBy('display_name')
+            ->orderBy('directory_entries.id')
+            ->limit(HomeSearchIndex::PEOPLE_LIMIT)
+            ->get();
     }
 
     /**

@@ -4,8 +4,11 @@ namespace Tests\Feature\Mcp\Tools;
 
 use App\Models\Company;
 use App\Models\DirectoryEntry;
+use App\Models\Person;
 use App\Models\User;
+use App\Search\HomeSearchIndex;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -118,6 +121,73 @@ class CumpleanosYAniversariosTest extends TestCase
 
         $this->assertCount(1, $celebrations);
         $this->assertSame(['Segurex', 'Derivados'], $celebrations[0]['empresas']);
+    }
+
+    public function test_two_people_with_the_same_name_and_birthday_in_one_company_are_two_rows(): void
+    {
+        $this->person($this->segurex, 'Juan Pérez', birthday: [11, 6]);
+        $this->person($this->segurex, 'Juan Pérez', birthday: [11, 6]);
+
+        $celebrations = $this->celebrations();
+
+        $this->assertSame(['Juan Pérez', 'Juan Pérez'], array_column($celebrations, 'nombre'));
+        $this->assertSame([['Segurex'], ['Segurex']], array_column($celebrations, 'empresas'));
+    }
+
+    public function test_namesakes_in_the_two_companies_are_one_row_per_company(): void
+    {
+        $this->person($this->segurex, 'María Gómez', birthday: [11, 6]);
+        $this->person($this->derivados, 'María Gómez', birthday: [11, 6]);
+        $this->person($this->segurex, 'Luis Mejía', hired: '2020-11-07');
+        $this->person($this->derivados, 'Luis Mejía', hired: '2020-11-07');
+
+        $celebrations = $this->celebrations();
+
+        $this->assertSame(['María Gómez', 'María Gómez', 'Luis Mejía', 'Luis Mejía'], array_column($celebrations, 'nombre'));
+        $this->assertSame([['Segurex'], ['Derivados'], ['Segurex'], ['Derivados']], array_column($celebrations, 'empresas'));
+        $this->assertSame(['6 años en Segurex', '6 años en Derivados'], array_column(array_slice($celebrations, 2), 'detalle'));
+    }
+
+    /**
+     * Only the connection's own accounts are known to be one person (they
+     * were confirmed with Microsoft and are still linked); anyone else's
+     * entries stay one row per company, whatever their accounts' links.
+     */
+    public function test_someone_else_s_linked_accounts_are_not_merged(): void
+    {
+        $segurex = User::factory()->microsoft($this->segurex)->create();
+        $derivados = User::factory()->microsoft($this->derivados)->create();
+        $person = Person::query()->create();
+        $segurex->forceFill(['person_id' => $person->id])->save();
+        $derivados->forceFill(['person_id' => $person->id])->save();
+        $this->person($this->segurex, 'Nora Paz', birthday: [11, 6], account: $segurex);
+        $this->person($this->derivados, 'Nora Paz', birthday: [11, 6], account: $derivados);
+
+        $this->assertSame([['Segurex'], ['Derivados']], array_column($this->celebrations(), 'empresas'));
+    }
+
+    /**
+     * The directory is read as the home screen reads it for «Mi día»
+     * (DirectoryEntry::homeDirectory(): by name, at most
+     * HomeSearchIndex::PEOPLE_LIMIT), so the tool and the home agree.
+     */
+    public function test_the_directory_is_capped_like_the_home_screen(): void
+    {
+        foreach (array_chunk(range(0, HomeSearchIndex::PEOPLE_LIMIT - 1), 500) as $chunk) {
+            DB::table('directory_entries')->insert(array_map(fn (int $i) => [
+                'company_id' => $this->segurex->id,
+                'tenant_id' => $this->segurex->tenant_id,
+                'azure_oid' => (string) Str::uuid(),
+                'display_name' => sprintf('Persona %04d', $i),
+                'email' => "persona{$i}@segurex.com",
+                'search_text' => sprintf('persona %04d', $i),
+                'synced_at' => now(),
+            ], $chunk));
+        }
+        // Past the cap by name, as on the home screen.
+        $this->person($this->segurex, 'Zoe Última', hired: '2020-11-05');
+
+        $this->assertSame([], $this->celebrations());
     }
 
     public function test_a_company_outside_the_connection_never_appears(): void

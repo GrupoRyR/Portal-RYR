@@ -12,8 +12,9 @@ use Illuminate\Support\Str;
  * One row of «Cumpleaños y aniversarios» in «Mi día»: a birthday the person
  * chose to show (/cuenta) or a work anniversary (the hire date Microsoft
  * Entra holds, copied by App\Directory\DirectorySync), today or within the
- * next DAYS days in the calendar timezone. 29 February is celebrated on 28
- * February in common years.
+ * next DAYS days in the calendar timezone (the Claude connector's
+ * `cumpleanos_y_aniversarios` asks for up to 31). 29 February is
+ * celebrated on 28 February in common years.
  */
 final readonly class Celebration
 {
@@ -32,6 +33,7 @@ final readonly class Celebration
      * @param  string  $label  «Cumpleaños» or «5 años en Segurex».
      * @param  CarbonImmutable  $date  Midnight of the day, in the calendar timezone.
      * @param  string|null  $greetHref  «Felicitar» (a Teams chat with a greeting); null on the viewer's own row.
+     * @param  int  $entryId  The directory entry it is about: two people with one name stay two rows.
      */
     public function __construct(
         public string $name,
@@ -41,12 +43,13 @@ final readonly class Celebration
         public bool $isToday,
         public bool $isTomorrow,
         public ?string $greetHref,
+        public int $entryId,
     ) {}
 
     /**
      * The rows of the window, by date, then name (birthday before
      * anniversary), from the directory query of the home screen
-     * (HomePageBuilder::people()): `shown_birthday_month` and
+     * (DirectoryEntry::homeDirectory()): `shown_birthday_month` and
      * `shown_birthday_day` hold the birthday of an account that chose to
      * show it, `hire_date` the hire date. The viewer's own row has no
      * «Felicitar».
@@ -54,9 +57,10 @@ final readonly class Celebration
      * @param  iterable<DirectoryEntry>  $people  The viewer's company directory.
      * @param  CarbonImmutable  $today  Midnight today in the calendar timezone.
      * @param  string  $companyName  The company of the anniversaries: «5 años en Segurex».
+     * @param  int  $days  Days after today the window reaches (DAYS on the home screen).
      * @return list<self>
      */
-    public static function within(iterable $people, User $viewer, CarbonImmutable $today, string $companyName): array
+    public static function within(iterable $people, User $viewer, CarbonImmutable $today, string $companyName, int $days = self::DAYS): array
     {
         $rows = [];
 
@@ -67,12 +71,12 @@ final readonly class Celebration
 
             $month = $person->getAttribute('shown_birthday_month');
             $day = $person->getAttribute('shown_birthday_day');
-            if ($month !== null && $day !== null && ($date = self::next((int) $month, (int) $day, $today)) !== null) {
+            if ($month !== null && $day !== null && ($date = self::next((int) $month, (int) $day, $today, $days)) !== null) {
                 $rows[] = self::make($person, self::BIRTHDAY, 'Cumpleaños', $date, $today, $own, '¡Feliz cumpleaños, '.self::firstName($person).'!');
             }
 
             $hired = $person->hire_date;
-            if ($hired !== null && ($date = self::next($hired->month, $hired->day, $today)) !== null) {
+            if ($hired !== null && ($date = self::next($hired->month, $hired->day, $today, $days)) !== null) {
                 $years = $date->year - $hired->year;
                 if ($years >= 1) {
                     $span = $years === 1 ? '1 año' : "{$years} años";
@@ -89,16 +93,16 @@ final readonly class Celebration
     }
 
     /**
-     * The next day/month on or after today, when it falls within DAYS days;
+     * The next day/month on or after today, when it falls within $days days;
      * 29 February is 28 February in common years.
      */
-    private static function next(int $month, int $day, CarbonImmutable $today): ?CarbonImmutable
+    private static function next(int $month, int $day, CarbonImmutable $today, int $days): ?CarbonImmutable
     {
         if (! checkdate($month, $day, 2024)) {
             return null;
         }
 
-        $last = $today->addDays(self::DAYS);
+        $last = $today->addDays($days);
 
         foreach ([$today->year, $today->year + 1] as $year) {
             $date = $month === 2 && $day === 29 && ! checkdate(2, 29, $year)
@@ -123,6 +127,7 @@ final readonly class Celebration
             isToday: $date->isSameDay($today),
             isTomorrow: $date->isSameDay($today->addDay()),
             greetHref: $own ? null : $person->teamsChatUrl($greeting),
+            entryId: (int) $person->id,
         );
     }
 

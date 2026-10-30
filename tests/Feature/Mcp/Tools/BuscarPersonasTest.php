@@ -147,6 +147,8 @@ class BuscarPersonasTest extends TestCase
         return [
             'one letter' => ['a'],
             'only spaces' => ['    '],
+            'only one-letter words' => ['a e'],
+            'one letter and spaces' => ['  a   '],
             'too long' => [str_repeat('a', 61)],
             'not text' => [42],
         ];

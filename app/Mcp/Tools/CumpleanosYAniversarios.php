@@ -5,7 +5,7 @@ namespace App\Mcp\Tools;
 use App\Catalog\AppSearch;
 use App\Mcp\SeenByAccounts;
 use App\Models\DirectoryEntry;
-use App\Search\HomeSearchIndex;
+use App\Models\User;
 use App\View\Home\Celebration;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
@@ -25,13 +25,21 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
  * - birthdays only of accounts that chose to show them
  *   (DirectoryEntry::scopeWithShownBirthday()), day and month only: the
  *   portal keeps no birth year;
- * - work anniversaries from the directory's hire date, with the years
- *   completed; the hire date itself is never returned.
+ * - work anniversaries, with the day and the years completed, as «Mi día»
+ *   shows them; the hire date itself is never returned.
  *
- * The rows come from App\View\Home\Celebration::within(), whose window is
- * Celebration::DAYS days after its «today»: a longer window is read as
- * consecutive windows of that length. Each row once (the same birthday in
- * both directories lists both companies), by date, then name, at most
+ * The directory is read as the home screen reads it
+ * (DirectoryEntry::homeDirectory(): by name, at most
+ * HomeSearchIndex::PEOPLE_LIMIT), and the rows come from
+ * App\View\Home\Celebration::within() with the longer window, so the tool
+ * and «Mi día» agree.
+ *
+ * One row per directory entry: two people with one name stay two rows, and
+ * namesakes in two companies stay one row per company. Only the
+ * connection's own accounts are known to be one person (confirmed with
+ * Microsoft when connecting and still linked, App\Mcp\ConnectionAccounts),
+ * so their own birthday in both directories is one row with both
+ * companies; nobody else's person is read. By date, then name, at most
  * LIMIT. No email, phone or «Felicitar» link. One query per account.
  */
 #[Name('cumpleanos_y_aniversarios')]
@@ -59,7 +67,10 @@ class CumpleanosYAniversarios extends PortalTool
         )['dias'] ?? self::DEFAULT_DAYS);
 
         $today = self::today();
-        $last = $today->addDays($days);
+        // The connection's own accounts, by tenant and object ID: one person.
+        $own = $accounts
+            ->map(fn (User $account) => self::accountKey($account->tenant_id, $account->azure_oid))
+            ->all();
 
         /** @var SeenByAccounts<Celebration> $seen */
         $seen = new SeenByAccounts;
@@ -71,15 +82,11 @@ class CumpleanosYAniversarios extends PortalTool
                 continue;
             }
 
-            $people = self::people($companyId);
+            $people = DirectoryEntry::homeDirectory($companyId)->keyBy('id');
             $company = self::company($account);
 
-            for ($from = $today; $from <= $last; $from = $from->addDays(Celebration::DAYS + 1)) {
-                foreach (Celebration::within($people, $account, $from, $company) as $row) {
-                    if ($row->date <= $last) {
-                        $seen->add(implode('|', [$row->kind, $row->date->toDateString(), $row->name, $row->label]), $company, $row);
-                    }
-                }
+            foreach (Celebration::within($people, $account, $today, $company, $days) as $row) {
+                $seen->add(self::identity($row, $people[$row->entryId], $own), $company, $row);
             }
         }
 
@@ -116,33 +123,24 @@ class CumpleanosYAniversarios extends PortalTool
     }
 
     /**
-     * The company directory as the home screen reads it for «Mi día»
-     * (by name, at most HomeSearchIndex::PEOPLE_LIMIT), only the people with
-     * something to celebrate: a shown birthday or a hire date.
+     * Which rows are the same: one per directory entry, except the
+     * connection's own person, whose rows of the same kind, day and label
+     * (their own birthday in both directories) are one.
      *
-     * @return iterable<DirectoryEntry>
+     * @param  list<string>  $own  {@see accountKey()} of the connection's accounts.
      */
-    private static function people(int $companyId): iterable
+    private static function identity(Celebration $row, DirectoryEntry $entry, array $own): string
     {
-        return DirectoryEntry::query()
-            ->select([
-                'directory_entries.id',
-                'directory_entries.tenant_id',
-                'directory_entries.azure_oid',
-                'directory_entries.display_name',
-                'directory_entries.email',
-                'directory_entries.hire_date',
-            ])
-            ->withShownBirthday()
-            ->where('directory_entries.company_id', $companyId)
-            ->where(fn ($query) => $query
-                ->whereNotNull('directory_entries.hire_date')
-                ->orWhereNotNull('users.birthday_month'))
-            // Only directory_entries has display_name.
-            ->orderBy('display_name')
-            ->orderBy('directory_entries.id')
-            ->limit(HomeSearchIndex::PEOPLE_LIMIT)
-            ->get();
+        $who = in_array(self::accountKey($entry->tenant_id, $entry->azure_oid), $own, true)
+            ? 'connection'
+            : 'entry:'.$row->entryId;
+
+        return implode('|', [$who, $row->kind, $row->date->toDateString(), $row->label]);
+    }
+
+    private static function accountKey(?string $tenantId, ?string $azureOid): string
+    {
+        return strtolower((string) $tenantId).'|'.strtolower((string) $azureOid);
     }
 
     /**
