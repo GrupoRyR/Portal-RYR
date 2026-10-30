@@ -5,6 +5,7 @@ namespace Tests\Feature\Events;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\User;
+use App\View\Home\EventDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -70,6 +71,30 @@ class EventYearlyTest extends TestCase
 
         $this->today('2027-10-29');
         $this->assertOccurrence('2028-02-29', '2028-02-29', $event);
+    }
+
+    public function test_a_leap_day_event_of_several_days_starts_on_28_february_in_common_years(): void
+    {
+        $event = $this->yearly('2024-02-29', '2024-03-02');
+
+        $this->assertOccurrence('2027-02-28', '2027-03-02', $event);
+
+        $this->today('2027-10-29');
+        $this->assertOccurrence('2028-02-29', '2028-03-02', $event);
+    }
+
+    public function test_the_occurrence_follows_the_given_day_instead_of_the_clock(): void
+    {
+        $event = $this->yearly('2020-11-20');
+        $later = CarbonImmutable::parse('2026-12-20', 'America/Bogota');
+
+        $this->assertSame('2027-11-20', $event->occurrenceStart($later)->toDateString());
+        $this->assertSame('2027-11-20', $event->occurrenceLastDay($later)->toDateString());
+        $this->assertSame('2027-11-21T00:00:00-05:00', $event->endsAtMoment($later)->toIso8601String());
+        // The home screen builds it for the day it was given.
+        $this->assertSame('2027-11-20', EventDate::from($event, $later)->isoDate());
+        // Without one, it is today.
+        $this->assertSame('2026-11-20', $event->occurrenceStart()->toDateString());
     }
 
     public function test_a_first_date_still_ahead_is_the_occurrence(): void

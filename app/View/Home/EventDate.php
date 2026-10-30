@@ -48,7 +48,7 @@ final readonly class EventDate
     public static function from(Event $event, CarbonImmutable $today): self
     {
         $timezone = config('app.timezone');
-        $start = $event->occurrenceStart();
+        $start = $event->occurrenceStart($today);
         // Not over (it is visible) and started before today.
         $ongoing = $start->toDateString() < $today->toDateString();
 
@@ -60,8 +60,8 @@ final readonly class EventDate
             allDay: (bool) $event->all_day,
             start: $start,
             end: $event->all_day ? null : $event->ends_at?->toImmutable()->setTimezone($timezone),
-            lastDay: $event->occurrenceLastDay(),
-            over: $event->endsAtMoment(),
+            lastDay: $event->occurrenceLastDay($today),
+            over: $event->endsAtMoment($today),
             isToday: $start->toDateString() === $today->toDateString(),
             year: $today->year,
             isOngoing: $ongoing,

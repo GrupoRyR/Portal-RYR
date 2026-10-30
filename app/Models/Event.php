@@ -9,6 +9,7 @@ use Database\Factories\EventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -72,6 +73,13 @@ class Event extends Model
     public const DESCRIPTION_MAX = 500;
 
     public const LOCATION_MAX = 120;
+
+    /**
+     * Yearly events fetched with the soonest one-time ones
+     * ({@see visibleSoonest()}): their next occurrence is computed here,
+     * not in SQL, so they are all fetched up to this many.
+     */
+    public const YEARLY_LIMIT = 200;
 
     public const AUDIENCE_ALL = Announcement::AUDIENCE_ALL;
 
@@ -186,15 +194,15 @@ class Event extends Model
     /**
      * When it is over: the end of its last day (all-day), its end, or the
      * end of its day when a timed event has no end. A yearly event: the end
-     * of its current occurrence, so it is never over.
+     * of its occurrence on $today ({@see occurrenceStart()}), so it is never over.
      */
-    public function endsAtMoment(): CarbonImmutable
+    public function endsAtMoment(?CarbonInterface $today = null): CarbonImmutable
     {
         if (! $this->all_day && $this->ends_at !== null) {
             return self::local($this->ends_at);
         }
 
-        return $this->occurrenceLastDay()->addDay();
+        return $this->occurrenceLastDay($today)->addDay();
     }
 
     /**
@@ -212,8 +220,10 @@ class Event extends Model
      * year's occurrence until it is over today (app timezone), then next
      * year's; one under way since last year (30 December to 3 January)
      * stays. Never before its first date. Midnight, local.
+     *
+     * @param  CarbonInterface|null  $today  Any moment of the day it is seen on (the page's own «now»); now when null.
      */
-    public function occurrenceStart(): CarbonImmutable
+    public function occurrenceStart(?CarbonInterface $today = null): CarbonImmutable
     {
         $start = self::local($this->starts_at);
 
@@ -223,7 +233,7 @@ class Event extends Model
 
         $first = $start->startOfDay();
         $length = $this->lengthInDays();
-        $today = self::local(Carbon::now())->startOfDay();
+        $today = self::local($today ?? Carbon::now())->startOfDay();
 
         foreach ([$today->year - 1, $today->year] as $year) {
             $candidate = self::onYear($first, $year);
@@ -241,11 +251,37 @@ class Event extends Model
      * Midnight of the last day of the occurrence shown now ({@see lastDay()}
      * for a one-time event).
      */
-    public function occurrenceLastDay(): CarbonImmutable
+    public function occurrenceLastDay(?CarbonInterface $today = null): CarbonImmutable
     {
         return $this->repeatsYearly()
-            ? $this->occurrenceStart()->addDays($this->lengthInDays())
+            ? $this->occurrenceStart($today)->addDays($this->lengthInDays())
             : $this->lastDay();
+    }
+
+    /**
+     * What the user sees right now, in one query: the $limit soonest
+     * one-time events and up to YEARLY_LIMIT yearly ones. A yearly event
+     * keeps its first date in `starts_at`, so ordering everything by it
+     * would let old yearly events crowd out the soonest ones. The caller
+     * orders them by their occurrence (App\View\Home\EventDate::soonestFirst())
+     * and keeps $limit.
+     *
+     * @param  list<string>  $columns
+     * @return Collection<int, Event>
+     */
+    public static function visibleSoonest(User $user, int $limit, array $columns): Collection
+    {
+        $once = static::query()->select($columns)->visibleTo($user)
+            ->whereNot(fn (Builder $query) => $query->yearly())
+            ->chronological()
+            ->limit($limit);
+
+        $yearly = static::query()->select($columns)->visibleTo($user)
+            ->yearly()
+            ->orderBy('id')
+            ->limit(self::YEARLY_LIMIT);
+
+        return $once->unionAll($yearly)->get();
     }
 
     /**
@@ -277,7 +313,7 @@ class Event extends Model
             ->where(fn (Builder $query) => $query->whereNull('ends_at')->where('starts_at', '>=', $today))
             ->orWhere(fn (Builder $query) => $query->where('all_day', true)->whereNotNull('ends_at')->where('ends_at', '>=', $today))
             ->orWhere(fn (Builder $query) => $query->where('all_day', false)->whereNotNull('ends_at')->where('ends_at', '>', $now))
-            ->orWhere(fn (Builder $query) => $query->where('all_day', true)->where('repeats_yearly', true)));
+            ->orWhere(fn (Builder $query) => $query->yearly()));
     }
 
     /**
@@ -297,6 +333,16 @@ class Event extends Model
             self::STATUS_PUBLISHED => $live($query)->upcoming(),
             default => throw new InvalidArgumentException("Unknown event status [{$status}]."),
         };
+    }
+
+    /**
+     * Repeats every year: all day and marked ({@see repeatsYearly()}).
+     *
+     * @param  Builder<Event>  $query
+     */
+    public function scopeYearly(Builder $query): void
+    {
+        $query->where('all_day', true)->where('repeats_yearly', true);
     }
 
     /**

@@ -126,6 +126,18 @@ class EventCalendarFileTest extends TestCase
         $this->assertContains('RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1', $lines);
     }
 
+    public function test_a_leap_day_event_of_several_days_keeps_its_days_in_the_file(): void
+    {
+        $event = Event::factory()->allDay('2024-02-29', '2024-03-02')->yearly()->create(['published_at' => '2024-01-01 08:00:00']);
+
+        $lines = $this->lines($this->download($event));
+
+        // Three days from the last day of February, as the portal shows it (28 February to 2 March in 2027).
+        $this->assertContains('DTSTART;VALUE=DATE:20240229', $lines);
+        $this->assertContains('DTEND;VALUE=DATE:20240303', $lines);
+        $this->assertContains('RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1', $lines);
+    }
+
     public function test_a_past_event_that_does_not_repeat_is_still_not_found(): void
     {
         $event = Event::factory()->allDay('2020-03-15')->create(['published_at' => '2020-01-01 08:00:00']);
