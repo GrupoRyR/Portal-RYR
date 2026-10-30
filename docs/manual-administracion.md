@@ -477,8 +477,9 @@ El cumpleaños no sale de Microsoft: cada persona lo escribe, si quiere, en **Mi
 
 - Solo se guardan el día y el mes, nunca el año. El 29 de febrero se acepta.
 - Nadie más lo ve hasta que la persona marca **Mostrar mi cumpleaños a las personas de mi empresa** (desmarcada al empezar, Ley 1581). Puede desmarcarla, cambiar la fecha o tocar **Quitar mi cumpleaños** cuando quiera; quitarlo borra el día, el mes y la casilla.
+- Quitarlo o desmarcar la casilla vale de inmediato en el servidor, pero el celular o el computador de un compañero puede seguir mostrándolo hasta 24 horas en la copia del inicio que guardó para usar sin conexión.
 - Es por cuenta: con cuentas vinculadas en dos empresas, cada cuenta tiene el suyo.
-- Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen.
+- Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen. Si una cuenta deja de ver el directorio (pasa a invitado, queda sin empresa o la empresa se desactiva) con un cumpleaños guardado, en `/cuenta` solo le queda **Quitar mi cumpleaños**, para que siempre pueda borrarlo.
 - Ninguna pantalla de Administración muestra ni cambia el cumpleaños.
 
 ### 9.6 Cumpleaños y aniversarios en «Mi día»

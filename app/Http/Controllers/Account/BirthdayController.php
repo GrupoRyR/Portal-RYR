@@ -13,7 +13,8 @@ use Illuminate\Http\Request;
  * month of its birthday and whether its company sees it in «Mi día» (off
  * unless the box is checked), or removes all three. The only writer of
  * those columns (App\Models\User). Per account: `person_id` plays no part.
- * Accounts without a company directory get a 404 (BirthdayRequest::allows()).
+ * Saving needs a company directory (BirthdayRequest::allows(), a 404
+ * otherwise); removing does not.
  */
 class BirthdayController extends Controller
 {
@@ -31,11 +32,17 @@ class BirthdayController extends Controller
         return redirect()->route('account.show')->with('status', 'Guardamos tu cumpleaños.');
     }
 
+    /**
+     * Removing has no directory gate (Ley 1581): a guest, an account
+     * without a company or one whose company was deactivated can still
+     * clear its own stored birthday, and only its own. Emergency accounts,
+     * which never have one and have no /cuenta, get the 404 of that page.
+     */
     public function destroy(Request $request): RedirectResponse
     {
         $user = $request->user();
 
-        abort_unless(BirthdayRequest::allows($user), 404);
+        abort_unless($user instanceof User && ! $user->is_emergency, 404);
 
         $user->forceFill([
             'birthday_month' => null,

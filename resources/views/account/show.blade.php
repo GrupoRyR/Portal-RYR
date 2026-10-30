@@ -3,7 +3,8 @@
     the accounts of the signed-in user's person, each with «Desvincular»
     (a confirmation page first), and «Vincular otra empresa». No Livewire or
     Alpine. $accounts is empty when the account is not linked. «Mi cumpleaños»
-    (day, month and whether the company sees it) when $birthdayMonths is set.
+    (day, month and whether the company sees it) when $birthdayMonths is set;
+    without it, only «Quitar mi cumpleaños» for a birthday still stored.
 --}}
 @use('App\Models\Company')
 <x-layouts.app title="Cuentas vinculadas" brand-band noindex>
@@ -62,8 +63,9 @@
 
         <p class="text-[0.8125rem] leading-relaxed text-fg-muted">Solo puedes vincular una cuenta por empresa, y solo de empresas activas en el portal. Las cuentas de invitado y la cuenta de emergencia no se pueden vincular.</p>
 
-        {{-- «Mi cumpleaños» (App\Http\Controllers\Account\BirthdayController): only with a company directory. --}}
-        @if ($birthdayMonths)
+        {{-- «Mi cumpleaños» (App\Http\Controllers\Account\BirthdayController): saving only with a
+             company directory; «Quitar» whenever one is stored, so it can always be removed. --}}
+        @if ($birthdayMonths || $current->birthday_month !== null)
             {{-- One-line @php only: this file already uses @php(…), and Blade mixes it up with an @php block. --}}
             @php($select = 'h-12 rounded-control border border-line-strong bg-surface px-3 text-base text-fg')
             @php($savedDay = (string) old('birthday_day', $current->birthday_day))
@@ -72,12 +74,18 @@
             <section id="cumpleanos" aria-labelledby="cumpleanos-titulo" class="flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6">
                 <div class="flex flex-col gap-2">
                     <h2 id="cumpleanos-titulo" class="font-sans text-lg font-bold tracking-normal">Mi cumpleaños</h2>
-                    <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Solo guardamos el día y el mes, nunca el año. Solo lo ven las personas de tu empresa, en «Mi día» del inicio, y solo si marcas la casilla. Puedes quitarlo cuando quieras.</p>
-                    @if ($label = $current->birthdayLabel())
-                        <p class="text-sm font-semibold">Tu cumpleaños: {{ $label }}. {{ $current->show_birthday ? 'Lo ven las personas de tu empresa.' : 'Nadie más lo ve.' }}</p>
+                    @if ($birthdayMonths)
+                        <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Solo guardamos el día y el mes, nunca el año. Solo lo ven las personas de tu empresa, en «Mi día» del inicio, y solo si marcas la casilla. Puedes quitarlo cuando quieras.</p>
+                        @if ($label = $current->birthdayLabel())
+                            <p class="text-sm font-semibold">Tu cumpleaños: {{ $label }}. {{ $current->show_birthday ? 'Lo ven las personas de tu empresa.' : 'Nadie más lo ve.' }}</p>
+                        @endif
+                    @else
+                        {{-- No directory any more (guest, no company or an inactive one): nobody sees it, and it can only be removed. --}}
+                        <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Tienes guardado tu cumpleaños ({{ $current->birthdayLabel() }}), pero esta cuenta ya no ve el directorio de una empresa, así que nadie lo ve. Puedes quitarlo.</p>
                     @endif
                 </div>
 
+                @if ($birthdayMonths)
                 <form method="POST" action="{{ route('account.birthday.update') }}" class="flex flex-col gap-4" novalidate>
                     @csrf
                     <div class="flex flex-wrap gap-3">
@@ -114,6 +122,7 @@
 
                     <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center self-start rounded-control bg-brand-button px-5 font-semibold text-white">Guardar</button>
                 </form>
+                @endif
 
                 @if ($current->birthday_month !== null)
                     <form method="POST" action="{{ route('account.birthday.destroy') }}">

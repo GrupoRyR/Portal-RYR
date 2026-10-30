@@ -259,15 +259,67 @@ class BirthdayTest extends TestCase
      * @param  \Closure(Company): User  $make
      */
     #[DataProvider('accountsWithoutDirectory')]
-    public function test_accounts_without_a_directory_neither_see_nor_use_it(\Closure $make): void
+    public function test_accounts_without_a_directory_neither_see_nor_save_it(\Closure $make): void
     {
         $user = $make($this->segurex);
 
         $this->actingAs($user)->get('/cuenta')->assertOk()->assertDontSee('id="cumpleanos"', false)->assertDontSeeText('Mi cumpleaños');
         $this->actingAs($user)->post(route('account.birthday.update'), ['birthday_day' => '5', 'birthday_month' => '3'])->assertNotFound();
-        $this->actingAs($user)->delete(route('account.birthday.destroy'))->assertNotFound();
 
         $this->assertNull($user->fresh()->birthday_month);
+    }
+
+    /**
+     * Removing is the person's right (Ley 1581) whatever happened to the
+     * account since: it only clears the caller's own birthday.
+     *
+     * @param  \Closure(Company): User  $make
+     */
+    #[DataProvider('accountsWithoutDirectory')]
+    public function test_a_stored_birthday_can_still_be_removed_without_a_directory(\Closure $make): void
+    {
+        $user = $make($this->segurex);
+        $user->forceFill(['birthday_month' => 3, 'birthday_day' => 5, 'show_birthday' => true])->save();
+
+        // Only «Quitar»: saving stays for accounts with a directory.
+        $xpath = $this->xpath($this->actingAs($user)->get('/cuenta')->assertOk());
+        $this->assertSame(1, $xpath->query('//section[@id="cumpleanos"]')->length);
+        $this->assertSame(1, $xpath->query(self::REMOVE_FORM.'//button')->length);
+        $this->assertSame(0, $xpath->query('//section[@id="cumpleanos"]//select')->length);
+        $this->assertSame(0, $xpath->query('//section[@id="cumpleanos"]//input[@name="show_birthday"]')->length);
+
+        $this->actingAs($user)
+            ->delete(route('account.birthday.destroy'))
+            ->assertRedirect(route('account.show'))
+            ->assertSessionHas('status', 'Quitamos tu cumpleaños.');
+
+        $fresh = $user->fresh();
+        $this->assertSame([null, null, false], [$fresh->birthday_month, $fresh->birthday_day, $fresh->show_birthday]);
+        $this->actingAs($fresh)->get('/cuenta')->assertOk()->assertDontSee('id="cumpleanos"', false);
+    }
+
+    public function test_a_deactivated_company_does_not_keep_the_birthday_from_being_removed(): void
+    {
+        $this->ana->forceFill(['birthday_month' => 3, 'birthday_day' => 5, 'show_birthday' => true])->save();
+        $this->segurex->forceFill(['is_active' => false])->save();
+
+        $this->actingAs($this->ana->fresh())
+            ->delete(route('account.birthday.destroy'))
+            ->assertRedirect(route('account.show'));
+
+        $fresh = $this->ana->fresh();
+        $this->assertSame([null, null, false], [$fresh->birthday_month, $fresh->birthday_day, $fresh->show_birthday]);
+    }
+
+    public function test_removing_touches_only_the_callers_own_birthday(): void
+    {
+        $luis = User::factory()->microsoft($this->segurex)->birthday(7, 20)->create();
+        $this->ana->forceFill(['birthday_month' => 3, 'birthday_day' => 5, 'show_birthday' => true])->save();
+
+        $this->actingAs($this->ana)->delete(route('account.birthday.destroy'), ['user' => $luis->id, 'user_id' => $luis->id]);
+
+        $this->assertNull($this->ana->fresh()->birthday_month);
+        $this->assertSame([7, 20, true], [$luis->fresh()->birthday_month, $luis->fresh()->birthday_day, $luis->fresh()->show_birthday]);
     }
 
     public function test_the_routes_are_throttled(): void
