@@ -3,8 +3,10 @@
 namespace App\Livewire\Admin;
 
 use App\Announcements\AnnouncementImageStore;
+use App\Announcements\AnnouncementListEmails;
 use App\Announcements\AnnouncementPublisher;
 use App\Announcements\AnnouncementReminders;
+use App\Announcements\ListEmailRetryRefused;
 use App\Announcements\ReminderNotAllowed;
 use App\Models\Announcement;
 use App\Models\Company;
@@ -16,6 +18,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -36,6 +39,11 @@ use Throwable;
  * who may see it (`viewReads`) is re-checked on every render. From there,
  * «Enviar recordatorio» asks the cron to email the people who are missing
  * (App\Announcements\AnnouncementReminders, at most once a day).
+ *
+ * «Enviar también por correo a la lista de cada empresa» shows up when a
+ * company of the audience has an all-staff list (Admin › Empresas); the
+ * cron sends it once (App\Announcements\AnnouncementListEmails), and the
+ * editor shows how it went per company, with «Reintentar» for a failure.
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -71,6 +79,9 @@ class AnnouncementEditor extends Component
     /** «Lectura obligatoria»: each person who sees it confirms reading it. */
     public bool $requiresRead = false;
 
+    /** «Enviar también por correo a la lista de cada empresa». */
+    public bool $emailLists = false;
+
     public ?TemporaryUploadedFile $image = null;
 
     /** The stored image goes away on save. */
@@ -101,6 +112,7 @@ class AnnouncementEditor extends Component
         $this->endsAt = (string) $announcement->ends_at?->format(self::DATETIME_FORMAT);
         $this->isPinned = $announcement->is_pinned;
         $this->requiresRead = $announcement->requires_read;
+        $this->emailLists = $announcement->email_lists;
     }
 
     public function updatedImage(): void
@@ -142,6 +154,8 @@ class AnnouncementEditor extends Component
             'ends_at' => $this->endsAt === '' ? null : self::parse($this->endsAt),
             'is_pinned' => $this->isPinned,
             'requires_read' => $this->requiresRead,
+            // Only kept while a company of the audience can get it.
+            'email_lists' => $this->emailLists && $this->listRecipients()->isNotEmpty(),
         ];
 
         if ($creating) {
@@ -213,6 +227,27 @@ class AnnouncementEditor extends Component
     }
 
     /**
+     * «Reintentar» on a failed email to a list: the cron sends it again in
+     * its next run. The limit (once every few minutes per email) and
+     * whether the email may be retried at all are checked on the server
+     * ({@see AnnouncementListEmails::retry()}).
+     */
+    public function retryListEmail(int $rowId, AnnouncementListEmails $emails): void
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('update', $this->announcement);
+        $this->resetErrorBag('listEmail');
+
+        try {
+            $row = $emails->retry($this->announcement, $rowId, $this->user());
+            $company = $row->company === null ? 'la empresa' : AnnouncementListEmails::label($row->company);
+            session()->flash('status', "El correo a la lista de {$company} sale de nuevo en los próximos minutos.");
+        } catch (ListEmailRetryRefused $refused) {
+            $this->addError('listEmail', $refused->getMessage());
+        }
+    }
+
+    /**
      * The announcement as the form describes it right now, for the preview.
      */
     public function previewCard(): AnnouncementCard
@@ -246,6 +281,7 @@ class AnnouncementEditor extends Component
             'endsAt' => ['nullable', 'date_format:'.self::DATETIME_FORMAT, 'after:startsAt'],
             'isPinned' => ['boolean'],
             'requiresRead' => ['boolean'],
+            'emailLists' => ['boolean'],
             'image' => [
                 'nullable', 'file',
                 'max:'.AnnouncementImageStore::MAX_KILOBYTES,
@@ -293,7 +329,24 @@ class AnnouncementEditor extends Component
             'currentImageUrl' => $this->removeImage ? null : $this->announcement?->imageUrl(),
             'newImageUrl' => $this->newImageUrl(),
             'reads' => $this->mayViewReads() ? $this->readReport : null,
+            'listRecipients' => $this->listRecipients(),
+            'listReport' => $this->announcement !== null && $this->user()->can('update', $this->announcement)
+                ? app(AnnouncementListEmails::class)->report($this->announcement)
+                : [],
         ]);
+    }
+
+    /**
+     * The companies whose lists the announcement would reach as the form
+     * stands: an announcements editor only ever addresses their company.
+     *
+     * @return Collection<int, Company>
+     */
+    private function listRecipients(): Collection
+    {
+        return $this->restricted()
+            ? app(AnnouncementListEmails::class)->recipients(Announcement::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
+            : app(AnnouncementListEmails::class)->recipients($this->audience, $this->companyIds);
     }
 
     /**

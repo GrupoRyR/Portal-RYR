@@ -47,6 +47,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'ends_at',
     'is_pinned',
     'requires_read',
+    'email_lists',
     'author_id',
 ])]
 class Announcement extends Model
@@ -109,6 +110,7 @@ class Announcement extends Model
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
         'requires_read' => false,
+        'email_lists' => false,
     ];
 
     protected function casts(): array
@@ -119,6 +121,7 @@ class Announcement extends Model
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
             'requires_read' => 'boolean',
+            'email_lists' => 'boolean',
         ];
     }
 
@@ -167,6 +170,30 @@ class Announcement extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(AnnouncementReminder::class);
+    }
+
+    /**
+     * Its emails to the companies' all-staff lists, when it asks for them
+     * (`email_lists`, App\Announcements\AnnouncementListEmails).
+     *
+     * @return HasMany<AnnouncementListEmail, $this>
+     */
+    public function listEmails(): HasMany
+    {
+        return $this->hasMany(AnnouncementListEmail::class);
+    }
+
+    /**
+     * The companies it is addressed to now: every active company when it
+     * is for all, its chosen ones otherwise (active or not).
+     *
+     * @return Builder<Company>
+     */
+    public function addressedCompanies(): Builder
+    {
+        return $this->isForAllCompanies()
+            ? Company::query()->where('companies.is_active', true)
+            : Company::query()->whereIn('companies.id', DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'));
     }
 
     /**

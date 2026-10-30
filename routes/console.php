@@ -56,3 +56,10 @@ Schedule::command('portal:run-requested-backup')
 Schedule::command('portal:send-announcement-reminders')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Announcements that ask for it go to each company's all-staff list from
+// the company's own mailbox (App\Announcements\AnnouncementListEmails),
+// once each, when they are published.
+Schedule::command('portal:send-announcement-list-emails')
+    ->everyMinute()
+    ->withoutOverlapping();
