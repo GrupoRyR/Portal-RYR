@@ -459,8 +459,10 @@ class IncludeAccountsTest extends TestCase
 
     public function test_approving_stores_the_approving_account_and_the_confirmed_ones(): void
     {
+        $this->travelTo(now()->setDate(2026, 10, 30)->setTime(9, 15));
         $this->showConsent();
         $this->confirmLinked();
+        $this->travelTo(now()->setDate(2026, 10, 30)->setTime(9, 20));
         $this->actingAs($this->approver)->get($this->consentUrl)->assertOk();
 
         $tokens = $this->exchange($this->clientId, [
@@ -469,8 +471,14 @@ class IncludeAccountsTest extends TestCase
         ])->assertOk();
 
         $this->assertSame([$this->approver->id, $this->linked->id], $this->storedAccounts());
-        $this->assertNotNull(McpConnection::query()->sole()->accounts()->where('user_id', $this->linked->id)->value('confirmed_at'));
         $this->assertNull(session(ConsentAccounts::SESSION_KEY));
+
+        // Each account with the time of its own confirmation, in the app's
+        // time zone like every other date the portal stores.
+        $this->assertSame(
+            [$this->approver->id => '2026-10-30 09:20:00', $this->linked->id => '2026-10-30 09:15:00'],
+            DB::table('mcp_connection_accounts')->orderBy('user_id')->pluck('confirmed_at', 'user_id')->all(),
+        );
 
         $connected = Activity::query()->where('event', 'mcp.connected')->sole();
         $this->assertSame(
@@ -624,6 +632,25 @@ class IncludeAccountsTest extends TestCase
         $this->assertAuthenticatedAs($this->approver);
     }
 
+    public function test_the_retry_stays_bound_to_the_pending_authorization_it_started_for(): void
+    {
+        $this->showConsent();
+        $this->expectMicrosoftRedirect(['prompt' => 'none', 'login_hint' => self::LINKED_HINT]);
+        $this->includeAccount();
+        $binding = session(AccountIntent::SESSION_KEY.'.binding');
+        $this->expectMicrosoftRedirect(['prompt' => 'login', 'login_hint' => self::LINKED_HINT]);
+        $this->hitErrorCallback('login_required')->assertSessionHas(AccountIntent::SESSION_KEY.'.binding', $binding);
+
+        // Another client's consent screen opens before Microsoft answers the retry.
+        $this->showConsent($this->registeredClientId());
+        $this->microsoftAnswers();
+        $this->fakeGraph();
+
+        $this->assertPassportError($this->hitCallback('socialite-state-2'));
+        $this->assertSame([], session(ConsentAccounts::SESSION_KEY.'.accounts'));
+        $this->assertSame(0, Activity::query()->where('event', AccountConfirmation::INCLUDED)->count());
+    }
+
     public function test_other_microsoft_errors_do_not_retry(): void
     {
         $this->showConsent();
@@ -738,6 +765,81 @@ class IncludeAccountsTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame([$this->approver->id], $this->storedAccounts());
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function otherPendingAuthorizations(): array
+    {
+        return [
+            'another client' => [true],
+            'another request of the same client' => [false],
+        ];
+    }
+
+    /**
+     * «Incluir» on one consent screen, then another pending authorization
+     * opens in the same browser (another tab, or a page that opens a
+     * publicly registered client's link) before Microsoft answers: the
+     * answer confirms nothing for either one.
+     */
+    #[DataProvider('otherPendingAuthorizations')]
+    public function test_a_confirmation_never_lands_on_another_pending_authorization(bool $otherClient): void
+    {
+        $this->showConsent();
+        $this->expectMicrosoftRedirect(['prompt' => 'none', 'login_hint' => self::LINKED_HINT]);
+        $this->includeAccount()->assertRedirect(self::AUTHORIZE_URL);
+
+        $clientId = $otherClient ? $this->registeredClientId() : $this->clientId;
+        $this->showConsent($clientId, ['state' => 'state-456'])->assertDontSee('Confirmada');
+        $this->microsoftAnswers();
+        $this->fakeGraph();
+
+        $this->assertPassportError($this->hitCallback());
+
+        $this->assertAuthenticatedAs($this->approver);
+        $this->assertSame([], session(ConsentAccounts::SESSION_KEY.'.accounts'));
+        $this->assertSame(0, Activity::query()->where('event', AccountConfirmation::INCLUDED)->count());
+        $this->assertSame('authorization_lost', Activity::query()->where('event', AccountConfirmation::INCLUDE_FAILED)->sole()->properties['reason']);
+
+        // The other screen is not pre-filled, and approving it stores only the approver.
+        $this->actingAs($this->approver)->get($this->consentUrl)->assertOk()->assertDontSee('Confirmada');
+        $this->actingAs($this->approver)->post('/oauth/authorize', [
+            'state' => 'state-456',
+            'client_id' => $clientId,
+            'auth_token' => session('authToken'),
+        ])->assertRedirect();
+        $this->assertSame([$this->approver->id], $this->storedAccounts());
+    }
+
+    public function test_a_microsoft_error_for_another_pending_authorization_does_not_retry(): void
+    {
+        $this->showConsent();
+        $this->expectMicrosoftRedirect(['prompt' => 'none', 'login_hint' => self::LINKED_HINT]);
+        $this->includeAccount();
+        $this->showConsent($this->registeredClientId());
+
+        $this->assertPassportError($this->hitErrorCallback('login_required'));
+
+        $this->assertSame(1, $this->redirects);
+        $this->assertSame('authorization_lost', Activity::query()->where('event', AccountConfirmation::INCLUDE_FAILED)->sole()->properties['reason']);
+    }
+
+    public function test_reopening_the_same_request_while_microsoft_answers_still_confirms(): void
+    {
+        $this->showConsent();
+        $this->expectMicrosoftRedirect(['prompt' => 'none', 'login_hint' => self::LINKED_HINT]);
+        $this->includeAccount();
+        $this->assertSame(session(ConsentAccounts::SESSION_KEY.'.fingerprint'), session(AccountIntent::SESSION_KEY.'.binding'));
+
+        // E.g. the consent tab reloaded: a new auth_token, the same request.
+        $this->actingAs($this->approver)->get($this->consentUrl)->assertOk();
+        $this->microsoftAnswers();
+        $this->fakeGraph();
+
+        $this->assertBackOnConsent($this->hitCallback());
+        $this->assertSame([$this->linked->id], array_keys(session(ConsentAccounts::SESSION_KEY.'.accounts')));
     }
 
     public function test_the_confirmations_never_reach_another_client(): void

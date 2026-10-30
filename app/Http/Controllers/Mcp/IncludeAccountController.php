@@ -30,10 +30,10 @@ class IncludeAccountController extends Controller
         $approver = $request->user();
         abort_unless($approver instanceof User, 403);
 
-        $consent->liveOrFail($request, $approver, (string) $request->input('auth_token'));
+        $pending = $consent->liveOrFail($request, $approver, (string) $request->input('auth_token'));
         abort_unless($consent->offers($approver, $account), 404);
 
-        return $confirmation->toMicrosoft($approver, $account, AccountConfirmation::SILENT_ATTEMPT);
+        return $confirmation->toMicrosoft($approver, $account, AccountConfirmation::SILENT_ATTEMPT, $pending['fingerprint']);
     }
 
     public function destroy(Request $request, User $account, ConsentAccounts $consent): RedirectResponse

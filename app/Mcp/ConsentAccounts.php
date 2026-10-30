@@ -159,7 +159,7 @@ class ConsentAccounts
     {
         $accounts = $this->live($request, $user)['accounts'] ?? [];
 
-        return array_map(fn (int $at) => CarbonImmutable::createFromTimestamp($at, config('app.timezone')), $accounts);
+        return array_map(self::confirmedAt(...), $accounts);
     }
 
     /**
@@ -196,7 +196,16 @@ class ConsentAccounts
             return [];
         }
 
-        return array_map(fn (int $at) => CarbonImmutable::createFromTimestamp($at), $state['accounts']);
+        return array_map(self::confirmedAt(...), $state['accounts']);
+    }
+
+    /**
+     * A confirmation time in the app's time zone: Carbon reads a bare
+     * timestamp as UTC, and dates are stored in the app's time zone.
+     */
+    private static function confirmedAt(int $timestamp): CarbonImmutable
+    {
+        return CarbonImmutable::createFromTimestamp($timestamp, config('app.timezone'));
     }
 
     /**

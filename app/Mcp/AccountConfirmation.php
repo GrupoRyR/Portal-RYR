@@ -63,10 +63,15 @@ class AccountConfirmation
      * Starts the `mcp_include` intent for this attempt and sends the person
      * to Microsoft as the target account: silently on the first attempt,
      * asking for the credentials on the retry.
+     *
+     * The intent carries the fingerprint of the pending authorization it
+     * was started for (ConsentAccounts), not its `auth_token`, which every
+     * new consent screen of the same request changes. The callback only
+     * confirms for that same pending authorization.
      */
-    public function toMicrosoft(User $approver, User $target, int $attempt): SymfonyRedirect
+    public function toMicrosoft(User $approver, User $target, int $attempt, string $binding): SymfonyRedirect
     {
-        $this->intents->start(AccountIntent::MCP_INCLUDE, $approver, $target, $attempt);
+        $this->intents->start(AccountIntent::MCP_INCLUDE, $approver, $target, $attempt, $binding);
 
         $redirect = Socialite::driver('microsoft')
             ->setScopes(MicrosoftLoginController::SCOPES)
@@ -84,7 +89,7 @@ class AccountConfirmation
     /**
      * Microsoft answered the confirmation with an account.
      *
-     * @param  array{target_id: int|null, attempt: int}  $intent
+     * @param  array{target_id: int|null, attempt: int, binding?: string|null}  $intent
      *
      * @throws InvalidAuthTokenException
      */
@@ -92,7 +97,7 @@ class AccountConfirmation
     {
         $attempt = (int) ($intent['attempt'] ?? 0);
         $target = User::query()->find($intent['target_id'] ?? null);
-        $pending = $this->pendingOrFail($request, $approver, $target, $attempt);
+        $pending = $this->pendingOrFail($request, $approver, $intent, $target, $attempt);
 
         if ($target === null || ! $this->consent->offers($approver, $target)) {
             return $this->failed($pending, $approver, $target, 'target_unavailable', $attempt, null);
@@ -155,7 +160,7 @@ class AccountConfirmation
      * attempt only needs the person, it is retried once asking for the
      * credentials; anything else, or a failed retry, confirms nothing.
      *
-     * @param  array{target_id: int|null, attempt: int}  $intent
+     * @param  array{target_id: int|null, attempt: int, binding?: string|null}  $intent
      * @param  list<string>  $interactionErrors
      *
      * @throws InvalidAuthTokenException
@@ -164,7 +169,7 @@ class AccountConfirmation
     {
         $attempt = (int) ($intent['attempt'] ?? 0);
         $target = User::query()->find($intent['target_id'] ?? null);
-        $pending = $this->pendingOrFail($request, $approver, $target, $attempt);
+        $pending = $this->pendingOrFail($request, $approver, $intent, $target, $attempt);
 
         if ($attempt !== self::SILENT_ATTEMPT || ! in_array($code, $interactionErrors, true)) {
             return $this->failed($pending, $approver, $target, $code ?: 'microsoft_error', $attempt, null);
@@ -174,19 +179,28 @@ class AccountConfirmation
             return $this->failed($pending, $approver, $target, 'target_unavailable', $attempt, null);
         }
 
-        return $this->toMicrosoft($approver, $target, self::INTERACTIVE_ATTEMPT);
+        // The retry stays bound to the same pending authorization.
+        return $this->toMicrosoft($approver, $target, self::INTERACTIVE_ATTEMPT, $pending['fingerprint']);
     }
 
     /**
-     * @return array{client: string, return: string}
+     * The live pending authorization, only when it is the one the intent
+     * was started for (same fingerprint, same account). Otherwise (gone,
+     * or replaced by another client's or request's consent screen in the
+     * same browser) nothing is confirmed, nobody is sent to that other
+     * screen, and the person gets Passport's own error.
+     *
+     * @param  array{binding?: string|null}  $intent
+     * @return array{fingerprint: string, client: string, return: string}
      *
      * @throws InvalidAuthTokenException
      */
-    private function pendingOrFail(Request $request, User $approver, ?User $target, int $attempt): array
+    private function pendingOrFail(Request $request, User $approver, array $intent, ?User $target, int $attempt): array
     {
         $pending = $this->consent->live($request, $approver);
+        $binding = $intent['binding'] ?? null;
 
-        if ($pending === null) {
+        if ($pending === null || ! is_string($binding) || ! hash_equals($pending['fingerprint'], $binding)) {
             $this->audit(self::INCLUDE_FAILED, $approver, $target, $this->failure('authorization_lost', $attempt, $target, null, null));
 
             throw InvalidAuthTokenException::different();

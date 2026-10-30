@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  */
 class AccountIntent
 {
-    /** ['type', 'user_id', 'target_id', 'attempt', 'state', 'expires_at']. */
+    /** ['type', 'user_id', 'target_id', 'attempt', 'binding', 'state', 'expires_at']. */
     public const SESSION_KEY = 'auth.account_intent';
 
     public const LINK = 'link';
@@ -41,8 +41,10 @@ class AccountIntent
      * Only one Microsoft round trip is pending at a time, so a pending
      * re-authentication and any older intent are dropped. Call
      * {@see bindState()} once Socialite's redirect() is built.
+     *
+     * @param  string|null  $binding  What the flow started for and must still find at the callback (the Claude consent's pending authorization).
      */
-    public function start(string $type, User $user, ?User $target = null, int $attempt = 1): void
+    public function start(string $type, User $user, ?User $target = null, int $attempt = 1, ?string $binding = null): void
     {
         $this->session->forget([RecentMicrosoftLogin::PENDING_KEY, self::SESSION_KEY]);
 
@@ -51,6 +53,7 @@ class AccountIntent
             'user_id' => $user->getKey(),
             'target_id' => $target?->getKey(),
             'attempt' => $attempt,
+            'binding' => $binding,
             'state' => null,
             'expires_at' => now()->getTimestamp() + self::TTL_SECONDS,
         ]);
@@ -85,7 +88,7 @@ class AccountIntent
      * callback's `state`, belongs to this user, has a known type and has not
      * expired; otherwise null.
      *
-     * @return array{type: string, user_id: int, target_id: int|null, attempt: int, state: string, expires_at: int}|null
+     * @return array{type: string, user_id: int, target_id: int|null, attempt: int, binding?: string|null, state: string, expires_at: int}|null
      */
     public function pull(Request $request, User $user): ?array
     {
