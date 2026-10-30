@@ -136,7 +136,8 @@
         @endif
 
         {{-- «Conexiones con Claude» (App\Http\Controllers\Account\ClaudeConnectionController): the active
-             connections this account takes part in; null while the connector is off (the section is hidden). --}}
+             connections this account takes part in; null (hidden) only while the connector is off and there are none.
+             With the connector off they stay listed and «Desconectar» works, with a note ($claudeOff). --}}
         @if ($claudeConnections !== null)
             @php($longDate = 'D [de] MMMM [de] YYYY')
             <section id="claude" aria-labelledby="claude-titulo" class="flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6">
@@ -144,6 +145,14 @@
                     <h2 id="claude-titulo" class="font-sans text-lg font-bold tracking-normal">Conexiones con Claude</h2>
                     <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Claude lee, solo para consultar, lo que estas cuentas ven en el portal. Al desconectar una conexión se corta completa, con todas sus cuentas; para volver a usarla hay que conectarla de nuevo desde Claude.</p>
                 </div>
+
+                @if ($claudeOff && $claudeConnections->isNotEmpty())
+                    <p role="note" class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">
+                        {{ $claudeConnections->count() === 1
+                            ? 'El conector de Claude está apagado: esta conexión no funciona por ahora, pero vuelve a funcionar si lo encienden. Puedes desconectarla.'
+                            : 'El conector de Claude está apagado: estas conexiones no funcionan por ahora, pero vuelven a funcionar si lo encienden. Puedes desconectarlas.' }}
+                    </p>
+                @endif
 
                 @if ($claudeConnections->isEmpty())
                     <p class="text-[0.9375rem] font-semibold">Esta cuenta no tiene conexiones con Claude.</p>

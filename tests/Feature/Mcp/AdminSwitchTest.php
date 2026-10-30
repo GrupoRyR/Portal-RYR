@@ -7,6 +7,7 @@ use App\Mcp\McpSwitch;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -134,6 +135,39 @@ class AdminSwitchTest extends TestCase
 
         $this->assertSame(0, DB::table('portal_settings')->count());
         $this->assertSame(0, Activity::query()->where('event', McpSwitch::SWITCHED)->count());
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function storedValues(): array
+    {
+        return [
+            'JSON true' => ['true', true],
+            'JSON false' => ['false', false],
+            'zero' => ['0', false],
+            'one' => ['1', false],
+            'off' => ['off', false],
+            'quoted false' => ['"false"', false],
+            'quoted true' => ['"true"', false],
+            'empty' => ['', false],
+            'null' => ['null', false],
+            'garbage' => ['{nope', false],
+        ];
+    }
+
+    /**
+     * Only a stored JSON `true` (or no row at all) is on: anything else,
+     * corrupt or hand-edited, fails closed.
+     */
+    #[DataProvider('storedValues')]
+    public function test_only_a_stored_json_true_reads_as_on(string $stored, bool $on): void
+    {
+        $this->enableMcp();
+        DB::table('portal_settings')->insert(['key' => McpSwitch::SETTING, 'value' => $stored, 'updated_at' => now()]);
+
+        $this->assertSame($on, app(McpSwitch::class)->turnedOn());
+        $this->assertSame($on, app(McpSwitch::class)->enabled());
     }
 
     public function test_reading_the_switch_with_the_deploy_flag_off_runs_no_query(): void

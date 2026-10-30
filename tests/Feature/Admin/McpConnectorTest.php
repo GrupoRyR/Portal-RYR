@@ -133,6 +133,53 @@ class McpConnectorTest extends TestCase
         $this->assertTrue(Activity::query()->where('event', McpSwitch::SWITCHED)->first()->causer->is($this->admin));
     }
 
+    /**
+     * Two admins with the page open, both seeing «on»: the second click
+     * means «off» too, never «back on».
+     */
+    public function test_a_stale_page_sets_what_the_admin_saw_and_never_flips_it_back(): void
+    {
+        $other = User::factory()->microsoft($this->segurex)->create(['name' => 'Beto Admin']);
+        $other->assignRole('super_admin');
+
+        $stale = $this->connector()->assertSet('enabled', true);
+        $this->connector($other)->call('toggle')->assertSet('enabled', false);
+
+        $this->actingAs($this->admin, 'web');
+        $stale->call('toggle')
+            ->assertSet('enabled', false)
+            ->assertSeeText('Otra persona ya lo había apagado. El conector sigue apagado.');
+
+        $this->assertFalse($this->switch()->turnedOn());
+        $this->assertSame(1, Activity::query()->where('event', McpSwitch::SWITCHED)->count());
+    }
+
+    public function test_a_stale_page_showing_off_turns_it_on_only_if_it_is_still_off(): void
+    {
+        $this->switch()->turn(false, $this->admin);
+        $stale = $this->connector()->assertSet('enabled', false);
+        $this->switch()->turn(true, $this->admin);
+
+        $stale->call('toggle')
+            ->assertSet('enabled', true)
+            ->assertSeeText('Otra persona ya lo había encendido. El conector sigue encendido.');
+
+        $this->assertTrue($this->switch()->turnedOn());
+        $this->assertSame(2, Activity::query()->where('event', McpSwitch::SWITCHED)->count());
+    }
+
+    public function test_every_render_is_re_authorized(): void
+    {
+        $this->connect($this->eligibleUser([], $this->segurex));
+        $component = $this->connector()->assertSeeText('jhon.castro@segurex.com');
+
+        $portalAdmin = User::factory()->microsoft($this->segurex)->create();
+        $portalAdmin->assignRole('portal_admin');
+        $this->actingAs($portalAdmin, 'web');
+
+        $component->call('$refresh')->assertForbidden();
+    }
+
     public function test_the_card_warns_when_the_deploy_flag_is_off(): void
     {
         config(['portal.mcp.enabled' => false]);

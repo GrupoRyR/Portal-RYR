@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  *   kill switch of the server: off, nothing else is read;
  * - the Admin toggle «Conector de Claude» (Configuración, super admins),
  *   stored in `portal_settings` under {@see SETTING}. Never saved means on,
- *   so the deploy flag alone decides until someone turns it off.
+ *   so the deploy flag alone decides until someone turns it off; a saved
+ *   value other than JSON `true` is off.
  *
  * The toggle is read from the table on every request that asks (one
  * primary-key lookup, kept for the life of this object), never from a
@@ -47,7 +48,9 @@ class McpSwitch
     }
 
     /**
-     * The Admin toggle; on while it was never saved.
+     * The Admin toggle; on while it was never saved. A saved value is on
+     * only when it is exactly JSON `true`: anything else (`false`, `0`,
+     * `off`, a hand-edited or corrupt value) is off, so it fails closed.
      */
     public function turnedOn(): bool
     {
@@ -57,7 +60,7 @@ class McpSwitch
 
         $stored = DB::table('portal_settings')->where('key', self::SETTING)->value('value');
 
-        return $this->turnedOn = $stored === null || json_decode((string) $stored) !== false;
+        return $this->turnedOn = $stored === null || json_decode((string) $stored) === true;
     }
 
     /**

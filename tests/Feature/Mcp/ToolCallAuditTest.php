@@ -50,6 +50,7 @@ class ToolCallAuditTest extends TestCase
         $this->assertSame([
             'tool' => 'quien_soy',
             'connection_id' => McpConnection::query()->sole()->getKey(),
+            'error' => false,
         ], $calls[0]->properties->all());
         $this->assertNotNull($calls[0]->created_at);
     }
@@ -70,7 +71,7 @@ class ToolCallAuditTest extends TestCase
         $this->assertStringNotContainsString('secreto-de-busqueda', $stored);
         $this->assertStringNotContainsString('arguments', $stored);
         $this->assertStringNotContainsString($user->email, (string) json_encode($call->properties));
-        $this->assertSame(['tool', 'connection_id'], array_keys($call->properties->all()));
+        $this->assertSame(['tool', 'connection_id', 'error'], array_keys($call->properties->all()));
     }
 
     public function test_each_call_writes_its_own_line(): void
@@ -83,18 +84,60 @@ class ToolCallAuditTest extends TestCase
         $this->assertSame(['quien_soy', 'mis_apps'], $this->toolCalls()->map(fn (Activity $call) => $call->properties['tool'])->all());
     }
 
-    public function test_listing_tools_or_calling_an_unknown_tool_writes_nothing(): void
+    public function test_listing_tools_writes_nothing(): void
     {
         $tokens = $this->connect($this->eligibleUser());
 
         $this->mcp($tokens['access_token'], 'tools/list')->assertOk();
         $this->mcp($tokens['access_token'], 'initialize', ['protocolVersion' => '2025-06-18', 'capabilities' => [], 'clientInfo' => ['name' => 'x', 'version' => '1']])->assertOk();
-        $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'borrar_todo', 'arguments' => []]);
 
         $this->assertCount(0, $this->toolCalls());
     }
 
-    public function test_a_refused_call_writes_nothing(): void
+    public function test_a_call_that_ends_in_an_error_is_flagged(): void
+    {
+        $tokens = $this->connect($this->eligibleUser());
+
+        $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'buscar_personas', 'arguments' => ['texto' => 'a']])
+            ->assertOk()
+            ->assertJsonPath('result.isError', true);
+
+        $call = $this->toolCalls()->sole();
+        $this->assertSame('buscar_personas', $call->properties['tool']);
+        $this->assertTrue($call->properties['error']);
+        $this->assertArrayNotHasKey('refused', $call->properties->all());
+    }
+
+    public function test_an_unknown_tool_is_audited_as_a_refused_call_with_its_name_cut_to_64_characters(): void
+    {
+        $tokens = $this->connect($this->eligibleUser());
+        $name = 'borrar_todo_'.str_repeat('x', 100);
+
+        $this->mcp($tokens['access_token'], 'tools/call', ['name' => $name, 'arguments' => ['secreto' => 'no-guardar']])
+            ->assertJsonPath('error.code', -32602);
+
+        $call = $this->toolCalls()->sole();
+        $this->assertSame([
+            'tool' => mb_substr($name, 0, 64),
+            'connection_id' => McpConnection::query()->sole()->getKey(),
+            'error' => true,
+            'refused' => true,
+        ], $call->properties->all());
+        $this->assertStringNotContainsString('no-guardar', (string) json_encode($call->getAttributes()));
+    }
+
+    public function test_a_call_without_a_tool_name_is_audited_as_refused(): void
+    {
+        $tokens = $this->connect($this->eligibleUser());
+
+        $this->mcp($tokens['access_token'], 'tools/call', ['arguments' => []])->assertJsonPath('error.code', -32602);
+
+        $call = $this->toolCalls()->sole();
+        $this->assertNull($call->properties['tool']);
+        $this->assertTrue($call->properties['refused']);
+    }
+
+    public function test_an_unauthenticated_call_writes_nothing(): void
     {
         $this->mcp('not-a-token', 'tools/call', ['name' => 'quien_soy', 'arguments' => []])->assertUnauthorized();
 

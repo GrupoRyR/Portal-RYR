@@ -9,9 +9,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * «Desconectar» of «Conexiones con Claude» on /cuenta (POST, behind
- * `mcp.enabled`): ends the whole connection, with its codes and tokens,
- * and audits `mcp.disconnected` (App\Mcp\Connections::disconnect()).
+ * «Desconectar» of «Conexiones con Claude» on /cuenta (POST): ends the
+ * whole connection, with its codes and tokens, and audits
+ * `mcp.disconnected` (App\Mcp\Connections::disconnect()). It works while
+ * the connector is off too: turning it on again resumes every connection,
+ * so people must be able to end theirs first.
  *
  * Any account of the connection may end it, the approving one or an
  * included one: Claude reads their data too. A connection the account

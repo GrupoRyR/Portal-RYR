@@ -29,7 +29,8 @@ use Illuminate\Support\Str;
  *
  * The page also holds «Mi cumpleaños» (BirthdayController) for accounts
  * with a company directory, and «Conexiones con Claude»
- * (ClaudeConnectionController) while the connector is on.
+ * (ClaudeConnectionController) while the connector is on or the account
+ * still has connections.
  */
 class AccountController extends Controller
 {
@@ -44,8 +45,11 @@ class AccountController extends Controller
             'accounts' => $linkedAccounts->accountsOf($user),
             // «Mi cumpleaños» (BirthdayController): only with a company directory.
             'birthdayMonths' => BirthdayRequest::allows($user) ? self::months() : null,
-            // «Conexiones con Claude» (ClaudeConnectionController): hidden while the connector is off.
-            'claudeConnections' => $mcp->enabled() ? $connections->of($user) : null,
+            // «Conexiones con Claude» (ClaudeConnectionController): always while the account has
+            // connections, even with the connector off (turning it on again resumes them, so they
+            // must be visible and endable); with none, only while it is on.
+            'claudeConnections' => ($claude = $connections->of($user))->isNotEmpty() || $mcp->enabled() ? $claude : null,
+            'claudeOff' => ! $mcp->enabled(),
         ]);
     }
 

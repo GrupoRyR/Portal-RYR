@@ -109,6 +109,24 @@ class McpAuditLabelsTest extends TestCase
             ->assertDontSeeText('Claude usó la herramienta');
     }
 
+    public function test_failed_and_refused_calls_have_their_own_label(): void
+    {
+        $tokens = $this->connect($this->approver);
+        $id = McpConnection::query()->sole()->id;
+
+        $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'buscar_personas', 'arguments' => ['texto' => 'a']])->assertOk();
+        $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'borrar_todo', 'arguments' => []]);
+        $this->mcp($tokens['access_token'], 'tools/call', ['arguments' => []]);
+
+        $this->app['auth']->forgetGuards();
+        $this->app['auth']->shouldUse('web');
+        $this->actingAs($this->admin, 'web')->get(route('admin.audit.index', ['tipo' => 'seguridad']))
+            ->assertOk()
+            ->assertSeeText('Claude usó la herramienta buscar_personas · conexión #'.$id.' · terminó con error')
+            ->assertSeeText('Claude pidió una herramienta que no existe («borrar_todo») · conexión #'.$id)
+            ->assertSeeText('Claude pidió una herramienta sin nombre · conexión #'.$id);
+    }
+
     public function test_the_switch_notes_when_the_deploy_flag_is_off(): void
     {
         config(['portal.mcp.enabled' => false]);

@@ -242,14 +242,23 @@ class Connections
     /**
      * The audit line of one tool call (App\Mcp\AuditedCallTool): the
      * tool name and the connection, by the approving account, at the time
-     * of the entry. Never the arguments nor the result. One insert: the
-     * connection and its account are already loaded by `mcp.connection`.
+     * of the entry, and whether it ended in an error. A `refused` call
+     * named no tool or one that does not exist (`tool` is then the name
+     * asked for, already cut, or null). Never the arguments nor the
+     * result. One insert: the connection and its account are already
+     * loaded by `mcp.connection`.
      */
-    public function toolCalled(McpConnection $connection, string $tool): void
+    public function toolCalled(McpConnection $connection, ?string $tool, bool $error = false, bool $refused = false): void
     {
+        $properties = ['tool' => $tool, 'connection_id' => $connection->getKey(), 'error' => $error];
+
+        if ($refused) {
+            $properties['refused'] = true;
+        }
+
         $logger = activity(SecurityLog::LOG)
             ->event(self::TOOL_CALLED)
-            ->withProperties(['tool' => $tool, 'connection_id' => $connection->getKey()]);
+            ->withProperties($properties);
 
         $user = $connection->user;
         $user === null ? $logger->causedByAnonymous() : $logger->causedBy($user)->performedOn($user);

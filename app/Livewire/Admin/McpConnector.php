@@ -41,16 +41,27 @@ class McpConnector extends Component
         $this->enabled = $switch->turnedOn();
     }
 
+    /**
+     * Sets the opposite of what this page showed (the locked $enabled),
+     * never the opposite of the stored value: with two pages open, a stale
+     * «on» clicked to turn it off can never turn it back on. When someone
+     * else already set that value, nothing is written and the page says so.
+     */
     public function toggle(McpSwitch $switch): void
     {
         $this->authorize(AdminSections::SETTINGS);
 
         /** @var User $user */
         $user = Auth::user();
-        $switch->turn(! $switch->turnedOn(), $user);
+        $wanted = ! $this->enabled;
+        $changed = $switch->turn($wanted, $user);
 
         $this->enabled = $switch->turnedOn();
-        $this->notice = $this->enabled ? 'Conector encendido.' : 'Conector apagado.';
+        $this->notice = match (true) {
+            $changed => $wanted ? 'Conector encendido.' : 'Conector apagado.',
+            $wanted => 'Otra persona ya lo había encendido. El conector sigue encendido.',
+            default => 'Otra persona ya lo había apagado. El conector sigue apagado.',
+        };
     }
 
     public function revoke(int $id, Connections $connections): void
@@ -66,8 +77,14 @@ class McpConnector extends Component
             : 'Esa conexión ya no estaba activa.';
     }
 
+    /**
+     * Re-authorized on every request too (a demoted admin with the page
+     * open cannot $refresh the list of names and emails).
+     */
     public function render(McpSwitch $switch): View
     {
+        $this->authorize(AdminSections::SETTINGS);
+
         $active = McpConnection::query()->active();
 
         return view('livewire.admin.mcp-connector', [

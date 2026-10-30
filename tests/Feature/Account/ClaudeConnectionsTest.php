@@ -187,20 +187,45 @@ class ClaudeConnectionsTest extends TestCase
         $this->page($this->approver)->assertSeeText('Esta cuenta no tiene conexiones con Claude.');
     }
 
-    public function test_the_section_is_hidden_while_the_deploy_flag_is_off(): void
+    public function test_without_connections_the_section_is_hidden_while_the_connector_is_off(): void
+    {
+        config(['portal.mcp.enabled' => false]);
+
+        $this->page($this->approver)->assertOk()->assertDontSeeText('Conexiones con Claude');
+    }
+
+    /**
+     * Turning the connector on again resumes every connection: the people
+     * must be able to see and end theirs while it is off.
+     */
+    public function test_while_the_deploy_flag_is_off_existing_connections_are_listed_with_a_note(): void
     {
         $this->connect($this->approver);
         config(['portal.mcp.enabled' => false]);
 
-        $this->page($this->approver)->assertOk()->assertDontSeeText('Conexiones con Claude')->assertDontSeeText('Desconectar');
+        $this->page($this->approver)
+            ->assertOk()
+            ->assertSeeText('Conexiones con Claude')
+            ->assertSeeText('El conector de Claude está apagado: esta conexión no funciona por ahora, pero vuelve a funcionar si lo encienden. Puedes desconectarla.')
+            ->assertSee('action="'.route('account.claude.disconnect', McpConnection::query()->sole()).'"', false);
     }
 
-    public function test_the_section_is_hidden_while_the_admin_toggle_is_off(): void
+    public function test_while_the_admin_toggle_is_off_existing_connections_are_listed(): void
     {
         $this->connect($this->approver);
         app(McpSwitch::class)->turn(false, User::factory()->create());
 
-        $this->page($this->approver)->assertOk()->assertDontSeeText('Conexiones con Claude');
+        $this->page($this->approver)
+            ->assertOk()
+            ->assertSeeText('El conector de Claude está apagado')
+            ->assertSee('action="'.route('account.claude.disconnect', McpConnection::query()->sole()).'"', false);
+    }
+
+    public function test_the_note_is_absent_while_the_connector_is_on(): void
+    {
+        $this->connect($this->approver);
+
+        $this->page($this->approver)->assertDontSeeText('El conector de Claude está apagado');
     }
 
     // --- Desconectar ----------------------------------------------------------
@@ -285,17 +310,31 @@ class ClaudeConnectionsTest extends TestCase
         $this->assertSame(0, Activity::query()->where('event', Connections::DISCONNECTED)->count());
     }
 
-    public function test_disconnecting_is_a_404_while_the_connector_is_off(): void
+    public function test_disconnecting_works_while_the_deploy_flag_is_off_and_nothing_resumes_after(): void
     {
         $tokens = $this->connect($this->approver);
         $connection = McpConnection::query()->sole();
         config(['portal.mcp.enabled' => false]);
 
-        $this->disconnect($this->approver, $connection)->assertNotFound();
+        $this->disconnect($this->approver, $connection)->assertRedirect(route('account.show'));
 
-        $this->assertNull($connection->fresh()->revoked_at);
+        $this->assertNotNull($connection->fresh()->revoked_at);
         config(['portal.mcp.enabled' => true]);
-        $this->mcp($tokens['access_token'], 'tools/list')->assertOk();
+        $this->assertTokensAreDead($tokens);
+    }
+
+    public function test_disconnecting_works_while_the_admin_toggle_is_off_and_nothing_resumes_after(): void
+    {
+        $tokens = $this->connect($this->approver);
+        $connection = McpConnection::query()->sole();
+        $admin = User::factory()->create();
+        app(McpSwitch::class)->turn(false, $admin);
+
+        $this->disconnect($this->linked, $connection)->assertNotFound();
+        $this->disconnect($this->approver, $connection)->assertRedirect(route('account.show'));
+
+        app(McpSwitch::class)->turn(true, $admin);
+        $this->assertTokensAreDead($tokens);
     }
 
     public function test_guests_cannot_disconnect(): void

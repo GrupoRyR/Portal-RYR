@@ -299,7 +299,12 @@ final class AuditPresenter
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             Connections::DISCONNECTED => 'Desconectó Claude («'.$properties->get('client').'»)'.$this->connectionAccounts($properties->get('accounts', [])),
             Connections::REVOKED_BY_ADMIN => 'Revocó la conexión de Claude («'.$properties->get('client').'»)'.$this->connectionAccounts($properties->get('accounts', [])),
-            Connections::TOOL_CALLED => 'Claude usó la herramienta '.$properties->get('tool').' · conexión #'.$properties->get('connection_id'),
+            Connections::TOOL_CALLED => match (true) {
+                $properties->get('refused') === true && $properties->get('tool') === null => 'Claude pidió una herramienta sin nombre',
+                $properties->get('refused') === true => 'Claude pidió una herramienta que no existe («'.$properties->get('tool').'»)',
+                default => 'Claude usó la herramienta '.$properties->get('tool'),
+            }.' · conexión #'.$properties->get('connection_id')
+                .($properties->get('error') === true && $properties->get('refused') !== true ? ' · terminó con error' : ''),
             McpSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el conector de Claude'
                 .($properties->get('deployed') === false ? ' · PORTAL_MCP_ENABLED está apagado en el servidor' : ''),
             default => (string) $activity->description,
