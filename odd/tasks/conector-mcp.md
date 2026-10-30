@@ -113,12 +113,48 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
 
 - [x] C1. **Verificar** la versión de `laravel/mcp` y Passport, y su convivencia con Sanctum, en la documentación oficial. Escribir el diseño de OAuth en este documento.
 - [ ] C2. **Servidor OAuth y conexión:** consentimiento, confirmación de cada cuenta con Microsoft y token con la lista de cuentas.
+  - [x] C2a. **OAuth, consentimiento y conexión con la cuenta que aprueba:** paquetes, interruptor, registro de clientes solo para claude.ai, pantalla de consentimiento, `mcp_connections`, revisión de cuentas en cada llamada y la herramienta de prueba `quien_soy`. Commit `5648b31`.
+  - [ ] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`.
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
 - [ ] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría.
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
 
+## Registro del C2a
+
+Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-mcp-1-oauth` sobre `docs/conector-mcp`. Commit `5648b31` (`feat(mcp): connect Claude to the portal over OAuth (C2a)`).
+
+### Qué quedó
+
+- **Paquetes:** `laravel/mcp` v1.1.2 y `laravel/passport` v13.10.0 (con `league/oauth2-server` 9.4.1). Migraciones de Passport publicadas; `config/mcp.php` publicado con `redirect_domains => ['https://claude.ai']`, `custom_schemes => []` y sin clientes MCP de ejemplo. `config/passport.php` no se publicó: basta el de Passport, que ya lee `PASSPORT_PRIVATE_KEY` y `PASSPORT_PUBLIC_KEY`.
+- **Interruptor:** `PORTAL_MCP_ENABLED` (por defecto apagado) en `config('portal.mcp.enabled')`, leído solo por `App\Mcp\McpSwitch` y el middleware `mcp.enabled`. Apagado, todo `routes/ai.php` responde 404, incluido `GET /mcp/portal`.
+- **Rutas (`routes/ai.php`):** `Mcp::oauthRoutes(registration: false)` y `POST /oauth/register` propio, con `throttle:mcp-oauth` (registro 10 por minuto y por IP; descubrimiento 60). De Passport solo `POST /oauth/token`, `GET`, `POST` y `DELETE /oauth/authorize` (`Passport::ignoreRoutes()`): sin tokens personales, API de clientes, flujo de dispositivo ni `/oauth/token/refresh`. `/mcp/portal` con `auth:api`, `mcp.connection` y `throttle:mcp` (120 por minuto por conexión).
+- **Redirecciones:** el prefijo de `laravel/mcp` ya rechaza `https://claude.ai.evil.com` (le agrega `/` al dominio), pero acepta cualquier ruta de claude.ai. Por eso `RegisterClientController` exige antes que **cada** URI sea exactamente `https://claude.ai/api/mcp/auth_callback` (`App\Mcp\ClaudeRedirect`); si no, 400 `invalid_redirect_uri` y no se crea el cliente.
+- **Consentimiento:** `resources/views/mcp/authorize.blade.php` con la marca del portal, sin selector de cuenta: cliente, dominio de regreso, lista de solo lectura, cuenta (nombre, correo, empresa), «Aprobar» y «Denegar». Se muestra **siempre** (`AuthorizeController` anula `hasGrantedScopes`), para que todo código pase por el paso que registra la conexión. Sin sesión, Passport manda a `/login` y `intended()` vuelve a `/oauth/authorize`. Quien no puede conectar (invitada, sin confirmar, de emergencia, sin identidad de Microsoft o de empresa inactiva) ve `mcp/refused.blade.php` (403) y no recibe código; la aprobación también exige que la cuenta sea la misma a la que se le mostró la pantalla.
+- **Conexión:** `ApproveController` (subclase del de Passport) emite el código y llama a `App\Mcp\Connections::approved()` en la misma transacción: crea o reutiliza la conexión activa del cliente y la cuenta, deja como única cuenta la que aprobó y escribe `mcp.connected` (registro `security`, etiqueta en `AuditPresenter`). Se eligió el paso de aprobación y no el evento `AccessTokenCreated` porque ese evento también se dispara al renovar el token y podría revivir una conexión revocada.
+- **En cada llamada (`EnsureMcpConnection`):** el token debe pertenecer a una conexión activa de su cliente y su cuenta (si no, 401, como un token inválido); si la cuenta que aprobó ya no puede conectar, 403. `ConnectionAccounts::for()` deja en la petición las cuentas usables; solo quita cuentas (`LinkedAccounts::stillLinked()`, con una entrada razonada en `PersonNeverAuthorizesTest`). `last_used_at` se escribe como mucho una vez por minuto.
+- **Revocar:** `McpConnection::revoke()` marca `revoked_at` y revoca los tokens de acceso y renovación del cliente para esa cuenta (lo usará C4 al desconectar).
+- **Servidor:** `PortalServer` («Portal RYR», instrucciones en español) con `quien_soy` (`#[IsReadOnly]`): nombre, correo y empresa de la cuenta que aprobó, nada más.
+- **Tokens:** acceso de 1 hora, renovación de 30 días, rotación activa (`$revokeRefreshTokenAfterUse`). `passport:purge` diario a las 4:00 (Bogotá).
+- **Despliegue:** `docs/despliegue.md` §1.13 (variables, llaves, permisos, `curl` de comprobación) y dos filas en «Problemas frecuentes».
+
+### Pruebas
+
+- RED (antes de implementar): 62 pruebas en `tests/Feature/Mcp` y `tests/Unit/Mcp`, 1 pasó, 47 fallaron y 14 con error (clases inexistentes).
+- GREEN: las 62 pasan, junto con `tests/Unit/Auth` (246 en total en esa corrida).
+- Suite completa: 1.755 pruebas, todas pasan (la base era 1.678). `HomeScreenTest` y las pruebas de `/api/v1` siguen igual.
+- Las llaves de Passport de las pruebas se generan en memoria una vez por proceso (`phpseclib`); no hay llaves en el repositorio.
+- Pint: sin cambios pendientes.
+
+### No hecho o no verificado
+
+- C2b: confirmar las cuentas vinculadas con Microsoft durante el consentimiento.
+- No se probó contra claude.ai real ni en cPanel (`/.well-known/` con AutoSSL o ModSecurity, permisos de las llaves): queda para después del despliegue, con los `curl` del §1.13.
+- `.env.example` no se tocó (los `.env*` están bloqueados para el agente): faltan `PORTAL_MCP_ENABLED`, `PASSPORT_PRIVATE_KEY` y `PASSPORT_PUBLIC_KEY`.
+- No se revisa el alcance `mcp:use` del token en cada llamada: Passport solo sirve al conector y el único alcance que existe es ese.
+- Tamaño: unas 910 líneas de código (incluidas vistas, rutas y la migración propia) y 895 de pruebas, sin contar `composer.lock` (779) ni los archivos publicados de los paquetes (migraciones de Passport y `config/mcp.php`, 283). Pasa de la cifra orientativa de 400 porque el servidor OAuth, el consentimiento y la conexión solo funcionan juntos.
+
 ## Siguiente paso
 
-C2, servidor OAuth y conexión, en `feat/conector-mcp-1-oauth` sobre esta rama. C3 necesita `work_items` (#74).
+C2b, cuentas vinculadas en la conexión, sobre `feat/conector-mcp-1-oauth`. C3 necesita `work_items` (#74).
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom
