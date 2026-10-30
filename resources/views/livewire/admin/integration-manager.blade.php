@@ -118,6 +118,29 @@
                     @error('abilities.*') <p class="{{ $error }}">{{ $message }}</p> @enderror
                 </fieldset>
 
+                <fieldset class="flex flex-col gap-3">
+                    <legend class="mb-1.5 text-[0.8125rem] font-bold">Tareas y aprobaciones <span class="font-normal text-fg-muted">(solo con work:write)</span></legend>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="in-app" class="{{ $label }}">App del catálogo</label>
+                        <select id="in-app" wire:model="appId" aria-describedby="in-app-hint" class="{{ $field }}"
+                                @error('appId') aria-invalid="true" @enderror>
+                            <option value="">Elige una app</option>
+                            @foreach ($catalogApps as $catalogApp)
+                                <option value="{{ $catalogApp->id }}">{{ $catalogApp->name }}</option>
+                            @endforeach
+                        </select>
+                        <span id="in-app-hint" class="{{ $hint }}">Los enlaces «Ver tarea» solo pueden ir a la dirección de esta app.</span>
+                        @error('appId') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="in-base-url" class="{{ $label }}">URL base de la app</label>
+                        <input id="in-base-url" type="url" wire:model="appBaseUrl" maxlength="{{ Integration::MAX_APP_BASE_URL }}" placeholder="https://tareas.segurex.com.co" aria-describedby="in-base-url-hint" class="{{ $field }} font-mono"
+                               @error('appBaseUrl') aria-invalid="true" @enderror>
+                        <span id="in-base-url-hint" class="{{ $hint }}">https, sin usuario, sin ? ni #. El portal la usa para completar tareas.</span>
+                        @error('appBaseUrl') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                    </div>
+                </fieldset>
+
                 <div class="flex flex-col gap-1.5">
                     <label for="in-ips" class="{{ $label }}">IP permitidas <span class="font-normal text-fg-muted">(opcional)</span></label>
                     <input id="in-ips" type="text" wire:model="ips" placeholder="10.0.0.5, 192.168.1.0/24" aria-describedby="in-ips-hint" class="{{ $field }} font-mono"
@@ -187,6 +210,29 @@
                         @error('newIp') <p id="in-new-ip-error" class="{{ $error }}">{{ $message }}</p> @enderror
                     @endif
                 </div>
+
+                <form wire:submit="saveWorkApp" aria-labelledby="in-work-label" class="flex flex-col gap-2">
+                    <span id="in-work-label" class="text-[0.8125rem] font-bold">App de tareas y aprobaciones</span>
+                    <span class="{{ $hint }}">Obligatoria con <code>work:write</code>. Cambiarla o dar <code>work:write</code> pide confirmar con Microsoft.</span>
+                    <fieldset class="flex flex-col gap-2" @disabled(! $live)>
+                        <label for="in-work-app" class="{{ $label }}">App del catálogo</label>
+                        <select id="in-work-app" wire:model="workAppId" class="{{ $field }} h-9 text-[0.8125rem]"
+                                @error('workAppId') aria-invalid="true" @enderror>
+                            <option value="">Ninguna</option>
+                            @foreach ($catalogApps as $catalogApp)
+                                <option value="{{ $catalogApp->id }}" @selected((string) $catalogApp->id === (string) $workAppId)>{{ $catalogApp->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('workAppId') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                        <label for="in-work-url" class="{{ $label }}">URL base de la app</label>
+                        <input id="in-work-url" type="url" wire:model="workBaseUrl" value="{{ $workBaseUrl }}" maxlength="{{ Integration::MAX_APP_BASE_URL }}" placeholder="https://tareas.segurex.com.co"
+                               class="{{ $field }} h-9 font-mono text-[0.8125rem]" @error('workBaseUrl') aria-invalid="true" @enderror>
+                        @error('workBaseUrl') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                        @if ($live)
+                            <button type="submit" class="h-9 self-start rounded-[10px] border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">Guardar app</button>
+                        @endif
+                    </fieldset>
+                </form>
 
                 <div class="flex flex-col gap-2">
                     <span class="text-[0.8125rem] font-bold">Últimos cambios que hizo</span>

@@ -1,6 +1,6 @@
 # Contrato de integración: app de tareas y aprobaciones — Portal RYR
 
-> **Planeado: el portal todavía no implementa esto. Versión 0.1 (2026-10-29).**
+> **Planeado: el portal todavía no implementa esto. Versión 0.2 (2026-10-30).**
 > Nada de lo que describe este documento existe hoy en el portal. Es el acuerdo entre el portal y la futura «app de tareas y aprobaciones» para que ambos lados se construyan por separado y encajen.
 
 Este documento es para el equipo que construye la app de tareas y aprobaciones, y para quien implemente la parte del portal. Lo que no se dice aquí sigue las reglas de la API actual ([`docs/api.md`](api.md)).
@@ -139,18 +139,18 @@ Aprobación:
 
 | Campo | Obligatorio | Descripción |
 |---|---|---|
-| `kind` | Sí | `task` (tarea) o `approval` (aprobación). No puede cambiar para un mismo `external_id`. |
+| `kind` | Sí | `task` (tarea) o `approval` (aprobación). No puede cambiar para un mismo `external_id`, ni con una `version` mayor. Para otro tipo, borre el elemento y créelo con otro `external_id`. |
 | `title` | Sí | Texto que se ve en el inicio. De 1 a 140 caracteres después de quitar espacios al inicio y al final. Texto plano, en una sola línea: sin saltos de línea ni caracteres de control. El portal lo muestra escapado, nunca como HTML. Ver la advertencia de abajo. |
 | `status` | Sí | `pending` (se ve en el inicio), `done` (hecha) o `cancelled` (cancelada). Solo `pending` se ve. |
 | `due_at` | No | Fecha límite, ISO 8601 **con zona horaria**. `null` o ausente: sin fecha. Una fecha sin zona responde `422`. |
 | `url` | Sí | Enlace para ver el elemento en la app. Reglas en la sección 5. Máximo 2048 caracteres. |
 | `completable_from_portal` | Sí | `true` si la persona puede completar la tarea desde el portal. **Siempre `false` en las aprobaciones**: `true` con `approval` responde `422`. |
 | `version` | Sí | Entero de 1 a 9007199254740991 que la app sube en cada cambio del elemento. Reglas en 3.3. |
-| `assignee.tenant_id` | Sí | ID del inquilino de Microsoft de la cuenta de la persona (claim `tid`). GUID. |
+| `assignee.tenant_id` | Sí | ID del inquilino de Microsoft de la cuenta de la persona (claim `tid`). GUID. Junto con `oid`, puede cambiar con una `version` mayor (3.3). |
 | `assignee.oid` | Sí | ID de objeto de la cuenta en ese inquilino (claim `oid`). GUID. |
 
 - Los GUID se aceptan en mayúsculas o minúsculas; el portal los guarda en minúsculas.
-- `assignee` no puede cambiar para un mismo `external_id`. Para otra persona, use otro `external_id`.
+- `assignee` es la persona a la que está asignado el elemento. Puede cambiar con una `version` mayor, sin cambiar el `external_id`: el elemento sale del portal de la persona anterior y aparece en el de la nueva (sección 4). Quien envió o creó el elemento no forma parte del contrato.
 - Los campos que no están en esta tabla se ignoran y no se guardan.
 - El cuerpo no puede pasar de 8 KB.
 
@@ -174,7 +174,7 @@ Aprobación:
 |---|---|---|
 | `created` | `201` | El portal no tenía el elemento. |
 | `updated` | `200` | La `version` enviada es mayor que la guardada. Se reemplazan todos los campos. |
-| `unchanged` | `200` | La `version` enviada es igual a la guardada. No se cambia nada, aunque el contenido sea distinto. |
+| `unchanged` | `200` | La `version` enviada es igual a la guardada. No se cambia nada, aunque el resto del contenido sea distinto. Si `kind` o `assignee` son distintos, responde `422` (3.3, punto 3). |
 | `ignored_stale` | `200` | La `version` enviada es menor que la guardada. No se cambia nada. `version` trae la que el portal tiene. |
 
 ### 3.3 Cómo funciona `version`
@@ -182,8 +182,8 @@ Aprobación:
 La app es la fuente de verdad, pero sus llamadas pueden llegar desordenadas o repetidas (reintentos, varios procesos). `version` resuelve el orden:
 
 1. La app guarda una `version` por elemento y la **sube en cada cambio** (por ejemplo, un contador o un número que solo crece).
-2. El portal aplica un `PUT` solo si su `version` es **mayor** que la que tiene.
-3. Con la **misma** `version`, el portal responde `unchanged` y no compara el contenido. Para cambiar algo, suba la versión.
+2. El portal aplica un `PUT` solo si su `version` es **mayor** que la que tiene. Entonces reemplaza todos los campos, también `assignee`: así la app corrige una persona equivocada. `kind` nunca cambia: otro `kind` responde `422` (3.7). Las demás reglas se siguen aplicando (3.5, 3.7 y el límite de 500 pendientes de la nueva persona).
+3. Con la **misma** `version`, el portal responde `unchanged` y no compara el contenido, salvo `kind` y `assignee`: otro `kind` responde `422` porque nunca cambia, y otro `assignee` responde `422` con el mensaje «suba la versión» (3.7), porque la app cambió la persona sin subir su `version`. Para cambiar la persona o cualquier otro campo, suba la versión. Para cambiar el tipo, borre el elemento y créelo con otro `external_id`.
 4. Con una `version` **menor**, el portal responde `ignored_stale`. No es un error: no reintente.
 5. Cuando el portal completa una tarea (sección 6), la marca como hecha **sin cambiar** su `version`. El siguiente `PUT` de la app con una versión mayor manda, aunque traiga `pending`: la app es la fuente de verdad.
 6. Al borrar (3.4), el portal recuerda la última `version` durante 30 días. Un `PUT` con una versión igual o menor en ese tiempo responde `ignored_stale` y no revive el elemento. Uno con versión mayor lo crea de nuevo.
@@ -227,20 +227,20 @@ Motivos de `422` propios de este endpoint:
 
 | Campo | Motivo |
 |---|---|
-| `kind` | No es `task` ni `approval`, o cambió para un `external_id` que ya existe. |
+| `kind` | No es `task` ni `approval`, o cambió para un `external_id` que ya existe, con cualquier `version`. |
 | `title` | Vacío, de más de 140 caracteres, con saltos de línea o caracteres de control. |
 | `status` | No es `pending`, `done` ni `cancelled`. |
 | `due_at` | No es una fecha ISO 8601 con zona horaria. |
 | `url` | No es `https`, su host no es el de la app del catálogo, trae usuario o contraseña, o pasa de 2048 caracteres. También si la integración no tiene una app del catálogo con `url`. |
 | `completable_from_portal` | No es booleano, o es `true` en una aprobación. |
 | `version` | No es un entero entre 1 y 9007199254740991. |
-| `assignee` | Falta, sus GUID no son válidos, su inquilino no es de una empresa del portal, cambió para un `external_id` que ya existe, o la persona ya tiene 500 elementos pendientes de esta integración. |
+| `assignee` | Falta, sus GUID no son válidos, su inquilino no es de una empresa del portal, cambió con la misma `version` (mensaje: suba la versión para cambiarlo), o la persona ya tiene 500 elementos pendientes de esta integración (también al reasignarle un elemento pendiente). |
 
 ---
 
 ## 4. Visibilidad
 
-1. El inicio muestra **solo los elementos de la cuenta activa**: aquellos cuyo `{tenant_id, oid}` es el de la cuenta con la que la persona entró.
+1. El inicio muestra **solo los elementos de la cuenta activa**: aquellos cuyo `{tenant_id, oid}` es el de la cuenta con la que la persona entró. Si un `PUT` con `version` mayor cambia el `assignee`, el elemento deja de verse en el portal de la persona anterior y se ve en el de la nueva.
 2. Cada cuenta pertenece a una empresa. En Segurex la persona ve solo los elementos de su cuenta de Segurex; en Derivados, solo los de su cuenta de Derivados. Para ver los otros, cambia de empresa.
 3. **Los elementos de las cuentas vinculadas nunca se mezclan.** El portal no lee `person_id` para mostrar ni para completar nada: `person_id` nunca autoriza (`odd/tasks/cuentas-vinculadas.md`).
 4. Solo se ven los elementos `pending` de integraciones no revocadas.
@@ -565,5 +565,7 @@ Portal → App:
 |---|---|---|
 | 0.1 | 2026-10-29 | Primera versión, con las decisiones de Jhon: la app es la fuente de verdad, un elemento por persona, identidad por `{tenant_id, oid}`, enlaces solo al host de la app, «Completar» firmado y solo para tareas, aprobaciones solo con «Ver». |
 | 0.1 | 2026-10-29 | La firma de «Completar» cubre también el método y la ruta: `timestamp` + `"\n"` + `"POST"` + `"\n"` + ruta + `"\n"` + cuerpo. Nuevo dato de prueba. Se quita la regla que ligaba `request_id` a `external_id`, porque ya no hace falta. Se cierra la pregunta abierta sobre la ruta sin firmar. |
+| 0.1.1 | 2026-10-30 | Decisión de Jhon: un `PUT` con la misma `version` pero otro `kind` u otro `assignee` responde `422`, como con una versión mayor (3.3, punto 3). |
+| 0.2 | 2026-10-30 | Decisión de Jhon: la app puede equivocarse, así que un `PUT` con una `version` mayor puede cambiar el `assignee`: el elemento pasa del portal de una persona al de la otra. Con la misma `version`, otro `assignee` responde `422` pidiendo subir la versión. El límite de 500 pendientes se comprueba también para la persona nueva al reasignar un elemento pendiente. `kind` sigue sin poder cambiar, con ninguna `version`. |
 
 Los cambios a este contrato los decide Jhon, con un PR en el repositorio del portal (GrupoRyR/Portal-RYR).
