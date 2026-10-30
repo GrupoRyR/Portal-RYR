@@ -8,6 +8,7 @@ use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
 use App\Models\DirectoryEntry;
+use App\Models\Event;
 use App\Models\User;
 use App\View\Home\QuickLinks;
 use Database\Seeders\RoleSeeder;
@@ -345,6 +346,26 @@ class HomeScreenTest extends TestCase
         $this->assertSame($small, $large);
         $this->assertLessThanOrEqual(12, $large);
         $this->actingAs($this->user->fresh())->get('/')->assertSee('id="celebraciones"', false);
+    }
+
+    /**
+     * Yearly events (odd/tasks/ajustes-inicio-y-tareas.md T3) come in the
+     * same events query: none more than with a one-time event.
+     */
+    public function test_the_query_count_does_not_grow_with_yearly_events(): void
+    {
+        $this->openableApp();
+        Event::factory()->create();
+        $one = $this->countQueries();
+
+        Event::factory()->count(6)->allDay('2020-03-15')->yearly()->create(['published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->count(3)->allDay(now('America/Bogota')->addDays(5)->toDateString())->yearly()->forCompanies($this->company)->create();
+
+        $many = $this->countQueries();
+
+        $this->assertSame($one, $many);
+        $this->assertLessThanOrEqual(12, $many);
+        $this->actingAs($this->user->fresh())->get('/')->assertSee('data-event-end', false);
     }
 
     private function home(string $suffix = ''): TestResponse

@@ -24,6 +24,10 @@ use Livewire\Component;
  * Dates are typed in the app timezone (Bogotá): `datetime-local` for a
  * timed event, `date` for an all-day one, whose «Termina» is its last day
  * (inclusive; the same day as the start means one day).
+ *
+ * «Se repite cada año» (odd/tasks/ajustes-inicio-y-tareas.md T3) is only
+ * for an all-day event: unticking «Todo el día» clears it, and a timed
+ * event sent with it is refused.
  */
 class EventEditor extends Component
 {
@@ -50,6 +54,9 @@ class EventEditor extends Component
     public string $startsAt = '';
 
     public string $endsAt = '';
+
+    /** «Se repite cada año»: the dates are the first occurrence. */
+    public bool $repeatsYearly = false;
 
     public string $audience = Event::AUDIENCE_ALL;
 
@@ -82,6 +89,7 @@ class EventEditor extends Component
         $this->description = (string) $event->description;
         $this->location = (string) $event->location;
         $this->allDay = $event->all_day;
+        $this->repeatsYearly = $event->repeatsYearly();
         $this->startsAt = $event->starts_at->format($format);
         $this->endsAt = (string) $event->ends_at?->format($format);
         $this->audience = $event->audience;
@@ -105,9 +113,10 @@ class EventEditor extends Component
         } else {
             $this->startsAt = $start === '' ? '' : $start.'T'.self::DEFAULT_TIME;
             $this->endsAt = '';
+            $this->repeatsYearly = false;
         }
 
-        $this->resetValidation(['startsAt', 'endsAt']);
+        $this->resetValidation(['startsAt', 'endsAt', 'repeatsYearly']);
     }
 
     public function save(): mixed
@@ -137,6 +146,7 @@ class EventEditor extends Component
             'description' => $this->description === '' ? null : $this->description,
             'location' => $this->location === '' ? null : $this->location,
             'all_day' => $this->allDay,
+            'repeats_yearly' => $this->allDay && $this->repeatsYearly,
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
             'audience' => $this->audience,
@@ -186,8 +196,9 @@ class EventEditor extends Component
             'description' => ['nullable', 'string', 'max:'.Event::DESCRIPTION_MAX],
             'location' => ['nullable', 'string', 'max:'.Event::LOCATION_MAX],
             'allDay' => ['boolean'],
+            'repeatsYearly' => $this->allDay ? ['boolean'] : ['boolean', 'declined'],
             'startsAt' => ['required', 'date_format:'.$format],
-            'endsAt' => ['nullable', 'date_format:'.$format, $this->allDay ? 'after_or_equal:startsAt' : 'after:startsAt'],
+            'endsAt' => ['nullable', 'date_format:'.$format, $this->allDay ? 'after_or_equal:startsAt' : 'after:startsAt', ...$this->yearlyLengthRule()],
             'audience' => ['required', Rule::in(Event::AUDIENCES)],
             'companyIds' => $specific ? ['required', 'array'] : ['array'],
             'companyIds.*' => ['distinct', Rule::exists('companies', 'id')],
@@ -211,6 +222,8 @@ class EventEditor extends Component
             'endsAt.date_format' => $this->allDay ? 'Elige una fecha válida.' : 'Elige una fecha y hora válidas.',
             'endsAt.after' => '«Termina» debe ser posterior a «Empieza».',
             'endsAt.after_or_equal' => 'El último día no puede ser anterior al primero.',
+            'endsAt.before' => 'Una fecha que se repite cada año debe durar menos de un año.',
+            'repeatsYearly.declined' => 'Solo un evento de todo el día puede repetirse cada año.',
             'audience.in' => 'Elige para quién es el evento.',
             'companyIds.required' => 'Elige al menos una empresa.',
             'companyIds.*.exists' => 'Elige empresas de la lista.',
@@ -230,6 +243,26 @@ class EventEditor extends Component
                 : Company::query()->orderBy('name')->get(['id', 'name', 'short_name', 'is_active']),
             'status' => $this->event?->status,
         ]);
+    }
+
+    /**
+     * A yearly event ends before its first day comes back: its last day is
+     * before the same date a year later (28 February after a 29 February).
+     *
+     * @return list<string>
+     */
+    private function yearlyLengthRule(): array
+    {
+        if (! $this->allDay || ! $this->repeatsYearly) {
+            return [];
+        }
+
+        $start = \DateTime::createFromFormat('!'.self::DATE_FORMAT, $this->startsAt);
+        if ($start === false || $start->format(self::DATE_FORMAT) !== $this->startsAt) {
+            return [];
+        }
+
+        return ['before:'.Carbon::instance($start)->addYearNoOverflow()->format(self::DATE_FORMAT)];
     }
 
     /**

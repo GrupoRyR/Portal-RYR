@@ -85,7 +85,7 @@ class EventList extends Component
             'rows' => $events->getCollection()->map(fn (Event $event) => [
                 'event' => $event,
                 'status' => $event->status,
-                'details' => EventDate::from($event, $today)->when().' · '.($event->isForAllCompanies()
+                'details' => EventDate::from($event, $today)->when().($event->repeatsYearly() ? ' · Cada año' : '').' · '.($event->isForAllCompanies()
                     ? 'Todas las empresas'
                     : $event->companies->map(fn (Company $company) => $company->short_name ?: $company->name)->sort()->implode(', ')),
             ]),

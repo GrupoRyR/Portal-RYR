@@ -55,6 +55,14 @@ class EventFactory extends Factory
         ]);
     }
 
+    /**
+     * Repeats every year (only all-day events do: combine with allDay()).
+     */
+    public function yearly(): static
+    {
+        return $this->state(fn () => ['repeats_yearly' => true]);
+    }
+
     public function scheduled(): static
     {
         return $this->state(fn () => ['published_at' => now()->addDay()]);

@@ -44,6 +44,16 @@ class EventAuditTest extends TestCase
         $this->assertSame([['label' => 'Empresas', 'old' => '—', 'new' => 'Segurex']], $changed->changes);
     }
 
+    public function test_repeating_every_year_has_its_label(): void
+    {
+        $event = Event::factory()->allDay('2026-03-15')->create(['title' => 'Aniversario']);
+        $event->update(['repeats_yearly' => true]);
+
+        $updated = $this->present($this->latest(Event::AUDIT_LOG));
+
+        $this->assertSame([['label' => 'Se repite cada año', 'old' => 'No', 'new' => 'Sí']], $updated->changes);
+    }
+
     public function test_a_deleted_event_is_named_as_such(): void
     {
         $event = Event::factory()->create(['title' => 'Pausa activa']);

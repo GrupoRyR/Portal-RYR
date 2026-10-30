@@ -7,6 +7,7 @@ use App\Models\AppAccessRule;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\User;
+use App\Search\HomeSearchIndex;
 use App\View\Home\EventDate;
 use App\View\Home\HolidayDay;
 use App\View\Home\HomePage;
@@ -185,6 +186,64 @@ class HomeEventsTest extends TestCase
         $this->assertSame(route('events.index').'#e-'.$allDay->id, $vacation['href']);
         // Navidad (25 December) comes after it: it starts on the 24th.
         $this->assertLessThan(array_search('Navidad', $titles, true), array_search('Vacaciones colectivas', $titles, true));
+    }
+
+    public function test_a_yearly_event_shows_on_its_next_occurrence_within_the_window(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-03')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        // Next on 20 January 2027: past the 60 days of the list, within the search's twelve months.
+        Event::factory()->allDay('2020-01-20')->yearly()->create(['title' => 'Cierre contable', 'published_at' => '2020-01-01 08:00:00']);
+
+        $titles = $this->titles($this->build());
+        $this->assertSame(['Todos los Santos', 'Aniversario', 'Independencia de Cartagena'], array_slice($titles, 0, 3));
+        $this->assertNotContains('Cierre contable', $titles);
+
+        $xpath = $this->xpath($this->home());
+        $row = $xpath->query('//section[@id="fechas"]//li[@data-event-end]')->item(0);
+        $this->assertSame('2026-11-03', $row->getAttribute('data-event-date'));
+        $this->assertSame('2026-11-04T00:00:00-05:00', $row->getAttribute('data-event-end'));
+        $this->assertSame('2026-11-03', $xpath->query('.//time', $row)->item(0)->getAttribute('datetime'));
+        $this->assertSame(1, $xpath->query('.//a[@href="'.route('events.index').'#e-'.$anniversary->id.'"]', $row)->length);
+
+        $dates = $this->index()['dates'];
+        $closing = $dates[array_search('Cierre contable', array_column($dates, 'title'), true)];
+        $this->assertSame('2027-01-20', $closing['date']);
+        $this->assertSame('2027-01-21T00:00:00-05:00', $closing['end']);
+        $this->assertStringContainsString('miércoles 20 de enero de 2027', $closing['detail']);
+    }
+
+    public function test_a_yearly_event_reads_every_year_instead_of_event(): void
+    {
+        Event::factory()->allDay('2020-11-03')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2026-11-05')->create(['title' => 'Jornada de salud']);
+
+        $rows = $this->eventRows();
+        $this->assertStringContainsString('Martes · Cada año', $rows['Aniversario']);
+        $this->assertStringNotContainsString('Evento', $rows['Aniversario']);
+        $this->assertStringContainsString('3 de noviembre, cada año:', $rows['Aniversario']);
+        $this->assertStringContainsString('Jueves · Evento', $rows['Jornada de salud']);
+
+        $dates = $this->index()['dates'];
+        $entry = $dates[array_search('Aniversario', array_column($dates, 'title'), true)];
+        $this->assertSame('Cada año · martes 3 de noviembre', $entry['detail']);
+        $this->assertSame('aniversario cada ano martes 3 de noviembre', $entry['search']);
+    }
+
+    public function test_old_yearly_events_do_not_crowd_out_the_soonest_ones(): void
+    {
+        // Their stored first dates come before everything else; their next
+        // occurrence (15 March 2027) is past the 60 days of the list.
+        Event::factory()->count(HomeSearchIndex::EVENT_LIMIT + 5)->allDay('2019-03-15')->yearly()->create(['published_at' => '2019-01-01 08:00:00']);
+        Event::factory()->allDay('2020-11-05')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->create(['title' => 'Pausa activa', 'starts_at' => '2026-10-30 09:00:00', 'ends_at' => null]);
+
+        $titles = $this->titles($this->build());
+        $this->assertContains('Pausa activa', $titles);
+        $this->assertContains('Aniversario', $titles);
+
+        $search = array_column($this->index()['dates'], 'title');
+        $this->assertContains('Pausa activa', $search);
+        $this->assertContains('Aniversario', $search);
     }
 
     public function test_events_cost_one_query_whatever_their_number(): void
