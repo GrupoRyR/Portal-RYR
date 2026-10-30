@@ -120,7 +120,7 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
   - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73` y, tras la revisión, `e6d30a0` (C3a-R).
   - [ ] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items`. Espera a que #74 esté en la base.
-- [x] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría. Commit `5f4dde3`.
+- [x] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría. Commit `5f4dde3` y, tras la revisión, `7af7495` (C4-R).
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
 
 ## Registro del C2a
@@ -391,10 +391,52 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 
 ### No hecho o no verificado
 
-- **Retención:** `config/activitylog.php` dice 365 días, pero `activitylog:clean` no está programado en `routes/console.php`, que estaba fuera de los archivos permitidos. Hoy nada borra las líneas de Auditoría, tampoco las de las llamadas de Claude. Seguimiento: programar `activitylog:clean` a diario.
+- **Retención:** `config/activitylog.php` dice 365 días, pero `activitylog:clean` no está programado en `routes/console.php`, que estaba fuera de los archivos permitidos. Hoy nada borra las líneas de Auditoría, tampoco las de las llamadas de Claude. Seguimiento: programar `activitylog:clean` a diario (hecho en el C4-R).
 - La tarjeta no tiene página ni entrada propia en el menú de Administración; está en Configuración.
 - No se probó contra claude.ai real ni en el servidor.
 - Tamaño: unas 565 líneas de código (con vistas, rutas y comentarios), 951 de pruebas y 90 de documentos. Pasa de la cifra orientativa de 400 porque `/cuenta`, la tarjeta de Administración, el interruptor y la auditoría comparten el fin de una conexión y sus pruebas.
+
+## Registro del C4-R
+
+Ruta: el mismo escritor delegado, después de una revisión independiente del C4 (sin hallazgos altos, 1 medio y 6 bajos). Para esta ronda también se permitió editar `routes/console.php`. Commit `7af7495` (`fix(mcp): harden the Claude connection controls after review (C4-R)`).
+
+### Qué cambió
+
+- **M1, dos administradores a la vez:** `toggle()` cambiaba el valor guardado, no lo que veía el administrador. Si B lo apagaba y A, con la página vieja en «encendido», hacía clic para apagarlo, lo volvía a encender. Ahora pide lo contrario de lo que mostraba su página (`$enabled`, bloqueado). Si otra persona ya lo había dejado así, no escribe nada y avisa: «Otra persona ya lo había apagado. El conector sigue apagado.» (o «encendido»).
+- **L2, llamadas con error y rechazadas:**
+  - Cada línea `mcp.tool_called` lleva `error`: verdadero cuando el resultado dice `isError` (por ejemplo, un dato de entrada que no sirve). En Auditoría: «· terminó con error».
+  - Una herramienta que no existe, o una llamada sin nombre, también queda, como rechazada (`refused`, con `error` verdadero). Se guarda solo el nombre pedido, cortado a 64 caracteres, nunca los argumentos. En Auditoría: «Claude pidió una herramienta que no existe («…»)» o «Claude pidió una herramienta sin nombre».
+- **L3, herramientas que transmiten por partes:** ninguna lo hace hoy. Un comentario en `AuditedCallTool` dice que una herramienta así quedaría registrada antes de correr y sin la marca de error de su último mensaje, y que habría que registrarla al final.
+- **L4, valor guardado dañado:** el interruptor está encendido solo si no hay fila o si el valor es exactamente JSON `true`. `0`, `off`, `"false"`, `null`, vacío o un texto dañado cuentan como apagado.
+- **L5, `/cuenta` con el conector apagado:** al encenderlo otra vez, todas las conexiones vuelven a funcionar, así que cada persona debe poder verlas y cortarlas mientras está apagado.
+  - `/cuenta` muestra la sección si la cuenta tiene conexiones, con un aviso: «El conector de Claude está apagado: esta conexión no funciona por ahora, pero vuelve a funcionar si lo encienden. Puedes desconectarla.»
+  - Sin conexiones, la sección solo aparece con el conector encendido.
+  - «Desconectar» ya no lleva `mcp.enabled`: sigue dando 404 si la cuenta no está en la conexión.
+- **L6, cada vista de la tarjeta se autoriza:** `render()` también revisa `AdminSections::SETTINGS`. Un súper administrador al que le quitan el rol ya no ve la lista con `$refresh`.
+- **L7, retención y volumen:**
+  - `activitylog:clean --force` corre a diario a las 4:30 (Bogotá), sin `--days`, así que manda `delete_records_older_than_days` (365).
+  - Borra todo lo de más de un año en Auditoría, no solo las líneas de Claude.
+  - `docs/despliegue.md` §1.13 explica las tres tareas de limpieza y el volumen: hasta unas 170 000 filas al día por conexión al límite de 120 por minuto, unos 50 MB.
+- **Documentos:** `docs/manual-administracion.md` (§2.8: error, rechazadas y retención; §2.10: `/cuenta` con el conector apagado y dos administradores a la vez) y `docs/despliegue.md` (§1.13).
+
+### Pruebas
+
+- RED, con los cinco archivos del C4 y el nuevo `AuditRetentionTest`: 69 pruebas, 47 pasan, 19 fallan y 3 con error. Ya pasaban la del comando de limpieza (el comando existía, solo faltaba programarlo), la de `/cuenta` sin conexiones con el conector apagado y la del aviso con el conector encendido.
+- GREEN: las 69 pasan.
+- Pruebas nuevas o cambiadas:
+  - `McpConnectorTest`: dos instancias del componente (la vieja no vuelve a encender, en los dos sentidos) y `$refresh` con el rol quitado da 403.
+  - `ToolCallAuditTest`: `error` en una llamada con `isError`; rechazo de una herramienta que no existe, con el nombre cortado a 64 y sin argumentos; rechazo sin nombre.
+  - `AdminSwitchTest`: diez valores guardados; solo `true` enciende.
+  - `ClaudeConnectionsTest`: con la variable o el interruptor apagados, la lista y el aviso aparecen y desconectar funciona, y al encender los tokens siguen muertos.
+  - `McpAuditLabelsTest`: las etiquetas de error y de rechazo.
+  - `AuditRetentionTest`: la tarea está programada a diario, en hora de Bogotá, con `--force` y sin `--days`; el comando borra lo de 366 días y deja lo de 364.
+- Suite completa: 1.998 pruebas, todas pasan (1.976 antes).
+- Pint: sin cambios pendientes. `npm run build` no cambió `public/build`.
+- Tamaño: unas 141 líneas de código, 258 de pruebas y 14 de documentos.
+
+### No hecho
+
+- Dos clics sobre el interruptor en el mismo instante exacto no se bloquea en la base: `turn()` lee y escribe sin bloqueo de fila. En el peor caso quedan dos líneas de auditoría con el mismo valor; el valor final siempre es el que pidieron.
 
 ## Siguiente paso
 
