@@ -24,6 +24,9 @@ return new class extends Migration
             $table->unsignedInteger('missing_count');
             // Null while the cron is still sending it.
             $table->timestamp('finished_at')->nullable();
+            // Set too when it ended because the announcement stopped asking
+            // for confirmation (withdrawn, expired or no longer mandatory).
+            $table->timestamp('stopped_at')->nullable();
 
             $table->index(['announcement_id', 'requested_at']);
             $table->index('finished_at');

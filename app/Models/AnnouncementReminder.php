@@ -14,15 +14,19 @@ use Illuminate\Support\Carbon;
  * (App\Announcements\AnnouncementReminders): at most one every
  * INTERVAL_HOURS per announcement. The request only records it; the cron
  * (portal:send-announcement-reminders) mails the people who are still
- * missing, one delivery per person, and then marks it finished.
+ * missing, one delivery per person, and then marks it finished. If the
+ * announcement stops asking for confirmation meanwhile (withdrawn, expired
+ * or no longer mandatory), the reminder is stopped: finished and
+ * `stopped_at`, and it no longer counts for the INTERVAL_HOURS limit.
  *
  * @property int $announcement_id
  * @property int|null $requested_by
  * @property Carbon $requested_at
  * @property int $missing_count
  * @property Carbon|null $finished_at
+ * @property Carbon|null $stopped_at
  */
-#[Fillable(['announcement_id', 'requested_by', 'requested_at', 'missing_count', 'finished_at'])]
+#[Fillable(['announcement_id', 'requested_by', 'requested_at', 'missing_count', 'finished_at', 'stopped_at'])]
 class AnnouncementReminder extends Model
 {
     /** At most one reminder per announcement in this many hours. */
@@ -35,6 +39,7 @@ class AnnouncementReminder extends Model
         return [
             'requested_at' => 'datetime',
             'finished_at' => 'datetime',
+            'stopped_at' => 'datetime',
             'missing_count' => 'integer',
         ];
     }

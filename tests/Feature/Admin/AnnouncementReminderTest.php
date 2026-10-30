@@ -13,9 +13,13 @@ use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
+use Mockery\MockInterface;
+use PDOException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -228,6 +232,97 @@ class AnnouncementReminderTest extends TestCase
 
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
             ->assertSeeText('enviado a 1 persona.');
+    }
+
+    // --- Review fixes (odd/tasks/ajustes-inicio-y-tareas.md T5-R) ---------
+
+    public function test_an_editor_cannot_request_a_reminder_of_an_announcement_for_other_companies_too(): void
+    {
+        $forBoth = $this->mandatoryForBoth();
+        $forAll = Announcement::factory()->mandatory()->create();
+
+        foreach ([$forBoth, $forAll] as $announcement) {
+            Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])->assertForbidden();
+        }
+
+        // The page was opened for Segurex only; an admin widens it meanwhile.
+        foreach ([
+            fn (Announcement $announcement) => $announcement->companies()->attach($this->derivados),
+            fn (Announcement $announcement) => $announcement->forceFill(['audience' => Announcement::AUDIENCE_ALL])->save(),
+        ] as $widen) {
+            $announcement = $this->mandatoryForSegurex();
+            $editor = Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement]);
+            $widen($announcement);
+
+            $editor->call('sendReminder')->assertForbidden();
+        }
+
+        $this->assertSame(0, AnnouncementReminder::query()->count());
+    }
+
+    public function test_a_database_failure_while_requesting_is_shown_on_the_card(): void
+    {
+        Log::spy();
+        $announcement = $this->mandatoryForSegurex();
+        $this->partialMock(AnnouncementReminders::class, fn (MockInterface $mock) => $mock
+            ->shouldReceive('request')
+            ->andThrow(new QueryException('mysql', 'select * from `announcements` for update', [], new PDOException('Lock wait timeout exceeded'))));
+
+        Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->call('sendReminder')
+            ->assertOk()
+            ->assertHasErrors('reminder')
+            ->assertSeeText('No se pudo pedir el recordatorio. Inténtalo de nuevo.');
+
+        $this->assertSame(0, AnnouncementReminder::query()->count());
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $message === 'Announcement reminder could not be requested.'
+            && $context['announcement_id'] === $announcement->id)->once();
+    }
+
+    public function test_a_reminder_stopped_by_the_announcement_says_so(): void
+    {
+        $announcement = $this->mandatoryForBoth();
+        $this->linked('Ana Pérez');
+        User::factory()->microsoft($this->segurex)->create(['name' => 'Luis Gómez']);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->call('sendReminder');
+        app(AnnouncementReminders::class)->send(1);
+        $announcement->withdraw();
+        $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
+
+        $reminder = AnnouncementReminder::query()->sole();
+        $this->assertNotNull($reminder->stopped_at);
+        $this->assertNotNull($reminder->finished_at);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('Último recordatorio: pedido el 29 de octubre a las 10:00 por Jhon Castro · se detuvo porque el anuncio ya no pide confirmación: enviado a 1 persona.')
+            ->assertDontSeeText('Enviando…');
+    }
+
+    public function test_a_stopped_reminder_does_not_block_a_new_one_when_the_announcement_is_back(): void
+    {
+        $announcement = $this->mandatoryForSegurex();
+
+        Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->call('sendReminder')
+            ->assertHasNoErrors();
+        $announcement->withdraw();
+        $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-29 11:00', 'America/Bogota'));
+        $announcement->republish();
+
+        Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('Enviar recordatorio')
+            ->assertDontSeeText('Podrás pedir otro recordatorio')
+            ->call('sendReminder')
+            ->assertHasNoErrors();
+        $this->assertSame(2, AnnouncementReminder::query()->count());
+
+        // The new one, not stopped, counts for the 24 hours again.
+        Livewire::actingAs($this->editor)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->assertSeeText('Podrás pedir otro recordatorio el 30 de octubre a las 11:00.');
     }
 
     /** One an announcements editor of Segurex may edit. */

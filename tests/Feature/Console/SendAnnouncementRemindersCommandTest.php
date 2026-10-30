@@ -13,7 +13,9 @@ use App\Notifications\AnnouncementReminderNotice;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
@@ -217,6 +219,7 @@ class SendAnnouncementRemindersCommandTest extends TestCase
 
         Notification::assertNothingSent();
         $this->assertNotNull($reminder->fresh()->finished_at);
+        $this->assertNotNull($reminder->fresh()->stopped_at);
     }
 
     public function test_without_requests_it_does_nothing(): void
@@ -227,6 +230,80 @@ class SendAnnouncementRemindersCommandTest extends TestCase
         $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
 
         Notification::assertNothingSent();
+    }
+
+    // --- Review fixes (odd/tasks/ajustes-inicio-y-tareas.md T5-R) ---------
+
+    public function test_a_person_linked_after_being_mailed_is_not_mailed_again(): void
+    {
+        $announcement = $this->mandatory();
+        $ana = User::factory()->microsoft($this->segurex)->create(['name' => 'Ana Pérez']);
+        $carla = User::factory()->microsoft($this->segurex)->create(['name' => 'Carla Ruiz']);
+        $reminder = $this->request($announcement);
+
+        // Ana is mailed as an account alone…
+        app(AnnouncementReminders::class)->send(1);
+        Notification::assertSentToTimes($ana, AnnouncementReminderNotice::class, 1);
+
+        // …then links her Derivados account: she is now another person key.
+        $person = Person::query()->create();
+        $ana->forceFill(['person_id' => $person->id])->save();
+        $anaDerivados = User::factory()->microsoft($this->derivados)->create(['name' => 'Ana Pérez', 'person_id' => $person->id]);
+
+        $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
+
+        Notification::assertSentToTimes($ana, AnnouncementReminderNotice::class, 1);
+        Notification::assertNotSentTo($anaDerivados, AnnouncementReminderNotice::class);
+        Notification::assertSentToTimes($carla, AnnouncementReminderNotice::class, 1);
+        Notification::assertCount(2);
+        $this->assertNotNull($reminder->fresh()->finished_at);
+    }
+
+    public function test_an_account_deleted_during_a_run_does_not_end_the_reminder_early(): void
+    {
+        $announcement = $this->mandatory();
+        [$first, $second, $third] = User::factory()->microsoft($this->segurex)->count(3)->create()->all();
+        $reminder = $this->request($announcement);
+
+        // Right after the people are picked, the first account goes away.
+        $deleted = false;
+        DB::listen(function (QueryExecuted $query) use (&$deleted, $first) {
+            if (! $deleted && str_contains($query->sql, 'min(users.id) as id')) {
+                $deleted = true;
+                DB::table('users')->where('id', $first->id)->delete();
+            }
+        });
+
+        app(AnnouncementReminders::class)->send(2);
+
+        $this->assertTrue($deleted);
+        Notification::assertSentToTimes($second, AnnouncementReminderNotice::class, 1);
+        $this->assertNull($reminder->fresh()->finished_at, 'Two people were picked for a limit of two: more may be left.');
+
+        $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
+
+        Notification::assertSentToTimes($third, AnnouncementReminderNotice::class, 1);
+        $this->assertNotNull($reminder->fresh()->finished_at);
+    }
+
+    public function test_guest_emergency_and_inactive_company_accounts_are_never_mailed(): void
+    {
+        $announcement = Announcement::factory()->mandatory()->create(); // For every company.
+        $closed = Company::factory()->create(['is_active' => false]);
+        $luis = User::factory()->microsoft($this->segurex)->create(['name' => 'Luis Gómez']);
+        $guest = User::factory()->microsoft($this->segurex)->create(['name' => 'Invitado Externo', 'is_guest' => true]);
+        $emergency = User::factory()->emergency()->create(['company_id' => $this->segurex->id]);
+        $inactive = User::factory()->microsoft($closed)->create(['name' => 'Persona de empresa inactiva']);
+        $reminder = $this->request($announcement);
+
+        $this->artisan('portal:send-announcement-reminders')->assertSuccessful();
+
+        Notification::assertSentToTimes($luis, AnnouncementReminderNotice::class, 1);
+        foreach ([$guest, $emergency, $inactive] as $account) {
+            Notification::assertNotSentTo($account, AnnouncementReminderNotice::class);
+        }
+        Notification::assertCount(1);
+        $this->assertSame(1, $reminder->deliveries()->count());
     }
 
     public function test_it_runs_every_minute_without_overlapping(): void

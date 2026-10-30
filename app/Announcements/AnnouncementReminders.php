@@ -52,7 +52,8 @@ class AnnouncementReminders
                 throw ReminderNotAllowed::notShown();
             }
 
-            $last = $this->latestOf($locked);
+            // A stopped reminder does not count: the announcement may be back.
+            $last = $this->latestOf($locked, countingOnly: true);
 
             if ($last !== null && $last->nextAllowedAt()->isFuture()) {
                 throw ReminderNotAllowed::tooSoon($last->nextAllowedAt());
@@ -85,9 +86,10 @@ class AnnouncementReminders
     /**
      * The last reminder of the announcement, for the read report: when and
      * by whom it was requested, to how many people it was sent so far,
-     * whether the cron finished it, and when the next one may be requested.
+     * whether the cron finished it or it was stopped, and when the next one
+     * may be requested (null: now, as far as the limit goes).
      *
-     * @return array{requested_at: CarbonInterface, requester: string|null, sent: int, finished: bool, next_allowed_at: CarbonInterface}|null
+     * @return array{requested_at: CarbonInterface, requester: string|null, sent: int, finished: bool, stopped: bool, next_allowed_at: CarbonInterface|null}|null
      */
     public function lastFor(Announcement $announcement): ?array
     {
@@ -97,19 +99,26 @@ class AnnouncementReminders
             return null;
         }
 
+        $counting = $reminder->stopped_at === null ? $reminder : $this->latestOf($announcement, countingOnly: true);
+
         return [
             'requested_at' => $reminder->requested_at->toImmutable(),
             'requester' => $reminder->requester?->name,
             'sent' => (int) $reminder->getAttribute('sent_count'),
             'finished' => $reminder->finished_at !== null,
-            'next_allowed_at' => $reminder->nextAllowedAt()->toImmutable(),
+            'stopped' => $reminder->stopped_at !== null,
+            'next_allowed_at' => $counting?->nextAllowedAt()->toImmutable(),
         ];
     }
 
     /**
      * Mails up to $limit people, oldest request first. A reminder whose
-     * announcement is no longer published and mandatory stops without
+     * announcement is no longer published and mandatory is stopped without
      * mailing anyone else; one with nobody left to mail is finished.
+     * «Nobody left» is decided from the people picked
+     * ({@see Announcement::reminderCandidates()}), not from the accounts
+     * loaded after it, so an account deleted in between does not end the
+     * reminder early.
      *
      * @return array{sent: int, failed: int}
      */
@@ -132,15 +141,24 @@ class AnnouncementReminders
             $announcement = $reminder->announcement;
 
             if ($announcement === null || ! $announcement->requires_read || $announcement->status !== Announcement::STATUS_PUBLISHED) {
-                $this->finish($reminder);
+                $this->finish($reminder, stopped: true);
 
                 continue;
             }
 
-            $recipients = $announcement->reminderRecipients($reminder, $limit);
+            $candidates = $announcement->reminderCandidates($reminder, $limit);
+            $exhausted = $candidates->count() < $limit;
+            $limit -= $candidates->count();
 
-            foreach ($recipients as $personKey => $account) {
-                $limit--;
+            $accounts = User::query()->whereKey($candidates->keys())->with('company')->get()->keyBy('id');
+
+            foreach ($candidates as $accountId => $personKey) {
+                // Deleted since it was picked: the next run picks again.
+                $account = $accounts->get($accountId);
+
+                if ($account === null) {
+                    continue;
+                }
 
                 $delivery = $this->claim($reminder, $personKey, $account);
 
@@ -151,8 +169,8 @@ class AnnouncementReminders
                 $result[$this->deliver($delivery, $announcement, $account) ? 'sent' : 'failed']++;
             }
 
-            // Fewer than asked for: nobody is left for this reminder.
-            if ($limit > 0) {
+            // Fewer picked than asked for: nobody is left for this reminder.
+            if ($exhausted) {
                 $this->finish($reminder);
             }
         }
@@ -168,9 +186,13 @@ class AnnouncementReminders
         return $moment->copy()->timezone(config('app.timezone'))->locale('es')->isoFormat('D [de] MMMM [a las] HH:mm');
     }
 
-    private function latestOf(Announcement $announcement, bool $withDetails = false): ?AnnouncementReminder
+    /**
+     * @param  bool  $countingOnly  Leave out stopped reminders: only the others count for the limit.
+     */
+    private function latestOf(Announcement $announcement, bool $withDetails = false, bool $countingOnly = false): ?AnnouncementReminder
     {
         return $announcement->reminders()
+            ->when($countingOnly, fn ($query) => $query->whereNull('stopped_at'))
             ->when($withDetails, fn ($query) => $query
                 ->with('requester:id,name')
                 ->withCount(['deliveries as sent_count' => fn ($query) => $query->where('status', AnnouncementReminderDelivery::STATUS_SENT)]))
@@ -222,8 +244,11 @@ class AnnouncementReminders
         return $status === AnnouncementReminderDelivery::STATUS_SENT;
     }
 
-    private function finish(AnnouncementReminder $reminder): void
+    /**
+     * @param  bool  $stopped  The announcement no longer asks for confirmation.
+     */
+    private function finish(AnnouncementReminder $reminder, bool $stopped = false): void
     {
-        $reminder->forceFill(['finished_at' => now()])->save();
+        $reminder->forceFill(['finished_at' => now(), 'stopped_at' => $stopped ? now() : null])->save();
     }
 }

@@ -13,9 +13,11 @@ use App\Policies\AnnouncementPolicy;
 use App\View\Home\AnnouncementCard;
 use Closure;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -182,7 +184,9 @@ class AnnouncementEditor extends Component
      * «Enviar recordatorio»: records a reminder for the cron to mail. The
      * once-a-day limit and whether it may be sent at all are checked on the
      * server ({@see AnnouncementReminders::request()}), whatever the page
-     * showed; a refusal is shown in the read report.
+     * showed; a refusal is shown in the read report, and so is a database
+     * failure (e.g. a lock wait timeout on the announcement row), logged
+     * instead of a server error.
      */
     public function sendReminder(AnnouncementReminders $reminders): void
     {
@@ -195,6 +199,13 @@ class AnnouncementEditor extends Component
             session()->flash('status', 'Recordatorio en camino: el portal lo envía por correo en los próximos minutos.');
         } catch (ReminderNotAllowed $refused) {
             $this->addError('reminder', $refused->getMessage());
+        } catch (QueryException $e) {
+            Log::warning('Announcement reminder could not be requested.', [
+                'announcement_id' => $this->announcement->id,
+                'user_id' => $this->user()->id,
+                'exception' => $e::class,
+            ]);
+            $this->addError('reminder', 'No se pudo pedir el recordatorio. Inténtalo de nuevo.');
         } finally {
             // Count again, with the reminder just requested (or the one that blocked it).
             unset($this->readReport);

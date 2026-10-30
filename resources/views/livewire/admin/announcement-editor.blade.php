@@ -207,11 +207,11 @@
             {{-- One-line php directives only: a php block here would swallow the one-line directive above. --}}
             @php($reminder = $reads['reminder'])
             @php($remindable = $status === \App\Models\Announcement::STATUS_PUBLISHED && $missing > 0)
-            @php($canRemind = $remindable && ($reminder === null || ! $reminder['next_allowed_at']->isFuture()))
+            @php($canRemind = $remindable && ($reminder === null || $reminder['next_allowed_at'] === null || ! $reminder['next_allowed_at']->isFuture()))
             @php($when = fn ($moment) => \App\Announcements\AnnouncementReminders::when($moment))
             <div class="flex flex-col gap-2" data-reminder>
                 @if ($reminder)
-                    <p class="text-sm">Último recordatorio: pedido el {{ $when($reminder['requested_at']) }} por {{ $reminder['requester'] ?? 'una cuenta que ya no existe' }} · {{ $reminder['finished'] ? 'enviado a '.$reminder['sent'].' '.($reminder['sent'] === 1 ? 'persona' : 'personas').'.' : 'Enviando…' }}</p>
+                    <p class="text-sm">Último recordatorio: pedido el {{ $when($reminder['requested_at']) }} por {{ $reminder['requester'] ?? 'una cuenta que ya no existe' }} · {{ $reminder['stopped'] ? 'se detuvo porque el anuncio ya no pide confirmación: ' : '' }}{{ $reminder['finished'] ? 'enviado a '.$reminder['sent'].' '.($reminder['sent'] === 1 ? 'persona' : 'personas').'.' : 'Enviando…' }}</p>
                 @endif
                 @if ($canRemind)
                     <div>
