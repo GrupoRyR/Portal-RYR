@@ -317,6 +317,36 @@ class HomeScreenTest extends TestCase
         $this->assertLessThanOrEqual(12, $large);
     }
 
+    /**
+     * Birthdays and anniversaries (odd/tasks/personas.md WU2) come in the
+     * directory query: none more, whatever how many fall this week.
+     */
+    public function test_the_query_count_does_not_grow_with_birthdays_and_anniversaries(): void
+    {
+        $this->travelTo(now('America/Bogota')->setTime(9, 0));
+        $this->openableApp();
+        DirectoryEntry::factory()->forCompany($this->company)->create();
+        $small = $this->countQueries();
+
+        $today = now('America/Bogota')->toImmutable();
+        foreach (range(0, 39) as $i) {
+            $day = $today->addDays($i % 8);
+            $user = User::factory()->microsoft($this->company)->birthday($day->month, $day->day)->create();
+            DirectoryEntry::factory()->forCompany($this->company)->create([
+                'tenant_id' => $user->tenant_id,
+                'azure_oid' => $user->azure_oid,
+                'hire_date' => $day->subYears(1 + $i % 5)->toDateString(),
+            ]);
+        }
+        DirectoryEntry::factory()->forCompany($this->company)->count(30)->create();
+
+        $large = $this->countQueries();
+
+        $this->assertSame($small, $large);
+        $this->assertLessThanOrEqual(12, $large);
+        $this->actingAs($this->user->fresh())->get('/')->assertSee('id="celebraciones"', false);
+    }
+
     private function home(string $suffix = ''): TestResponse
     {
         return $this->actingAs($this->user->fresh())->get('/'.$suffix)->assertOk();

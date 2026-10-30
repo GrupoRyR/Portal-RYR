@@ -419,7 +419,29 @@ function correctSavedDates() {
 
     const dates = $('#fechas');
     if (dates && rows.length > 0 && rows.every((row) => row.hidden)) dates.hidden = true;
+
+    // «Cumpleaños y aniversarios»: a past day goes, and «Hoy», «Mañana» or
+    // the weekday (`data-celebration-day`) follow the real today.
+    const tomorrow = nextIsoDay(today);
+    const celebrations = $$('li[data-celebration-date]');
+    for (const row of celebrations) {
+        const day = row.dataset.celebrationDate;
+        row.hidden = day < today;
+
+        const label = $('[data-celebration-day]', row);
+        if (label) label.textContent = day === today ? 'Hoy' : day === tomorrow ? 'Mañana' : label.dataset.celebrationDay;
+    }
+
+    const celebrationList = $('#celebraciones');
+    if (celebrationList && celebrations.length > 0 && celebrations.every((row) => row.hidden)) celebrationList.hidden = true;
 }
+
+// The ISO date after an ISO date (noon UTC, so no zone shifts the day).
+const nextIsoDay = (iso) => {
+    const date = new Date(`${iso}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + 1);
+    return date.toISOString().slice(0, 10);
+};
 
 if (fromCache) correctSavedDates();
 

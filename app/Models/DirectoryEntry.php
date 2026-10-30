@@ -32,6 +32,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $hire_date
  * @property string $search_text
  * @property Carbon $synced_at
+ *
+ * The home screen's directory query (App\View\Home\HomePageBuilder) also
+ * reads `shown_birthday_month` and `shown_birthday_day`: the birthday of
+ * the entry's account when it chose to show it (App\View\Home\Celebration).
  */
 #[Fillable([
     'company_id',
@@ -182,12 +186,15 @@ class DirectoryEntry extends Model
     }
 
     /**
-     * A Teams chat with the person (opens Teams or its web app).
+     * A Teams chat with the person (opens Teams or its web app), with
+     * $message written in the box, unsent («Felicitar» in «Mi día»).
      *
      * @see https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/build-and-test/deep-link-teams
      */
-    public function teamsChatUrl(): string
+    public function teamsChatUrl(?string $message = null): string
     {
-        return 'https://teams.microsoft.com/l/chat/0/0?users='.rawurlencode($this->email);
+        $url = 'https://teams.microsoft.com/l/chat/0/0?users='.rawurlencode($this->email);
+
+        return $message === null ? $url : $url.'&message='.rawurlencode($message);
     }
 }
