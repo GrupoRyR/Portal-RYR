@@ -114,7 +114,9 @@ class BirthdayTest extends TestCase
         $this->assertSame('3', $xpath->query('//select[@name="birthday_month"]/option[@selected]')->item(0)->getAttribute('value'));
         $this->assertTrue($xpath->query('//input[@name="show_birthday"]')->item(0)->hasAttribute('checked'));
         $this->assertSame(1, $xpath->query(self::REMOVE_FORM.'//button')->length);
-        $response->assertSeeText('5 de marzo');
+        // Neutral: the account may not be in the directory (yet).
+        $response->assertSeeText('Tu cumpleaños: 5 de marzo. Se muestra en «Mi día» a las personas de tu empresa.');
+        $response->assertDontSeeText('Lo ven las personas de tu empresa');
     }
 
     public function test_without_the_box_the_birthday_is_kept_but_not_shown(): void

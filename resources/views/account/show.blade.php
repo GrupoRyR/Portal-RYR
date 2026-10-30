@@ -77,7 +77,7 @@
                     @if ($birthdayMonths)
                         <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Solo guardamos el día y el mes, nunca el año. Solo lo ven las personas de tu empresa, en «Mi día» del inicio, y solo si marcas la casilla. Puedes quitarlo cuando quieras.</p>
                         @if ($label = $current->birthdayLabel())
-                            <p class="text-sm font-semibold">Tu cumpleaños: {{ $label }}. {{ $current->show_birthday ? 'Lo ven las personas de tu empresa.' : 'Nadie más lo ve.' }}</p>
+                            <p class="text-sm font-semibold">Tu cumpleaños: {{ $label }}. {{ $current->show_birthday ? 'Se muestra en «Mi día» a las personas de tu empresa.' : 'Nadie más lo ve.' }}</p>
                         @endif
                     @else
                         {{-- No directory any more (guest, no company or an inactive one): nobody sees it, and it can only be removed. --}}
