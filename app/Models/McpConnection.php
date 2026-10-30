@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 
 /**
@@ -64,6 +65,17 @@ class McpConnection extends Model
     }
 
     /**
+     * Passport's OAuth client of the connection: its `name` is what Claude
+     * registered («Claude») and `created_at` when.
+     *
+     * @return BelongsTo<Client, $this>
+     */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Passport::clientModel(), 'oauth_client_id');
+    }
+
+    /**
      * @return HasMany<McpConnectionAccount, $this>
      */
     public function accounts(): HasMany
@@ -77,6 +89,20 @@ class McpConnection extends Model
     public function scopeActive(Builder $query): void
     {
         $query->whereNull('revoked_at');
+    }
+
+    /**
+     * The connections the account takes part in: as the approving account
+     * or as one of its accounts (`mcp_connection_accounts`). By account
+     * only, never by person.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWithAccount(Builder $query, User $account): void
+    {
+        $query->where(fn (Builder $query) => $query
+            ->where('user_id', $account->getKey())
+            ->orWhereHas('accounts', fn (Builder $query) => $query->where('user_id', $account->getKey())));
     }
 
     /**

@@ -377,7 +377,13 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
    PORTAL_MCP_ENABLED=true
    ```
 
-   y `php artisan optimize`. Para apagarlo, `PORTAL_MCP_ENABLED=false` y otra vez `php artisan optimize`: todo vuelve a responder 404 al instante. (Más adelante habrá un interruptor en Administración.)
+   y `php artisan optimize`. Para apagarlo, `PORTAL_MCP_ENABLED=false` y otra vez `php artisan optimize`: todo vuelve a responder 404 al instante.
+
+   **Variable e interruptor de Administración.** El conector funciona solo si están encendidos los dos:
+   - `PORTAL_MCP_ENABLED` en `.env` es el corte de fondo del servidor. Apagada, el conector está apagado aunque Administración diga otra cosa, y el interruptor no puede encenderlo.
+   - **Administración › Configuración › Conector de Claude** lo apaga o lo enciende sin tocar el servidor, al instante y sin `php artisan optimize` (se guarda en la tabla `portal_settings`, clave `mcp_enabled`). Mientras nadie lo toque, está encendido: con la variable en `true` basta para empezar.
+
+   Para una emergencia, use el interruptor de Administración. La variable sirve para dejarlo apagado del todo, por ejemplo mientras no se ha probado en el servidor.
 4. **Compruebe las direcciones públicas** después del despliegue. AutoSSL o ModSecurity de cPanel podrían interceptar `/.well-known/`:
 
    ```bash
@@ -587,7 +593,7 @@ Si el cambio incluía una migración que alteró tablas, revise antes con el equ
 | `portal:mail-test` dice `HTTP 403 (ErrorAccessDenied)` | Que la app tenga el rol `Application Mail.Send` con el ámbito del buzón (`Test-ServicePrincipalAuthorization` debe dar `InScope True`), que `MAIL_FROM_ADDRESS` sea ese buzón y que hayan pasado hasta 2 horas desde el cambio (paso 1.10) |
 | `portal:mail-test` dice `HTTP 401`, `invalid_client`, `AADSTS7000215` o `AADSTS7000222` | El secreto de la app es incorrecto o venció: cree uno nuevo en Entra, cámbielo en `MICROSOFT_CLIENT_SECRET` y ejecute `php artisan optimize` |
 | `portal:mail-test` dice «The graph mailer is not configured» | Falta la clave de `.env` que nombra el mensaje (paso 1.10); luego `php artisan optimize` |
-| Claude dice que no puede conectarse al portal | Que `PORTAL_MCP_ENABLED=true` esté en `.env` y que corrió `php artisan optimize`, y que los tres `curl` del paso 1.13 respondan como allí se indica |
+| Claude dice que no puede conectarse al portal | Que `PORTAL_MCP_ENABLED=true` esté en `.env` y que corrió `php artisan optimize`, que el interruptor de Administración › Configuración › Conector de Claude esté encendido, y que los tres `curl` del paso 1.13 respondan como allí se indica |
 | Error 500 al aprobar la conexión o al pedir el token, con `Key path`, `Unable to read key` o `permissions are not correct` en el log | Faltan las llaves de Passport, están incompletas en `.env` o los archivos tienen otros permisos (paso 1.13) |
 
 ---

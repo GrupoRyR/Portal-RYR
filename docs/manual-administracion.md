@@ -190,6 +190,12 @@ Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que
 - **(ver cambios)** despliega **Campo**, **Antes** y **Después**.
 - **Exportar CSV** descarga lo filtrado (separado por `;` para Excel con configuración regional de Colombia), hasta 50 000 filas.
 - **Seguridad** incluye inicios de sesión con Microsoft (aceptados y rechazados), los de la cuenta de emergencia y las confirmaciones con Microsoft. Nunca se guardan contraseñas, códigos ni tokens.
+- **Conector de Claude**, también en **Seguridad**:
+  - «Conectó Claude («Claude») con su cuenta de …»: una persona aprobó una conexión, con las cuentas que incluyó.
+  - «Desconectó Claude («Claude») · cuentas: …»: una persona cortó la conexión desde `/cuenta`. Quién aparece es la cuenta que pulsó **Desconectar**, que puede ser una de las cuentas incluidas y no la que aprobó.
+  - «Revocó la conexión de Claude («Claude») · cuentas: …»: un súper administrador la cortó desde **Configuración**.
+  - «Encendió el conector de Claude» o «Apagó el conector de Claude»: el interruptor de **Configuración**. Si además dice «PORTAL_MCP_ENABLED está apagado en el servidor», el cambio quedó guardado, pero el conector siguió apagado.
+  - «Claude usó la herramienta mis_apps · conexión #12»: una línea por cada consulta de Claude, a nombre de la cuenta que aprobó la conexión, con la hora. Nunca se guarda qué preguntó Claude ni qué le respondió el portal. Para ver solo las de una persona, búsquela por nombre o correo.
 
 ### 2.9 Informe de uso
 
@@ -214,6 +220,12 @@ Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Gu
   - Si el último intento falló, lo dice en rojo con su fecha. Los súper administradores reciben además un correo con el motivo. La copia buena anterior sigue guardada. Avise al equipo de TI: la solución está en la guía de despliegue (`docs/despliegue.md`, sección 5).
   - **Respaldar ahora** pide una copia inmediata, por ejemplo antes de un cambio grande. La copia no se hace en ese instante: queda **Programado** y empieza en el minuto siguiente; mientras tanto el botón dice «Programado…». La tarjeta se actualiza sola. Solo se permite una a la vez y hasta 3 por hora. Cada pedido queda en Auditoría como «Pidió un respaldo inmediato de la base de datos».
   - Las copias no se descargan ni se restauran desde el portal: lo hace TI en el servidor (guía de despliegue, sección 6).
+- **Conector de Claude:** esta tarjeta tampoco depende de **Guardar cambios**: cada acción se aplica al instante y queda en Auditoría › Seguridad.
+  - **Permitir que Claude se conecte al portal** enciende o apaga el conector para todo el portal. Apagado, todas sus direcciones responden 404 desde la siguiente consulta: ninguna conexión funciona y nadie puede conectar una nueva. Las conexiones no se borran: al encenderlo otra vez, vuelven a funcionar con sus mismos permisos. Mientras está apagado, «Conexiones con Claude» no aparece en `/cuenta`.
+  - El interruptor manda solo si el servidor tiene el conector encendido (`PORTAL_MCP_ENABLED=true`, guía de despliegue, paso 1.13). Si no, la tarjeta lo avisa en rojo y el conector sigue apagado, esté como esté el interruptor. Mientras nadie lo toque, el interruptor está encendido.
+  - **Conexiones activas:** cada conexión con el nombre del cliente («Claude»), sus cuentas (nombre, correo, empresa; «(aprobó)» marca la que la aprobó), cuándo se conectó y su último uso. Se muestran las 50 más recientes.
+  - **Revocar** corta la conexión completa, con todas sus cuentas, y anula sus tokens: Claude deja de leer de inmediato. La persona puede conectar otra vez desde Claude, con el inicio de sesión de Microsoft y la pantalla de permiso.
+  - **Cómo desconecta una persona:** en `/cuenta` (menú de la cuenta), sección **Conexiones con Claude**, ve las conexiones en las que está cualquiera de sus cuentas y pulsa **Desconectar**. Una cuenta incluida también puede desconectar, porque Claude lee sus datos. Cada cuenta ve solo las conexiones en las que está: estar vinculada con otra cuenta de la misma persona no basta.
 
 ---
 

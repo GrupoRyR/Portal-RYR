@@ -7,6 +7,7 @@ use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
 use App\Mcp\AccountConfirmation;
 use App\Mcp\Connections;
+use App\Mcp\McpSwitch;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
@@ -296,8 +297,25 @@ final class AuditPresenter
                 .(self::MCP_INCLUDE_FAILURE_REASONS[$properties->get('reason')] ?? self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
                 .' · '.$this->account($properties->get('included_company'), $properties->get('included_email'))
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
+            Connections::DISCONNECTED => 'Desconectó Claude («'.$properties->get('client').'»)'.$this->connectionAccounts($properties->get('accounts', [])),
+            Connections::REVOKED_BY_ADMIN => 'Revocó la conexión de Claude («'.$properties->get('client').'»)'.$this->connectionAccounts($properties->get('accounts', [])),
+            Connections::TOOL_CALLED => 'Claude usó la herramienta '.$properties->get('tool').' · conexión #'.$properties->get('connection_id'),
+            McpSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el conector de Claude'
+                .($properties->get('deployed') === false ? ' · PORTAL_MCP_ENABLED está apagado en el servidor' : ''),
             default => (string) $activity->description,
         };
+    }
+
+    /**
+     * « · cuentas: Empresa (correo), …» of an ended connection (`accounts`
+     * of mcp.disconnected and mcp.revoked_by_admin, the approving one first).
+     */
+    private function connectionAccounts(mixed $accounts): string
+    {
+        $listed = collect(is_array($accounts) ? $accounts : [])
+            ->map(fn ($account) => $this->account($account['company'] ?? null, $account['email'] ?? null));
+
+        return $listed->isEmpty() ? '' : ' · cuentas: '.$listed->implode(', ');
     }
 
     /**

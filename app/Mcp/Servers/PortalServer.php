@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\AuditedCallTool;
 use App\Mcp\Tools\Anuncio;
 use App\Mcp\Tools\AnunciosPendientes;
 use App\Mcp\Tools\BuscarPersonas;
@@ -18,7 +19,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * The portal's MCP server for Claude (/mcp/portal, routes/ai.php). Read
  * only: every tool reads once per account of the connection, with the
  * portal's own visibility rules (App\Mcp\Tools\PortalTool). The tasks and
- * approvals tools come with C3b.
+ * approvals tools come with C3b. Each tool call is audited (C4).
  */
 #[Name('Portal RYR')]
 #[Version('1.0.0')]
@@ -44,4 +45,12 @@ class PortalServer extends Server
         BuscarPersonas::class,
         MisApps::class,
     ];
+
+    /**
+     * Every tool call leaves one audit line (App\Mcp\AuditedCallTool).
+     */
+    protected function boot(): void
+    {
+        $this->addMethod('tools/call', AuditedCallTool::class);
+    }
 }
