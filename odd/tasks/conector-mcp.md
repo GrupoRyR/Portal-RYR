@@ -120,7 +120,7 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
   - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73` y, tras la revisión, `e6d30a0` (C3a-R).
   - [ ] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items`. Espera a que #74 esté en la base.
-- [ ] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría.
+- [x] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría. Commit `5f4dde3`.
 - [ ] C5. **Manual:** cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), y la recomendación de privacidad.
 
 ## Registro del C2a
@@ -332,8 +332,72 @@ Ruta: el mismo escritor delegado, después de una revisión independiente del C3
 
 - `AppCatalog.php` no cambió: no tenía duplicación que quitar.
 
+## Registro del C4
+
+Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-mcp-4-cuenta-admin` sobre `feat/conector-mcp-3-herramientas` (#85). Commit `5f4dde3` (`feat(mcp): manage Claude connections from /cuenta and Admin (C4)`).
+
+### Qué quedó
+
+- **Interruptor (`App\Mcp\McpSwitch`):** el conector está encendido solo si lo están la variable `PORTAL_MCP_ENABLED` (el corte de fondo del servidor) y el interruptor «Conector de Claude» de Administración.
+  - El interruptor se guarda en la tabla que ya existía, `portal_settings`, con la clave `mcp_enabled` (JSON `true`/`false`). `PortalSettings` no se tocó: ignora las claves que no conoce.
+  - Mientras nadie lo toque está encendido, así que con la variable basta, como antes.
+  - Con la variable apagada no se lee la tabla.
+  - Cambiarlo escribe `mcp.switched` (registro `security`), con el estado nuevo y el de la variable.
+- **Sin caché:** el interruptor se lee de la tabla en cada petición que lo necesita: una consulta por clave primaria, guardada solo mientras vive el objeto. Apagarlo cierra todas las rutas del conector desde la siguiente petición de cualquier proceso. En producción la caché es la base de datos (`CACHE_STORE=database`), así que una caché costaría la misma consulta y además podría quedar vieja.
+- **`/cuenta` › «Conexiones con Claude»** (Blade, sin Livewire ni Alpine):
+  - Lista las conexiones activas en las que está la cuenta, como la que aprobó (`mcp_connections.user_id`) o como incluida (`mcp_connection_accounts.user_id`), con el scope `McpConnection::scopeWithAccount()`.
+  - De cada una muestra el cliente y su fecha de registro, las cuentas (nombre, correo y empresa; la que aprobó primero), cuándo se conectó y su último uso.
+  - Con el conector apagado, la sección no aparece.
+- **«Desconectar»** (`POST /cuenta/claude/{conexión}/desconectar`, `ClaudeConnectionController`, con CSRF, `mcp.enabled` y `throttle:20,1`):
+  - Corta la conexión completa con `Connections::disconnect()`, que usa `McpConnection::revoke()` (códigos, tokens y tokens de renovación) y escribe `mcp.disconnected` con quién la cortó, el cliente y las cuentas.
+  - Una cuenta incluida también puede cortarla.
+  - Una conexión ajena, ya cortada o inexistente da 404. Ser la misma persona no basta: es por cuenta, nunca por `person_id`.
+  - **Sin `microsoft.recent`:** desconectar solo quita acceso, volver a conectar exige Microsoft y la pantalla de permiso, y quien perdió su cuenta de Claude debe poder cortarla de inmediato.
+- **Admin (`App\Livewire\Admin\McpConnector`, tarjeta «Conector de Claude» dentro de Configuración):**
+  - Va dentro de Configuración porque las vistas `resources/views/admin/**` y el menú (`app/View/Components/Layouts/Admin.php`) estaban fuera de los archivos permitidos. La vista de Configuración pasó de un `<form>` a un `<div>` que contiene el formulario y la tarjeta.
+  - Solo súper administradores (`AdminSections::SETTINGS`), con autorización en cada acción.
+  - El interruptor se aplica al instante y avisa en rojo si `PORTAL_MCP_ENABLED` está apagado.
+  - Lista las conexiones activas (cliente, cuentas con «(aprobó)», conectada y último uso), las 50 más recientes, con el total si hay más.
+  - «Revocar» (con `wire:confirm`) usa `Connections::revokeByAdmin()` y escribe `mcp.revoked_by_admin`.
+- **Una línea por llamada (`App\Mcp\AuditedCallTool`):**
+  - `PortalServer::boot()` cambia el `tools/call` de laravel/mcp por una subclase que, después de correr la herramienta, escribe `mcp.tool_called` en el registro `security`.
+  - La línea lleva la herramienta y el id de la conexión, a nombre de la cuenta que aprobó, con la hora de la entrada.
+  - Un nombre de herramienta que no existe no se registra (laravel/mcp lo rechaza antes).
+  - Nunca guarda los argumentos ni el resultado.
+  - Cuesta un `INSERT` y nada más: la conexión y su cuenta ya vienen cargadas por `mcp.connection`.
+- **Auditoría:** etiquetas en español en `AuditPresenter` para los cuatro eventos nuevos. Salen en «Seguridad» (por el registro `security`), en la búsqueda por persona y en el CSV. La vista de Auditoría no cambió.
+- **Documentos:** `docs/manual-administracion.md` (§2.8 y §2.10) y `docs/despliegue.md` (§1.13 y «Problemas frecuentes»).
+- Sin migraciones, sin variables nuevas y sin clases nuevas de Tailwind: `npm run build` no cambió `public/build`.
+
+### Pruebas
+
+- RED (antes de implementar), las 47 pruebas nuevas: 3 pasan, 9 fallan y 35 con error (clases, constantes y rutas inexistentes). Dos de los fallos eran de las pruebas mismas, no del código:
+  - Una segunda cuenta no puede pasar por la pantalla de permiso en la misma prueba, porque Passport guarda su primer guardia. Ahora esa conexión se crea directo en la base.
+  - Después de una llamada MCP, el guardia por defecto queda en `api`. Ahora las pruebas vuelven a `web`.
+- GREEN: las 47 pasan. Con `tests/Feature/Mcp`, `tests/Feature/Account`, `tests/Feature/Admin`, `tests/Feature/Audit` y `tests/Unit`: 1.156, todas pasan.
+- Pruebas nuevas:
+  - `AdminSwitchTest`: el interruptor parte encendido; apagarlo da 404 en todo, incluso con un token válido; encenderlo de nuevo funciona con los mismos tokens; la variable apagada manda sobre el interruptor; un cambio hecho por otro proceso se ve en la siguiente petición; la auditoría; con la variable apagada no hay consultas.
+  - `ToolCallAuditTest`: una línea por llamada, sin argumentos ni resultado; nada al listar herramientas, al llamar una que no existe o con un token rechazado; un solo `INSERT` en `activity_log`.
+  - `ClaudeConnectionsTest`: solo las conexiones propias; la cuenta incluida las ve; la misma persona sin estar en la conexión no las ve; desconectar como la que aprobó y como la incluida, y después 401 en `/mcp/portal` y la renovación falla; 404 para una ajena, una cortada, una inexistente o con el conector apagado; la auditoría.
+  - `McpConnectorTest`: la tarjeta; 403 para otros roles al montar y en cada acción; el interruptor cierra y abre `/mcp/portal`; el aviso de la variable; la lista y su tope; «Revocar» mata los tokens y queda auditado.
+  - `McpAuditLabelsTest`: las etiquetas en la página, en el filtro «Seguridad» (no en «Cambios»), en la búsqueda y en el CSV.
+- Suite completa: 1.976 pruebas, todas pasan (1.926 según el registro del C3a-R; las 47 nuevas explican 1.973).
+- Pint: sin cambios pendientes.
+
+### Decisiones
+
+- **El volumen de la auditoría:** cada llamada es una fila en `activity_log`, como mucho 120 por minuto por conexión (el límite `mcp`). Van en «Seguridad», mezcladas con los inicios de sesión. Para ver las de una persona se busca por nombre o correo. Un tipo propio («Claude») en el filtro exigía tocar la vista de Auditoría, que estaba fuera de los archivos permitidos.
+- **Quién aparece en cada línea:** en `mcp.disconnected`, la cuenta que pulsó; en `mcp.revoked_by_admin`, el administrador. En las dos, la cuenta que aprobó es el sujeto.
+
+### No hecho o no verificado
+
+- **Retención:** `config/activitylog.php` dice 365 días, pero `activitylog:clean` no está programado en `routes/console.php`, que estaba fuera de los archivos permitidos. Hoy nada borra las líneas de Auditoría, tampoco las de las llamadas de Claude. Seguimiento: programar `activitylog:clean` a diario.
+- La tarjeta no tiene página ni entrada propia en el menú de Administración; está en Configuración.
+- No se probó contra claude.ai real ni en el servidor.
+- Tamaño: unas 565 líneas de código (con vistas, rutas y comentarios), 951 de pruebas y 90 de documentos. Pasa de la cifra orientativa de 400 porque `/cuenta`, la tarjeta de Administración, el interruptor y la auditoría comparten el fin de una conexión y sus pruebas.
+
 ## Siguiente paso
 
-C3b, `mis_tareas` y `mis_aprobaciones`, cuando #74 (`work_items`) esté en la base. Mientras tanto, C4 (`/cuenta`, Admin y Auditoría) puede avanzar.
+C5, el manual: cómo conectar Claude (Configuración › Conectores › Agregar conector propio con la URL del portal), cómo desconectar desde `/cuenta` y la recomendación de privacidad. C3b (`mis_tareas` y `mis_aprobaciones`), cuando #74 (`work_items`) esté en la base.
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom
