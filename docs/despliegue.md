@@ -428,7 +428,7 @@ Haga los pasos 1 a 4 **en cada inquilino** (primero Segurex, luego Derivados). N
 
    Si la lista es un grupo de Microsoft 365, use `Get-UnifiedGroup` y `Set-UnifiedGroup` con los mismos parámetros. También se puede hacer en el centro de administración de Exchange: **Destinatarios › Grupos ›** la lista **› Configuración › Administración de entrega**, agregando el buzón en **Remitentes especificados**. Si falta este paso, Graph acepta el envío pero Exchange devuelve al buzón remitente un aviso de no entrega `5.7.124`.
 
-5. **Datos de cada empresa.** En **Administración › Empresas**, abra la empresa y en la sección **Microsoft 365** escriba la **Lista de todo el personal** y el **Buzón remitente** (los dos deben ser de un dominio de la empresa). Guarde.
+5. **Datos de cada empresa.** En **Administración › Empresas**, abra la empresa y en la sección **Microsoft 365** escriba la **Lista de todo el personal** y el **Buzón remitente** (los dos deben ser de un dominio de la empresa). Guarde. El **Buzón remitente** debe ser la dirección SMTP principal del buzón (la de `Get-Mailbox <buzón> | Format-List PrimarySmtpAddress`), no un alias: el ámbito del paso 2 filtra por `PrimarySmtpAddress`, así que con un alias `Test-ServicePrincipalAuthorization` da `InScope False` y todos los envíos fallan con `ErrorAccessDenied`.
 
 6. **Comprobar.**
    1. `php artisan schedule:list` debe mostrar `* * * * *  php artisan portal:send-announcement-list-emails`.
@@ -438,6 +438,7 @@ Haga los pasos 1 a 4 **en cada inquilino** (primero Segurex, luego Derivados). N
    5. En Segurex, después del paso 3, ejecute `php artisan portal:mail-test <su-correo>` para confirmar que los avisos del portal siguen saliendo.
 
 - Cada lista recibe un anuncio una sola vez: editarlo después no lo reenvía. El portal no reintenta solo; **Reintentar** (en el anuncio) lo hace a pedido.
+- Los correos se anotan al guardar el anuncio con la casilla marcada. Configurar la lista de una empresa no le envía los anuncios ya publicados: hay que guardar de nuevo el anuncio que se quiera enviar.
 - Cada vuelta del cron envía como máximo 10 correos; si hay más, siguen en el minuto siguiente.
 
 Referencias de Microsoft Learn: [RBAC para aplicaciones en Exchange Online](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac) (incluye por qué el permiso de Entra se suma al de Exchange), [user: sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [consentimiento de administrador](https://learn.microsoft.com/en-us/entra/identity-platform/v2-admin-consent), [Remove-MgServicePrincipalAppRoleAssignment](https://learn.microsoft.com/en-us/powershell/module/microsoft.graph.applications/remove-mgserviceprincipalapproleassignment?view=graph-powershell-1.0), [Set-DistributionGroup](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-distributiongroup?view=exchange-ps), [error de no entrega 5.7.124](https://learn.microsoft.com/en-us/troubleshoot/exchange/email-delivery/ndr/fix-error-code-5-7-124-in-exchange-online).
