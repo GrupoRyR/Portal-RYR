@@ -3,10 +3,12 @@
 namespace Tests\Feature\Directory;
 
 use App\Models\Company;
+use App\Models\DirectoryEntry;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -59,6 +61,26 @@ class SyncDirectoryCommandTest extends TestCase
             ->expectsOutputToContain('Segurex Latam: 2 personas, 0 quitadas.')
             ->expectsOutputToContain(self::BAD_TENANT)
             ->assertFailed();
+    }
+
+    public function test_it_stops_without_copying_while_another_copy_is_running(): void
+    {
+        Company::factory()->forTenant(self::GOOD_TENANT)->create(['name' => 'Segurex Latam']);
+        $running = Cache::lock('portal:sync-directory', 60);
+        $this->assertTrue($running->get());
+
+        $this->artisan('portal:sync-directory')
+            ->expectsOutputToContain('Ya hay una copia del directorio en curso')
+            ->doesntExpectOutputToContain('Segurex Latam')
+            ->assertFailed();
+
+        Http::assertNothingSent();
+        $this->assertSame(0, DirectoryEntry::query()->count());
+
+        // Once it ends, the next run copies and frees the lock again.
+        $running->release();
+        $this->artisan('portal:sync-directory')->assertSuccessful();
+        $this->assertTrue(Cache::lock('portal:sync-directory', 60)->get());
     }
 
     public function test_it_runs_every_night_in_bogota_time_without_overlapping(): void

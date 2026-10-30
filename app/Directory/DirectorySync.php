@@ -75,7 +75,7 @@ final class DirectorySync
 
     public function run(): DirectorySyncResult
     {
-        // Seconds, like the column: entries older than this were not seen.
+        // Seconds, like the column.
         $runAt = CarbonImmutable::now()->startOfSecond();
 
         $tenantIds = Company::active()
@@ -100,7 +100,7 @@ final class DirectorySync
                     throw new GraphAppException('Microsoft Graph listed nobody to keep while the tenant has people in the directory.');
                 }
 
-                $companies += $this->store($tenantId, $tenantCompanies, $rows, $runAt);
+                $companies += $this->store($tenantId, $tenantCompanies, $rows);
             } catch (Throwable $e) {
                 Log::warning('Directory copy failed; the tenant keeps its previous entries.', self::failure($tenantId, $e));
                 $failed[] = $tenantId;
@@ -254,7 +254,7 @@ final class DirectorySync
      * @param  array<string, array<string, mixed>>  $rows
      * @return array<int, array{name: string, saved: int, removed: int}>
      */
-    private function store(string $tenantId, Collection $tenantCompanies, array $rows, CarbonInterface $runAt): array
+    private function store(string $tenantId, Collection $tenantCompanies, array $rows): array
     {
         $summary = [];
 
@@ -266,7 +266,7 @@ final class DirectorySync
             $summary[$row['company_id']]['saved']++;
         }
 
-        DB::transaction(function () use ($tenantId, $rows, $runAt, &$summary) {
+        DB::transaction(function () use ($tenantId, $rows, &$summary) {
             foreach (array_chunk(array_values($rows), self::UPSERT_CHUNK) as $chunk) {
                 DirectoryEntry::query()->upsert($chunk, ['tenant_id', 'azure_oid'], [
                     'company_id', 'display_name', 'job_title', 'department', 'office_location',
@@ -274,20 +274,23 @@ final class DirectorySync
                 ]);
             }
 
-            $stale = DirectoryEntry::query()->where('tenant_id', $tenantId)->where('synced_at', '<', $runAt);
+            // Removed: what this run did not see, whatever its stamp, so a
+            // run that overlaps another never takes people it did see.
+            $stale = DirectoryEntry::query()
+                ->where('tenant_id', $tenantId)
+                ->toBase()
+                ->get(['id', 'azure_oid', 'company_id'])
+                ->reject(fn (object $entry) => isset($rows[$entry->azure_oid]));
 
-            $removed = (clone $stale)
-                ->selectRaw('company_id, count(*) as removed')
-                ->groupBy('company_id')
-                ->pluck('removed', 'company_id');
-
-            foreach ($removed as $companyId => $count) {
+            foreach ($stale->countBy('company_id') as $companyId => $count) {
                 if (isset($summary[$companyId])) {
-                    $summary[$companyId]['removed'] += (int) $count;
+                    $summary[$companyId]['removed'] += $count;
                 }
             }
 
-            $stale->delete();
+            foreach ($stale->pluck('id')->chunk(self::UPSERT_CHUNK) as $ids) {
+                DirectoryEntry::query()->whereKey($ids->values()->all())->delete();
+            }
         });
 
         return $summary;

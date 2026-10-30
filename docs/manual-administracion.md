@@ -456,7 +456,7 @@ No se escriben en el portal: se copian de Microsoft Entra. Para corregir un dato
 
 ### 9.2 Cada cuánto se actualiza
 
-Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-directory`. Quien se crea en Entra aparece al día siguiente; quien sale de Entra o queda deshabilitado desaparece en la misma copia. Si Microsoft no responde, falta el permiso en una empresa o Microsoft responde sin nadie que copiar cuando la empresa ya tenía personas, esa empresa conserva los datos de la copia anterior (`docs/despliegue.md`, sección 1.10).
+Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-directory`. Quien se crea en Entra aparece al día siguiente; quien sale de Entra o queda deshabilitado desaparece en la misma copia. Si Microsoft no responde, falta el permiso en una empresa o Microsoft responde sin nadie que copiar cuando la empresa ya tenía personas, esa empresa conserva los datos de la copia anterior (`docs/despliegue.md`, sección 1.10). Solo corre una copia a la vez: si se lanza a mano mientras otra está en curso, no copia nada y avisa; repítala cuando la otra termine.
 
 ### 9.3 Qué no se copia nunca
 

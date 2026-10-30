@@ -397,6 +397,71 @@ class DirectorySyncTest extends TestCase
         $this->assertSame(['name' => $company->name, 'saved' => 1, 'removed' => 1], $result->companies[$company->id]);
     }
 
+    /**
+     * What is removed is what this run did not see, not what looks older
+     * than it: another run, or a clock that moved, cannot change that.
+     */
+    public function test_entries_are_removed_by_not_being_seen_whatever_their_stamp(): void
+    {
+        $company = Company::factory()->forTenant(self::TENANT)->create();
+        $stamped = DirectoryEntry::factory()->forCompany($company)->create(['synced_at' => now()->addMinutes(5)]);
+        $seen = DirectoryEntry::factory()->forCompany($company)->create(['synced_at' => now()->addMinutes(5)]);
+        $this->pages[self::TENANT] = [[$this->graphUser(['id' => strtoupper($seen->azure_oid), 'mail' => $seen->email])]];
+
+        $result = $this->sync();
+
+        $this->assertFalse(DirectoryEntry::query()->whereKey($stamped->id)->exists());
+        $this->assertTrue($seen->fresh()->synced_at->equalTo(now()));
+        $this->assertSame(['name' => $company->name, 'saved' => 1, 'removed' => 1], $result->companies[$company->id]);
+    }
+
+    public function test_many_entries_not_seen_are_removed_in_one_copy(): void
+    {
+        $company = Company::factory()->forTenant(self::TENANT)->create();
+        $seen = DirectoryEntry::factory()->forCompany($company)->create();
+        $other = DirectoryEntry::factory()->forCompany(Company::factory()->forTenant(self::SHARED_TENANT)->create())->create();
+        DirectoryEntry::query()->insert(array_map(fn (int $i) => [
+            'company_id' => $company->id,
+            'tenant_id' => self::TENANT,
+            'azure_oid' => (string) Str::uuid(),
+            'display_name' => "Persona {$i}",
+            'email' => "persona{$i}@segurex.com",
+            'search_text' => "persona {$i}",
+            'synced_at' => now()->subDay()->toDateTimeString(),
+        ], range(1, 1100)));
+        $this->pages[self::TENANT] = [[$this->graphUser(['id' => $seen->azure_oid, 'mail' => $seen->email])]];
+        $this->pages[self::SHARED_TENANT] = [[$this->graphUser(['id' => $other->azure_oid, 'mail' => $other->email])]];
+
+        $result = $this->sync();
+
+        $this->assertSame([$seen->id], DirectoryEntry::query()->where('tenant_id', self::TENANT)->pluck('id')->all());
+        $this->assertSame(1100, $result->companies[$company->id]['removed']);
+        $this->assertTrue(DirectoryEntry::query()->whereKey($other->id)->exists());
+    }
+
+    public function test_a_domain_moved_to_another_company_of_the_tenant_moves_its_people_on_the_next_copy(): void
+    {
+        $segurex = Company::factory()->forTenant(self::SHARED_TENANT, ['segurex.com'])->create();
+        $derivados = Company::factory()->forTenant(self::SHARED_TENANT, ['derivados.com'], primary: false)->create();
+        $luis = $this->graphUser(['mail' => 'luis@derivados.com']);
+        $this->pages[self::SHARED_TENANT] = [[$luis, $this->graphUser(['mail' => 'ana@segurex.com'])]];
+
+        $this->sync();
+        $this->assertSame($derivados->id, DirectoryEntry::query()->where('azure_oid', $luis['id'])->sole()->company_id);
+
+        $derivados->update(['domains' => ['derivados.co']]);
+        $segurex->update(['domains' => ['segurex.com', 'derivados.com']]);
+        $this->travel(1)->day();
+
+        $result = $this->sync();
+
+        $entry = DirectoryEntry::query()->where('azure_oid', $luis['id'])->sole();
+        $this->assertSame($segurex->id, $entry->company_id);
+        $this->assertSame(2, DirectoryEntry::query()->count());
+        $this->assertSame(2, $result->companies[$segurex->id]['saved']);
+        $this->assertSame(['name' => $derivados->name, 'saved' => 0, 'removed' => 0], $result->companies[$derivados->id]);
+    }
+
     public function test_a_rejected_token_is_renewed_once_and_retried_once(): void
     {
         Company::factory()->forTenant(self::TENANT)->create();
