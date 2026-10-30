@@ -26,6 +26,7 @@ final readonly class HomePage
      * @param  list<HolidayDay|EventDate>  $upcomingDates  «Próximas fechas»: holidays and company events by start, at most HomePageBuilder::UPCOMING_DATE_LIMIT.
      * @param  bool  $hasEvents  Some of them are events: «Ver eventos» links to /eventos.
      * @param  string|null  $peopleHref  «Personas» (/personas, the company directory); null hides it (no directory for this account).
+     * @param  string|null  $birthdayHref  «Mi cumpleaños» (`/cuenta#cumpleanos`) in the account menu; null hides it (no directory for this account).
      */
     public function __construct(
         public string $salutation,
@@ -53,6 +54,7 @@ final readonly class HomePage
         public array $upcomingDates = [],
         public bool $hasEvents = false,
         public ?string $peopleHref = null,
+        public ?string $birthdayHref = null,
     ) {}
 
     /**

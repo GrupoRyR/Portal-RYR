@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\AccountController;
+use App\Http\Controllers\Account\BirthdayController;
 use App\Http\Controllers\Account\LinkedAccountController;
 use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
@@ -85,6 +86,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/cuenta/desvincular/{user}', [AccountController::class, 'unlink'])
             ->whereNumber('user')
             ->name('account.unlink');
+    });
+
+    // «Mi cumpleaños» on /cuenta: day and month only, shown to the
+    // company only when the person says so (404 without a directory).
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('/cuenta/cumpleanos', [BirthdayController::class, 'update'])->name('account.birthday.update');
+        Route::delete('/cuenta/cumpleanos', [BirthdayController::class, 'destroy'])->name('account.birthday.destroy');
     });
 
     // Linking another company's account (App\Auth\LinkedAccounts): a fresh

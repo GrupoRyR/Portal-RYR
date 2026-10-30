@@ -152,6 +152,7 @@ final class HomePageBuilder
             upcomingDates: $upcomingDates,
             hasEvents: $visibleEvents !== [],
             peopleHref: $directoryCompanyId === null ? null : route('people.index'),
+            birthdayHref: $directoryCompanyId === null ? null : route('account.show').'#cumpleanos',
         );
     }
 

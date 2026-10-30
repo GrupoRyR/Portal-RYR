@@ -2,7 +2,8 @@
     «Cuentas vinculadas» (App\Http\Controllers\Account\AccountController::show):
     the accounts of the signed-in user's person, each with «Desvincular»
     (a confirmation page first), and «Vincular otra empresa». No Livewire or
-    Alpine. $accounts is empty when the account is not linked.
+    Alpine. $accounts is empty when the account is not linked. «Mi cumpleaños»
+    (day, month and whether the company sees it) when $birthdayMonths is set.
 --}}
 @use('App\Models\Company')
 <x-layouts.app title="Cuentas vinculadas" brand-band noindex>
@@ -60,5 +61,68 @@
         @endif
 
         <p class="text-[0.8125rem] leading-relaxed text-fg-muted">Solo puedes vincular una cuenta por empresa, y solo de empresas activas en el portal. Las cuentas de invitado y la cuenta de emergencia no se pueden vincular.</p>
+
+        {{-- «Mi cumpleaños» (App\Http\Controllers\Account\BirthdayController): only with a company directory. --}}
+        @if ($birthdayMonths)
+            {{-- One-line @php only: this file already uses @php(…), and Blade mixes it up with an @php block. --}}
+            @php($select = 'h-12 rounded-control border border-line-strong bg-surface px-3 text-base text-fg')
+            @php($savedDay = (string) old('birthday_day', $current->birthday_day))
+            @php($savedMonth = (string) old('birthday_month', $current->birthday_month))
+            @php($shown = $errors->any() ? (bool) old('show_birthday') : (bool) $current->show_birthday)
+            <section id="cumpleanos" aria-labelledby="cumpleanos-titulo" class="flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6">
+                <div class="flex flex-col gap-2">
+                    <h2 id="cumpleanos-titulo" class="font-sans text-lg font-bold tracking-normal">Mi cumpleaños</h2>
+                    <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Solo guardamos el día y el mes, nunca el año. Solo lo ven las personas de tu empresa, en «Mi día» del inicio, y solo si marcas la casilla. Puedes quitarlo cuando quieras.</p>
+                    @if ($label = $current->birthdayLabel())
+                        <p class="text-sm font-semibold">Tu cumpleaños: {{ $label }}. {{ $current->show_birthday ? 'Lo ven las personas de tu empresa.' : 'Nadie más lo ve.' }}</p>
+                    @endif
+                </div>
+
+                <form method="POST" action="{{ route('account.birthday.update') }}" class="flex flex-col gap-4" novalidate>
+                    @csrf
+                    <div class="flex flex-wrap gap-3">
+                        <div class="flex flex-col gap-1.5">
+                            <label for="birthday_day" class="text-sm font-semibold">Día</label>
+                            <select id="birthday_day" name="birthday_day" required class="{{ $select }} w-24" @error('birthday_day') aria-invalid="true" aria-describedby="birthday_day-error" @enderror>
+                                <option value="">Día</option>
+                                @foreach (range(1, 31) as $day)
+                                    <option value="{{ $day }}" @selected($savedDay === (string) $day)>{{ $day }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="birthday_month" class="text-sm font-semibold">Mes</label>
+                            <select id="birthday_month" name="birthday_month" required class="{{ $select }} w-44" @error('birthday_month') aria-invalid="true" aria-describedby="birthday_month-error" @enderror>
+                                <option value="">Mes</option>
+                                @foreach ($birthdayMonths as $number => $name)
+                                    <option value="{{ $number }}" @selected($savedMonth === (string) $number)>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    @error('birthday_day')
+                        <p id="birthday_day-error" class="text-sm font-semibold text-status-failure">{{ $message }}</p>
+                    @enderror
+                    @error('birthday_month')
+                        <p id="birthday_month-error" class="text-sm font-semibold text-status-failure">{{ $message }}</p>
+                    @enderror
+
+                    <label class="flex items-start gap-3 text-[0.9375rem] leading-relaxed">
+                        <input type="checkbox" name="show_birthday" value="1" @checked($shown) class="mt-1 size-[18px] shrink-0 accent-fg">
+                        <span>Mostrar mi cumpleaños a las personas de mi empresa</span>
+                    </label>
+
+                    <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center self-start rounded-control bg-brand-button px-5 font-semibold text-white">Guardar</button>
+                </form>
+
+                @if ($current->birthday_month !== null)
+                    <form method="POST" action="{{ route('account.birthday.destroy') }}">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center text-sm font-semibold text-status-failure underline-offset-4 hover:underline">Quitar mi cumpleaños</button>
+                    </form>
+                @endif
+            </section>
+        @endif
     </main>
 </x-layouts.app>

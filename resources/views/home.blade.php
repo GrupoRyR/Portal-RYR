@@ -103,6 +103,11 @@
                                 <x-home.icon name="link" class="size-[18px] text-fg-muted" />Cuentas vinculadas
                             </a>
                         @endif
+                        @if ($page->birthdayHref)
+                            <a href="{{ $page->birthdayHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
+                                <x-home.icon name="gift" class="size-[18px] text-fg-muted" />Mi cumpleaños
+                            </a>
+                        @endif
                         @if ($page->canAdminister)
                             <a href="{{ route('admin.index') }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
                                 <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración

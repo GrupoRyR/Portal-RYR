@@ -470,3 +470,13 @@ Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-dir
 Cada persona ve solo el directorio de su propia empresa, la de la cuenta con la que entró: con una cuenta vinculada de otra empresa, ve el de esa otra. Las personas de la empresa se reparten como al iniciar sesión (la empresa dueña del dominio del correo, o la principal del inquilino). La cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no ven ningún directorio.
 
 El buscador del inicio guarda el directorio en el equipo hasta 24 horas, junto con la copia del inicio para usarlo sin conexión, igual que la libreta de direcciones de Outlook. En un equipo compartido, cierre la sesión al terminar (sección 6.5).
+
+### 9.5 Cumpleaños
+
+El cumpleaños no sale de Microsoft: cada persona lo escribe, si quiere, en **Mi cumpleaños** (menú de la cuenta › **Mi cumpleaños**, en la página `/cuenta`).
+
+- Solo se guardan el día y el mes, nunca el año. El 29 de febrero se acepta.
+- Nadie más lo ve hasta que la persona marca **Mostrar mi cumpleaños a las personas de mi empresa** (desmarcada al empezar, Ley 1581). Puede desmarcarla, cambiar la fecha o tocar **Quitar mi cumpleaños** cuando quiera; quitarlo borra el día, el mes y la casilla.
+- Es por cuenta: con cuentas vinculadas en dos empresas, cada cuenta tiene el suyo.
+- Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen.
+- Ninguna pantalla de Administración muestra ni cambia el cumpleaños.
