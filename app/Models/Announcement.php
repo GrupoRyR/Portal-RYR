@@ -377,6 +377,20 @@ class Announcement extends Model
     }
 
     /**
+     * Those the user's person has not confirmed reading, with any of their
+     * accounts: the same rule as `viewer_read_at` ({@see scopeWithReadAtFor()}),
+     * as a filter (`anuncios_pendientes` of the Claude connector). It only
+     * groups the reads; who may see one is still {@see scopeVisibleTo()}.
+     *
+     * @param  Builder<Announcement>  $query
+     */
+    public function scopeUnreadByPersonOf(Builder $query, User $user): void
+    {
+        $query->whereDoesntHave('reads', fn (Builder $query) => $query
+            ->whereIn('announcement_reads.user_id', LinkedAccounts::idsOfSamePerson($user)));
+    }
+
+    /**
      * Pinned first, then the newest start.
      *
      * @param  Builder<Announcement>  $query

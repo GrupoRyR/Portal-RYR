@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 
 /**
@@ -142,6 +143,30 @@ class DirectoryEntry extends Model
         foreach ($terms as $term) {
             $query->whereRaw('search_text like ? '.Like::ESCAPE, [Like::contains($term)]);
         }
+    }
+
+    /**
+     * Adds `shown_birthday_month` and `shown_birthday_day`: the birthday of
+     * the entry's own account (the one with its tenant, object ID and
+     * company), only when that account chose to show it; null otherwise.
+     * Never through `person_id`. The same join as the home screen's
+     * directory query (App\View\Home\HomePageBuilder::people()); used by
+     * `cumpleanos_y_aniversarios` of the Claude connector. Select the
+     * entry's columns with the table name before calling it.
+     *
+     * @param  Builder<DirectoryEntry>  $query
+     */
+    public function scopeWithShownBirthday(Builder $query): void
+    {
+        $query->addSelect([
+            'users.birthday_month as shown_birthday_month',
+            'users.birthday_day as shown_birthday_day',
+        ])->leftJoin('users', function (JoinClause $join) {
+            $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
+                ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
+                ->on('users.company_id', '=', 'directory_entries.company_id')
+                ->where('users.show_birthday', true);
+        });
     }
 
     /**
