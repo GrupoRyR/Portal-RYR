@@ -20,7 +20,9 @@ use Laravel\Passport\Http\Controllers\DenyAuthorizationController;
 |   are off: Passport::ignoreRoutes()). Same names, so the metadata of
 |   laravel/mcp points at them.
 | - The MCP server itself, for Passport tokens (guard `api`) of an active
-|   connection (`mcp.connection`), limited per connection (`mcp`).
+|   connection (`mcp.connection`), limited per connection (`mcp`). Calls
+|   that fail authentication are limited per address first
+|   (`mcp.failures`).
 */
 
 Route::middleware('mcp.enabled')->group(function () {
@@ -53,5 +55,5 @@ Route::middleware('mcp.enabled')->group(function () {
     });
 
     Mcp::web('/mcp/portal', PortalServer::class)
-        ->middleware(['auth:api', 'mcp.connection', 'throttle:mcp']);
+        ->middleware(['mcp.failures', 'auth:api', 'mcp.connection', 'throttle:mcp']);
 });

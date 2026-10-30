@@ -4,6 +4,7 @@ namespace Tests\Feature\Mcp;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -17,6 +18,38 @@ class McpSwitchTest extends TestCase
     public function test_the_connector_is_off_by_default(): void
     {
         $this->assertFalse(config('portal.mcp.enabled'));
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function switchValues(): array
+    {
+        return [
+            'off' => ['off', false],
+            'no' => ['no', false],
+            'false' => ['false', false],
+            '0' => ['0', false],
+            'empty' => ['', false],
+            'anything else' => ['maybe', false],
+            'true' => ['true', true],
+            '1' => ['1', true],
+            'on' => ['on', true],
+        ];
+    }
+
+    #[DataProvider('switchValues')]
+    public function test_the_environment_value_is_read_as_a_strict_boolean(string $value, bool $enabled): void
+    {
+        $_SERVER['PORTAL_MCP_ENABLED'] = $_ENV['PORTAL_MCP_ENABLED'] = $value;
+
+        try {
+            $config = require config_path('portal.php');
+        } finally {
+            unset($_SERVER['PORTAL_MCP_ENABLED'], $_ENV['PORTAL_MCP_ENABLED']);
+        }
+
+        $this->assertSame($enabled, $config['mcp']['enabled']);
     }
 
     public function test_every_connector_route_answers_404_while_it_is_off(): void

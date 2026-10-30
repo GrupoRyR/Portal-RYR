@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Integration;
 use App\Models\McpConnection;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -136,6 +137,89 @@ class ConnectionTest extends TestCase
             'client_id' => $tokens['client_id'],
             'refresh_token' => $tokens['refresh_token'],
         ])->assertStatus(400);
+    }
+
+    public function test_a_code_approved_before_the_revocation_cannot_be_exchanged(): void
+    {
+        $user = $this->eligibleUser();
+        $clientId = $this->registeredClientId();
+        $code = $this->approvedCode($user, $clientId);
+
+        McpConnection::query()->sole()->revoke();
+
+        $this->exchange($clientId, $code)->assertStatus(400);
+    }
+
+    public function test_a_code_from_a_revoked_connection_does_not_work_after_approving_again(): void
+    {
+        $user = $this->eligibleUser();
+        $clientId = $this->registeredClientId();
+        $old = $this->approvedCode($user, $clientId);
+        McpConnection::query()->sole()->revoke();
+
+        $this->connect($user, $clientId);
+
+        $this->exchange($clientId, $old)->assertStatus(400);
+    }
+
+    public function test_tokens_of_an_ended_connection_do_not_work_on_the_new_one(): void
+    {
+        $user = $this->eligibleUser();
+        $old = $this->connect($user);
+        // Ended without its tokens being revoked (e.g. by hand).
+        McpConnection::query()->sole()->forceFill(['revoked_at' => now(), 'active_key' => null])->save();
+
+        $new = $this->connect($user, $old['client_id']);
+
+        $this->assertSame(2, McpConnection::query()->count());
+        $this->mcp($old['access_token'], 'tools/list')->assertUnauthorized();
+        $this->post('/oauth/token', [
+            'grant_type' => 'refresh_token',
+            'client_id' => $old['client_id'],
+            'refresh_token' => $old['refresh_token'],
+        ])->assertStatus(400);
+        $this->mcp($new['access_token'], 'tools/list')->assertOk();
+    }
+
+    public function test_the_database_allows_one_active_connection_per_client_and_account(): void
+    {
+        $user = $this->eligibleUser();
+        $this->connect($user);
+        $connection = McpConnection::query()->sole();
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        McpConnection::query()->create(['oauth_client_id' => $connection->oauth_client_id, 'user_id' => $user->id]);
+    }
+
+    public function test_a_revoked_connection_leaves_room_for_a_new_one(): void
+    {
+        $user = $this->eligibleUser();
+        $tokens = $this->connect($user);
+        McpConnection::query()->sole()->revoke();
+
+        $this->connect($user, $tokens['client_id']);
+
+        $this->assertSame(1, McpConnection::query()->active()->count());
+        $this->assertSame(2, McpConnection::query()->count());
+    }
+
+    public function test_bad_tokens_are_rate_limited_per_address_before_authentication(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $this->mcp('not-a-token', 'tools/list')->assertUnauthorized();
+        }
+
+        $this->mcp('not-a-token', 'tools/list')->assertTooManyRequests();
+    }
+
+    public function test_good_calls_do_not_use_the_bad_token_budget(): void
+    {
+        $tokens = $this->connect($this->eligibleUser());
+
+        for ($i = 0; $i < 31; $i++) {
+            $this->mcp($tokens['access_token'], 'tools/list')->assertOk();
+        }
     }
 
     public function test_a_token_without_a_connection_is_refused(): void

@@ -62,7 +62,10 @@ trait InteractsWithMcp
         return (string) $this->registerClient()->assertCreated()->json('client_id');
     }
 
-    protected function authorizeUrl(string $clientId): string
+    /**
+     * @param  array<string, string|null>  $overrides  Query values to change; null leaves one out.
+     */
+    protected function authorizeUrl(string $clientId, array $overrides = []): string
     {
         $this->verifier = Str::random(64);
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $this->verifier, true)), '+/', '-_'), '=');
@@ -75,6 +78,7 @@ trait InteractsWithMcp
             'state' => 'state-123',
             'code_challenge' => $challenge,
             'code_challenge_method' => 'S256',
+            ...$overrides,
         ]);
     }
 
@@ -94,27 +98,48 @@ trait InteractsWithMcp
     }
 
     /**
+     * Approves and returns the code Claude would get, with its PKCE
+     * verifier, without exchanging it.
+     *
+     * @return array{code: string, verifier: string}
+     */
+    protected function approvedCode(User $user, string $clientId): array
+    {
+        $redirect = (string) $this->approve($user, $clientId)->assertRedirect()->headers->get('Location');
+
+        $this->assertStringStartsWith(self::CALLBACK.'?', $redirect);
+        parse_str((string) parse_url($redirect, PHP_URL_QUERY), $query);
+
+        return ['code' => (string) ($query['code'] ?? ''), 'verifier' => $this->verifier];
+    }
+
+    /**
+     * Exchanges an approved code at /oauth/token, as Claude's servers do.
+     *
+     * @param  array{code: string, verifier: string}  $code
+     */
+    protected function exchange(string $clientId, array $code): TestResponse
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->post('/oauth/token', [
+            'grant_type' => 'authorization_code',
+            'client_id' => $clientId,
+            'redirect_uri' => self::CALLBACK,
+            'code_verifier' => $code['verifier'],
+            'code' => $code['code'],
+        ]);
+    }
+
+    /**
      * The whole connection: register, approve, exchange the code.
      *
      * @return array{client_id: string, access_token: string, refresh_token: string}
      */
-    protected function connect(User $user): array
+    protected function connect(User $user, ?string $clientId = null): array
     {
-        $clientId = $this->registeredClientId();
-        $redirect = $this->approve($user, $clientId)->assertRedirect()->headers->get('Location');
-
-        $this->assertStringStartsWith(self::CALLBACK.'?', (string) $redirect);
-        parse_str((string) parse_url((string) $redirect, PHP_URL_QUERY), $query);
-
-        $this->app['auth']->forgetGuards();
-
-        $tokens = $this->post('/oauth/token', [
-            'grant_type' => 'authorization_code',
-            'client_id' => $clientId,
-            'redirect_uri' => self::CALLBACK,
-            'code_verifier' => $this->verifier,
-            'code' => $query['code'] ?? '',
-        ])->assertOk();
+        $clientId ??= $this->registeredClientId();
+        $tokens = $this->exchange($clientId, $this->approvedCode($user, $clientId))->assertOk();
 
         return [
             'client_id' => $clientId,

@@ -22,11 +22,30 @@ use Laravel\Passport\Passport;
  * @property int $user_id
  * @property Carbon|null $last_used_at
  * @property Carbon|null $revoked_at
+ * @property string|null $active_key
  */
 #[Fillable(['oauth_client_id', 'user_id'])]
 class McpConnection extends Model
 {
     public const UPDATED_AT = null;
+
+    /**
+     * A new connection is active: it takes the unique `active_key` of its
+     * client and account, so a second active one cannot be inserted.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $connection) {
+            if ($connection->revoked_at === null) {
+                $connection->active_key = self::activeKey($connection->oauth_client_id, $connection->user_id);
+            }
+        });
+    }
+
+    public static function activeKey(string $clientId, int|string $userId): string
+    {
+        return $clientId.'|'.$userId;
+    }
 
     protected function casts(): array
     {
@@ -61,22 +80,38 @@ class McpConnection extends Model
     }
 
     /**
-     * Ends the connection: it stops answering at once, and every access
-     * and refresh token of its client for its account is revoked.
+     * Ends the connection: it stops answering at once, and every
+     * authorization code, access token and refresh token of its client
+     * for its account is revoked.
      */
     public function revoke(): void
     {
         DB::transaction(function () {
-            $tokens = Passport::token()->newQuery()
-                ->where('client_id', $this->oauth_client_id)
-                ->where('user_id', $this->user_id);
+            self::revokeGrants($this->oauth_client_id, $this->user_id);
 
-            Passport::refreshToken()->newQuery()
-                ->whereIn('access_token_id', (clone $tokens)->select('id'))
-                ->update(['revoked' => true]);
-            $tokens->update(['revoked' => true]);
-
-            $this->forceFill(['revoked_at' => now()])->save();
+            $this->forceFill(['revoked_at' => now(), 'active_key' => null])->save();
         });
+    }
+
+    /**
+     * Revokes every code and token Passport issued to the client for the
+     * account: when a connection ends, and before a new one starts, so
+     * nothing issued for an earlier connection works on a later one.
+     */
+    public static function revokeGrants(string $clientId, int|string $userId): void
+    {
+        $tokens = Passport::token()->newQuery()
+            ->where('client_id', $clientId)
+            ->where('user_id', $userId);
+
+        Passport::refreshToken()->newQuery()
+            ->whereIn('access_token_id', (clone $tokens)->select('id'))
+            ->update(['revoked' => true]);
+        $tokens->update(['revoked' => true]);
+
+        Passport::authCode()->newQuery()
+            ->where('client_id', $clientId)
+            ->where('user_id', $userId)
+            ->update(['revoked' => true]);
     }
 }

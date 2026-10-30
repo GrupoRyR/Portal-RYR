@@ -41,6 +41,7 @@ class ConsentTest extends TestCase
 
     public function test_the_consent_screen_names_the_client_the_redirect_and_the_account(): void
     {
+        $this->travelTo(now()->setDate(2026, 10, 30)->setTime(9, 15));
         $user = $this->eligibleUser();
         $clientId = $this->registeredClientId();
 
@@ -56,7 +57,9 @@ class ConsentTest extends TestCase
             ->assertSee('Solo lectura')
             ->assertSee('Tus tareas y aprobaciones')
             ->assertSee('Aprobar')
-            ->assertSee('Denegar')
+            ->assertSee('Rechazar')
+            ->assertSee('Aprueba solo si acabas de agregar el conector en tu propio Claude. Si no lo pediste, elige Rechazar.')
+            ->assertSee('Registrado el 30 de octubre de 2026')
             ->assertSee(route('passport.authorizations.approve'), false);
     }
 
@@ -102,6 +105,43 @@ class ConsentTest extends TestCase
         $this->actingAs($user)
             ->get($this->authorizeUrl($this->registeredClientId()))
             ->assertForbidden();
+    }
+
+    /**
+     * @return array<string, array{string|null}>
+     */
+    public static function weakChallenges(): array
+    {
+        return [
+            'plain' => ['plain'],
+            'no method (plain by default)' => [null],
+            'another method' => ['S512'],
+        ];
+    }
+
+    #[DataProvider('weakChallenges')]
+    public function test_only_s256_pkce_is_accepted(?string $method): void
+    {
+        $user = $this->eligibleUser();
+
+        $this->actingAs($user)
+            ->get($this->authorizeUrl($this->registeredClientId(), ['code_challenge_method' => $method]))
+            ->assertStatus(400)
+            ->assertJson(['error' => 'invalid_request']);
+
+        $this->assertNull(session('authToken'));
+    }
+
+    public function test_prompt_login_does_not_sign_the_user_out(): void
+    {
+        $user = $this->eligibleUser();
+
+        $this->actingAs($user)
+            ->get($this->authorizeUrl($this->registeredClientId(), ['prompt' => 'login']))
+            ->assertOk()
+            ->assertSee('Aprobar');
+
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_approving_sends_the_code_back_to_claude(): void

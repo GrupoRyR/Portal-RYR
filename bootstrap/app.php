@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureMcpConnection;
 use App\Http\Middleware\EnsureMcpEnabled;
 use App\Http\Middleware\RequireRecentMicrosoftLogin;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\ThrottleFailedMcpCalls;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -55,6 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mcp.enabled' => EnsureMcpEnabled::class,
             'mcp.account' => EnsureAccountMayConnect::class,
             'mcp.connection' => EnsureMcpConnection::class,
+            'mcp.failures' => ThrottleFailedMcpCalls::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

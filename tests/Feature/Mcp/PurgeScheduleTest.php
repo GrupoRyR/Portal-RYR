@@ -17,4 +17,14 @@ class PurgeScheduleTest extends TestCase
         $this->assertSame('America/Bogota', (string) $event->timezone);
         $this->assertMatchesRegularExpression('/^\d+ \d+ \* \* \*$/', $event->expression);
     }
+
+    public function test_unused_connector_clients_are_cleaned_up_daily(): void
+    {
+        $event = collect($this->app->make(Schedule::class)->events())
+            ->first(fn (Event $event) => str_contains((string) $event->command, 'portal:purge-mcp-clients'));
+
+        $this->assertNotNull($event, 'portal:purge-mcp-clients is not scheduled.');
+        $this->assertSame('America/Bogota', (string) $event->timezone);
+        $this->assertMatchesRegularExpression('/^\d+ \d+ \* \* \*$/', $event->expression);
+    }
 }

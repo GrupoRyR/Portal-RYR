@@ -383,12 +383,14 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
    ```bash
    curl -s https://apps.segurexlatam.net/.well-known/oauth-protected-resource/mcp/portal
    curl -s https://apps.segurexlatam.net/.well-known/oauth-authorization-server
-   curl -s -o /dev/null -w "%{http_code}
-" -X POST https://apps.segurexlatam.net/mcp/portal
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://apps.segurexlatam.net/mcp/portal
    ```
 
    La primera debe devolver un JSON con `"resource":"https://apps.segurexlatam.net/mcp/portal"`; la segunda, un JSON con `authorization_endpoint`, `token_endpoint` y `registration_endpoint` bajo `https://apps.segurexlatam.net/oauth/`; la tercera, `401`. Si responden 404 con el conector encendido, revise que `php artisan optimize` corrió después de cambiar `.env`. Si responden una página de cPanel o un 403 de ModSecurity, pida a GoDaddy que deje pasar `/.well-known/oauth-*` a la aplicación.
-5. **Limpieza diaria.** El cron (paso 1.9) ejecuta `passport:purge` a las 4:00: borra los tokens y códigos vencidos o revocados hace más de 7 días.
+5. **Limpieza diaria.** El cron (paso 1.9) ejecuta dos tareas:
+   - `passport:purge` a las 4:00: borra los tokens y códigos revocados, sin importar su edad, y los vencidos hace más de 7 días.
+   - `portal:purge-mcp-clients` a las 4:15: borra los clientes del conector con más de un día que nunca llegaron a ser una conexión, con sus códigos y tokens. `passport:purge` no borra clientes, y registrar uno es público.
+6. **Límites.** Registrar clientes: 10 por minuto por dirección; los metadatos `/.well-known/*`: 60. Cada conexión: 120 llamadas por minuto. Una dirección con más de 30 llamadas rechazadas (401) en un minuto recibe 429 en todas hasta que pase el minuto.
 
 Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
 

@@ -38,14 +38,14 @@ class ApproveController extends ApproveAuthorizationController
         $authRequest->setAuthorizationApproved(true);
         $client = $authRequest->getClient();
 
+        // The connection first: starting a new one revokes the client's
+        // earlier codes and tokens for the account, never this new code.
         return DB::transaction(function () use ($authRequest, $psrResponse, $client, $user) {
-            $response = $this->withErrorHandling(fn () => $this->convertResponse(
-                $this->server->completeAuthorizationRequest($authRequest, $psrResponse)
-            ), $authRequest->getGrantTypeId() === 'implicit');
-
             $this->connections->approved($client->getIdentifier(), $client->getName(), $user);
 
-            return $response;
+            return $this->withErrorHandling(fn () => $this->convertResponse(
+                $this->server->completeAuthorizationRequest($authRequest, $psrResponse)
+            ), $authRequest->getGrantTypeId() === 'implicit');
         });
     }
 }

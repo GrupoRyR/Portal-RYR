@@ -5,13 +5,16 @@ namespace App\Mcp;
 use App\Audit\SecurityLog;
 use App\Models\McpConnection;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Records Claude connections. Called by the consent screen's approve step
  * (App\Http\Controllers\Mcp\ApproveController) inside the transaction that
- * issues the authorization code, so a code never exists without its
- * connection. The approval also appears in Auditoría as «Seguridad».
+ * issues the authorization code, just before the code, so a code never
+ * exists without its connection. The approval also appears in Auditoría
+ * as «Seguridad».
  */
 class Connections
 {
@@ -24,16 +27,15 @@ class Connections
      * this approval: today the approving account alone (confirmed by the
      * sign-in that showed the consent screen); C2b adds the linked
      * accounts confirmed with Microsoft.
+     *
+     * A new connection first revokes whatever the client still holds for
+     * the account from an earlier one (codes and tokens), so those never
+     * reach it. Two approvals at once meet at the unique `active_key`: the
+     * second one reuses the first one's connection.
      */
     public function approved(string $clientId, string $clientName, User $user): McpConnection
     {
-        $connection = McpConnection::query()
-            ->active()
-            ->where('oauth_client_id', $clientId)
-            ->where('user_id', $user->getKey())
-            ->lockForUpdate()
-            ->first()
-            ?? McpConnection::query()->create(['oauth_client_id' => $clientId, 'user_id' => $user->getKey()]);
+        $connection = $this->activeConnection($clientId, $user) ?? $this->newConnection($clientId, $user);
 
         $connection->accounts()->where('user_id', '!=', $user->getKey())->delete();
         $connection->accounts()->updateOrCreate(['user_id' => $user->getKey()], ['confirmed_at' => now()]);
@@ -51,6 +53,31 @@ class Connections
             ->log(self::CONNECTED);
 
         return $connection;
+    }
+
+    private function activeConnection(string $clientId, User $user): ?McpConnection
+    {
+        return McpConnection::query()
+            ->active()
+            ->where('oauth_client_id', $clientId)
+            ->where('user_id', $user->getKey())
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function newConnection(string $clientId, User $user): McpConnection
+    {
+        try {
+            // A savepoint: a duplicate key leaves the outer transaction usable.
+            return DB::transaction(function () use ($clientId, $user) {
+                $connection = McpConnection::query()->create(['oauth_client_id' => $clientId, 'user_id' => $user->getKey()]);
+                McpConnection::revokeGrants($clientId, $user->getKey());
+
+                return $connection;
+            });
+        } catch (UniqueConstraintViolationException $duplicate) {
+            return $this->activeConnection($clientId, $user) ?? throw $duplicate;
+        }
     }
 
     /**

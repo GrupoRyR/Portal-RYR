@@ -22,6 +22,11 @@ return new class extends Migration
             $table->timestamp('created_at')->nullable();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
+            // "{client}|{user}" while active, null once revoked: at most one
+            // active connection per client and account, even when two
+            // «Aprobar» arrive at once (unique keys ignore nulls in MySQL
+            // and SQLite alike).
+            $table->string('active_key', 100)->nullable()->unique();
 
             $table->index(['oauth_client_id', 'user_id', 'revoked_at']);
         });

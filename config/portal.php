@@ -117,7 +117,8 @@ return [
     */
 
     'mcp' => [
-        'enabled' => (bool) env('PORTAL_MCP_ENABLED', false),
+        // Only true, 1, on or yes turn it on; anything else (off, no…) is off.
+        'enabled' => filter_var(env('PORTAL_MCP_ENABLED', false), FILTER_VALIDATE_BOOL),
     ],
 
 ];
