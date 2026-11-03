@@ -59,7 +59,7 @@ Cree una integración para la app (igual que en [`docs/api.md`](api.md), secció
 | **Permiso `work:write`** | Nuevo. Permite publicar tareas y aprobaciones en el inicio (sección 3). No hace falta ningún otro permiso. |
 | **IP permitidas** | Las del servidor de la app. Se recomienda no dejar la lista vacía. |
 | **App del catálogo** | Nuevo. La app registrada en 2.1. De ella sale el host permitido para los enlaces. Es obligatoria con `work:write`. |
-| **URL base de la app** | Nuevo. `app_base_url`, por ejemplo `https://tareas.segurexlatam.net`. Debe ser `https`, sin usuario ni contraseña, sin `?` ni `#`. El portal le agrega `/api/portal/v1/...`. Es obligatoria con `work:write`. |
+| **URL base de la app** | Nuevo. `app_base_url`, por ejemplo `https://tareas.segurexlatam.net`. Debe ser `https`, sin usuario ni contraseña, sin `?` ni `#`, y en el mismo host (y puerto) que la `url` de la app del catálogo (2.1): en otro host el portal no llama. El portal le agrega `/api/portal/v1/...`. Es obligatoria con `work:write`. |
 | **Secreto de firma** | Nuevo. Lo genera el portal (sección 6.2). Firma las llamadas del portal a la app. |
 
 Del token y del secreto:

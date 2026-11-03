@@ -106,6 +106,23 @@ class WorkItem extends Model
     }
 
     /**
+     * Whether «Completar» may be offered and sent (contract §6): a pending
+     * task the app marked completable, of an integration the portal may
+     * call and sign for (Integration::completionUrl()). An approval never
+     * is (§7). Who may press it is WorkItem::scopeVisibleTo()'s question:
+     * the view lists only visible items, and the endpoint finds the item
+     * through it.
+     */
+    public function canBeCompletedFromPortal(): bool
+    {
+        return $this->kind === self::KIND_TASK
+            && $this->completable_from_portal
+            && $this->status === self::STATUS_PENDING
+            && ! $this->trashed()
+            && $this->integration?->completionUrl((string) $this->external_id) !== null;
+    }
+
+    /**
      * Deletion traces, done and cancelled items older than RETENTION_DAYS
      * (§3.6), for `php artisan model:prune`.
      *

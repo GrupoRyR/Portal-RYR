@@ -20,6 +20,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
 use App\Settings\PortalSettings;
+use App\Work\TaskCompleter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -69,6 +70,10 @@ final class AuditPresenter
         'integration.ips_changed' => 'Cambió las IP permitidas de',
         'integration.work_app_changed' => 'Cambió la app de tareas de',
         'integration.kpi_company_changed' => 'Cambió la empresa de las cifras de',
+        'integration.signing_secret_created' => 'Generó el secreto de firma de',
+        'integration.signing_secret_rotated' => 'Rotó el secreto de firma de',
+        TaskCompleter::COMPLETED => 'Completó una tarea de',
+        TaskCompleter::FAILED => 'No pudo completar una tarea de',
         'kpis.updated' => 'Publicó las cifras del panel gerencial de',
         'backup.requested' => 'Pidió',
         'product.moved' => 'Movió',
@@ -192,6 +197,11 @@ final class AuditPresenter
         'app' => 'App del catálogo',
         'app_base_url' => 'URL base de la app',
         'items' => 'Cifras',
+        // «Completar» (App\Work\TaskCompleter).
+        'external_id' => 'Elemento',
+        'request_id' => 'Pedido',
+        'http_status' => 'Respuesta HTTP',
+        'reason' => 'Motivo',
         PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
         PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',

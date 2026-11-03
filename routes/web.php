@@ -25,6 +25,7 @@ use App\Http\Controllers\People\PeopleController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Http\Controllers\Pwa\ServiceWorkerController;
 use App\Http\Controllers\SupportController;
+use App\Http\Controllers\WorkItemCompletionController;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
@@ -164,6 +165,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/soporte', SupportController::class)
         ->middleware('throttle:60,1')
         ->name('support');
+
+    // «Completar» of one of the account's own tasks: a signed call to the
+    // tasks app (docs/contrato-tareas-aprobaciones.md §6). Its own limiter
+    // (AppServiceProvider), like «Confirmar lectura».
+    Route::post('/tareas/{workItem}/completar', [WorkItemCompletionController::class, 'store'])
+        ->whereNumber('workItem')
+        ->middleware('throttle:'.WorkItemCompletionController::LIMITER)
+        ->name('work-items.complete');
 
     Route::middleware('throttle:60,1')->group(function () {
         Route::post('/favoritos/{app:slug}', [FavoriteController::class, 'store'])->name('favorites.store');

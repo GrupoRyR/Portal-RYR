@@ -613,6 +613,17 @@ El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa l
 5. **Crear el token del robot.** **Administración › Integraciones › Nuevo token**: nombre (por ejemplo «Robot de SAP · Segurex»), permiso `kpis:write`, **Empresa de las cifras** y, de preferencia, la IP del equipo del robot en **IP permitidas**. Pide confirmar con Microsoft. Se necesita un token por empresa: cada token solo puede reemplazar las cifras de su empresa. Entregue el token al responsable del robot por el gestor de secretos, nunca por correo ni chat.
 6. **Comprobar.** Después de la primera noche, en **Auditoría** con el filtro **API** debe aparecer «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras (nunca los valores). Revocar el token en Integraciones borra las cifras que publicó.
 
+### 1.20 Tareas: «Completar»
+
+«Completar» deja que una persona termine desde el portal una tarea suya de la app de tareas y aprobaciones: el servidor del portal llama a la app con `POST {URL base}/api/portal/v1/tasks/{external_id}/complete`, firmada con HMAC-SHA256 (`docs/contrato-tareas-aprobaciones.md` §6). Las aprobaciones nunca se completan en el portal. No hay claves nuevas en `.env`. El diseño está en `odd/tasks/tareas-3-completar.md`.
+
+1. **Migración.** El despliegue de rutina (paso 2.2) agrega `integrations.signing_secret` e `integrations.signing_secret_hint` con `php artisan migrate --force`. No crea índices.
+2. **Salida HTTPS del servidor.** La llamada sale del servidor del portal hacia la URL base de la app, por el puerto 443, durante la petición de la persona (no hay cola). Si el hosting filtra las conexiones de salida, permita el dominio de la app. Cada llamada espera como máximo 5 segundos, no sigue redirecciones y siempre verifica el certificado TLS.
+3. **La URL base, en el dominio de la app.** El portal solo llama si la **URL base de la app** es `https` y tiene exactamente el mismo host (y puerto) que la dirección de la **App del catálogo** de la integración. Una URL base en otro host, otro subdominio u otro puerto no se llama nunca, y el botón no aparece.
+4. **Generar el secreto.** **Administración › Integraciones** › el sistema con `work:write` › **Secreto de firma** › **Generar secreto**. Pide confirmar con Microsoft (la cuenta de emergencia no puede). El secreto (`ryrsig_` y 43 caracteres) **se muestra una sola vez**: entréguelo al equipo de la app por el gestor de secretos, nunca por correo ni chat. Sin secreto, «Completar» no aparece. **Rotar secreto** reemplaza el anterior de inmediato; la app puede aceptar los dos unos minutos (contrato §2.2). Revocar el token borra también el secreto.
+5. **El secreto depende de `APP_KEY`.** Se guarda cifrado con `APP_KEY`, porque el portal lo necesita para firmar. Si cambia `APP_KEY`, ponga la anterior en `APP_PREVIOUS_KEYS` o genere un secreto nuevo y entréguelo otra vez a la app.
+6. **Comprobar.** Cuando la app tenga su endpoint, en **Auditoría** con el filtro **API** cada pulsación deja «Completó una tarea de …» o «No pudo completar una tarea de …», con el `external_id`, el pedido (`request_id`), la respuesta HTTP (o `timeout`) y el motivo. Nunca el título, el secreto ni la firma. Un «No pudo completar» con `401` o `unexpected_response` suele ser el secreto o la URL base.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

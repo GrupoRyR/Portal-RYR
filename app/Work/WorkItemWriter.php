@@ -84,6 +84,24 @@ final class WorkItemWriter
     }
 
     /**
+     * «Completar» succeeded (contract §6.4): the item is done, with the
+     * same version (§3.3 point 5), so the app's next PUT with a higher
+     * version still wins. Nothing happens when a PUT changed it meanwhile
+     * (no longer pending).
+     */
+    public function markDone(WorkItem $item): void
+    {
+        DB::transaction(function () use ($item) {
+            $this->lockIntegration($item->integration);
+
+            WorkItem::query()
+                ->whereKey($item->getKey())
+                ->where('status', WorkItem::STATUS_PENDING)
+                ->update(['status' => WorkItem::STATUS_DONE, 'updated_at' => now()]);
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $item
      * @return array{result: string, version: int}
      */

@@ -253,6 +253,29 @@
                     </fieldset>
                 </form>
 
+                @if (in_array(Integration::WORK_WRITE, $selected->abilities, true))
+                    @php($maskedSecret = $selected->maskedSigningSecret())
+                    <div class="flex flex-col gap-2">
+                        <span class="text-[0.8125rem] font-bold">Secreto de firma</span>
+                        <span class="{{ $hint }}">Firma las llamadas de «Completar» a la app de tareas. Generarlo o rotarlo pide confirmar con Microsoft; se muestra una sola vez.</span>
+                        @if ($maskedSecret)
+                            <span class="font-mono text-[0.8125rem]">{{ $maskedSecret }}</span>
+                        @else
+                            <span class="{{ $hint }}">Sin secreto: «Completar» no funciona hasta generarlo.</span>
+                        @endif
+                        @error('signingSecret') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
+                        @if ($live)
+                            @if ($maskedSecret)
+                                <button type="button" wire:click="generateSigningSecret" wire:confirm="¿Rotar el secreto de firma de {{ $selected->name }}? El portal firma con el nuevo de inmediato: ponlo también en la app de tareas."
+                                        class="h-9 self-start rounded-[10px] border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">Rotar secreto</button>
+                            @else
+                                <button type="button" wire:click="generateSigningSecret"
+                                        class="h-9 self-start rounded-[10px] border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">Generar secreto</button>
+                            @endif
+                        @endif
+                    </div>
+                @endif
+
                 <form wire:submit="saveKpiCompany" aria-labelledby="in-kpi-label" class="flex flex-col gap-2">
                     <span id="in-kpi-label" class="text-[0.8125rem] font-bold">Panel gerencial</span>
                     <span class="{{ $hint }}">Obligatoria con <code>kpis:write</code>. Cambiarla o dar <code>kpis:write</code> pide confirmar con Microsoft.</span>
@@ -355,6 +378,51 @@ Authorization: Bearer &lt;token&gt;
 
                 <div class="flex justify-end">
                     <button type="button" wire:click="dismissToken" x-bind:disabled="! saved" disabled
+                            class="inline-flex h-12 items-center rounded-control bg-brand-button px-[22px] text-[0.9375rem] font-semibold text-white disabled:cursor-not-allowed disabled:bg-line disabled:text-fg-muted">
+                        Listo
+                    </button>
+                </div>
+            </section>
+        </div>
+    @endif
+
+    @if ($plainSecret !== null && $selected)
+        {{-- «Secreto de firma»: the only time the plaintext is shown (contract §6.2). --}}
+        <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-10 sm:py-[110px]">
+            <section role="dialog" aria-modal="true" aria-labelledby="sg-title" x-data="{ saved: false, copied: false }" x-init="$nextTick(() => $refs.secret.focus())"
+                     x-on:keydown.escape.window="saved && $wire.dismissSecret()"
+                     class="flex w-full max-w-[640px] min-w-0 flex-col gap-5 rounded-[22px] bg-surface p-6 shadow-2xl sm:p-8">
+                <div class="flex min-w-0 flex-col gap-0.5">
+                    <h2 id="sg-title" class="font-sans text-[1.375rem] font-bold tracking-normal">{{ $secretRotated ? 'Secreto de firma nuevo' : 'Secreto de firma creado' }}</h2>
+                    <span class="text-sm break-words text-fg-muted">{{ $selected->name }}</span>
+                </div>
+
+                <div role="alert" class="flex gap-3 rounded-[12px] bg-status-maintenance-bg px-4 py-3.5 text-sm leading-relaxed text-status-maintenance">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+                    <span><strong>Cópialo ahora.</strong> Por seguridad no lo volveremos a mostrar. Entrégalo al equipo de la app de tareas por el gestor de secretos.@if ($secretRotated) El anterior ya no firma.@endif</span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label for="sg" class="{{ $label }}">Secreto de firma</label>
+                    <div class="flex gap-2 max-sm:flex-col">
+                        <input id="sg" x-ref="secret" type="text" readonly value="{{ $plainSecret }}" autocomplete="off" spellcheck="false"
+                               class="h-12 w-full min-w-0 rounded-[10px] border border-line-strong bg-ground px-3.5 font-mono sm:flex-1 text-sm text-fg">
+                        <button type="button" x-on:click="navigator.clipboard.writeText($refs.secret.value).then(() => { copied = true; setTimeout(() => copied = false, 2500) })"
+                                class="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-brand-button px-[18px] text-[0.9375rem] font-semibold text-white">
+                            <span x-text="copied ? 'Copiado' : 'Copiar'">Copiar</span>
+                        </button>
+                    </div>
+                    <p class="sr-only" aria-live="polite" x-text="copied ? 'Secreto copiado' : ''"></p>
+                    <span class="{{ $hint }}">La app lo usa para comprobar la firma de «Completar» (X-Portal-Signature).</span>
+                </div>
+
+                <label class="flex min-h-touch cursor-pointer items-center gap-3 text-[0.9375rem] font-semibold">
+                    <input type="checkbox" x-model="saved" class="size-[18px] shrink-0 accent-fg">
+                    Ya lo guardé en un lugar seguro
+                </label>
+
+                <div class="flex justify-end">
+                    <button type="button" wire:click="dismissSecret" x-bind:disabled="! saved" disabled
                             class="inline-flex h-12 items-center rounded-control bg-brand-button px-[22px] text-[0.9375rem] font-semibold text-white disabled:cursor-not-allowed disabled:bg-line disabled:text-fg-muted">
                         Listo
                     </button>

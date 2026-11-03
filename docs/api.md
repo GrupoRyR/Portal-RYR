@@ -263,7 +263,7 @@ Reglas que el portal ya aplica:
 - Cada noche (3:00, hora de Bogotá) se borran los rastros de borrado y los elementos hechos o cancelados de más de 30 días.
 - Los `PUT` y `DELETE` no crean una entrada en Auditoría: quedan en el «Último uso» de la integración. Los cambios de la app del catálogo y de la URL base sí quedan en Auditoría.
 
-Todavía no existen en el portal: la lista en el inicio, el botón «Completar» (la llamada firmada a la app, contrato §6) y el secreto de firma.
+«Completar» (contrato §6) ya existe en el servidor: el portal firma con el **secreto de firma** de la integración (`ryrsig_…`, se genera en **Integraciones** y se muestra una sola vez) y llama a `POST {URL base}/api/portal/v1/tasks/{external_id}/complete`. Solo llama si la URL base es `https` en el mismo host (y puerto) que la app del catálogo. Cada intento queda en Auditoría (`work_item.completed` o `work_item.complete_failed`). Todavía no existe la lista del inicio con el botón.
 
 ---
 
