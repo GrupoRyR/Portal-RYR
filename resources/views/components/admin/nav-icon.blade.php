@@ -41,5 +41,8 @@
         @case('close')
             <path d="M6 6l12 12M18 6L6 18"/>
             @break
+        @case('newspaper')
+            <path d="M5 5h11v14H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1zM16 9h3a1 1 0 0 1 1 1v7a2 2 0 0 1-4 0M8 9h5M8 13h5M8 16h3"/>
+            @break
     @endswitch
 </svg>

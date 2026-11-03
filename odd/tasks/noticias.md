@@ -45,7 +45,7 @@ Out of scope: home page wiring (`resources/views/home.blade.php`,
       §1.17. Route: delegated direct (this writer).
 - [x] N2 `App\News\NewsBoard` read model (one query, newest 5 per tab) with
       a query-count test. Route: delegated direct (this writer).
-- [ ] N3 Admin › Noticias (Livewire, policy, route, nav, audit labels) with
+- [x] N3 Admin › Noticias (Livewire, policy, route, nav, audit labels) with
       tests and `docs/manual-administracion.md` §2.11. Route: delegated
       direct (this writer).
 
@@ -79,11 +79,12 @@ writer (writer trigger: 2+ non-trivial files).
 - N1: done in two work-unit commits: `0d59ed5` feat(news): add SSRF-safe
   feed fetcher and RSS/Atom parser; `c1622c9` feat(news): store headlines
   per source with an hourly portal:fetch-news.
-- N2: done (commit: the `feat(news): add the NewsBoard read model` commit
-  after `c1622c9`). `NewsBoard::forCompany()` returns every tab of
+- N2: done in `677fa56` feat(news): add the NewsBoard read model. `NewsBoard::forCompany()` returns every tab of
   `NewsSource::TABS` as a list of `NewsHeadline` (title, link, date,
   source name), using ROW_NUMBER() per tab in one query.
-- N3: pending
+- N3: done in the `feat(admin): add the Noticias page for super admins`
+  commit after `677fa56` (Livewire `NewsManager`, `NewsSourcePolicy`, route
+  `admin.news.index`, nav item in Catálogo, audit labels, manual §2.11).
 
 Decisions:
 - `App\Catalog\AppUrlPolicy` only accepts allowlisted catalog hosts, so it
@@ -100,6 +101,13 @@ Decisions:
   a success. A missing or future date counts as the fetch time.
 - Any `<!DOCTYPE`/`<!ENTITY` byte sequence refuses the feed, also inside
   CDATA (accepted trade-off), and UTF-16/32 bodies are refused.
+- Admin: `NewsSourcePolicy` delegates to `AdminSections::manageIntegrations`
+  (super admin only). The company of a source is fixed after creation;
+  changing the URL clears the stored error. Switching company or tab keeps
+  what was typed to add a source and drops an edit in progress. Saving
+  never requests the URL.
+- Delivery strategy: `single-pr` slice for the parent to decide; the branch
+  exceeds 400 authored lines mostly because of tests (see report).
 
 ## Verification evidence
 
@@ -107,7 +115,11 @@ Decisions:
 - N1 GREEN: `php artisan test --compact tests/Unit/News tests/Feature/News`:
   122 passed. Full suite: 2397 passed. `vendor/bin/pint --test`: passed.
 - N2 RED: 4 tests, 4 errors (class missing). GREEN: 4 passed.
+- N3 RED: 23 tests, 22 errors (route and component missing), 1 passed.
+  GREEN: 23 passed. Full suite: 2428 passed. `vendor/bin/pint --test`:
+  passed. Not checked in a browser (no local `.env`).
 
 ## Next step
 
-N3: Admin › Noticias, test-first.
+All tasks done. Next: parent review, push and PR (human decisions); the
+home lane wires `App\News\NewsBoard` into the «Noticias» section.

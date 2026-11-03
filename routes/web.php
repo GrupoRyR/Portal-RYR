@@ -30,6 +30,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\NewsSource;
 use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -258,6 +259,13 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/integraciones', 'admin.integrations.index')
             ->middleware('can:'.AdminSections::INTEGRATIONS)
             ->name('integrations.index');
+
+        // App\Policies\NewsSourcePolicy (Noticias, RSS/Atom sources): super_admin
+        // only, like Integraciones, because the sources make the server request
+        // third-party URLs; App\Livewire\Admin\NewsManager re-authorizes each action.
+        Route::view('/noticias', 'admin.news.index')
+            ->can('viewAny', NewsSource::class)
+            ->name('news.index');
 
         // App\Policies\CompanyPolicy: super_admin only (portal_admin cannot
         // manage companies, decision 2026-10-05).
