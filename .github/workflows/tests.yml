@@ -71,10 +71,14 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      # No .env in CI: phpunit.xml sets SQLite in memory and the rest of the
-      # testing config. Only the app key comes from here, new on every run.
-      - name: Generate app key
-        run: echo "APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      # phpunit.xml sets SQLite in memory and the rest of the testing config.
+      # Only the app key comes from here, new on every run. The empty .env
+      # stops dotenv's failed read, which `artisan test` reports as a warning
+      # on every test; it is never committed.
+      - name: Prepare environment
+        run: |
+          touch .env
+          echo "APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
 
       - name: Run tests
         run: php artisan test --compact
