@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Backups\RecordBackupOutcome;
+use App\Calendar\ColombianHolidays;
 use App\Mail\GraphAccessToken;
 use App\Mail\GraphTransport;
 use App\Microsoft\GraphClient;
@@ -43,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TenantDirectory::class);
         $this->app->singleton(PortalSettings::class);
         $this->app->bind(GraphClient::class, HttpGraphClient::class);
+        // Holiday days are read in the portal's timezone.
+        $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
     }
 
     /**
