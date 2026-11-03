@@ -689,6 +689,13 @@ class IntegrationsPageTest extends TestCase
         );
     }
 
+    public function test_the_company_of_an_integration_is_always_an_integer(): void
+    {
+        $integration = (new Integration)->forceFill(['company_id' => (string) $this->segurex->id]);
+
+        $this->assertSame($this->segurex->id, $integration->company_id);
+    }
+
     public function test_other_abilities_keep_no_company(): void
     {
         $this->manager()

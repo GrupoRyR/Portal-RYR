@@ -213,6 +213,7 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
+- **Panel gerencial:** con `kpis:write`, el robot de SAP publica las cifras de **una** empresa, la que elija en **Empresa de las cifras**. Vea §11.
 
 ### 2.8 Auditoría
 
@@ -658,7 +659,7 @@ El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» (
 ### 11.2 Configurar una empresa (solo súper administrador)
 
 1. Pida a TI de la empresa que cree el grupo de seguridad `APP-PortalGerencia` en su inquilino y agregue a la gerencia.
-2. En **Administración › Empresas** › la empresa › **Microsoft 365**, pegue el **Object ID** del grupo en **Grupo de Gerencia** y pulse **Guardar**. El portal acepta solo un Object ID (GUID), nunca el nombre del grupo. El cambio queda en Auditoría.
+2. En **Administración › Empresas** › la empresa › **Microsoft 365**, pegue el **Object ID** del grupo en **Grupo de Gerencia** y pulse **Guardar**. El portal acepta solo un Object ID (GUID), nunca el nombre del grupo. Cambiarlo pide confirmar con Microsoft, como cambiar el inquilino, y la cuenta de emergencia no puede hacerlo. El cambio queda en Auditoría.
 3. Las personas del grupo reciben el rol la próxima vez que entran con Microsoft.
 
 Para quitar el panel a toda la empresa, borre el **Grupo de Gerencia** y guarde: se cierra de inmediato.

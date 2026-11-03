@@ -80,6 +80,9 @@ class Integration extends Model
     {
         return [
             'allowed_ips' => 'array',
+            // Compared strictly (App\Management\KpiPublisher): an integer
+            // whatever the database driver returns.
+            'company_id' => 'integer',
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];

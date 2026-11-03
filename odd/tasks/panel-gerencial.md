@@ -72,7 +72,35 @@ Ver la sección «Evidencia» al final; se actualiza al cerrar cada tarea.
 - **T2** (commit `8fc7ca4`). RED: `IntegrationsPageTest` 31 pruebas, 6 fallan (las nuevas: no existían `KPIS_WRITE`, `companyId` ni `kpiCompanyId`). GREEN: 31/31. `tests/Feature/Api` y `Audit`: 146/146.
 - **T3** (commit `b791f63`). RED: `KpisApiTest` 45 pruebas (29 casos de validación incluidos), 45 fallan (la ruta respondía 404). GREEN: 45/45. `tests/Feature/Api`, `Audit` e `IntegrationsPageTest`: 222/222.
 - **T4.** RED: `ManagementPanelTest` 13 pruebas, 13 errores (no existía `ManagementPanel`). GREEN: 13/13, con la prueba que cuenta una sola consulta y la de otras empresas.
+- **T4** quedó en el commit `dafd0e3`.
 - **Cierre.** Suite completa: 2353/2353 (2263 de la línea base + 90 nuevas). `vendor/bin/pint --test`: pasa.
+
+## Revisión (R1)
+
+Revisiones independientes de seguridad y de corrección: nada de seguridad con 8/10 o más y ningún hallazgo alto. Correcciones con prueba primero, en commits nuevos (sin enmendar):
+
+| # | Nivel | Hallazgo | Corrección |
+|---|---|---|---|
+| 1 | Medio | `as_of` aceptaba los años 0001 a 9999, y el `TIMESTAMP` de MySQL solo llega a 2038: 500 en modo estricto. | Columna `dateTime`; `as_of` antes del 2000-01-01 o más de un día adelante responde 422 (4 casos nuevos en el proveedor y una prueba de bordes). |
+| 2 | Bajo | Un `PUT` en curso podía volver a escribir cifras después de revocar. | `KpiPublisher` bloquea la fila de la integración dentro de la transacción y vuelve a comprobar que no está revocada, que tiene `kpis:write` y que su empresa no cambió (si no, 403); `Integration::revoke()` bloquea la misma fila primero. |
+| 3 | Bajo | Auditoría no mostraba el número de cifras. | Se guarda como `attributes.items` con la etiqueta «Cifras»; la prueba de Auditoría la ve. |
+| 4 | Bajo | La prueba del bloqueo pasaba sin probarlo. | Las consultas de bloqueo (`KpiPublisher::integrationRow` y `companyRow`) compiladas con `MySqlGrammar` terminan en `for update`; el orden integración → empresa también queda probado, y el de `revoke()`. |
+| 5 | Bajo | Con `\uXXXX`, un cuerpo válido podía pasar de 8 KB. | Límite de 16 KB; `docs/api.md` §8.1 pide UTF-8 (`ensure_ascii=False`). |
+| 6 | Bajo | Las comparaciones estrictas de `company_id` suponían enteros. | Cast `'company_id' => 'integer'` en `User` e `Integration`; `kpiCompanyError(?int)` solo recibe `idOf()` o ese entero. |
+| 7 | Bajo | Huecos de prueba. | La prueba de administradores guarda el grupo como de seguridad (solo falla el rol); nueva prueba de inicio con los grupos de administradores y de Gerencia: `super_admin` y `portal_admin` sobreviven cuando `management` entra y sale. |
+| 8 | Seguridad (bajo el umbral) | Cambiar `management_group_id` no pedía confirmar con Microsoft. | Como el inquilino: pide un inicio con Microsoft de los últimos 10 minutos y se niega a la cuenta de emergencia; guardar el mismo valor no pide nada. |
+
+Respuestas del coordinador: `as_of` futuro, máximo un día; revocar sigue borrando las cifras; el manual §2.7 gana una línea sobre `kpis:write` que remite a §11.
+
+Evidencia:
+
+- **R1a** (commit `fa93bb0`, puntos 1 a 5). RED: `KpisApiTest` 56 pruebas, 14 fallan. GREEN: 56/56; `tests/Feature/Api`, `Audit`, `Management` e `IntegrationsPageTest`: 246/246.
+- **R1b** (puntos 6 a 8 y documentos). RED: 68 pruebas (`CompanyManagementGroupTest`, `ManagementPanelTest`, `IntegrationsPageTest`, `ManagementRoleTest`), 5 fallan (4 fallos, 1 error). Las dos pruebas del punto 7 pasan desde el principio: cubren lo que ya funcionaba. GREEN: 68/68.
+- **Cierre R1.** Suite completa: 2371/2371. `vendor/bin/pint --test`: pasa.
+
+## Seguimientos
+
+- `WorkItemController` (`due_at` de las tareas) tiene el mismo hueco del punto 1: acepta años fuera del rango de `TIMESTAMP` de MySQL. Está fuera de esta línea y no se cambió.
 
 ## Siguiente paso
 

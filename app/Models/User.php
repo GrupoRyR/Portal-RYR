@@ -75,6 +75,9 @@ class User extends Authenticatable implements OAuthenticatable
     protected function casts(): array
     {
         return [
+            // Compared strictly (App\Policies\ManagementPanelPolicy): an
+            // integer whatever the database driver returns.
+            'company_id' => 'integer',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',

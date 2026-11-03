@@ -200,6 +200,19 @@ class ManagementPanelTest extends TestCase
         $this->assertFalse(Gate::forUser($manager->fresh())->allows(ManagementPanel::ABILITY, $this->segurex->fresh()));
     }
 
+    /**
+     * Some drivers return integer columns as strings: the comparisons of the
+     * ability must not depend on it.
+     */
+    public function test_a_company_id_read_as_text_still_matches(): void
+    {
+        $manager = $this->manager($this->segurex);
+        $manager->forceFill(['company_id' => (string) $this->segurex->id]);
+
+        $this->assertSame($this->segurex->id, $manager->company_id);
+        $this->assertTrue(Gate::forUser($manager)->allows(ManagementPanel::ABILITY, $this->segurex));
+    }
+
     public function test_an_inactive_company_has_no_panel(): void
     {
         $manager = $this->manager($this->segurex);
@@ -213,7 +226,8 @@ class ManagementPanelTest extends TestCase
         foreach (['super_admin', 'portal_admin', 'announcements_editor'] as $role) {
             $user = User::factory()->microsoft($this->segurex)->create();
             $user->assignRole($role);
-            $user->syncGroups([['id' => self::GROUP, 'display_name' => 'APP-PortalGerencia', 'security_group' => false]]);
+            // In the group, as a security group: only the missing role refuses.
+            $user->syncGroups([['id' => self::GROUP, 'display_name' => 'APP-PortalGerencia', 'security_group' => true]]);
 
             $this->assertFalse(Gate::forUser($user)->allows(ManagementPanel::ABILITY, $this->segurex), $role);
         }

@@ -179,7 +179,7 @@
                        aria-describedby="c-management-group-help{{ $errors->has('managementGroupId') ? ' c-management-group-error' : '' }}"
                        @error('managementGroupId') aria-invalid="true" @enderror>
                 @error('managementGroupId') <p id="c-management-group-error" class="{{ $error }}">{{ $message }}</p> @enderror
-                <p id="c-management-group-help" class="text-[0.8125rem] text-fg-muted">Object ID del grupo de seguridad <code>APP-PortalGerencia</code> del inquilino de esta empresa. Sus miembros reciben el rol Gerencia al iniciar sesión y ven el panel gerencial de esta empresa. Vacío: nadie tiene el rol.</p>
+                <p id="c-management-group-help" class="text-[0.8125rem] text-fg-muted">Object ID del grupo de seguridad <code>APP-PortalGerencia</code> del inquilino de esta empresa. Sus miembros reciben el rol Gerencia al iniciar sesión y ven el panel gerencial de esta empresa. Vacío: nadie tiene el rol. Cambiarlo pide confirmar con Microsoft.</p>
             </div>
 
             {{-- The Monday digest to the list (App\Digest\WeeklyDigests): a switch and how the last one went. No resend. --}}

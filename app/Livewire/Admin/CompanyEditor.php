@@ -39,8 +39,11 @@ use Throwable;
  *
  * «Grupo de Gerencia» is the object ID of the security group of the
  * company's tenant whose members get the `management` role at sign-in
- * (App\Auth\ManagementGroup); blank means nobody has it. Like every
- * field, its changes are in the company's audit log.
+ * (App\Auth\ManagementGroup); blank means nobody has it. It opens the
+ * company's figures, so, like the tenant, changing it needs a Microsoft
+ * sign-in from the last 10 minutes and is refused to emergency accounts;
+ * saving the same value needs neither. Like every field, its changes are
+ * in the company's audit log.
  */
 class CompanyEditor extends Component
 {
@@ -56,6 +59,8 @@ class CompanyEditor extends Component
 
     /** An Entra object ID, lowercase (the input is lowercased first). */
     public const GROUP_ID_PATTERN = '/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/';
+
+    public const MANAGEMENT_GROUP_EMERGENCY_MESSAGE = 'Cambiar el grupo de Gerencia requiere iniciar sesión con Microsoft.';
 
     private const PREVIEWS = ['light', 'dark', 'phone'];
 
@@ -186,7 +191,7 @@ class CompanyEditor extends Component
         }
     }
 
-    public function save(BrandAssetStore $assets): mixed
+    public function save(BrandAssetStore $assets, RecentMicrosoftLogin $recent): mixed
     {
         $this->authorize('update', $this->company);
 
@@ -198,6 +203,18 @@ class CompanyEditor extends Component
         $this->guardOwnCompany();
         $this->guardActivationWithoutConsent();
 
+        if ($this->managementGroupId !== (string) $this->company->management_group_id) {
+            $user = Auth::user();
+
+            if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
+                abort(403, self::MANAGEMENT_GROUP_EMERGENCY_MESSAGE);
+            }
+
+            if (! $recent->isFresh($user)) {
+                return $this->redirectToConfirm();
+            }
+        }
+
         // Turning a company off locks out all its users: ask first.
         if ($this->company->is_active && ! $this->isActive && ! $this->confirmingDeactivation) {
             $this->confirmingDeactivation = true;
@@ -208,14 +225,14 @@ class CompanyEditor extends Component
         return $this->persist($assets);
     }
 
-    public function confirmDeactivation(BrandAssetStore $assets): mixed
+    public function confirmDeactivation(BrandAssetStore $assets, RecentMicrosoftLogin $recent): mixed
     {
         $this->authorize('update', $this->company);
 
         $this->isActive = false;
         $this->confirmingDeactivation = true;
 
-        return $this->save($assets);
+        return $this->save($assets, $recent);
     }
 
     public function cancelDeactivation(): void

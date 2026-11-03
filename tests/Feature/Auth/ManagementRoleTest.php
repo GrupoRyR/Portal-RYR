@@ -231,6 +231,37 @@ class ManagementRoleTest extends TestCase
         $this->assertFalse($user->fresh()->hasRole(MicrosoftLogin::MANAGEMENT));
     }
 
+    public function test_admin_roles_survive_when_management_comes_and_goes(): void
+    {
+        $adminGroup = 'aaaaaaaa-0000-0000-0000-000000000001';
+        config([
+            'portal.super_admin_emails' => ['ana@segurex.com'],
+            'portal.admin_group_id' => $adminGroup,
+            'portal.admin_tenant_id' => self::SEGUREX_TENANT,
+        ]);
+        $this->signInAs(self::SEGUREX_TENANT);
+        $both = [self::securityGroup($adminGroup, 'APP-PortalAdmin'), self::securityGroup(self::SEGUREX_GROUP)];
+        $this->fakeGroups($both, [self::securityGroup($adminGroup, 'APP-PortalAdmin')], $both);
+
+        $roles = function (): array {
+            $names = User::sole()->getRoleNames()->all();
+            sort($names);
+
+            return $names;
+        };
+
+        $this->hitCallback()->assertRedirect('/');
+        $this->assertSame([MicrosoftLogin::MANAGEMENT, MicrosoftLogin::PORTAL_ADMIN, MicrosoftLogin::SUPER_ADMIN], $roles());
+
+        $this->post('/logout');
+        $this->hitCallback()->assertRedirect('/');
+        $this->assertSame([MicrosoftLogin::PORTAL_ADMIN, MicrosoftLogin::SUPER_ADMIN], $roles());
+
+        $this->post('/logout');
+        $this->hitCallback()->assertRedirect('/');
+        $this->assertSame([MicrosoftLogin::MANAGEMENT, MicrosoftLogin::PORTAL_ADMIN, MicrosoftLogin::SUPER_ADMIN], $roles());
+    }
+
     public function test_the_sign_in_entry_names_the_role_change(): void
     {
         $this->signInAs(self::SEGUREX_TENANT);
