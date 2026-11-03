@@ -15,7 +15,7 @@ class AuthSetupTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
+    private const ROLES = ['super_admin', 'portal_admin', 'announcements_editor', 'management'];
 
     public function test_microsoft_signs_in_through_the_organizations_endpoint_by_default(): void
     {
@@ -60,7 +60,7 @@ class AuthSetupTest extends TestCase
         $this->seed(RoleSeeder::class);
         $this->seed(RoleSeeder::class);
 
-        $this->assertSame(3, Role::count());
+        $this->assertSame(count(self::ROLES), Role::count());
     }
 
     public function test_database_seeder_seeds_the_roles(): void
@@ -79,7 +79,7 @@ class AuthSetupTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(0, User::count());
-        $this->assertSame(3, Role::count());
+        $this->assertSame(count(self::ROLES), Role::count());
     }
 
     public function test_users_can_hold_roles(): void

@@ -22,7 +22,10 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * managed in Administración → Integraciones. The tasks app publishes its
  * work items (`work:write`, docs/contrato-tareas-aprobaciones.md): it
  * also needs its catalog app (`app_id`, whose host is the only one allowed
- * in the links) and its base URL (`app_base_url`).
+ * in the links) and its base URL (`app_base_url`). The SAP robot publishes
+ * the figures of the management panel (`kpis:write`,
+ * odd/tasks/panel-gerencial.md): bound to exactly one company
+ * (`company_id`), the only one whose figures it may replace.
  *
  * The integration owns the Sanctum token (never a user). It has at most one
  * live token: rotating replaces it at once, revoking deletes it for good.
@@ -30,7 +33,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * stored nor logged: only its SHA-256 hash (Sanctum) and its last four
  * characters (`token_hint`, to recognise it in the list).
  */
-#[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'created_by'])]
+#[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'company_id', 'created_by'])]
 class Integration extends Model
 {
     use HasApiTokens;
@@ -51,11 +54,14 @@ class Integration extends Model
 
     public const WORK_WRITE = 'work:write';
 
+    public const KPIS_WRITE = 'kpis:write';
+
     /** The only abilities a token may have, with their description. */
     public const ABILITIES = [
         self::CATALOG_READ => 'Leer el catálogo de apps, sin usuarios ni reglas',
         self::STATUS_WRITE => 'Reportar si una app funciona, falla o está caída',
         self::WORK_WRITE => 'Publicar tareas y aprobaciones en el inicio de cada persona',
+        self::KPIS_WRITE => 'Publicar las cifras del panel gerencial de una empresa',
     ];
 
     /** Rate limit of each token (named limiter `api`). */
@@ -74,6 +80,9 @@ class Integration extends Model
     {
         return [
             'allowed_ips' => 'array',
+            // Compared strictly (App\Management\KpiPublisher): an integer
+            // whatever the database driver returns.
+            'company_id' => 'integer',
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];
@@ -129,6 +138,17 @@ class Integration extends Model
     }
 
     /**
+     * The only company whose management figures a `kpis:write` integration
+     * may replace; the API never takes the company from the request.
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
      * Tasks and approvals this system published, deletion traces included.
      *
      * @return HasMany<WorkItem, $this>
@@ -136,6 +156,16 @@ class Integration extends Model
     public function workItems(): HasMany
     {
         return $this->hasMany(WorkItem::class);
+    }
+
+    /**
+     * Management figures this system published (`kpis:write`).
+     *
+     * @return HasMany<CompanyKpi, $this>
+     */
+    public function kpis(): HasMany
+    {
+        return $this->hasMany(CompanyKpi::class);
     }
 
     /**
@@ -186,15 +216,20 @@ class Integration extends Model
     }
 
     /**
-     * Deletes the token for good, and the work items it published, which
-     * leave the home at once (contract §2.2). A revoked integration stays
-     * listed.
+     * Deletes the token for good, and the work items and management
+     * figures it published, which leave the portal at once (contract §2.2,
+     * odd/tasks/panel-gerencial.md). A revoked integration stays listed.
+     *
+     * The row is locked first, like App\Management\KpiPublisher does, so a
+     * PUT in flight either finishes before the revoke or is refused after.
      */
     public function revoke(): void
     {
         DB::transaction(function () {
+            static::query()->whereKey($this->getKey())->lockForUpdate()->first(['id']);
             $this->tokens()->delete();
             $this->workItems()->withTrashed()->forceDelete();
+            $this->kpis()->delete();
             $this->forceFill(['revoked_at' => now()])->save();
         });
     }

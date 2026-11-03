@@ -213,6 +213,7 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
+- **Panel gerencial:** con `kpis:write`, el robot de SAP publica las cifras de **una** empresa, la que elija en **Empresa de las cifras**. Vea §12.
 
 ### 2.8 Auditoría
 
@@ -713,3 +714,37 @@ Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó, publicó o 
 | «Escribe un enlace completo que empiece por https://…» | El enlace no es `https://` o está incompleto. | Copie la dirección completa desde el navegador. |
 | «Esta empresa ya tiene una categoría con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas. | Use otro nombre o edite la categoría existente. |
 | Una foto subida no se ve. | Falta el enlace `public/storage` en el servidor. | Pida a TI revisar `docs/despliegue.md` §1.18. |
+
+## 12. Panel gerencial
+
+El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» («Solo Gerencia»): las cifras clave del mes de su empresa al cierre de ayer, por ejemplo las ventas contra la meta, la cartera vencida, los pedidos y los pedidos atrasados, con la fuente («SAP Business One»). La instalación está en `docs/despliegue.md` §1.19; el formato de las cifras, en `docs/api.md` §8.
+
+### 12.1 Quién lo ve
+
+- Solo las cuentas con el rol **Gerencia** de esa misma empresa. Ningún otro rol lo abre, tampoco súper administrador ni administrador.
+- El rol sale del grupo de seguridad `APP-PortalGerencia` del inquilino de la empresa. No se asigna a mano: en **Administración › Roles** la columna **Gerencia** no tiene acceso a ninguna sección de Administración.
+- Una persona con cuentas vinculadas (§8) ve el panel solo cuando la cuenta activa es de una empresa en cuyo grupo está.
+
+### 12.2 Configurar una empresa (solo súper administrador)
+
+1. Pida a TI de la empresa que cree el grupo de seguridad `APP-PortalGerencia` en su inquilino y agregue a la gerencia.
+2. En **Administración › Empresas** › la empresa › **Microsoft 365**, pegue el **Object ID** del grupo en **Grupo de Gerencia** y pulse **Guardar**. El portal acepta solo un Object ID (GUID), nunca el nombre del grupo. Cambiarlo pide confirmar con Microsoft, como cambiar el inquilino, y la cuenta de emergencia no puede hacerlo. El cambio queda en Auditoría.
+3. Las personas del grupo reciben el rol la próxima vez que entran con Microsoft.
+
+Para quitar el panel a toda la empresa, borre el **Grupo de Gerencia** y guarde: se cierra de inmediato.
+
+### 12.3 El token del robot (solo súper administrador)
+
+En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y elija la **Empresa de las cifras**. Ese token solo puede reemplazar las cifras de esa empresa; para otra empresa, cree otro token. En la ficha de un sistema, **Panel gerencial › Empresa de las cifras** permite cambiarla. Dar `kpis:write` o cambiar la empresa pide confirmar con Microsoft; quitar el permiso es un clic.
+
+- **Revocar** el token borra las cifras que publicó: el panel de esa empresa queda vacío hasta que otro token las publique.
+- Cada publicación queda en **Auditoría** (filtro **API**) como «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras. Los valores nunca quedan en Auditoría.
+
+### 12.4 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| Una persona de la gerencia no ve el panel. | No está en `APP-PortalGerencia` de su empresa, el grupo es de Microsoft 365 y no de seguridad, el **Grupo de Gerencia** está vacío o tiene otro Object ID, o no ha vuelto a entrar desde que la agregaron. | Revise el grupo en Entra y el Object ID en la empresa. Pida a la persona cerrar sesión y entrar de nuevo con Microsoft. |
+| El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
+| El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
+

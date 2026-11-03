@@ -646,4 +646,187 @@ class IntegrationsPageTest extends TestCase
             $this->assertFalse(Integration::isValidAppBaseUrl($url), $url);
         }
     }
+
+    // --- Panel gerencial (kpis:write) ----------------------------------------
+
+    public function test_creating_with_kpis_write_needs_the_company(): void
+    {
+        $this->manager()
+            ->call('startCreating')
+            ->assertSee('kpis:write')
+            ->assertSee('Publicar las cifras del panel gerencial de una empresa')
+            ->assertSee('Empresa de las cifras')
+            ->set('name', 'Robot de SAP')
+            ->set('abilities', [Integration::KPIS_WRITE])
+            ->call('create')
+            ->assertHasErrors(['companyId'])
+            ->assertSee('Elige la empresa de las cifras.');
+
+        $this->manager()
+            ->call('startCreating')
+            ->set('name', 'Robot de SAP')
+            ->set('abilities', [Integration::KPIS_WRITE])
+            ->set('companyId', 999999)
+            ->call('create')
+            ->assertHasErrors(['companyId'])
+            ->assertSee('Esa empresa no existe.');
+
+        $this->assertSame(0, Integration::query()->count());
+
+        $this->manager()
+            ->call('startCreating')
+            ->set('name', 'Robot de SAP')
+            ->set('abilities', [Integration::KPIS_WRITE])
+            ->set('companyId', (string) $this->segurex->id)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $integration = Integration::query()->sole();
+        $this->assertTrue($integration->company->is($this->segurex));
+        $this->assertSame(
+            ['name' => 'Robot de SAP', 'abilities' => [Integration::KPIS_WRITE], 'allowed_ips' => [], 'company' => 'segurex'],
+            $this->apiEntries('integration.created')->sole()->properties['attributes'],
+        );
+    }
+
+    public function test_the_company_of_an_integration_is_always_an_integer(): void
+    {
+        $integration = (new Integration)->forceFill(['company_id' => (string) $this->segurex->id]);
+
+        $this->assertSame($this->segurex->id, $integration->company_id);
+    }
+
+    public function test_other_abilities_keep_no_company(): void
+    {
+        $this->manager()
+            ->call('startCreating')
+            ->set('name', 'Monitor')
+            ->set('abilities', [Integration::CATALOG_READ])
+            ->set('companyId', $this->segurex->id)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $this->assertNull(Integration::query()->sole()->company_id);
+    }
+
+    public function test_kpis_write_is_granted_only_once_the_company_is_set(): void
+    {
+        $monitor = $this->integration();
+
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::KPIS_WRITE)
+            ->assertHasErrors('abilities')
+            ->assertSee('Antes de dar kpis:write, guarda la empresa de las cifras.');
+        $this->assertNotContains(Integration::KPIS_WRITE, $monitor->fresh()->abilities);
+
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->assertSet('kpiCompanyId', null)
+            ->set('kpiCompanyId', 999999)
+            ->call('saveKpiCompany')
+            ->assertHasErrors('kpiCompanyId')
+            ->set('kpiCompanyId', (string) $this->segurex->id)
+            ->call('saveKpiCompany')
+            ->assertHasNoErrors()
+            ->assertSee('Empresa de las cifras actualizada.')
+            ->call('toggleAbility', Integration::KPIS_WRITE)
+            ->assertHasNoErrors();
+
+        $monitor->refresh();
+        $this->assertTrue($monitor->company->is($this->segurex));
+        $this->assertContains(Integration::KPIS_WRITE, $monitor->abilities);
+
+        $entry = $this->apiEntries('integration.kpi_company_changed')->sole();
+        $this->assertSame(['company' => null], $entry->properties['old']);
+        $this->assertSame(['company' => 'segurex'], $entry->properties['attributes']);
+
+        // While kpis:write is granted, the company cannot be taken away.
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->assertSet('kpiCompanyId', $this->segurex->id)
+            ->set('kpiCompanyId', '')
+            ->call('saveKpiCompany')
+            ->assertHasErrors('kpiCompanyId');
+        $this->assertSame($this->segurex->id, $monitor->fresh()->company_id);
+    }
+
+    public function test_changing_the_kpi_company_or_granting_kpis_write_needs_a_recent_microsoft_login(): void
+    {
+        $monitor = $this->integration();
+        $confirm = route('auth.microsoft.confirm', ['return' => '/admin/integraciones?sistema='.$monitor->id]);
+
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->set('kpiCompanyId', $this->segurex->id)
+            ->call('saveKpiCompany')
+            ->assertRedirect($confirm);
+        $this->assertNull($monitor->fresh()->company_id);
+        $this->assertCount(0, $this->apiEntries('integration.kpi_company_changed'));
+
+        // Saving the same company changes nothing, so it needs no confirmation.
+        $monitor->forceFill(['company_id' => $this->segurex->id])->save();
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('saveKpiCompany')
+            ->assertNoRedirect()
+            ->assertHasNoErrors();
+
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::KPIS_WRITE)
+            ->assertRedirect($confirm);
+        $this->assertNotContains(Integration::KPIS_WRITE, $monitor->fresh()->abilities);
+
+        // Taking kpis:write away only narrows access: one click.
+        $monitor->changeAbilities([Integration::CATALOG_READ, Integration::KPIS_WRITE]);
+        $this->manager(fresh: false)
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::KPIS_WRITE)
+            ->assertNoRedirect()
+            ->assertHasNoErrors();
+        $this->assertNotContains(Integration::KPIS_WRITE, $monitor->fresh()->abilities);
+    }
+
+    public function test_emergency_accounts_cannot_change_the_kpi_company_nor_grant_kpis_write(): void
+    {
+        $monitor = $this->integration();
+
+        $this->emergencyManager()
+            ->call('select', $monitor->id)
+            ->set('kpiCompanyId', $this->segurex->id)
+            ->call('saveKpiCompany')
+            ->assertForbidden();
+        $this->assertNull($monitor->fresh()->company_id);
+
+        $monitor->forceFill(['company_id' => $this->segurex->id])->save();
+        $this->emergencyManager()
+            ->call('select', $monitor->id)
+            ->call('toggleAbility', Integration::KPIS_WRITE)
+            ->assertForbidden();
+        $this->assertNotContains(Integration::KPIS_WRITE, $monitor->fresh()->abilities);
+    }
+
+    public function test_the_kpi_company_shows_in_the_list_the_detail_and_auditoria(): void
+    {
+        $derivados = Company::factory()->create(['name' => 'Derivados S.A.S.', 'short_name' => 'Derivados', 'slug' => 'derivados']);
+        $integration = $this->integration([
+            'name' => 'Robot de SAP',
+            'abilities' => [Integration::KPIS_WRITE],
+            'company_id' => $this->segurex->id,
+        ]);
+
+        $this->actingAs($this->admin)->get(route('admin.integrations.index', ['sistema' => $integration->id]))
+            ->assertSeeTextInOrder(['Robot de SAP', 'Segurex Latam', 'Empresa de las cifras', 'Segurex Latam']);
+
+        $this->manager()
+            ->call('select', $integration->id)
+            ->set('kpiCompanyId', $derivados->id)
+            ->call('saveKpiCompany')
+            ->assertHasNoErrors();
+
+        $this->actingAs($this->admin)->get(route('admin.audit.index', ['tipo' => 'api']))
+            ->assertSeeTextInOrder(['Jhon Castro', 'API', 'Cambió la empresa de las cifras de Robot de SAP'])
+            ->assertSeeTextInOrder(['Empresa', 'segurex', 'derivados']);
+    }
 }

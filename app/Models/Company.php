@@ -26,6 +26,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'short_name',
     'slug',
     'tenant_id',
+    'management_group_id',
     'is_primary_for_tenant',
     'domains',
     'all_staff_email',
@@ -157,6 +158,17 @@ class Company extends Model
     {
         return Attribute::make(
             set: fn (?string $value) => $value === null ? null : strtolower(trim($value)),
+        );
+    }
+
+    /**
+     * The object ID of the «Gerencia» security group of the company's
+     * tenant (App\Auth\ManagementGroup), lowercase; blank means none.
+     */
+    protected function managementGroupId(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => ($value = strtolower(trim((string) $value))) === '' ? null : $value,
         );
     }
 

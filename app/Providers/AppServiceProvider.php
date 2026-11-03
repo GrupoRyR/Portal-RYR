@@ -7,12 +7,14 @@ use App\Calendar\ColombianHolidays;
 use App\Http\Controllers\Mcp\AuthorizeController;
 use App\Mail\GraphAccessToken;
 use App\Mail\GraphTransport;
+use App\Management\ManagementPanel;
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
 use App\Models\Integration;
 use App\Models\User;
 use App\Policies\AdminSections;
+use App\Policies\ManagementPanelPolicy;
 use App\Policies\RolePolicy;
 use App\Pwa\PortalUserKey;
 use App\Settings\ApplySessionLifetime;
@@ -80,6 +82,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define(AdminSections::INTEGRATIONS, [AdminSections::class, 'manageIntegrations']);
         Gate::define(AdminSections::SETTINGS, [AdminSections::class, 'manageSettings']);
         Gate::policy(Role::class, RolePolicy::class);
+
+        // «Panel gerencial»: a company's figures, for its Gerencia only.
+        Gate::define(ManagementPanel::ABILITY, [ManagementPanelPolicy::class, 'view']);
 
         // API for external systems: each token has its own budget; calls
         // that reach the limiter without a token are limited per address.

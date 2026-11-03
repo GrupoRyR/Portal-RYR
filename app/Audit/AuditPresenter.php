@@ -68,6 +68,8 @@ final class AuditPresenter
         'integration.abilities_changed' => 'Cambió los permisos de',
         'integration.ips_changed' => 'Cambió las IP permitidas de',
         'integration.work_app_changed' => 'Cambió la app de tareas de',
+        'integration.kpi_company_changed' => 'Cambió la empresa de las cifras de',
+        'kpis.updated' => 'Publicó las cifras del panel gerencial de',
         'backup.requested' => 'Pidió',
         'product.moved' => 'Movió',
         'product_category.moved' => 'Movió',
@@ -122,6 +124,7 @@ final class AuditPresenter
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
         'announcements_editor' => 'Editor de anuncios',
+        'management' => 'Gerencia',
     ];
 
     /** Spanish labels of the audited attributes. */
@@ -130,6 +133,7 @@ final class AuditPresenter
         'short_name' => 'Nombre corto',
         'slug' => 'Identificador',
         'tenant_id' => 'Inquilino',
+        'management_group_id' => 'Grupo de Gerencia',
         'is_primary_for_tenant' => 'Principal del inquilino',
         'domains' => 'Dominios',
         'all_staff_email' => 'Lista de todo el personal',
@@ -187,6 +191,7 @@ final class AuditPresenter
         'allowed_ips' => 'IP permitidas',
         'app' => 'App del catálogo',
         'app_base_url' => 'URL base de la app',
+        'items' => 'Cifras',
         PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
         PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',

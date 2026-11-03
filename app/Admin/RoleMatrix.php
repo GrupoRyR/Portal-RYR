@@ -24,6 +24,9 @@ final class RoleMatrix
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
         'announcements_editor' => 'Editor de anuncios',
+        // «Gerencia» reads its company's management panel on the home page
+        // (App\Management\ManagementPanel) and has no admin section.
+        'management' => 'Gerencia',
     ];
 
     /**

@@ -38,7 +38,8 @@ class RoleMatrixTest extends TestCase
             'Configuración',
         ], array_map(fn ($section) => $section->label, RoleMatrix::sections()));
 
-        $this->assertSame(['super_admin', 'portal_admin', 'announcements_editor'], array_keys(RoleMatrix::ROLES));
+        $this->assertSame(['super_admin', 'portal_admin', 'announcements_editor', 'management'], array_keys(RoleMatrix::ROLES));
+        $this->assertSame('Gerencia', RoleMatrix::ROLES['management']);
     }
 
     public function test_every_cell_matches_what_the_role_can_really_do(): void
@@ -74,15 +75,15 @@ class RoleMatrixTest extends TestCase
         }
 
         $this->assertSame([
-            'Empresas' => [true, false, false],
-            'Integraciones' => [true, false, false],
-            'Aplicaciones y accesos' => [true, true, false],
-            'Categorías' => [true, true, false],
-            'Anuncios' => [true, true, true],
-            'Eventos' => [true, true, true],
-            'Roles' => [true, true, false],
-            'Auditoría e informe de uso' => [true, true, false],
-            'Configuración' => [true, false, false],
+            'Empresas' => [true, false, false, false],
+            'Integraciones' => [true, false, false, false],
+            'Aplicaciones y accesos' => [true, true, false, false],
+            'Categorías' => [true, true, false, false],
+            'Anuncios' => [true, true, true, false],
+            'Eventos' => [true, true, true, false],
+            'Roles' => [true, true, false, false],
+            'Auditoría e informe de uso' => [true, true, false, false],
+            'Configuración' => [true, false, false, false],
         ], $grants);
     }
 

@@ -36,6 +36,14 @@ use Throwable;
  * sends from or to another company's domain. «Resumen de los lunes»
  * turns on the Monday digest to that list (App\Digest\WeeklyDigests), with
  * how the last one went; there is no manual resend.
+ *
+ * «Grupo de Gerencia» is the object ID of the security group of the
+ * company's tenant whose members get the `management` role at sign-in
+ * (App\Auth\ManagementGroup); blank means nobody has it. It opens the
+ * company's figures, so, like the tenant, changing it needs a Microsoft
+ * sign-in from the last 10 minutes and is refused to emergency accounts;
+ * saving the same value needs neither. Like every field, its changes are
+ * in the company's audit log.
  */
 class CompanyEditor extends Component
 {
@@ -48,6 +56,11 @@ class CompanyEditor extends Component
     public const DOMAIN_PATTERN = '/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z/';
 
     public const HEX_PATTERN = '/\A#[0-9A-Fa-f]{6}\z/';
+
+    /** An Entra object ID, lowercase (the input is lowercased first). */
+    public const GROUP_ID_PATTERN = '/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/';
+
+    public const MANAGEMENT_GROUP_EMERGENCY_MESSAGE = 'Cambiar el grupo de Gerencia requiere iniciar sesión con Microsoft.';
 
     private const PREVIEWS = ['light', 'dark', 'phone'];
 
@@ -71,6 +84,9 @@ class CompanyEditor extends Component
 
     /** «Resumen de los lunes»: the Monday digest to the list. */
     public bool $weeklyDigest = false;
+
+    /** Object ID of the «Gerencia» security group; blank means none. */
+    public string $managementGroupId = '';
 
     /** @var list<array{label: string, url: string}> */
     public array $quickLinks = [];
@@ -120,6 +136,7 @@ class CompanyEditor extends Component
         $this->allStaffEmail = (string) $company->all_staff_email;
         $this->mailSender = (string) $company->mail_sender;
         $this->weeklyDigest = (bool) $company->weekly_digest_enabled;
+        $this->managementGroupId = (string) $company->management_group_id;
         $this->quickLinks = array_values(array_map(
             fn (array $link) => ['label' => (string) ($link['label'] ?? ''), 'url' => (string) ($link['url'] ?? '')],
             $company->quick_links ?? [],
@@ -174,16 +191,29 @@ class CompanyEditor extends Component
         }
     }
 
-    public function save(BrandAssetStore $assets): mixed
+    public function save(BrandAssetStore $assets, RecentMicrosoftLogin $recent): mixed
     {
         $this->authorize('update', $this->company);
 
         $this->allStaffEmail = strtolower(trim($this->allStaffEmail));
         $this->mailSender = strtolower(trim($this->mailSender));
+        $this->managementGroupId = strtolower(trim($this->managementGroupId));
 
         $this->validate();
         $this->guardOwnCompany();
         $this->guardActivationWithoutConsent();
+
+        if ($this->managementGroupId !== (string) $this->company->management_group_id) {
+            $user = Auth::user();
+
+            if (! $user instanceof User || $user->is_emergency || $user->azure_oid === null) {
+                abort(403, self::MANAGEMENT_GROUP_EMERGENCY_MESSAGE);
+            }
+
+            if (! $recent->isFresh($user)) {
+                return $this->redirectToConfirm();
+            }
+        }
 
         // Turning a company off locks out all its users: ask first.
         if ($this->company->is_active && ! $this->isActive && ! $this->confirmingDeactivation) {
@@ -195,14 +225,14 @@ class CompanyEditor extends Component
         return $this->persist($assets);
     }
 
-    public function confirmDeactivation(BrandAssetStore $assets): mixed
+    public function confirmDeactivation(BrandAssetStore $assets, RecentMicrosoftLogin $recent): mixed
     {
         $this->authorize('update', $this->company);
 
         $this->isActive = false;
         $this->confirmingDeactivation = true;
 
-        return $this->save($assets);
+        return $this->save($assets, $recent);
     }
 
     public function cancelDeactivation(): void
@@ -310,6 +340,7 @@ class CompanyEditor extends Component
             'colorDark' => ['required', 'string', 'regex:'.self::HEX_PATTERN],
             'isActive' => ['boolean'],
             'weeklyDigest' => ['boolean'],
+            'managementGroupId' => ['nullable', 'string', 'regex:'.self::GROUP_ID_PATTERN],
             'logoLight' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
             'logoDark' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
             'icon' => ['nullable', 'file', 'max:1024', 'extensions:png', $this->isIcon(...)],
@@ -338,6 +369,7 @@ class CompanyEditor extends Component
             'allStaffEmail.required_with' => 'Escribe también la lista, o deja los dos vacíos.',
             'mailSender.required_with' => 'Escribe también el buzón remitente, o deja los dos vacíos.',
             'mailSender.different' => 'El buzón remitente no puede ser la misma lista.',
+            'managementGroupId.regex' => 'Pega el Object ID del grupo (GUID) tal como aparece en Microsoft Entra, no su nombre.',
             'quickLinks.max' => 'Puedes tener hasta 8 enlaces rápidos.',
             'quickLinks.*.label.required' => 'Escribe el nombre del enlace.',
             'quickLinks.*.label.max' => 'Usa como máximo 40 caracteres.',
@@ -407,6 +439,7 @@ class CompanyEditor extends Component
                     'all_staff_email' => $this->allStaffEmail,
                     'mail_sender' => $this->mailSender,
                     'weekly_digest_enabled' => $this->weeklyDigest,
+                    'management_group_id' => $this->managementGroupId,
                     'quick_links' => $this->quickLinks === [] ? null : array_map(
                         fn (array $link) => ['label' => trim($link['label']), 'url' => trim($link['url'])],
                         $this->quickLinks,
