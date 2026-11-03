@@ -28,11 +28,11 @@ Fuera de alcance: el simulador «Ver como» del prototipo (los roles vienen de M
 
 ## Tareas
 
-- [ ] H1. Mercados (banda bajo el encabezado) y Noticias (pestañas Colombia / Internacional / Sector). Ruta: escritor delegado único de la línea (2 o más archivos no triviales).
-- [ ] H2. Catálogos y categorías (chips y tarjetas de producto) y Panel gerencial (solo Gerencia de la misma empresa). Ruta: la misma.
-- [ ] H3. «Mi día»: Tareas pendientes («Por aprobar» y «Tareas»), «Ver tarea», «Ver aprobación», «Completar» (POST con CSRF, confirmación, mensaje del endpoint, ancla `#tareas`). Ruta: la misma.
-- [ ] H4. Estado de TI con «Reportar un problema». Prueba de consultas acotadas con todos los bloques. Documentación. Ruta: la misma.
-- [ ] H5. Compilar `public/build` (incluye el cambio de cierre de sesión de `home.js`) en su propio commit. Ruta: la misma.
+- [x] H1. Mercados (banda bajo el encabezado) y Noticias (pestañas Colombia / Internacional / Sector). Ruta: escritor delegado único de la línea (2 o más archivos no triviales). Commit `3fb43a4`.
+- [x] H2. Catálogos y categorías (filtros y tarjetas de producto) y Panel gerencial (solo Gerencia de la misma empresa). Ruta: la misma. Commit `7fa76b4`.
+- [x] H3. «Mi día»: Tareas pendientes («Por aprobar» y «Tareas»), «Ver tarea», «Ver aprobación», «Completar» (POST con CSRF, confirmación, mensaje del endpoint, ancla `#tareas`). Ruta: la misma. Commit `c243663`.
+- [x] H4. Estado de TI con «Reportar un problema». Prueba de consultas acotadas con todos los bloques. Documentación. Ruta: la misma. Commit `94e7be9`.
+- [x] H5. Compilar `public/build` (incluye el cambio de cierre de sesión de `home.js`) en su propio commit. Ruta: la misma. Commit `8db44dd`.
 
 ## Criterios de aceptación
 
@@ -59,10 +59,32 @@ Un solo escritor delegado (esta sesión). Disparadores: 2 o más archivos no tri
 
 Estrategia `ask-on-risk`; el orquestador decide PR y cadena. Pronóstico: unas 1.500 a 2.000 líneas en total (vista, modelos de vista, JS y pruebas), sin contar `public/build`.
 
+## Decisiones tomadas en la línea
+
+- **Mercados sin cinta animada:** la franja es fija y se acomoda en dos líneas en el celular (el prototipo la desplaza). Las flechas del cambio van en gris, sin verde ni rojo: que el dólar suba no es bueno ni malo para todos.
+- **Pestañas y filtros sin JavaScript:** son enlaces (`?noticias=`, `?catalogo=`) que el servidor marca; con JavaScript cambian sin recargar. Así no hay salto de diseño al cargar.
+- **«Completar» con `<details>`:** el botón abre la confirmación («Sí, completar») con o sin JavaScript; el JavaScript solo deja una abierta y bloquea la segunda pulsación.
+- **El mensaje de «Completar» va dentro de «Tareas pendientes»** (donde aterriza `#tareas`), no arriba. Si era la última tarea, el bloque queda con el mensaje y «No tienes tareas ni aprobaciones pendientes».
+- **Orden:** Panel gerencial antes de las apps; Noticias y Catálogos después; en «Mi día», Tareas primero y Estado de TI antes de Microsoft 365 (como el prototipo, conservando los bloques actuales).
+- **Búsqueda sin JavaScript (`?q=`):** sin panel, noticias ni catálogos (solo las apps, como ya pasaba con el directorio). Tareas y Estado de TI siguen en «Mi día».
+- **«Ver todas»** de cada grupo de tareas va a la `url` de cada app del catálogo que aparece en el grupo, solo cuando hay más de 20.
+- **Panel:** quien no tiene el rol Gerencia no pasa por el permiso (`viewManagementPanel`): evita la consulta de permisos de Spatie; `forViewer()` sigue comprobando todo para quien sí lo tiene.
+- **Catálogo «Todas»** muestra todos los productos publicados, sin tope; las fotos se difieren.
+
+## Evidencia
+
+- RED antes de GREEN: H1 11/11 en rojo (500 por el parámetro nuevo), H2 7/11, H3 10/12, H4 3/4 (las que pasaban eran estados ocultos).
+- GREEN: `tests/Feature/Home` y relacionadas en verde en cada unidad.
+- Suite completa: 2.981 pruebas, todas pasan (base 2.934). `vendor/bin/pint --test`: pasa.
+- Consultas: cuenta normal 17 (`HomeQueryBudget::MAX`, antes 12); Gerencia con todos los bloques 22 (`WITH_EVERY_BLOCK`), sin crecer con más filas.
+- `npm run build`: pasa; el CSS trae las clases nuevas y `home.js` el cambio de cierre de sesión.
+- No hecho: revisión visual en el navegador ni Lighthouse (no hay sesión de prueba local en esta línea).
+- Espejo en Engram: pendiente.
+
 ## Progreso
 
-- 2026-11-03: documento creado. H1 en curso.
+- 2026-11-03: documento creado. H1 a H5 hechos (`3fb43a4`, `7fa76b4`, `c243663`, `94e7be9`, `8db44dd`).
 
 ## Siguiente paso
 
-H1.
+Push de `feat/inicio-bloques`; revisión visual y Lighthouse móvil en el navegador; PR (decisión humana). `docs/api.md` §7 todavía dice que no existe la lista del inicio con el botón «Completar» (fuera de las superficies de esta línea).
