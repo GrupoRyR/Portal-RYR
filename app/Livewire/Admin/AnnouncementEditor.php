@@ -12,6 +12,7 @@ use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\User;
 use App\Policies\AnnouncementPolicy;
+use App\Push\PushSettings;
 use App\View\Home\AnnouncementCard;
 use Closure;
 use Illuminate\Contracts\View\View;
@@ -44,6 +45,10 @@ use Throwable;
  * company of the audience has an all-staff list (Admin › Empresas); the
  * cron sends it once (App\Announcements\AnnouncementListEmails), and the
  * editor shows how it went per company, with «Reintentar» for a failure.
+ *
+ * «Enviar al celular» shows up while the VAPID settings are present: the
+ * cron sends a phone notice to the devices of the people who see it, once
+ * each (App\Push\AnnouncementPushes).
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -82,6 +87,9 @@ class AnnouncementEditor extends Component
     /** «Enviar también por correo a la lista de cada empresa». */
     public bool $emailLists = false;
 
+    /** «Enviar al celular» (App\Push\AnnouncementPushes); only shown with the VAPID settings. */
+    public bool $pushPhone = false;
+
     public ?TemporaryUploadedFile $image = null;
 
     /** The stored image goes away on save. */
@@ -113,6 +121,7 @@ class AnnouncementEditor extends Component
         $this->isPinned = $announcement->is_pinned;
         $this->requiresRead = $announcement->requires_read;
         $this->emailLists = $announcement->email_lists;
+        $this->pushPhone = $announcement->push_phone;
     }
 
     public function updatedImage(): void
@@ -156,6 +165,8 @@ class AnnouncementEditor extends Component
             'requires_read' => $this->requiresRead,
             // Only kept while a company of the audience can get it.
             'email_lists' => $this->emailLists && $this->listRecipients()->isNotEmpty(),
+            // Without the VAPID settings the box is hidden: the stored value stays.
+            'push_phone' => app(PushSettings::class)->enabled() ? $this->pushPhone : (bool) $this->announcement?->push_phone,
         ];
 
         if ($creating) {
@@ -287,6 +298,7 @@ class AnnouncementEditor extends Component
             'isPinned' => ['boolean'],
             'requiresRead' => ['boolean'],
             'emailLists' => ['boolean'],
+            'pushPhone' => ['boolean'],
             'image' => [
                 'nullable', 'file',
                 'max:'.AnnouncementImageStore::MAX_KILOBYTES,
@@ -336,6 +348,7 @@ class AnnouncementEditor extends Component
             'newImageUrl' => $this->newImageUrl(),
             'reads' => $this->mayViewReads() ? $this->readReport : null,
             'listRecipients' => $this->listRecipients(),
+            'pushAvailable' => app(PushSettings::class)->enabled(),
             'listReport' => $this->announcement !== null && $this->user()->can('update', $this->announcement)
                 ? app(AnnouncementListEmails::class)->report($this->announcement)
                 : [],

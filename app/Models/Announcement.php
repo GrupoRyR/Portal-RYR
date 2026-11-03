@@ -48,6 +48,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'is_pinned',
     'requires_read',
     'email_lists',
+    'push_phone',
     'author_id',
 ])]
 class Announcement extends Model
@@ -111,6 +112,7 @@ class Announcement extends Model
         'is_pinned' => false,
         'requires_read' => false,
         'email_lists' => false,
+        'push_phone' => false,
     ];
 
     protected function casts(): array
@@ -122,7 +124,26 @@ class Announcement extends Model
             'is_pinned' => 'boolean',
             'requires_read' => 'boolean',
             'email_lists' => 'boolean',
+            'push_phone' => 'boolean',
+            'push_finished_at' => 'datetime',
         ];
+    }
+
+    /**
+     * «Enviar al celular» ticked again (it was off): the cron
+     * (App\Push\AnnouncementPushes) looks for devices once more; those that
+     * got it already never get it twice.
+     */
+    protected static function booted(): void
+    {
+        // A query, not the model's attribute: the cron sets the column behind
+        // the model's back, so the copy in memory may already say null.
+        static::saved(function (Announcement $announcement): void {
+            if ($announcement->push_phone && $announcement->wasChanged('push_phone')) {
+                static::query()->whereKey($announcement->getKey())->toBase()->update(['push_finished_at' => null]);
+                $announcement->setRawAttributes([...$announcement->getAttributes(), 'push_finished_at' => null], true);
+            }
+        });
     }
 
     /**
@@ -181,6 +202,17 @@ class Announcement extends Model
     public function listEmails(): HasMany
     {
         return $this->hasMany(AnnouncementListEmail::class);
+    }
+
+    /**
+     * Its phone notices, one per device, when it asks for them
+     * (`push_phone`, App\Push\AnnouncementPushes).
+     *
+     * @return HasMany<PushDelivery, $this>
+     */
+    public function pushDeliveries(): HasMany
+    {
+        return $this->hasMany(PushDelivery::class);
     }
 
     /**

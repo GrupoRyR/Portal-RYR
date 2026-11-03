@@ -175,6 +175,7 @@ final class AuditPresenter
         'is_pinned' => 'Fijado arriba',
         'requires_read' => 'Lectura obligatoria',
         'email_lists' => 'Enviar por correo a las listas',
+        'push_phone' => 'Enviar al celular',
         'company' => 'Empresa',
         'previous_error' => 'Error anterior',
         'author_id' => 'Autor',
