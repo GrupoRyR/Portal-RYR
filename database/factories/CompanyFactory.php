@@ -49,6 +49,24 @@ class CompanyFactory extends Factory
     }
 
     /**
+     * A company whose all-staff list gets the announcements that ask for
+     * it, from the given mailbox. Both should be at one of its domains.
+     */
+    public function withListEmail(string $allStaffEmail, string $mailSender): static
+    {
+        return $this->state(fn () => ['all_staff_email' => $allStaffEmail, 'mail_sender' => $mailSender]);
+    }
+
+    /**
+     * A company with «Resumen de los lunes» on: its list gets the Monday
+     * digest (App\Digest\WeeklyDigests) when it has one.
+     */
+    public function weeklyDigest(): static
+    {
+        return $this->state(fn () => ['weekly_digest_enabled' => true]);
+    }
+
+    /**
      * A company sharing the given Microsoft tenant.
      *
      * @param  list<string>  $domains

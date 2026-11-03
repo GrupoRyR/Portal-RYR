@@ -23,7 +23,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
  * up to MAX_DAYS days:
  *
  * - birthdays only of accounts that chose to show them
- *   (DirectoryEntry::scopeWithShownBirthday()), day and month only: the
+ *   (DirectoryEntry::scopeCelebrationsOf()), day and month only: the
  *   portal keeps no birth year;
  * - work anniversaries, with the day and the years completed, as «Mi día»
  *   shows them; the hire date itself is never returned.

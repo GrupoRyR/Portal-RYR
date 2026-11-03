@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
@@ -46,6 +47,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'ends_at',
     'is_pinned',
     'requires_read',
+    'email_lists',
     'author_id',
 ])]
 class Announcement extends Model
@@ -108,6 +110,7 @@ class Announcement extends Model
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
         'requires_read' => false,
+        'email_lists' => false,
     ];
 
     protected function casts(): array
@@ -118,6 +121,7 @@ class Announcement extends Model
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
             'requires_read' => 'boolean',
+            'email_lists' => 'boolean',
         ];
     }
 
@@ -156,6 +160,40 @@ class Announcement extends Model
     public function reads(): HasMany
     {
         return $this->hasMany(AnnouncementRead::class);
+    }
+
+    /**
+     * «Enviar recordatorio» requests (App\Announcements\AnnouncementReminders).
+     *
+     * @return HasMany<AnnouncementReminder, $this>
+     */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(AnnouncementReminder::class);
+    }
+
+    /**
+     * Its emails to the companies' all-staff lists, when it asks for them
+     * (`email_lists`, App\Announcements\AnnouncementListEmails).
+     *
+     * @return HasMany<AnnouncementListEmail, $this>
+     */
+    public function listEmails(): HasMany
+    {
+        return $this->hasMany(AnnouncementListEmail::class);
+    }
+
+    /**
+     * The companies it is addressed to now: every active company when it
+     * is for all, its chosen ones otherwise (active or not).
+     *
+     * @return Builder<Company>
+     */
+    public function addressedCompanies(): Builder
+    {
+        return $this->isForAllCompanies()
+            ? Company::query()->where('companies.is_active', true)
+            : Company::query()->whereIn('companies.id', DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'));
     }
 
     /**
@@ -285,6 +323,39 @@ class Announcement extends Model
     }
 
     /**
+     * Who gets the reminder now: the people of the audience who have not
+     * confirmed yet (the rule of {@see pendingReaders()}, read at send
+     * time, so whoever confirmed meanwhile is left out) and were not
+     * mailed for this reminder yet: neither under the key recorded then
+     * nor with any of their accounts now (someone linked after being
+     * mailed has another key). One account per person: the lowest id
+     * among their accounts in the audience. At most $limit, by person key,
+     * in one query.
+     *
+     * @return Collection<int, int> person key by account id
+     */
+    public function reminderCandidates(AnnouncementReminder $reminder, int $limit): Collection
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $mailedNow = User::query()
+            ->whereIn('id', $reminder->deliveries()->select('user_id'))
+            ->select($key);
+
+        return $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->whereNotIn($key, $reminder->deliveries()->select('person_key'))
+            ->whereNotIn($key, $mailedNow)
+            ->toBase()
+            ->selectRaw('min(users.id) as id, '.LinkedAccounts::PERSON_KEY.' as person_key')
+            ->groupBy($key)
+            ->orderBy('person_key')
+            ->limit($limit)
+            ->pluck('person_key', 'id')
+            ->map(fn ($personKey) => (int) $personKey);
+    }
+
+    /**
      * The person keys ({@see LinkedAccounts::PERSON_KEY}) of every account
      * that read it, as a subquery.
      *
@@ -344,17 +415,19 @@ class Announcement extends Model
     public function scopeInStatus(Builder $query, string $status): void
     {
         $now = Carbon::now();
+        // Qualified: other tables may be joined (App\Announcements\AnnouncementListEmails).
+        [$withdrawnAt, $startsAt, $endsAt] = [$query->qualifyColumn('withdrawn_at'), $query->qualifyColumn('starts_at'), $query->qualifyColumn('ends_at')];
 
         match ($status) {
-            self::STATUS_WITHDRAWN => $query->whereNotNull('withdrawn_at'),
-            self::STATUS_SCHEDULED => $query->whereNull('withdrawn_at')->where('starts_at', '>', $now),
-            self::STATUS_EXPIRED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->whereNotNull('ends_at')
-                ->where('ends_at', '<=', $now),
-            self::STATUS_PUBLISHED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $now)),
+            self::STATUS_WITHDRAWN => $query->whereNotNull($withdrawnAt),
+            self::STATUS_SCHEDULED => $query->whereNull($withdrawnAt)->where($startsAt, '>', $now),
+            self::STATUS_EXPIRED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->whereNotNull($endsAt)
+                ->where($endsAt, '<=', $now),
+            self::STATUS_PUBLISHED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->where(fn (Builder $query) => $query->whereNull($endsAt)->orWhere($endsAt, '>', $now)),
             default => throw new InvalidArgumentException("Unknown announcement status [{$status}]."),
         };
     }
