@@ -598,6 +598,10 @@ class IntegrationManager extends Component
             }
         } elseif (! Integration::isValidAppBaseUrl($baseUrl)) {
             $errors['url'] = 'Escribe una dirección https, sin usuario, sin ? ni #.';
+        } elseif ($appId !== null && ! isset($errors['app'])
+            && ! Integration::isOnHostOf($baseUrl, self::catalogApps()->firstWhere('id', $appId)?->url)) {
+            // «Completar» only calls that host (Integration::completionUrl()).
+            $errors['url'] = 'La URL base debe estar en el mismo host (y puerto) que la app del catálogo.';
         }
 
         return $errors;

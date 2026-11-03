@@ -363,7 +363,7 @@ Cuando alguien deja una empresa del grupo, no reconoce un vínculo o una de sus 
 3. Copie el token y entréguelo por el gestor de secretos al equipo de la app.
 4. En el detalle del sistema, en **Secreto de firma**, pulse **Generar secreto** (pide confirmar con Microsoft). Cópielo y entréguelo también por el gestor de secretos: el portal lo usa para firmar «Completar» y no lo vuelve a mostrar. Sin secreto, nadie puede completar tareas desde el portal. **Rotar secreto** reemplaza el anterior de inmediato.
 
-«Completar» solo llama a la app si la URL base está en el mismo host (y puerto) que la dirección de la app del catálogo. Si la app de tareas responde en otro host, «Completar» no aparece.
+La URL base debe estar en el mismo host (y puerto) que la dirección de la app del catálogo: **Guardar app** no acepta otra. Si después cambia la dirección de la app en el catálogo, «Completar» deja de aparecer hasta que corrija la URL base.
 
 Para dar `work:write` a un sistema que ya existe, primero elija la app y la URL base en su detalle y pulse **Guardar app**; después marque el permiso. Las dos cosas piden confirmar con Microsoft: si el portal lo lleva a Microsoft al pulsar **Guardar app**, al volver elija de nuevo la app y la URL base y pulse **Guardar app** otra vez (la confirmación vale 10 minutos). Mientras tenga `work:write`, la app y la URL base no se pueden dejar vacías.
 

@@ -183,4 +183,16 @@ class IntegrationSigningSecretTest extends TestCase
             ->assertSeeText('Generó el secreto de firma de App de tareas')
             ->assertSeeText('Rotó el secreto de firma de App de tareas');
     }
+
+    public function test_an_admin_without_the_integrations_section_cannot_generate_it(): void
+    {
+        $component = $this->manager();
+
+        $this->admin->removeRole('super_admin');
+        $this->admin->assignRole('portal_admin');
+
+        $component->call('generateSigningSecret')->assertForbidden();
+
+        $this->assertNull($this->tasks->fresh()->signing_secret);
+    }
 }

@@ -829,4 +829,49 @@ class IntegrationsPageTest extends TestCase
             ->assertSeeTextInOrder(['Jhon Castro', 'API', 'Cambió la empresa de las cifras de Robot de SAP'])
             ->assertSeeTextInOrder(['Empresa', 'segurex', 'derivados']);
     }
+
+    // --- Base URL of the tasks app (review fixes) -----------------------------
+
+    public function test_the_base_url_path_takes_only_url_characters(): void
+    {
+        foreach (['/portal', '/portal/v1/', '/a%20b', '/~tareas', "/a!$&'()*+,;=:@-._b"] as $path) {
+            $this->assertTrue(Integration::isValidAppBaseUrl('https://tareas.segurex.com.co'.$path), $path);
+        }
+
+        foreach (['/a<b', '/a>b', '/a"b', '/a{b}', '/a|b', '/a^b', '/a`b', '/a[b]'] as $path) {
+            $this->assertFalse(Integration::isValidAppBaseUrl('https://tareas.segurex.com.co'.$path), $path);
+        }
+    }
+
+    public function test_the_base_url_must_be_on_the_host_and_port_of_the_catalog_app(): void
+    {
+        $tareas = $this->tasksApp();
+
+        foreach (['https://otro.segurex.com.co', 'https://api.tareas.segurex.com.co', 'https://tareas.segurex.com.co:8443'] as $url) {
+            $this->manager()
+                ->call('startCreating')
+                ->set('name', 'App de tareas')
+                ->set('abilities', [Integration::WORK_WRITE])
+                ->set('appId', $tareas->id)
+                ->set('appBaseUrl', $url)
+                ->call('create')
+                ->assertHasErrors(['appBaseUrl'])
+                ->assertSee('La URL base debe estar en el mismo host (y puerto) que la app del catálogo.');
+        }
+
+        $this->assertSame(0, Integration::query()->count());
+
+        $monitor = $this->integration();
+        $this->manager()
+            ->call('select', $monitor->id)
+            ->set('workAppId', $tareas->id)
+            ->set('workBaseUrl', 'https://otro.segurex.com.co')
+            ->call('saveWorkApp')
+            ->assertHasErrors('workBaseUrl')
+            ->set('workBaseUrl', 'https://TAREAS.segurex.com.co:443/portal')
+            ->call('saveWorkApp')
+            ->assertHasNoErrors();
+
+        $this->assertSame('https://TAREAS.segurex.com.co:443/portal', $monitor->fresh()->app_base_url);
+    }
 }
