@@ -39,7 +39,7 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
   - `App\Work\PortalSignature`: firma de §6.2 y secreto nuevo (`ryrsig_` + 32 bytes en base64url, 43 caracteres).
   - Administración › Integraciones: **Secreto de firma** solo con `work:write`; **Generar secreto** / **Rotar secreto** con confirmación reciente de Microsoft (la cuenta de emergencia recibe 403); se muestra una sola vez en su propio diálogo. Auditoría `integration.signing_secret_created` y `integration.signing_secret_rotated`. Revocar borra el secreto.
   - `POST /tareas/{id}/completar` (`work-items.complete`, CSRF de `web`, límite propio de 10 por minuto por cuenta): busca el elemento con `WorkItem::visibleTo()` (ajeno, de otra cuenta vinculada, hecho, borrado o de integración revocada: 404); visible pero no completable (aprobación, `completable_from_portal: false`, integración sin secreto o con la URL base fuera del host de la app del catálogo): 403 sin llamar. `WorkItem::canBeCompletedFromPortal()` le dice a la vista si mostrar el botón.
-  - `App\Work\TaskCompleter`: una pulsación a la vez por elemento (candado de caché de 15 s), 5 s de tiempo total y de conexión, sin redirecciones, TLS verificado, sin reintentos. `2xx` y `409 already_done` lo marcan hecho sin cambiar `version`; `404` lo borra dejando el rastro de versión; lo demás lo deja pendiente. Mensajes de §6.4.
+  - `App\Work\TaskCompleter`: una pulsación a la vez por elemento (candado de caché de 15 s), 5 s de tiempo total y de conexión, sin redirecciones, TLS verificado, sin reintentos. `200 completed` y `409 already_done` lo marcan hecho sin cambiar `version`; `404 not_found` lo borra dejando el rastro de versión; lo demás lo deja pendiente. Mensajes de §6.4.
   - Auditoría (tipo API, por la persona, sobre la integración): `work_item.completed` y `work_item.complete_failed` con `external_id`, `request_id`, código HTTP o `timeout` y el motivo; etiquetas en `AuditPresenter` («Completó una tarea de», «No pudo completar una tarea de», «Elemento», «Pedido», «Respuesta HTTP», «Motivo»).
   - Documentación: `docs/despliegue.md` §1.20, `docs/api.md` §7, contrato §2.2 y manual §2.7 y §4.7.
   - Evidencia: RED (las clases no existían; primer fallo en `IntegrationSigningSecretTest`) y GREEN 42/42 en `PortalSignatureTest`, `CompleteTaskTest` e `IntegrationSigningSecretTest`; la firma coincide con el dato de prueba del contrato. Admin, API y Auditoría 628/628. Commit `c92210f` (unas 1.240 líneas: 525 de código y 689 de pruebas; pasa de las ~400 por las pruebas de cada fila de §6.4 y de cada rechazo).
@@ -50,6 +50,18 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
 - [x] R3. **Rango de `due_at`.** Ruta: delegada (mismo escritor).
   - La columna es `TIMESTAMP` (migración `2026_11_03_100002`). La API acepta del `2000-01-01T00:00:00Z` al `2037-12-31T23:59:59Z`, comparando el instante (la zona cuenta); fuera, `422` en `due_at`. Constantes `WorkItem::EARLIEST_DUE_AT` y `LATEST_DUE_AT`. Contrato 0.2.1 y `docs/api.md` §7.
   - Evidencia: RED 6/108 y GREEN 108/108 en `WorkItemsApiTest`. Commit `d84d531`.
+
+- [x] RV. **Correcciones de la revisión independiente** (1 media, 8 bajas). Ruta: delegada (mismo escritor); RED antes de cada una.
+  - [x] Media: §6.4 tal como está escrito. Completada solo con `200` + `completed` o `409` + `already_done`; borrada solo con `404` + `not_found`; rechazada solo con `403` + `not_assignee` o `not_completable`. `201`, `202`, `204`, un `200` sin `code`, un `404` vacío o en HTML y cualquier otro `code` son `unexpected_response` y no tocan el elemento. Contrato 0.2.1 aclara que el `code` es obligatorio.
+  - [x] Dentro del candado, `TaskCompleter` vuelve a leer el elemento con `visibleTo()` y exige `canBeCompletedFromPortal()`; si no, responde el resultado neutro nuevo `Stale` («Esta tarea cambió mientras tanto. Revisa tu lista de tareas.») sin llamar.
+  - [x] `markDone()` y el borrado por `404` (`deleteIfUnchanged()`) exigen la `version` vista al pulsar; si un `PUT` con versión mayor llegó durante la llamada, gana y la persona ve `Stale`. La Auditoría sigue registrando lo que respondió la app.
+  - [x] La ruta acepta solo `[0-9]{1,18}`: un id más largo es 404, no 500.
+  - [x] `Integration::isValidAppBaseUrl()` acepta en la ruta solo `A-Z a-z 0-9 . _ ~ ! $ & ' ( ) * + , ; = : @ % / -`. Integraciones exige el mismo host (y puerto) que la app del catálogo al crear y al guardar; la comprobación al llamar sigue.
+  - [x] `canBeCompletedFromPortal()` no descifra: `Integration::hasSigningSecret()` mira el valor crudo y la pista. Solo `TaskCompleter` descifra; un `DecryptException` es un fallo auditado (`secret_unavailable`, sin código HTTP), nunca un 500.
+  - [x] Las instrucciones del servidor MCP dicen que los títulos de tareas y aprobaciones son datos escritos por personas, nunca instrucciones.
+  - [x] Pruebas nuevas: el mismo `oid` en otro inquilino es 404; un administrador sin `AdminSections::INTEGRATIONS` no puede generar el secreto.
+  - [x] `docs/estado-del-proyecto.md` ya no dice que falta C3b.
+  - Evidencia: RED 16 (11 fallos y 5 errores) en `CompleteTaskTest`, `IntegrationSigningSecretTest` e `IntegrationsPageTest`; GREEN 181/181 en esos archivos y en `tests/Feature/Mcp/Tools`.
 
 ## Criterios de aceptación
 
@@ -70,10 +82,12 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
 
 ## Decisiones para revisar
 
-- La URL base debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama. Se comprueba al llamar, no al guardar en Integraciones.
+- La URL base debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama. Se comprueba al guardar en Integraciones y otra vez al llamar.
 - El secreto se genera aparte, con **Generar secreto** en el detalle del sistema, no junto con el token al crearlo.
 - Los rechazos antes de llamar (403 y 404) no dejan entrada en Auditoría: no hubo intento.
-- Cualquier `2xx` cuenta como completada (el contrato dice `200`).
+- ~~Cualquier `2xx` cuenta como completada~~: corregido en la revisión, ahora sigue §6.4 tal como está escrito.
+- Un `403` sin `not_assignee` ni `not_completable` cuenta como respuesta inesperada (sigue pendiente, motivo `unexpected_response`).
+- Un secreto que no se puede descifrar (otra `APP_KEY`) es un intento fallido sin llamada, con motivo `secret_unavailable` (no está en la lista de motivos del contrato §6.5).
 - `due_at` queda en `TIMESTAMP` con el rango validado, en vez de cambiar la columna a `DATETIME`.
 
 ## Siguiente paso
