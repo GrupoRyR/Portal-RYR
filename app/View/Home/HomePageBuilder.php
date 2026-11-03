@@ -273,6 +273,8 @@ final class HomePageBuilder
      * from the entry's own account, the one with its tenant, object ID and
      * company, and only when that account chose to show it; never through
      * `person_id`. No query without a directory (DirectoryEntry::companyIdFor()).
+     * The query is DirectoryEntry::homeDirectory(), shared with the Claude
+     * connector's `cumpleanos_y_aniversarios`.
      *
      * @return Collection<int, DirectoryEntry>
      */
@@ -282,25 +284,7 @@ final class HomePageBuilder
             return new Collection;
         }
 
-        return DirectoryEntry::query()
-            ->select([
-                'directory_entries.id',
-                'directory_entries.tenant_id',
-                'directory_entries.azure_oid',
-                'directory_entries.display_name',
-                'directory_entries.job_title',
-                'directory_entries.department',
-                'directory_entries.email',
-                'directory_entries.hire_date',
-                'directory_entries.search_text',
-            ])
-            // The birthdays people chose to show (shared with the Monday digest).
-            ->celebrationsOf($companyId)
-            // Only directory_entries has display_name.
-            ->orderBy('display_name')
-            ->orderBy('directory_entries.id')
-            ->limit(HomeSearchIndex::PEOPLE_LIMIT)
-            ->get();
+        return DirectoryEntry::homeDirectory($companyId);
     }
 
     /**

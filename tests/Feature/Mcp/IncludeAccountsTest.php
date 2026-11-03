@@ -496,8 +496,8 @@ class IncludeAccountsTest extends TestCase
         // quien_soy answers with every usable account, the approving one first.
         $call = $this->mcp((string) $tokens->json('access_token'), 'tools/call', ['name' => 'quien_soy', 'arguments' => []])->assertOk();
         $this->assertSame(['cuentas' => [
-            ['nombre' => 'Jhon Castro', 'correo' => 'jhon.castro@segurex.com', 'empresa' => 'Segurex Latam S.A.S.'],
-            ['nombre' => 'Jhon Castro', 'correo' => 'derivados.info@derivados.com', 'empresa' => 'Soluciones y Derivados'],
+            ['nombre' => 'Jhon Castro', 'correo' => 'jhon.castro@segurex.com', 'empresa' => 'Segurex'],
+            ['nombre' => 'Jhon Castro', 'correo' => 'derivados.info@derivados.com', 'empresa' => 'Derivados'],
         ]], $call->json('result.structuredContent'));
     }
 
@@ -973,7 +973,7 @@ class IncludeAccountsTest extends TestCase
 
         $call = $this->mcp($token, 'tools/call', ['name' => 'quien_soy', 'arguments' => []])->assertOk();
         $this->assertSame(
-            [['nombre' => 'Jhon Castro', 'correo' => 'jhon.castro@segurex.com', 'empresa' => 'Segurex Latam S.A.S.']],
+            [['nombre' => 'Jhon Castro', 'correo' => 'jhon.castro@segurex.com', 'empresa' => 'Segurex']],
             $call->json('result.structuredContent.cuentas'),
         );
     }

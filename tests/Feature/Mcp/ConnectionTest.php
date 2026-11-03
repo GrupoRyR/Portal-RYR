@@ -95,7 +95,7 @@ class ConnectionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('result.tools.0.name', 'quien_soy')
             ->assertJsonPath('result.tools.0.annotations.readOnlyHint', true)
-            ->assertJsonCount(1, 'result.tools');
+            ->assertJsonCount(7, 'result.tools');
 
         $call = $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'quien_soy', 'arguments' => []])
             ->assertOk();
@@ -103,7 +103,7 @@ class ConnectionTest extends TestCase
         $this->assertSame(['cuentas' => [[
             'nombre' => 'Jhon Castro',
             'correo' => 'jhon.castro@segurex.com',
-            'empresa' => 'Segurex Latam S.A.S.',
+            'empresa' => 'Segurex',
         ]]], $call->json('result.structuredContent'));
     }
 
