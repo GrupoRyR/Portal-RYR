@@ -15,6 +15,8 @@ use App\Models\AppLaunch;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\User;
 use App\Settings\PortalSettings;
 use Carbon\CarbonImmutable;
@@ -66,6 +68,8 @@ final class AuditPresenter
         'integration.ips_changed' => 'Cambió las IP permitidas de',
         'integration.work_app_changed' => 'Cambió la app de tareas de',
         'backup.requested' => 'Pidió',
+        'product.moved' => 'Movió',
+        'product_category.moved' => 'Movió',
     ];
 
     private const REJECTION_REASONS = [
@@ -187,6 +191,12 @@ final class AuditPresenter
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
         PortalSettings::ALLOWED_APP_HOSTS => 'Dominios permitidos',
         PortalSettings::API_STATUS_TTL => 'Quitar «Con fallas» después de (horas)',
+        'summary' => 'Resumen',
+        'photo_path' => 'Foto',
+        'link_url' => 'Enlace',
+        'product_category_id' => 'Categoría',
+        'published' => 'Publicado',
+        'company_id' => 'Empresa',
     ];
 
     /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
@@ -268,6 +278,8 @@ final class AuditPresenter
             (new Event)->getMorphClass() => 'el evento «'.($name('title') ?? '(eliminado)').'»',
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
             (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
+            (new ProductCategory)->getMorphClass() => 'la categoría de productos «'.($name('name') ?? '(eliminada)').'»',
+            (new Product)->getMorphClass() => 'el producto «'.($name('name') ?? '(eliminado)').'»',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
         };
     }
