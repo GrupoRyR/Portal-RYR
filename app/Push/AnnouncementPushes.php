@@ -24,9 +24,12 @@ use Illuminate\Support\Str;
  * that see the announcement on the home right now, by the same rule as
  * Announcement::scopeVisibleTo(): published, and addressed to the
  * account's company (every company when it is for all); accounts without
- * a company, the emergency one included, see none. Seeing is per account,
- * so a person with linked accounts gets it on the devices of the account
- * that sees it.
+ * a company, the emergency one included, see none. Narrower than the home
+ * in two ways (PushSubscriptions::reachable()): the company must be active
+ * and the account must have signed in within push.max_inactive_days, so a
+ * phone that left the company stops getting notices. Seeing is per
+ * account, so a person with linked accounts gets it on the devices of the
+ * account that sees it.
  *
  * Each device is recorded (App\Models\PushDelivery) before the push service
  * is called, and the unique pair (announcement, endpoint) keeps it from a
@@ -114,10 +117,7 @@ class AnnouncementPushes
      */
     private function candidates(Announcement $announcement, int $limit): Collection
     {
-        return PushSubscription::query()
-            ->join('users', 'users.id', '=', 'push_subscriptions.user_id')
-            ->where('users.is_emergency', false)
-            ->whereNotNull('users.company_id')
+        return PushSubscriptions::reachable()
             ->when(! $announcement->isForAllCompanies(), fn (Builder $query) => $query->whereIn(
                 'users.company_id',
                 DB::table('announcement_company')->where('announcement_id', $announcement->id)->select('company_id'),

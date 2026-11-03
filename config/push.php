@@ -28,6 +28,11 @@ return [
         'notify.windows.com',
     ],
 
+    // An account that has not signed in for this many days gets no notices,
+    // and a daily prune (portal:prune-push-subscriptions) drops its devices:
+    // a phone that left the company stops getting its announcements.
+    'max_inactive_days' => 90,
+
     // Notifications per run of the cron (every minute), across announcements.
     'batch' => 100,
 

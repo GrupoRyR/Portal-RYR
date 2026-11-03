@@ -54,9 +54,10 @@ class SendAnnouncementPushesCommandTest extends TestCase
         return PushSubscription::factory()->for($user)->endpoint("https://fcm.googleapis.com/fcm/send/{$name}")->create();
     }
 
+    /** An account of the company that signed in yesterday. */
     private function account(Company $company, string $name = 'Persona'): User
     {
-        return User::factory()->microsoft($company)->create(['name' => $name]);
+        return User::factory()->microsoft($company)->create(['name' => $name, 'last_login_at' => now()->subDay()]);
     }
 
     private function runCron(): void
@@ -229,16 +230,26 @@ class SendAnnouncementPushesCommandTest extends TestCase
         $this->assertNotNull($announcement->fresh()->push_finished_at);
     }
 
-    public function test_it_reaches_exactly_the_accounts_that_see_it_on_the_home(): void
+    /**
+     * The oracle: what the home shows the account (scopeVisibleTo), narrowed
+     * to active companies and accounts that signed in within
+     * push.max_inactive_days.
+     */
+    public function test_it_reaches_exactly_the_active_accounts_that_see_it_on_the_home(): void
     {
         $andina = Company::factory()->create(['name' => 'Andina', 'is_active' => false]);
         $accounts = [
             $this->account($this->segurex, 'Segurex'),
             $this->account($this->derivados, 'Derivados'),
             $this->account($andina, 'Andina inactiva'),
-            User::factory()->microsoft($this->segurex)->create(['is_guest' => true]),
-            User::factory()->create(['company_id' => null]),
+            User::factory()->microsoft($this->segurex)->create(['is_guest' => true, 'last_login_at' => now()->subDays(3)]),
+            User::factory()->create(['company_id' => null, 'last_login_at' => now()]),
+            User::factory()->microsoft($this->derivados)->create(['last_login_at' => now()->subDays(91)]),
+            User::factory()->microsoft($this->segurex)->create(['last_login_at' => null]),
         ];
+        $active = fn (User $user) => $user->company?->is_active === true
+            && $user->last_login_at !== null
+            && $user->last_login_at->gte(now()->subDays((int) config('push.max_inactive_days')));
         foreach ($accounts as $i => $account) {
             $this->device($account, "device-{$i}");
         }
@@ -255,13 +266,48 @@ class SendAnnouncementPushesCommandTest extends TestCase
             $expected = collect($accounts)
                 ->keys()
                 ->filter(fn (int $i) => Announcement::query()->visibleTo($accounts[$i])->whereKey($announcement->id)->exists())
+                ->filter(fn (int $i) => $active($accounts[$i]))
                 ->map(fn (int $i) => "https://fcm.googleapis.com/fcm/send/device-{$i}")
                 ->values()
                 ->all();
 
             $this->assertNotEmpty($expected);
+            $this->assertNotContains('https://fcm.googleapis.com/fcm/send/device-2', $expected, 'The inactive company never gets it.');
             $this->assertEqualsCanonicalizing($expected, $this->sender->endpoints(), 'Announcement '.$announcement->id);
         }
+    }
+
+    public function test_an_account_that_has_not_signed_in_for_too_long_gets_nothing(): void
+    {
+        config(['push.max_inactive_days' => 30]);
+        $recent = User::factory()->microsoft($this->segurex)->create(['last_login_at' => now()->subDays(29)]);
+        $stale = User::factory()->microsoft($this->segurex)->create(['last_login_at' => now()->subDays(31)]);
+        $this->device($recent, 'recent');
+        $this->device($stale, 'stale');
+        Announcement::factory()->create(['push_phone' => true]);
+
+        $this->runCron();
+
+        $this->assertSame(['https://fcm.googleapis.com/fcm/send/recent'], $this->sender->endpoints());
+    }
+
+    public function test_a_daily_prune_drops_the_devices_of_stale_accounts_and_inactive_companies(): void
+    {
+        $kept = $this->device($this->account($this->segurex), 'kept');
+        $this->device(User::factory()->microsoft($this->segurex)->create(['last_login_at' => now()->subDays(91)]), 'stale');
+        $this->device(User::factory()->microsoft($this->segurex)->create(['last_login_at' => null]), 'never');
+        $this->device($this->account(Company::factory()->create(['is_active' => false])), 'inactive');
+        $this->device(User::factory()->emergency()->create(), 'emergency');
+
+        $this->artisan('portal:prune-push-subscriptions')->assertSuccessful();
+
+        $this->assertSame([$kept->id], PushSubscription::query()->pluck('id')->all());
+
+        $event = collect($this->app->make(Schedule::class)->events())
+            ->first(fn (Event $event) => str_contains((string) $event->command, 'portal:prune-push-subscriptions'));
+        $this->assertNotNull($event, 'portal:prune-push-subscriptions is not scheduled.');
+        $this->assertSame('America/Bogota', $event->timezone);
+        $this->assertTrue($event->withoutOverlapping);
     }
 
     public function test_a_linked_account_gets_it_only_on_the_devices_of_the_account_that_sees_it(): void

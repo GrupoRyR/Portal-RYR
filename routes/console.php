@@ -126,6 +126,14 @@ Schedule::command('portal:send-announcement-pushes')
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// Devices of accounts that have not signed in for push.max_inactive_days,
+// or of inactive companies, are forgotten every night
+// (App\Push\PushSubscriptions::prune()).
+Schedule::command('portal:prune-push-subscriptions')
+    ->dailyAt('04:45')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
 // «Resumen de los lunes» (App\Digest\WeeklyDigests): on Mondays, every
 // hour from 07:00 to 12:00 in Bogotá. The first run sends each company's
 // digest once; the later ones only catch up the companies it did not

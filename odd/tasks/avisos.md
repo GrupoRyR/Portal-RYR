@@ -40,6 +40,10 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - [x] T2. **Envío desde el cron.** Ruta: el mismo escritor: migraciones, `Announcement`, editor y vista de Admin, servicio de envío, emisor, comando, horario, Auditoría y pruebas.
 - [x] T3. **Service worker.** Ruta: el mismo escritor: `resources/js/sw.js` y sus pruebas.
 - [x] T4. **Documentos.** Ruta: el mismo escritor: despliegue §1.22 y manual §14.
+- [x] R1. **Revisión, medio 1: solo cuentas activas.** Ruta: el mismo escritor (servicio, comando, horario, configuración, pruebas y documentos). Los avisos van solo a empresas activas y a cuentas que entraron en los últimos `push.max_inactive_days` (90); poda diaria `portal:prune-push-subscriptions` a las 04:45. `Announcement::scopeVisibleTo` no cambia.
+- [ ] R2. **Revisión, medio 2 y bajos 1, 2 y 5: nunca perder dispositivos por una falla general.** El emisor y VAPID se validan antes de anotar entregas; corte si un bloque entero falla sin respuesta HTTP; terminar el anuncio sin deshacer una casilla marcada de nuevo; reabrir al cambiar el público; carga útil por anuncio antes de anotar; un anuncio roto no bloquea a los demás; pruebas de choque de anotaciones, presupuesto, opciones de Guzzle y tamaño de la carga útil.
+- [ ] R3. **Revisión, bajos 3 y 4: cerrar sesión y llaves cambiadas.** Al cerrar sesión se borra la suscripción del navegador (servidor y `home.js`); el control de `/cuenta` se suscribe de nuevo si la llave VAPID cambió.
+- [ ] R4. **Revisión, bajo 6: nota de dependencias.** Se deja el cambio de cuenta de un endpoint y las versiones; se anota la fecha de `web-token/jwt-library` 4.2.4.
 
 ## Criterios de aceptación
 

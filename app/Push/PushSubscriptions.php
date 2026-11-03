@@ -4,6 +4,7 @@ namespace App\Push;
 
 use App\Models\PushSubscription;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The devices of an account that get «Avisos en el celular» (POST and
@@ -21,6 +22,54 @@ class PushSubscriptions
     public const MAX_PER_USER = 10;
 
     public const MAX_ENDPOINT_LENGTH = 2048;
+
+    /**
+     * The devices that may get notices at all, with the users table joined
+     * (select `push_subscriptions.*`): of accounts that are not the
+     * emergency one, whose company is active, and that signed in within
+     * config push.max_inactive_days. Which announcement each one sees is
+     * App\Push\AnnouncementPushes' job.
+     *
+     * @return Builder<PushSubscription>
+     */
+    public static function reachable(): Builder
+    {
+        return PushSubscription::query()
+            ->join('users', 'users.id', '=', 'push_subscriptions.user_id')
+            ->join('companies', 'companies.id', '=', 'users.company_id')
+            ->where('companies.is_active', true)
+            ->where('users.is_emergency', false)
+            ->where('users.last_login_at', '>=', now()->subDays((int) config('push.max_inactive_days', 90)));
+    }
+
+    /**
+     * Daily (portal:prune-push-subscriptions): deletes every device that is
+     * not {@see reachable()}, so a phone of an account that stopped signing
+     * in, or of a company that was switched off, is forgotten. Returns how
+     * many went.
+     */
+    public function prune(): int
+    {
+        // The ids first: MariaDB refuses a DELETE with a subquery on the same table.
+        $ids = PushSubscription::query()
+            ->leftJoin('users', 'users.id', '=', 'push_subscriptions.user_id')
+            ->leftJoin('companies', 'companies.id', '=', 'users.company_id')
+            ->where(fn (Builder $query) => $query
+                ->whereNull('companies.id')
+                ->orWhere('companies.is_active', false)
+                ->orWhere('users.is_emergency', true)
+                ->orWhereNull('users.last_login_at')
+                ->orWhere('users.last_login_at', '<', now()->subDays((int) config('push.max_inactive_days', 90))))
+            ->pluck('push_subscriptions.id');
+
+        $deleted = 0;
+
+        foreach ($ids->chunk(500) as $chunk) {
+            $deleted += PushSubscription::query()->whereKey($chunk->all())->delete();
+        }
+
+        return $deleted;
+    }
 
     public function subscribe(User $user, string $endpoint, string $publicKey, string $authToken, string $contentEncoding, ?string $userAgent): void
     {
