@@ -30,6 +30,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\Product;
 use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -229,6 +230,13 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/categorias', 'admin.categories.index')
             ->can('viewAny', AppCategory::class)
             ->name('categories.index');
+
+        // App\Policies\ProductPolicy and ProductCategoryPolicy: super_admin
+        // and portal_admin. App\Livewire\Admin\ProductManager re-authorizes
+        // every action.
+        Route::view('/catalogos', 'admin.products.index')
+            ->can('viewAny', Product::class)
+            ->name('products.index');
 
         // App\Policies\RolePolicy: super_admin and portal_admin; both only
         // add or remove announcements editors.
