@@ -450,6 +450,12 @@ class WorkItemsApiTest extends TestCase
             'due_at only a date' => [['due_at' => '2026-11-05'], 'due_at'],
             'due_at impossible' => [['due_at' => '2026-02-30T17:00:00-05:00'], 'due_at'],
             'due_at not a date' => [['due_at' => 'mañana'], 'due_at'],
+            // The column is a TIMESTAMP: MariaDB keeps 1970 to 2038 only.
+            'due_at in year 1' => [['due_at' => '0001-01-01T00:00:00Z'], 'due_at'],
+            'due_at before 2000' => [['due_at' => '1999-12-31T23:59:59Z'], 'due_at'],
+            'due_at in 2038' => [['due_at' => '2038-01-19T03:14:08Z'], 'due_at'],
+            'due_at in 2100' => [['due_at' => '2100-01-01T00:00:00-05:00'], 'due_at'],
+            'due_at in 9999' => [['due_at' => '9999-12-31T23:59:59Z'], 'due_at'],
             'url missing' => [['url' => null], 'url'],
             'completable missing' => [['completable_from_portal' => null], 'completable_from_portal'],
             'completable as text' => [['completable_from_portal' => 'true'], 'completable_from_portal'],
@@ -487,6 +493,24 @@ class WorkItemsApiTest extends TestCase
 
         $this->putItem($this->task(['due_at' => '2026-11-05T22:00:00Z']), 'utc')->assertCreated();
         $this->putItem(array_diff_key($this->task(), ['due_at' => true]), 'sin-fecha')->assertCreated();
+    }
+
+    public function test_due_at_must_be_between_2000_and_2037_utc(): void
+    {
+        $this->putItem($this->task(['due_at' => '2000-01-01T00:00:00Z']), 'primero')->assertCreated();
+        $this->putItem($this->task(['due_at' => '2037-12-31T23:59:59Z']), 'ultimo')->assertCreated();
+        $this->putItem($this->task(['due_at' => '2037-12-31T18:59:59-05:00']), 'ultimo-bogota')->assertCreated();
+
+        $this->assertTrue(WorkItem::query()->where('external_id', 'ultimo')->sole()->due_at->eq(CarbonImmutable::parse('2037-12-31T23:59:59Z')));
+
+        // The offset decides: these are 1999-12-31T23:00Z and 2038-01-01T04:59:59Z.
+        foreach (['2000-01-01T00:00:00+01:00', '2037-12-31T23:59:59-05:00'] as $dueAt) {
+            $this->putItem($this->task(['due_at' => $dueAt]), 'fuera')
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['due_at' => 'The due at field must be between 2000-01-01 and 2037-12-31 (UTC).']);
+        }
+
+        $this->assertSame(0, WorkItem::query()->where('external_id', 'fuera')->count());
     }
 
     public function test_a_body_over_8_kb_answers_413(): void

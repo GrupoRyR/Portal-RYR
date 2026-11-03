@@ -1,7 +1,7 @@
 # Contrato de integración: app de tareas y aprobaciones — Portal RYR
 
-> **Planeado: el portal todavía no implementa esto. Versión 0.2 (2026-10-30).**
-> Nada de lo que describe este documento existe hoy en el portal. Es el acuerdo entre el portal y la futura «app de tareas y aprobaciones» para que ambos lados se construyan por separado y encajen.
+> **Versión 0.2.1 (2026-11-03).** El portal ya implementa la entrada (sección 3) y «Completar» (sección 6) en el servidor; falta la lista del inicio con sus botones.
+> Es el acuerdo entre el portal y la futura «app de tareas y aprobaciones» para que ambos lados se construyan por separado y encajen.
 
 Este documento es para el equipo que construye la app de tareas y aprobaciones, y para quien implemente la parte del portal. Lo que no se dice aquí sigue las reglas de la API actual ([`docs/api.md`](api.md)).
 
@@ -142,7 +142,7 @@ Aprobación:
 | `kind` | Sí | `task` (tarea) o `approval` (aprobación). No puede cambiar para un mismo `external_id`, ni con una `version` mayor. Para otro tipo, borre el elemento y créelo con otro `external_id`. |
 | `title` | Sí | Texto que se ve en el inicio. De 1 a 140 caracteres después de quitar espacios al inicio y al final. Texto plano, en una sola línea: sin saltos de línea ni caracteres de control. El portal lo muestra escapado, nunca como HTML. Ver la advertencia de abajo. |
 | `status` | Sí | `pending` (se ve en el inicio), `done` (hecha) o `cancelled` (cancelada). Solo `pending` se ve. |
-| `due_at` | No | Fecha límite, ISO 8601 **con zona horaria**. `null` o ausente: sin fecha. Una fecha sin zona responde `422`. |
+| `due_at` | No | Fecha límite, ISO 8601 **con zona horaria**. `null` o ausente: sin fecha. Una fecha sin zona responde `422`. Debe estar entre `2000-01-01T00:00:00Z` y `2037-12-31T23:59:59Z`, comparando el instante (la zona cuenta); fuera de ese rango responde `422`. |
 | `url` | Sí | Enlace para ver el elemento en la app. Reglas en la sección 5. Máximo 2048 caracteres. |
 | `completable_from_portal` | Sí | `true` si la persona puede completar la tarea desde el portal. **Siempre `false` en las aprobaciones**: `true` con `approval` responde `422`. |
 | `version` | Sí | Entero de 1 a 9007199254740991 que la app sube en cada cambio del elemento. Reglas en 3.3. |
@@ -230,7 +230,7 @@ Motivos de `422` propios de este endpoint:
 | `kind` | No es `task` ni `approval`, o cambió para un `external_id` que ya existe, con cualquier `version`. |
 | `title` | Vacío, de más de 140 caracteres, con saltos de línea o caracteres de control. |
 | `status` | No es `pending`, `done` ni `cancelled`. |
-| `due_at` | No es una fecha ISO 8601 con zona horaria. |
+| `due_at` | No es una fecha ISO 8601 con zona horaria, o está antes del 2000-01-01 o después del 2037-12-31 (UTC). |
 | `url` | No es `https`, su host no es el de la app del catálogo, trae usuario o contraseña, o pasa de 2048 caracteres. También si la integración no tiene una app del catálogo con `url`. |
 | `completable_from_portal` | No es booleano, o es `true` en una aprobación. |
 | `version` | No es un entero entre 1 y 9007199254740991. |
@@ -567,5 +567,6 @@ Portal → App:
 | 0.1 | 2026-10-29 | La firma de «Completar» cubre también el método y la ruta: `timestamp` + `"\n"` + `"POST"` + `"\n"` + ruta + `"\n"` + cuerpo. Nuevo dato de prueba. Se quita la regla que ligaba `request_id` a `external_id`, porque ya no hace falta. Se cierra la pregunta abierta sobre la ruta sin firmar. |
 | 0.1.1 | 2026-10-30 | Decisión de Jhon: un `PUT` con la misma `version` pero otro `kind` u otro `assignee` responde `422`, como con una versión mayor (3.3, punto 3). |
 | 0.2 | 2026-10-30 | Decisión de Jhon: la app puede equivocarse, así que un `PUT` con una `version` mayor puede cambiar el `assignee`: el elemento pasa del portal de una persona al de la otra. Con la misma `version`, otro `assignee` responde `422` pidiendo subir la versión. El límite de 500 pendientes se comprueba también para la persona nueva al reasignar un elemento pendiente. `kind` sigue sin poder cambiar, con ninguna `version`. |
+| 0.2.1 | 2026-11-03 | `due_at` debe estar entre el 2000-01-01 y el 2037-12-31 (UTC); fuera de ese rango, `422`. La URL base de la app debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama a «Completar» (2.2). |
 
 Los cambios a este contrato los decide Jhon, con un PR en el repositorio del portal (GrupoRyR/Portal-RYR).

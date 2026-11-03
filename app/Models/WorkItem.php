@@ -57,6 +57,16 @@ class WorkItem extends Model
 
     public const MAX_PENDING_PER_PERSON = 500;
 
+    /**
+     * The range of `due_at`. The column is a TIMESTAMP, which MariaDB keeps
+     * only from 1970 to 2038-01-19 UTC (strict mode answers an error
+     * otherwise); a day of margin on each side covers the session time
+     * zone of the connection.
+     */
+    public const EARLIEST_DUE_AT = '2000-01-01T00:00:00Z';
+
+    public const LATEST_DUE_AT = '2037-12-31T23:59:59Z';
+
     /** Days a deletion trace, a done or a cancelled item is kept. */
     public const RETENTION_DAYS = 30;
 
