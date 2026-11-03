@@ -70,14 +70,37 @@ Un solo escritor delegado para toda la línea (varias carpetas, más de 2 archiv
 ## Decisiones
 
 - **Fecha del euro.** Se guarda con la fecha de referencia del BCE (`Cube time`), sin `valid_until`. Así «frente al valor anterior» compara contra el día de referencia anterior del BCE.
-- **TRM para el euro.** La que está en vigor hoy en Bogotá (la de mayor `valid_from` menor o igual a hoy), la de esta corrida o una anterior. La TRM publicada por adelantado se guarda, pero no se usa hasta su fecha.
+- **TRM para el euro.** La vigente en la fecha del BCE D (la de mayor `valid_from` menor o igual a D), de esta corrida o de una anterior; así la fila D es siempre TRM(D) × BCE(D) (revisión H1). La TRM publicada por adelantado se guarda, pero no entra al euro de una fecha anterior.
 - **«Último valor» del tablero.** `MarketBoard` toma el valor más reciente con `valid_from` menor o igual a hoy (Bogotá), con `ROW_NUMBER() OVER (PARTITION BY code …)` en una sola consulta (MySQL 8 y SQLite lo soportan).
-- **Tope de 1 MB.** La respuesta se lee por partes (`stream`) y se corta al pasar el tope; también se rechaza por `Content-Length`. Se comprobó con un servidor local (cuerpo de 3 MB con y sin `Content-Length`, redirección, respuesta lenta y puerto cerrado): `too_large`, `too_large`, `http_302`, `connection`, `connection`.
-- **Fechas.** `valid_from` y `valid_until` se escriben como `Y-m-d` (cast `date:Y-m-d`): en SQLite una fecha con hora no compara bien como texto.
-- **Códigos de log.** `connection`, `http_<estado>`, `too_large`, `invalid_json`, `invalid_xml`, `doctype`, `invalid_data`, `no_trm`, `unexpected` (con la clase de la excepción).
+- **Tope de 1 MB.** La respuesta se lee por partes (`stream`) y se corta al pasar el tope; también se rechaza por `Content-Length`. Se comprobó con un servidor local (cuerpo de 3 MB con y sin `Content-Length`, redirección, respuesta lenta y puerto cerrado): `too_large`, `too_large`, `http_302`, `connection`, `connection`. El tope de tiempo se reforzó en la revisión (M1).
+- **Fechas.** `valid_from` y `valid_until` se escriben siempre como `Y-m-d` con un mutador (revisión L1); el cast `date:Y-m-d` solo da formato al serializar. En SQLite una fecha con hora no compara bien como texto.
+- **Códigos de log.** `connection`, `timeout`, `http_<estado>`, `too_large`, `invalid_json`, `invalid_xml`, `doctype`, `invalid_data`, `no_trm`, `unexpected` (con la clase de la excepción).
 
 ## Evidencia de verificación
 
+
+### Entrega inicial (`6cf704e`, `65aa5c9`, `d5fbce9`)
+
 - RED (antes de implementar): `php artisan test --compact tests/Unit/Markets tests/Feature/Markets`: 39 pruebas, 0 pasan (2 fallos, 37 errores por clases y comando inexistentes).
-- GREEN: `tests/Unit/Markets` 12/12; `tests/Feature/Markets` 27/27 (tabla 5, comando 16, tablero 6).
-- Completa: `php artisan test --compact` 2311/2311 (base 2272 + 39). `vendor/bin/pint --test` pasa.
+- GREEN: 39/39. Completa: 2311/2311 (base 2272). `vendor/bin/pint --test` pasa.
+
+## Revisión independiente (2026-11-03)
+
+Revisión de `feat/mercados` por el coordinador. Hallazgos, arreglos y evidencia, con el RED antes del GREEN.
+
+| ID | Hallazgo | Arreglo | Prueba |
+|---|---|---|---|
+| H1 (alto) | La corrida de las 7:10 ve el archivo del día anterior del BCE (publica hacia las 16:00 de Frankfurt, 9:00 a 10:00 en Bogotá) y guardaba (euro, D-1) con TRM(D) × BCE(D-1), pisando la fila correcta; en fines de semana y festivos reescribía la del viernes sin parar. | Cada fila del euro usa la TRM vigente en la fecha del BCE (`valid_from <= fecha`, la más nueva): la fila D es siempre TRM(D) × BCE(D) y las corridas son idempotentes. Se corrigieron el comentario de `routes/console.php`, la documentación del servicio y `docs/despliegue.md` §1.16. | `test_the_morning_run_before_the_ecb_publishes_does_not_rewrite_the_previous_euro` (13:10 del día anterior, 7:10 con el archivo viejo, 13:10 del día: la fila anterior no cambia y el cambio del tablero es 82,3708 / 2,40 %), `test_a_weekend_run_keeps_rewriting_the_same_friday_row_with_the_same_value`, `test_an_older_ecb_date_takes_the_trm_of_that_older_date`. `test_running_it_again_updates_rows_instead_of_duplicating_them` se reescribió: ya no consagra el pisado (misma data dos veces no cambia nada; una corrección de la TRM mueve su fila y el euro de la misma fecha). |
+| M1 (medio) | Con `stream => true` el manejador de flujo de Guzzle 8.2 descarta el tiempo total y conserva solo el de inactividad entre lecturas: una fuente que gotea bytes no termina nunca. | Plazo de reloj (`microtime`) dentro del ciclo de lectura, con `markets.timeout`; código `timeout`. Horario con `withoutOverlapping(10)`. Documentación del código `timeout` y del candado de 10 minutos. | `test_a_source_that_trickles_bytes_is_cut_at_the_deadline` (flujo que entrega 1 byte cada 250 ms: falla en 1 a 4 s con `timeout`; el código anterior no terminaba nunca), `test_it_is_scheduled_twice_a_day_in_bogota_time` (ahora exige `expiresAt` 10). |
+| L1 | El cast `date:Y-m-d` solo da formato al serializar: asignar un Carbon escribía fecha y hora. | Mutadores de `valid_from` y `valid_until` que escriben `Y-m-d`; comentario corregido. | `test_dates_are_stored_without_a_time_whatever_is_assigned`. |
+| L2 | Sin desempate en el orden de la TRM. | `$order=vigenciadesde DESC, :updated_at DESC` (comprobado a mano contra el servicio real: responde igual y acepta el campo del sistema). | `test_it_asks_the_official_hosts_for_the_latest_ten_without_redirects` (orden exacto) y `test_it_keeps_the_first_row_of_a_repeated_start_date_whole` (la fila repetida conserva su propia vigencia, sin mezcla). |
+| L3 | El euro se calculaba con flotantes. | `App\Markets\Decimal::multiply`: producto exacto de cadenas decimales y redondeo half-up a 4 decimales. **Elegí aritmética de cadenas en PHP y no `bcmul`**: `bcmath` no está garantizado en el hosting compartido y `composer.json` no se toca. Equivale a `bcmul` con 6 decimales y redondeo half-up a 4 (el truncado a 6 no cambia el quinto decimal). | `DecimalTest` (5 pruebas): exactitud, medios, 12×11 dígitos, 300 productos aleatorios contra `bcmul` cuando la extensión existe, entradas inválidas. |
+| L4 | Las pruebas de zona horaria no probaban la fecha de Bogotá. | `config(['app.timezone' => 'UTC'])` y `date_default_timezone_set('UTC')` (se restaura en `tearDown`) en `MarketBoardTest` y en `SyncMarketsCommandTest`. | `test_today_is_the_date_in_bogota_not_in_utc`. |
+| L5 | Rutas de salida temprana sin cerrar el flujo. | `fetch()` cierra el flujo en un `finally` que cubre estado distinto de 200, `too_large` por cabecera y todo lo demás. | `test_the_body_is_closed_when_the_answer_is_not_a_200`, `test_the_body_is_closed_when_the_declared_size_is_over_the_limit`. |
+| L6 | `ROW_NUMBER()` en el tablero. | Sin cambios, a la espera de que el coordinador confirme la versión de MySQL en producción. | n/a |
+
+**Evidencia**
+
+- RED (antes de los arreglos): `php artisan test --compact tests/Unit/Markets tests/Feature/Markets`: 51 pruebas, 37 pasan, 14 fallan (9 fallos y 5 errores de clase inexistente). La prueba del goteo, con el código anterior, no terminaba: se cortó a mano.
+- GREEN: 51/51 en esas carpetas. Completa: `php artisan test --compact` 2324/2324. `vendor/bin/pint --test` pasa.
+- Commits de la revisión: `084f5a0` (fechas, L1) y `267d4d2` (H1, M1, L2 a L5).
