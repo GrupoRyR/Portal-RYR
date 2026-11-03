@@ -181,6 +181,17 @@
                                class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
                     </label>
                 @endif
+                {{-- Only with the VAPID settings (App\Push\PushSettings); the cron sends it (App\Push\AnnouncementPushes). --}}
+                @if ($pushAvailable)
+                    <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
+                        <span class="flex flex-col gap-0.5">
+                            <span class="text-[0.9375rem] font-semibold">Enviar al celular</span>
+                            <span id="n-push-h" class="{{ $hint }}">Solo para lo importante. Cuando el anuncio esté publicado, quienes lo ven y activaron «Avisos en el celular» en su cuenta reciben una notificación con el título y el comienzo del texto, una sola vez por dispositivo.</span>
+                        </span>
+                        <input type="checkbox" role="switch" wire:model.live="pushPhone" aria-describedby="n-push-h"
+                               class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
+                    </label>
+                @endif
             </section>
         </form>
 

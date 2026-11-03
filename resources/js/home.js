@@ -454,8 +454,15 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
     });
 
-    // Signing out also sends Clear-Site-Data; this covers browsers without it.
+    // Signing out also sends Clear-Site-Data; this covers browsers without it:
+    // the saved pages go, and so does this browser's phone notice subscription
+    // («Avisos en el celular»; the server forgets it on logout too).
     document.addEventListener('submit', (event) => {
-        if (event.target.matches('[data-logout]')) navigator.serviceWorker.controller?.postMessage('purge');
+        if (!event.target.matches('[data-logout]')) return;
+        navigator.serviceWorker.controller?.postMessage('purge');
+        navigator.serviceWorker.getRegistration('/')
+            .then((registration) => registration?.pushManager?.getSubscription())
+            .then((subscription) => subscription && subscription.unsubscribe())
+            .catch(() => {});
     });
 }

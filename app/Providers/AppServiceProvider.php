@@ -17,6 +17,9 @@ use App\Models\User;
 use App\Policies\AdminSections;
 use App\Policies\ManagementPanelPolicy;
 use App\Policies\RolePolicy;
+use App\Push\PushSender;
+use App\Push\PushSettings;
+use App\Push\WebPushSender;
 use App\Pwa\PortalUserKey;
 use App\Settings\ApplySessionLifetime;
 use App\Settings\PortalSettings;
@@ -54,6 +57,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TenantDirectory::class);
         $this->app->singleton(PortalSettings::class);
         $this->app->bind(GraphClient::class, HttpGraphClient::class);
+        // «Avisos en el celular»: the real push services (the tests bind a fake).
+        $this->app->bind(PushSender::class, fn ($app) => new WebPushSender($app->make(PushSettings::class)));
         // Holiday days are read in the portal's timezone.
         $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
 

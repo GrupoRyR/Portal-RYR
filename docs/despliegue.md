@@ -637,6 +637,44 @@ El bloque «Estado de TI» del inicio responde de un vistazo si algo está falla
 
 > El bloque del inicio se conecta en una entrega posterior (línea del inicio). Mientras tanto, lo que se cargue en Administración queda guardado y listo.
 
+### 1.22 Avisos en el celular
+
+Los anuncios publicados con la casilla **Enviar al celular** llegan como notificación a los dispositivos de quienes los ven y activaron **Avisos en el celular** en su cuenta (`/cuenta`). Usa *web push* con el paquete `minishlink/web-push`. No hay colas: lo envía el cron de cada minuto (paso 1.9), que ya está configurado. El diseño está en `odd/tasks/avisos.md`; el uso, en `docs/manual-administracion.md` §14.
+
+Mientras falte cualquiera de las tres claves de abajo, la función está apagada: `/cuenta` no muestra el control, el editor no muestra la casilla y el cron no envía nada. Nada falla.
+
+1. **Migraciones.** El despliegue de rutina (paso 2.2) crea las tablas `push_subscriptions` y `push_deliveries` y agrega `announcements.push_phone` y `announcements.push_finished_at` con `php artisan migrate --force`. Los nombres de índices y claves son cortos a propósito (64 caracteres como máximo).
+2. **Extensiones de PHP.** `curl`, `mbstring` y `openssl` con curvas P-256, y `gmp` o `bcmath` (la firma de cada aviso hace cuentas con números grandes; sin ninguna de las dos funciona, pero mucho más lento). Compruébelo con `php -m | grep -i -E "curl|mbstring|openssl|gmp|bcmath"`; si faltan `gmp` y `bcmath`, actívelas en cPanel › **Select PHP Version** › **Extensions**. En Linux (el servidor) OpenSSL ya trae su configuración; en Windows, PHP necesita la variable `OPENSSL_CONF` apuntando a un `openssl.cnf` para crear llaves (sin ella, las pruebas del emisor real se saltan).
+3. **Crear el par de llaves VAPID (una sola vez).** Por SSH, en la carpeta del portal:
+
+   ```bash
+   php artisan portal:push-keys
+   ```
+
+   Imprime tres líneas y no escribe nada. Cópielas en el `.env` del servidor:
+
+   ```dotenv
+   PUSH_VAPID_PUBLIC_KEY=<llave pública>
+   PUSH_VAPID_PRIVATE_KEY=<llave privada>
+   PUSH_VAPID_SUBJECT=mailto:<buzón de soporte>
+   ```
+
+   `PUSH_VAPID_SUBJECT` debe empezar por `mailto:` o `https://`: es el contacto que ven los servicios de *push* (Google, Mozilla, Apple y Microsoft) si hay un problema con los envíos. La llave privada es un secreto: no la suba al repositorio ni la comparta por correo o chat.
+4. **Aplicar.** `php artisan config:cache`. No hay que tocar el cron: `portal:send-announcement-pushes` corre cada minuto dentro de `schedule:run`, envía como máximo 100 avisos por vuelta y deja de tomar nuevos a los 45 segundos (`config/push.php`). Cada noche, a las 04:45, `portal:prune-push-subscriptions` borra los dispositivos de cuentas de empresas inactivas y de cuentas que no entran al portal hace más de 90 días (`push.max_inactive_days`); esas cuentas tampoco reciben avisos mientras tanto: si la cuenta no entra al portal en 90 días deja de recibir avisos.
+5. **No cambie las llaves sin motivo.** Un par nuevo corta todas las suscripciones hechas con el anterior: ningún dispositivo recibe avisos hasta que la persona vuelve a abrir `/cuenta` en él (el control nota la llave nueva y lo suscribe de nuevo solo). Cámbielas solo si la llave privada se filtró.
+6. **iPhone y iPad.** Solo reciben avisos con iOS o iPadOS 16.4 o posterior **y** con el portal instalado en la pantalla de inicio (Safari › Compartir › «Agregar a inicio»), activándolos desde la app instalada. En Safari sin instalar, el control dice que el navegador no puede recibir avisos. Android, Windows y Mac funcionan en el navegador sin instalar nada.
+7. **Red de salida.** El servidor hace peticiones HTTPS a `fcm.googleapis.com` (Chrome y Android), `*.push.services.mozilla.com` (Firefox), `*.push.apple.com` (Safari e iPhone) y `*.notify.windows.com` (Edge). Son los únicos destinos permitidos (`push.allowed_hosts` en `config/push.php`): una suscripción a cualquier otra dirección se rechaza al guardarla y nunca se llama.
+8. **Comprobar.** Active los avisos en `/cuenta` desde un celular, publique un anuncio de prueba para su empresa con **Enviar al celular** y espere un minuto. Si no llega, en el servidor:
+
+   ```bash
+   php artisan portal:send-announcement-pushes
+   grep -i "phone notice" storage/logs/laravel.log | tail -n 5
+   ```
+
+   Un aviso rechazado deja en el registro el código HTTP, nunca la dirección del dispositivo. Un dispositivo que el servicio ya no reconoce (404/410) se borra solo. Un aviso fallido no se reintenta: cada dispositivo recibe cada anuncio una sola vez.
+
+   Una falla general no hace perder avisos: si las llaves están mal («Phone notices could not start» en el registro), el cron no anota nada; si ningún aviso de un bloque recibe respuesta de los servicios (sin red, DNS), descarta ese bloque, se detiene y lo intenta de nuevo al minuto siguiente («got no answer from any push service»).
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

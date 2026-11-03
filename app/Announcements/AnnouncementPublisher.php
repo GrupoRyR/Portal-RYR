@@ -70,6 +70,13 @@ class AnnouncementPublisher
                         'attributes' => ['companies' => $newCompanies],
                     ]);
                 }
+
+                // «Enviar al celular» with a new audience: the cron looks for devices
+                // again (App\Push\AnnouncementPushes); none gets it twice.
+                if (! $creating && $announcement->push_phone && ($announcement->wasChanged('audience') || $newCompanies !== $oldCompanies)) {
+                    $announcement->newQuery()->whereKey($announcement->getKey())->toBase()->update(['push_finished_at' => null]);
+                    $announcement->setRawAttributes([...$announcement->getAttributes(), 'push_finished_at' => null], true);
+                }
             });
         } catch (Throwable $e) {
             $this->images->delete($newPath);

@@ -120,6 +120,16 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * The devices that get «Avisos en el celular» (App\Push\PushSubscriptions).
+     *
+     * @return HasMany<PushSubscription, $this>
+     */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
+    /**
      * @return HasMany<UserGroup, $this>
      */
     public function groups(): HasMany
