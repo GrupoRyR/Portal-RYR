@@ -4,7 +4,6 @@ namespace App\View\Home;
 
 use App\Models\User;
 use App\Models\WorkItem;
-use App\Work\CompletionOutcome;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -63,25 +62,6 @@ final readonly class WorkList
             self::more($approvals),
             self::more($tasks),
         );
-    }
-
-    /**
-     * Whether a flashed `status` is one of «Completar»'s messages (§6.4),
-     * shown in this block instead of at the top of the page.
-     */
-    public static function isCompletionMessage(mixed $status): bool
-    {
-        if (! is_string($status) || $status === '') {
-            return false;
-        }
-
-        foreach (CompletionOutcome::cases() as $outcome) {
-            if ($outcome->message() === $status) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     public function isEmpty(): bool

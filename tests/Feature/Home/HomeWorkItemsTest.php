@@ -204,15 +204,49 @@ class HomeWorkItemsTest extends TestCase
     {
         $this->item(['title' => 'Otra tarea']);
 
+        $response = $this->withSession(['work_status' => CompletionOutcome::Completed->message()])->home();
+
+        $message = $this->element($response, 'data-work-status');
+        $this->assertStringContainsString('Tarea completada.', $message);
+        $this->assertStringContainsString('role="status"', $message);
+        $this->assertSame(1, $this->xpath($response)->query('//*[@data-flash]')->length);
+        $this->assertSame(1, $this->xpath($response)->query('//*[@id="tareas"]//*[@data-flash]')->length, 'The only message is the one in the block.');
+    }
+
+    public function test_a_completion_text_flashed_as_an_account_message_stays_at_the_top(): void
+    {
+        $this->item();
+
         $response = $this->withSession(['status' => CompletionOutcome::Completed->message()])->home();
 
-        $this->assertStringContainsString('Tarea completada.', $this->element($response, 'id', 'tareas'));
-        $this->assertNoElement($response, 'data-flash');
+        $this->assertStringContainsString('Tarea completada.', $this->element($response, 'data-flash'));
+        $this->assertNoElement($response, 'data-work-status');
+    }
+
+    /**
+     * The service worker (resources/js/sw.js) saves the home page for
+     * offline use without the messages of that one response (`FLASH`), so
+     * «Tarea completada.» never comes back from the saved copy. This runs
+     * the worker's own pattern on the real page.
+     */
+    public function test_the_saved_offline_copy_drops_the_completion_message(): void
+    {
+        $this->item(['title' => 'Otra tarea']);
+        $worker = $this->get('/sw.js')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('~^const FLASH = /(.+)/g;$~m', $worker, $match), 'The worker defines FLASH.');
+
+        $html = $this->withSession(['work_status' => CompletionOutcome::Completed->message()])->home()->getContent();
+        $saved = (string) preg_replace('/'.$match[1].'/', '', $html);
+
+        $this->assertStringContainsString('Tarea completada.', $html);
+        $this->assertStringNotContainsString('Tarea completada.', $saved);
+        $this->assertStringNotContainsString('data-flash', $saved);
+        $this->assertStringContainsString('Otra tarea', $saved, 'Only the message goes.');
     }
 
     public function test_the_block_stays_with_its_message_after_the_last_task(): void
     {
-        $response = $this->withSession(['status' => CompletionOutcome::Completed->message()])->home();
+        $response = $this->withSession(['work_status' => CompletionOutcome::Completed->message()])->home();
         $block = $this->element($response, 'id', 'tareas');
 
         $this->assertStringContainsString('Tarea completada.', $block);

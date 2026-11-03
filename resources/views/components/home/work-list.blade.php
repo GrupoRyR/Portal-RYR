@@ -7,7 +7,8 @@
     so it asks first with or without JavaScript; home.js only closes the
     other open ones and blocks a second press while the app answers.
     WorkItemCompletionController comes back to #tareas with its message
-    ($status), shown here.
+    ($status, flashed as `work_status`), shown here. It carries data-flash so
+    the service worker (resources/js/sw.js, FLASH) leaves it out of the saved copy.
 --}}
 @props(['work' => null, 'status' => null])
 
@@ -15,7 +16,7 @@
     <h2 id="tareas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Tareas pendientes</h2>
 
     @if ($status)
-        <p role="status" data-work-status class="rounded-control border border-line bg-ground px-3 py-2 text-sm font-semibold">{{ $status }}</p>
+        <p role="status" data-flash data-work-status class="rounded-control border border-line bg-ground px-3 py-2 text-sm font-semibold">{{ $status }}</p>
     @endif
 
     @if ($work === null)

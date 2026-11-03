@@ -133,9 +133,9 @@
     <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
             {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController).
-                 «Completar»'s message goes in «Tareas pendientes» instead, where its redirect lands (#tareas). --}}
-            @php($completionStatus = \App\View\Home\WorkList::isCompletionMessage($status = session('status')) ? $status : null)
-            @if (is_string($status) && $status !== '' && $completionStatus === null)
+                 «Completar»'s own message (work_status) goes in «Tareas pendientes», where its redirect lands (#tareas). --}}
+            @php($completionStatus = is_string($flashed = session(\App\Http\Controllers\WorkItemCompletionController::FLASH_KEY)) && $flashed !== '' ? $flashed : null)
+            @if (is_string($status = session('status')) && $status !== '')
                 <p role="status" data-flash class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">{{ $status }}</p>
             @endif
 
