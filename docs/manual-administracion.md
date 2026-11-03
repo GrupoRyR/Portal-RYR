@@ -644,3 +644,54 @@ Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de A
 | Quiere agregar otra cuenta a una conexión que ya existe. | Las cuentas se eligen solo en la pantalla de permiso. | Conecte otra vez desde Claude e incluya todas las cuentas que quiera: al aprobar, la lista nueva reemplaza la anterior. |
 | Claude pide conectar otra vez después de un tiempo sin usarlo. | La conexión vence tras 30 días sin uso. | En Claude, **Customize › Connectors** › **Connect**. Pasa de nuevo por Microsoft y por la pantalla de permiso; incluya otra vez sus cuentas vinculadas. |
 | En `/cuenta` aparece una conexión que ya no usa. | Por ejemplo, quitó el conector en Claude y lo agregó otra vez. | Pulse **Desconectar** en la que no usa. |
+
+---
+
+## 11. Catálogos de productos
+
+**Administración › Catálogos** reúne las categorías y los productos de cada empresa, con su foto. Por ejemplo, Segurex puede tener «Línea smart», «Residencial», «Comercial» y «Control de acceso», y SDC «Hipoclorito», «Aseo hogar», «Institucional» y «Fichas técnicas y FDS». Esta pantalla solo la usan el súper administrador y el administrador del portal: el editor de anuncios no la ve.
+
+> La sección «Catálogos y categorías» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+
+### 11.1 Elegir la empresa
+
+Arriba, en **Catálogo de**, elija la empresa. Cada empresa tiene sus propias categorías y productos; no se comparten. La dirección de la página recuerda la empresa elegida (`?empresa=`).
+
+### 11.2 Categorías
+
+- **Nueva categoría** + **Agregar** la pone al final. El nombre no puede repetirse dentro de la misma empresa (sí en otra) y admite hasta 60 caracteres.
+- Suba o baje una categoría con las flechas (**Subir** / **Bajar**); ese es el orden de los botones de categoría en el inicio.
+- El lápiz (**Renombrar**) cambia el nombre; pulse **Guardar**.
+- **Borrar** (papelera) solo funciona con una categoría sin productos. Si tiene productos, muévalos antes a otra categoría o bórrelos.
+
+### 11.3 Productos
+
+Pulse **Nuevo producto** (o el lápiz de un producto para editarlo) y complete:
+
+| Campo | Qué poner |
+|---|---|
+| **Nombre** | Obligatorio, hasta 120 caracteres. |
+| **Categoría** | Obligatoria. Solo aparecen las de la empresa elegida. |
+| **Resumen** | Opcional. Texto corto y sin formato, hasta 280 caracteres. |
+| **Enlace** | Opcional, por ejemplo la ficha técnica. Debe empezar por `https://`; no se aceptan `http://`, enlaces con usuario ni con puerto. |
+| **Foto** | Opcional. JPG, PNG o WebP de 200 px o más por lado, de hasta 2 MB y de hasta 16 megapíxeles (las fotos de celular de 12 megapíxeles caben). Se vuelve a codificar y las fotos mayores de 1200 px se reducen. |
+
+- Un producto nuevo queda **Oculto**. Pulse **Publicar** cuando esté listo y **Ocultar** para retirarlo sin borrarlo. Solo los productos publicados se muestran a las personas.
+- Con **Reemplazar** sube otra foto y la anterior se borra del servidor. **Quitar la foto** también la borra.
+- Las flechas ordenan los productos dentro de su categoría. Si cambia un producto de categoría, queda al final de la nueva.
+- **Borrar** (papelera) elimina el producto y su foto. No se puede deshacer.
+- Una categoría sin productos publicados no aparece en el inicio.
+
+### 11.4 Auditoría
+
+Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó, publicó o borró una categoría o un producto, y qué campos cambiaron («Nombre», «Resumen», «Foto», «Enlace», «Categoría», «Publicado», «Posición»).
+
+### 11.5 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| «El archivo no es una imagen JPG, PNG o WebP válida.» | El archivo es de otro tipo (SVG, PDF) o su extensión no coincide con su contenido. | Exporte la foto de nuevo como JPG, PNG o WebP. |
+| «La foto pesa más de 2 MB.» | Supera el límite. | Reduzca su tamaño o su calidad antes de subirla. |
+| «Escribe un enlace completo que empiece por https://…» | El enlace no es `https://` o está incompleto. | Copie la dirección completa desde el navegador. |
+| «Esta empresa ya tiene una categoría con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas. | Use otro nombre o edite la categoría existente. |
+| Una foto subida no se ve. | Falta el enlace `public/storage` en el servidor. | Pida a TI revisar `docs/despliegue.md` §1.18. |
