@@ -114,10 +114,12 @@ class ItServiceManager extends Component
 
         try {
             if ($service === null) {
-                ItService::create($attributes + [
+                // The company's rows stay locked from reading the last
+                // position to the insert, so two creations never share one.
+                DB::transaction(fn () => ItService::create($attributes + [
                     'company_id' => $company->id,
-                    'position' => (int) ItService::query()->where('company_id', $company->id)->max('position') + 1,
-                ]);
+                    'position' => (int) ItService::query()->where('company_id', $company->id)->lockForUpdate()->max('position') + 1,
+                ]));
             } else {
                 $service->update($attributes);
             }
@@ -137,23 +139,37 @@ class ItServiceManager extends Component
         $service = $this->service($id);
         $this->authorize('update', $service);
 
-        $order = ItService::query()->where('company_id', $service->company_id)->ordered()->pluck('id')->all();
-        $from = array_search($service->id, $order, true);
-        $to = $from + ($step < 0 ? -1 : 1);
-
-        if (! isset($order[$to])) {
+        if ($step === 0) {
             return;
         }
 
-        [$order[$from], $order[$to]] = [$order[$to], $order[$from]];
+        // Reads and renumbers the company's rows under a lock, so two moves
+        // at once never number from a stale order. The rows are numbered
+        // 1..n without one audit entry per row: a single «moved» entry is
+        // written below.
+        $moved = DB::transaction(function () use ($service, $step) {
+            $order = ItService::query()->where('company_id', $service->company_id)->ordered()->lockForUpdate()->pluck('id')->all();
+            $from = array_search($service->id, $order, true);
+            $to = $from === false ? null : $from + ($step < 0 ? -1 : 1);
 
-        // Numbers the rows 1..n without one audit entry per row: a single
-        // «moved» entry is written below.
-        DB::transaction(function () use ($order) {
+            if ($to === null || ! isset($order[$to])) {
+                return null;
+            }
+
+            [$order[$from], $order[$to]] = [$order[$to], $order[$from]];
+
             foreach ($order as $position => $serviceId) {
                 ItService::query()->whereKey($serviceId)->update(['position' => $position + 1]);
             }
+
+            return [$from, $to];
         });
+
+        if ($moved === null) {
+            return;
+        }
+
+        [$from, $to] = $moved;
 
         $service->audit('it_service.moved', [
             'old' => ['position' => $from + 1],
@@ -283,8 +299,10 @@ class ItServiceManager extends Component
     }
 
     /**
-     * Compares names the way MariaDB's utf8mb4_unicode_ci does (without
-     * case or accents), so SQLite and production refuse the same names.
+     * Compares names approximately («aproximadamente») the way MariaDB's
+     * utf8mb4_unicode_ci does, without case or accents, so SQLite and
+     * production refuse nearly the same names. It is not an exact copy of
+     * the collation: the unique index still has the last word.
      */
     private function checkNameIsFree(Company $company, string $name, ?int $except): void
     {

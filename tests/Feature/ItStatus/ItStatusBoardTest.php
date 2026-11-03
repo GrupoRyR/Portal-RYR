@@ -81,10 +81,22 @@ class ItStatusBoardTest extends TestCase
         $this->assertSame(['Cartera', 'SAP'], array_map(fn (ItStatusItem $item) => $item->name, $status->apps), 'Apps keep the catalog order.');
         $byName = collect($status->apps)->keyBy('name');
         $this->assertSame(ItStatusLevel::Down, $byName['SAP']->level);
-        $this->assertSame('Con fallas', $byName['SAP']->label);
+        $this->assertSame('Fuera de servicio', $byName['SAP']->label, 'A down report reads like a down service.');
         $this->assertSame('SAP no responde', $byName['SAP']->message);
         $this->assertNull($byName['SAP']->until);
         $this->assertSame(ItStatusLevel::Degraded, $byName['Cartera']->level);
+        $this->assertSame('Con fallas', $byName['Cartera']->label);
+    }
+
+    public function test_a_maintenance_without_an_end_has_no_until(): void
+    {
+        $app = $this->visibleApp('Cartera', App::factory()->maintenance());
+        $app->forceFill(['maintenance_until' => null])->save();
+
+        $item = $this->board()->apps[0];
+
+        $this->assertSame('En mantenimiento', $item->label);
+        $this->assertNull($item->until);
     }
 
     public function test_an_expired_or_operational_report_is_not_listed(): void

@@ -62,9 +62,10 @@ enum ItStatusLevel: string
     }
 
     /**
-     * Chip of a manual service at this level (the Spanish names of ItService).
+     * Chip of a failing item at this level, service or app report: «Con
+     * fallas» or «Fuera de servicio» (the Spanish names of ItService).
      */
-    public function serviceLabel(): string
+    public function label(): string
     {
         return ItService::statusLabel($this->value);
     }

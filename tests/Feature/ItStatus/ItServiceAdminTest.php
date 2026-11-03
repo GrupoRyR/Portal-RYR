@@ -9,8 +9,10 @@ use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class ItServiceAdminTest extends TestCase
@@ -68,6 +70,30 @@ class ItServiceAdminTest extends TestCase
 
         $component->call('saveService')->assertForbidden();
         $this->assertSame(0, ItService::count());
+    }
+
+    public function test_a_role_taken_away_stops_the_next_render(): void
+    {
+        $component = $this->manager()->assertOk();
+
+        $this->admin->removeRole('portal_admin');
+
+        // cancelService checks nothing itself: the render refuses.
+        $component->call('cancelService')->assertForbidden();
+    }
+
+    public function test_locked_properties_cannot_be_set_from_the_browser(): void
+    {
+        $service = ItService::factory()->for($this->segurex)->create();
+
+        foreach (['editingId' => $service->id, 'showForm' => true, 'notice' => 'Hola'] as $property => $value) {
+            try {
+                $this->manager()->set($property, $value);
+                $this->fail("{$property} could be set from the browser.");
+            } catch (CannotUpdateLockedPropertyException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 
     public function test_the_sidebar_links_to_the_page_only_for_those_who_may_open_it(): void
@@ -173,6 +199,23 @@ class ItServiceAdminTest extends TestCase
 
         $this->manager($this->segurex)->assertSeeInOrder(['Correo', 'Intranet'])->assertDontSee('Impresoras');
         $this->manager($this->sdc)->assertSee('Impresoras')->assertDontSee('Intranet');
+    }
+
+    public function test_switching_company_closes_an_open_edit(): void
+    {
+        $service = ItService::factory()->for($this->segurex)->create(['name' => 'Correo']);
+
+        $this->manager()->call('editService', $service->id)
+            ->set('name', 'Cambiado')
+            ->set('companyId', $this->sdc->id)
+            ->assertSet('showForm', false)
+            ->assertSet('editingId', null)
+            ->assertSet('name', '')
+            ->call('saveService')
+            ->assertHasErrors('name');
+
+        $this->assertSame('Correo', $service->fresh()->name);
+        $this->assertSame(0, ItService::where('company_id', $this->sdc->id)->count());
     }
 
     public function test_an_unknown_company_falls_back_to_the_first_one(): void
@@ -288,12 +331,50 @@ class ItServiceAdminTest extends TestCase
             }
         });
 
-        $this->manager()->call('newService')->set('name', 'Correo')->call('saveService')->assertHasErrors('name');
+        $this->manager()->call('newService')->set('name', 'Correo')->call('saveService')
+            ->assertHasErrors('name')
+            ->assertSet('showForm', true);
 
-        $this->assertSame(1, ItService::where('name', 'Correo')->count());
+        // The rival row was written inside the creation's transaction (a
+        // real rival commits on its own connection), so it rolls back with
+        // it: what matters is that nothing of this save was kept.
+        $this->assertTrue($raced);
+        $this->assertSame(0, ItService::where('name', 'Correo')->count());
+    }
+
+    public function test_a_name_taken_at_the_same_moment_on_edit_ends_as_a_form_error(): void
+    {
+        $service = ItService::factory()->for($this->segurex)->create(['name' => 'Correo']);
+        $company = $this->segurex;
+        $raced = false;
+        ItService::updating(function (ItService $model) use (&$raced, $company) {
+            if (! $raced) {
+                $raced = true;
+                DB::table('it_services')->insert([
+                    'company_id' => $company->id, 'name' => $model->name, 'status' => 'operational', 'position' => 9,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->manager()->call('editService', $service->id)->set('name', 'VPN')->call('saveService')->assertHasErrors('name');
+
+        $this->assertSame('Correo', $service->fresh()->name);
     }
 
     // --- Order and delete ---------------------------------------------------
+
+    public function test_a_step_of_zero_moves_nothing(): void
+    {
+        $a = ItService::factory()->for($this->segurex)->create(['name' => 'A', 'position' => 1]);
+        ItService::factory()->for($this->segurex)->create(['name' => 'B', 'position' => 2]);
+        Activity::query()->delete();
+
+        $this->manager()->call('moveService', $a->id, 0)->assertSet('notice', '');
+
+        $this->assertSame(['A', 'B'], $this->names($this->segurex));
+        $this->assertSame(0, Activity::count());
+    }
 
     public function test_services_move_up_and_down_and_keep_a_clean_numbering(): void
     {

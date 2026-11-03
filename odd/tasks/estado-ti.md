@@ -35,8 +35,8 @@ Esta línea construye el backend, la página de Administración y la documentaci
 - [x] T1. Tabla, modelo, fábrica, política, auditoría y Administración › Estado de TI (ruta, menú, Livewire). Ruta: delegada (este escritor). Commit `c1f7f59`.
 - [x] T2. `App\ItStatus\ItStatusBoard` y sus objetos de valor (`ItStatus`, `ItStatusItem`, `ItStatusLevel`). Ruta: delegada (este escritor). Commit `fcc7eb0`.
 - [x] T3. Documentación (§1.21 de despliegue y §13 del manual). Ruta: delegada (este escritor). Commit `de8ec3e`.
-- [x] T4. Decisión 2026-11-03: el editor de anuncios administra los servicios de su propia empresa (política, componente, menú, `RoleMatrix`, manual §1.2 y §13, despliegue §1.21). Ruta: delegada (este escritor). Commit: `feat(estado-ti): let announcements editors manage their own company`.
-- [ ] T5. Correcciones bajas de la revisión independiente. Ruta: delegada (este escritor).
+- [x] T4. Decisión 2026-11-03: el editor de anuncios administra los servicios de su propia empresa (política, componente, menú, `RoleMatrix`, manual §1.2 y §13, despliegue §1.21). Ruta: delegada (este escritor). Commit `10a5abb`.
+- [x] T5. Correcciones bajas de la revisión independiente (sin hallazgos altos ni medios): apps reportadas `down` muestran «Fuera de servicio» (`degraded` sigue «Con fallas»); `moveService` lee y renumera dentro de una transacción con `lockForUpdate()`, y la posición de un servicio nuevo también; un paso 0 no hace nada; el comentario de `fold` dice que es aproximado; pruebas nuevas. El hueco de §1.20 en despliegue es a propósito (reservado para Tareas). Ruta: delegada (este escritor). Commit: `fix(estado-ti): apply the review's low findings`.
 
 ## Criterios de aceptación
 
@@ -61,6 +61,8 @@ Un solo escritor delegado (esta sesión) en su propio worktree. Disparadores: m�
 - T3: documentación pasiva, revisión estructural (sin prueba RED aplicable). Suite completa: 2768 pruebas, todas pasan. `vendor/bin/pint --test`: pasa.
 - T4: RED 8 pruebas fallan (editor en la página, menú, empresa propia, `?empresa=`, cambio de empresa, render tras quitar el rol, política, `RoleMatrix`). GREEN: `tests/Feature/{ItStatus,Admin,Announcements,Events}` 556/556. Pint pasa.
 - Engram mirror: pending.
+
+- T5: RED 2 pruebas fallan (etiqueta «Fuera de servicio», paso 0); las otras 5 nuevas (choque del índice al editar, render tras quitar el rol, cambio de empresa cierra la edición, propiedades `Locked`, mantenimiento sin hora de fin) ya pasaban por el diseño. La prueba del choque al crear ahora espera 0 filas: la fila rival se escribe dentro de la transacción de la creación y se revierte con ella. GREEN: suite completa 2779 pruebas, todas pasan. Pint pasa. `lockForUpdate()` no tiene efecto en SQLite; el bloqueo real solo se ve en MariaDB.
 
 ## Siguiente paso
 

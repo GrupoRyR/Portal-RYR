@@ -83,6 +83,8 @@ class ItStatusBoard
         $items = [];
 
         foreach ($visible as $app) {
+            $reported = ItStatusLevel::fromStatus($app->external_status);
+
             $item = match (AppCardStatus::of($app)) {
                 AppCardStatus::Maintenance => new ItStatusItem(
                     ItStatusItem::KIND_APP,
@@ -96,8 +98,9 @@ class ItStatusBoard
                 AppCardStatus::Failing => new ItStatusItem(
                     ItStatusItem::KIND_APP,
                     (string) $app->name,
-                    ItStatusLevel::fromStatus($app->external_status),
-                    AppCardStatus::Failing->label(),
+                    $reported,
+                    // «Fuera de servicio» for a down report, «Con fallas» for a degraded one.
+                    $reported->label(),
                     $app->external_status_message,
                     null,
                     $app->slug,
@@ -126,7 +129,7 @@ class ItStatusBoard
             ->map(function (ItService $service) {
                 $level = ItStatusLevel::fromStatus($service->status);
 
-                return new ItStatusItem(ItStatusItem::KIND_SERVICE, $service->name, $level, $level->serviceLabel(), $service->message);
+                return new ItStatusItem(ItStatusItem::KIND_SERVICE, $service->name, $level, $level->label(), $service->message);
             })
             // sortBy is stable: within a level the admin order stays.
             ->sortBy(fn (ItStatusItem $item) => -$item->level->severity())
