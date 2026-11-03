@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Assistant\AssistantSettings;
+use App\Assistant\Model\AnthropicModel;
+use App\Assistant\Model\AssistantModel;
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
 use App\Http\Controllers\Mcp\AuthorizeController;
@@ -62,6 +65,14 @@ class AppServiceProvider extends ServiceProvider
         // Holiday days are read in the portal's timezone.
         $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
 
+        // Portal assistant (/asistente): the official SDK in production (the
+        // tests bind a fake model), with config/assistant.php read on use.
+        $this->app->bind(AssistantSettings::class, fn () => AssistantSettings::fromConfig());
+        $this->app->bind(AssistantModel::class, fn () => new AnthropicModel(
+            config('services.anthropic.key'),
+            max(1, (int) config('assistant.timeout')),
+        ));
+
         // Claude connector: routes/ai.php declares only the Passport routes
         // it needs. The consent screen (a subclass of Passport's) signs in
         // with the portal's session guard, like Passport's own.
@@ -112,6 +123,12 @@ class AppServiceProvider extends ServiceProvider
         // app, so a bucket of its own, per account.
         RateLimiter::for(WorkItemCompletionController::LIMITER, fn (Request $request) => Limit::perMinute(WorkItemCompletionController::PER_MINUTE)
             ->by(WorkItemCompletionController::LIMITER.':'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        // The assistant (assistant.ask): each question waits for the model,
+        // so a bucket of its own, per account. The daily cap is separate
+        // (config assistant.daily_questions).
+        RateLimiter::for('assistant', fn (Request $request) => Limit::perMinute(10)
+            ->by('assistant:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
         $this->configureClaudeConnector();
 

@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Assistant;
+
+use App\Assistant\Tools\AnnouncementDraft;
+
+/**
+ * The outcome of one question: the text for the page, the draft the model
+ * proposed (if any), and what Auditoría records about it (never the text).
+ */
+final readonly class Answer
+{
+    /**
+     * @param  list<string>  $tools  Tools called, each once, in the order first called.
+     * @param  string|null  $error  ModelUnavailable's reason when the model could not answer.
+     */
+    public function __construct(
+        public string $text,
+        public string $model,
+        public array $tools = [],
+        public int $toolCalls = 0,
+        public int $inputTokens = 0,
+        public int $outputTokens = 0,
+        public bool $fallback = false,
+        public bool $refused = false,
+        public ?string $error = null,
+        public ?AnnouncementDraft $draft = null,
+    ) {}
+
+    public function failed(): bool
+    {
+        return $this->error !== null;
+    }
+}

@@ -3,6 +3,7 @@
 namespace App\Audit;
 
 use App\Api\StatusReporter;
+use App\Assistant\AssistantLog;
 use App\Assistant\AssistantSwitch;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
@@ -362,8 +363,32 @@ final class AuditPresenter
             AssistantSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el asistente'
                 .($properties->get('deployed') === false ? ' · PORTAL_ASSISTANT_ENABLED está apagado en el servidor' : '')
                 .($properties->get('configured') === false ? ' · falta ANTHROPIC_API_KEY en el servidor' : ''),
+            AssistantLog::ASKED => $this->assistantQuestion($properties->all()),
+            AssistantLog::DRAFT_PUBLISHED => 'Publicó un anuncio propuesto por el asistente · anuncio #'.$properties->get('announcement_id'),
             default => (string) $activity->description,
         };
+    }
+
+    /**
+     * «Preguntó al asistente · usó mis_tareas, anuncio · claude-opus-5-5 ·
+     * 1.234 tokens de entrada y 210 de salida» (App\Assistant\AssistantLog::asked()):
+     * never the question nor the answer, which are not stored.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    private function assistantQuestion(array $properties): string
+    {
+        $tools = array_values(array_filter(is_array($properties['tools'] ?? null) ? $properties['tools'] : [], 'is_string'));
+        $number = fn (mixed $value) => number_format((int) $value, 0, ',', '.');
+
+        return 'Preguntó al asistente'
+            .($tools === [] ? ' · sin herramientas' : ' · usó '.implode(', ', $tools))
+            .' · '.($properties['model'] ?? '')
+            .' · '.$number($properties['input_tokens'] ?? 0).' tokens de entrada y '.$number($properties['output_tokens'] ?? 0).' de salida'
+            .(($properties['fallback'] ?? false) === true ? ' · respondió el modelo de respaldo' : '')
+            .(($properties['refused'] ?? false) === true ? ' · el modelo no quiso responder' : '')
+            .(($properties['draft'] ?? false) === true ? ' · propuso un borrador de anuncio' : '')
+            .(is_string($properties['error'] ?? null) ? ' · no pudo responder ('.$properties['error'].')' : '');
     }
 
     /**
