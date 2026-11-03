@@ -43,7 +43,7 @@ Out of scope: home page wiring (`resources/views/home.blade.php`,
 - [x] N1 Schema, models, config, URL/address policy, fetcher, parser,
       ingestion, command and schedule, with tests and `docs/despliegue.md`
       §1.17. Route: delegated direct (this writer).
-- [ ] N2 `App\News\NewsBoard` read model (one query, newest 5 per tab) with
+- [x] N2 `App\News\NewsBoard` read model (one query, newest 5 per tab) with
       a query-count test. Route: delegated direct (this writer).
 - [ ] N3 Admin › Noticias (Livewire, policy, route, nav, audit labels) with
       tests and `docs/manual-administracion.md` §2.11. Route: delegated
@@ -77,9 +77,12 @@ writer (writer trigger: 2+ non-trivial files).
 ## Progress
 
 - N1: done in two work-unit commits: `0d59ed5` feat(news): add SSRF-safe
-  feed fetcher and RSS/Atom parser; then the storage/command commit (its
-  identity is the next commit on `feat/noticias`, recorded at N2).
-- N2: pending
+  feed fetcher and RSS/Atom parser; `c1622c9` feat(news): store headlines
+  per source with an hourly portal:fetch-news.
+- N2: done (commit: the `feat(news): add the NewsBoard read model` commit
+  after `c1622c9`). `NewsBoard::forCompany()` returns every tab of
+  `NewsSource::TABS` as a list of `NewsHeadline` (title, link, date,
+  source name), using ROW_NUMBER() per tab in one query.
 - N3: pending
 
 Decisions:
@@ -103,7 +106,8 @@ Decisions:
 - N1 RED: 122 tests, 122 errors (classes missing).
 - N1 GREEN: `php artisan test --compact tests/Unit/News tests/Feature/News`:
   122 passed. Full suite: 2397 passed. `vendor/bin/pint --test`: passed.
+- N2 RED: 4 tests, 4 errors (class missing). GREEN: 4 passed.
 
 ## Next step
 
-N2: `NewsBoard` read model, test-first with a query-count test.
+N3: Admin › Noticias, test-first.
