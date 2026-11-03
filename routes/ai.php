@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Mcp\ApproveController;
 use App\Http\Controllers\Mcp\AuthorizeController;
+use App\Http\Controllers\Mcp\IncludeAccountController;
 use App\Http\Controllers\Mcp\RegisterClientController;
 use App\Mcp\Servers\PortalServer;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,8 @@ use Laravel\Passport\Http\Controllers\DenyAuthorizationController;
 | - Passport's routes, only the ones the connector needs (Passport's own
 |   are off: Passport::ignoreRoutes()). Same names, so the metadata of
 |   laravel/mcp points at them.
+| - «Incluir» / «Quitar» of a linked account on the consent screen, which
+|   confirms it with a Microsoft sign-in of that account (C2b).
 | - The MCP server itself, for Passport tokens (guard `api`) of an active
 |   connection (`mcp.connection`), limited per connection (`mcp`). Calls
 |   that fail authentication are limited per address first
@@ -53,6 +56,15 @@ Route::middleware('mcp.enabled')->group(function () {
             });
         });
     });
+
+    // «Incluir» and «Quitar» a linked account on the consent screen (C2b).
+    Route::prefix('oauth/authorize/cuentas')
+        ->middleware(['web', 'throttle:20,1', 'auth:web', 'mcp.account'])
+        ->name('mcp.consent.')
+        ->group(function () {
+            Route::post('/{account}', [IncludeAccountController::class, 'store'])->name('include');
+            Route::delete('/{account}', [IncludeAccountController::class, 'destroy'])->name('exclude');
+        });
 
     Mcp::web('/mcp/portal', PortalServer::class)
         ->middleware(['mcp.failures', 'auth:api', 'mcp.connection', 'throttle:mcp']);

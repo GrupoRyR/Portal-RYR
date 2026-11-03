@@ -60,6 +60,11 @@ class PersonNeverAuthorizesTest extends TestCase
         // drop one that was unlinked since. The person never adds an
         // account to a connection.
         'app/Mcp/ConnectionAccounts.php' => ['LinkedAccounts'],
+        // The consent screen only offers the linked accounts
+        // (LinkedAccounts::switchTargets() and canSwitch()); each one still
+        // needs a Microsoft sign-in of that very account
+        // (App\Mcp\AccountConfirmation) before the connection may use it.
+        'app/Mcp/ConsentAccounts.php' => ['LinkedAccounts'],
     ];
 
     private static function root(): string

@@ -100,11 +100,11 @@ class ConnectionTest extends TestCase
         $call = $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'quien_soy', 'arguments' => []])
             ->assertOk();
 
-        $this->assertSame([
+        $this->assertSame(['cuentas' => [[
             'nombre' => 'Jhon Castro',
             'correo' => 'jhon.castro@segurex.com',
             'empresa' => 'Segurex Latam S.A.S.',
-        ], $call->json('result.structuredContent'));
+        ]]], $call->json('result.structuredContent'));
     }
 
     public function test_last_used_is_written_at_most_once_a_minute(): void

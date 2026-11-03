@@ -5,6 +5,7 @@ namespace App\Mcp;
 use App\Audit\SecurityLog;
 use App\Models\McpConnection;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,24 +22,48 @@ class Connections
     /** Activity log event of an approved connection (log `security`). */
     public const CONNECTED = 'mcp.connected';
 
+    public function __construct(private readonly ConnectionAccounts $accounts) {}
+
     /**
      * Creates the active connection of this client and account, or reuses
-     * it when the account approves again. Its accounts become the ones of
-     * this approval: today the approving account alone (confirmed by the
-     * sign-in that showed the consent screen); C2b adds the linked
-     * accounts confirmed with Microsoft.
+     * it when the account approves again. Its accounts become exactly the
+     * ones of this approval: the approving account (confirmed by the
+     * sign-in that showed the consent screen) and the linked accounts
+     * confirmed with Microsoft for this pending authorization
+     * (App\Mcp\ConsentAccounts) that may still be used
+     * (ConnectionAccounts::usable()). Any other account leaves, also on a
+     * new approval of the same connection.
      *
      * A new connection first revokes whatever the client still holds for
      * the account from an earlier one (codes and tokens), so those never
      * reach it. Two approvals at once meet at the unique `active_key`: the
      * second one reuses the first one's connection.
+     *
+     * @param  array<int, CarbonInterface>  $confirmed  When each linked account was confirmed, by its id.
      */
-    public function approved(string $clientId, string $clientName, User $user): McpConnection
+    public function approved(string $clientId, string $clientName, User $user, array $confirmed = []): McpConnection
     {
         $connection = $this->activeConnection($clientId, $user) ?? $this->newConnection($clientId, $user);
 
-        $connection->accounts()->where('user_id', '!=', $user->getKey())->delete();
-        $connection->accounts()->updateOrCreate(['user_id' => $user->getKey()], ['confirmed_at' => now()]);
+        $included = User::query()
+            ->whereKey(array_keys($confirmed))
+            ->whereKeyNot($user->getKey())
+            ->with('company')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (User $account) => $this->accounts->usable($user, $account))
+            ->values();
+        $accounts = [$user->getKey() => now()];
+
+        foreach ($included as $account) {
+            $accounts[$account->getKey()] = $confirmed[$account->getKey()];
+        }
+
+        $connection->accounts()->whereNotIn('user_id', array_keys($accounts))->delete();
+
+        foreach ($accounts as $id => $confirmedAt) {
+            $connection->accounts()->updateOrCreate(['user_id' => $id], ['confirmed_at' => $confirmedAt]);
+        }
 
         activity(SecurityLog::LOG)
             ->event(self::CONNECTED)
@@ -49,6 +74,11 @@ class Connections
                 'company' => $user->company?->name,
                 'email' => $user->email,
                 'connection_id' => $connection->getKey(),
+                'accounts' => collect([$user])->concat($included)->map(fn (User $account) => [
+                    'user_id' => $account->getKey(),
+                    'company' => $account->company?->name,
+                    'email' => $account->email,
+                ])->all(),
             ])
             ->log(self::CONNECTED);
 
