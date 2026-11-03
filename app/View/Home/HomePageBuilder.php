@@ -5,12 +5,14 @@ namespace App\View\Home;
 use App\Calendar\ColombianHolidays;
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
+use App\Markets\MarketBoard;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\Company;
 use App\Models\DirectoryEntry;
 use App\Models\Event;
 use App\Models\User;
+use App\News\NewsBoard;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
@@ -45,7 +47,10 @@ use InvalidArgumentException;
  * - the «Personas» link (/personas) for users with a directory;
  * - «Cumpleaños y aniversarios» (App\View\Home\Celebration) from the same
  *   directory query: the birthdays people chose to show and the work
- *   anniversaries of today and the next seven days (none on a server search).
+ *   anniversaries of today and the next seven days (none on a server search);
+ * - the «Mercados» band: TRM and euro (App\Markets\MarketBoard, one query);
+ * - «Noticias» of the user's company (App\News\NewsBoard, one query), the
+ *   tab named in `?noticias=` selected (none on a server search).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -76,9 +81,14 @@ final class HomePageBuilder
         private readonly AppCatalog $catalog,
         private readonly PortalSettings $settings,
         private readonly ColombianHolidays $holidays,
+        private readonly MarketBoard $markets,
+        private readonly NewsBoard $news,
     ) {}
 
-    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null): HomePage
+    /**
+     * @param  string|null  $newsTab  the «Noticias» tab of `?noticias=`
+     */
+    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null, ?string $newsTab = null): HomePage
     {
         $search = new AppSearch($query);
         $visible = $this->catalog->visibleApps($user);
@@ -161,6 +171,9 @@ final class HomePageBuilder
             birthdayHref: $directoryCompanyId === null ? null : route('account.show').'#cumpleanos',
             celebrations: array_slice($celebrations, 0, Celebration::LIMIT),
             moreCelebrationsHref: count($celebrations) > Celebration::LIMIT ? route('people.index') : null,
+            markets: array_values(array_map(MarketFigure::from(...), $this->markets->current())),
+            // A server search shows the cards only.
+            news: $search->isActive() || $company === null ? [] : NewsTab::fromBoard($this->news->forCompany($company->id), $newsTab),
         );
     }
 

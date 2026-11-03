@@ -10,6 +10,7 @@
 //   "/" and «Buscar» focus the search field. The bottom bar also opens the
 //   account menu.
 // - Animated logos: ends the entrance, pops the star when it gets pressed.
+// - «Noticias» tabs in place (they are links to `?noticias=` without it).
 // - Installable app: registers the service worker (/sw.js, see
 //   resources/js/sw.js), shows the offline notice and asks the worker to
 //   forget this user's saved page when signing out.
@@ -379,6 +380,49 @@ sectionsMenu?.addEventListener('keydown', (event) => {
         $('summary', sectionsMenu).focus();
     }
 });
+
+// «Noticias»: without JavaScript each tab is a link (`?noticias=`, a new
+// page); here they switch in place and follow the ARIA tabs keys (arrows,
+// Home, End). A click with a modifier still opens the link.
+const newsTabs = $$('[data-news-tab]');
+
+function selectNewsTab(tab, focus = false) {
+    for (const other of newsTabs) {
+        const selected = other === tab;
+        other.setAttribute('aria-selected', String(selected));
+        other.tabIndex = selected ? 0 : -1;
+        document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
+    }
+    if (focus) tab.focus();
+}
+
+if (newsTabs.length > 0) {
+    for (const tab of newsTabs) tab.tabIndex = tab.getAttribute('aria-selected') === 'true' ? 0 : -1;
+
+    const tablist = $('[data-news-tabs]');
+    tablist.addEventListener('click', (event) => {
+        const tab = event.target.closest('[data-news-tab]');
+        if (!tab || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        selectNewsTab(tab);
+    });
+    tablist.addEventListener('keydown', (event) => {
+        const position = newsTabs.indexOf(event.target);
+        if (position < 0) return;
+
+        const next = {
+            ArrowRight: newsTabs[(position + 1) % newsTabs.length],
+            ArrowLeft: newsTabs[(position - 1 + newsTabs.length) % newsTabs.length],
+            Home: newsTabs[0],
+            End: newsTabs[newsTabs.length - 1],
+            ' ': event.target,
+        }[event.key];
+        if (!next) return;
+
+        event.preventDefault();
+        selectNewsTab(next, true);
+    });
+}
 
 // Offline notice (docs/diseno/PhoneDark): without network, or when the
 // service worker answered with the saved copy of this page.

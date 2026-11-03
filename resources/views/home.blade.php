@@ -126,6 +126,10 @@
         </div>
     </header>
 
+    @if ($page->markets !== [])
+        <x-home.markets :figures="$page->markets" />
+    @endif
+
     <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
             {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController). --}}
@@ -219,6 +223,10 @@
                         </section>
                     @endforeach
                 </div>
+            @endif
+
+            @if ($page->news !== [])
+                <x-home.news :tabs="$page->news" />
             @endif
         </main>
 

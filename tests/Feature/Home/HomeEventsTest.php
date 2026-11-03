@@ -259,7 +259,7 @@ class HomeEventsTest extends TestCase
 
         $this->assertSame($one, $many);
         $this->assertLessThanOrEqual($without + 1, $one);
-        $this->assertLessThanOrEqual(12, $many);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $many);
     }
 
     public function test_the_page_with_events_ships_no_livewire_or_alpine(): void

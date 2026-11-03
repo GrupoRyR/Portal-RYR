@@ -29,6 +29,8 @@ final readonly class HomePage
      * @param  string|null  $birthdayHref  «Mi cumpleaños» (`/cuenta#cumpleanos`) in the account menu; null hides it (no directory for this account).
      * @param  list<Celebration>  $celebrations  «Cumpleaños y aniversarios»: today and the next Celebration::DAYS days, at most Celebration::LIMIT; empty hides the block.
      * @param  string|null  $moreCelebrationsHref  «Ver directorio» when more fall in those days than the block shows.
+     * @param  list<MarketFigure>  $markets  The «Mercados» band (TRM, euro); empty hides it (before the first sync).
+     * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
      */
     public function __construct(
         public string $salutation,
@@ -59,6 +61,8 @@ final readonly class HomePage
         public ?string $birthdayHref = null,
         public array $celebrations = [],
         public ?string $moreCelebrationsHref = null,
+        public array $markets = [],
+        public array $news = [],
     ) {}
 
     /**
@@ -103,6 +107,10 @@ final readonly class HomePage
         // Empty categories are hidden; a search drops those without matches.
         if (array_filter($this->categories, fn (CategoryGroup $group) => ! $group->isEmpty()) !== []) {
             $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+        }
+
+        if ($this->news !== []) {
+            $sections[] = ['href' => '#noticias', 'label' => 'Noticias'];
         }
 
         if ($this->upcomingDates !== []) {
