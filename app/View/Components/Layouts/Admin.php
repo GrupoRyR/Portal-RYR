@@ -3,6 +3,7 @@
 namespace App\View\Components\Layouts;
 
 use App\Models\Company;
+use App\Models\ItService;
 use App\Models\NewsSource;
 use App\Models\User;
 use App\Policies\AdminSections;
@@ -60,6 +61,10 @@ class Admin extends Component
         return array_values(array_filter([
             ['label' => 'Catálogo', 'items' => array_values(array_filter([
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
+                // The same people as the apps (App\Policies\ItServicePolicy).
+                $this->user->can('viewAny', ItService::class)
+                    ? ['label' => 'Estado de TI', 'icon' => 'pulse', 'route' => 'admin.it-services.index', 'active' => 'admin.it-services.*']
+                    : null,
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
                 ['label' => 'Catálogos', 'icon' => 'box', 'route' => 'admin.products.index', 'active' => 'admin.products.*'],
                 $announcements,

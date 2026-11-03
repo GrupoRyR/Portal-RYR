@@ -30,6 +30,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\ItService;
 use App\Models\NewsSource;
 use App\Models\Product;
 use App\Policies\AdminSections;
@@ -238,6 +239,13 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/catalogos', 'admin.products.index')
             ->can('viewAny', Product::class)
             ->name('products.index');
+
+        // App\Policies\ItServicePolicy (Estado de TI): the same people as the
+        // apps (AppPolicy::ROLES). App\Livewire\Admin\ItServiceManager
+        // re-authorizes every action.
+        Route::view('/estado-ti', 'admin.it-services.index')
+            ->can('viewAny', ItService::class)
+            ->name('it-services.index');
 
         // App\Policies\RolePolicy: super_admin and portal_admin; both only
         // add or remove announcements editors.
