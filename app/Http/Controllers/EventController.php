@@ -23,17 +23,16 @@ class EventController extends Controller
     {
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
 
-        $events = Event::query()
-            ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
-            ->visibleTo($request->user())
-            ->chronological()
-            // One more than shown: whether the list was cut, in the same query.
-            ->limit(self::LIMIT + 1)
-            ->get();
+        // One more than shown: whether the list was cut, in the same query.
+        $events = EventDate::soonestFirst(Event::visibleSoonest(
+            $request->user(),
+            self::LIMIT + 1,
+            ['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'repeats_yearly'],
+        ), $today);
 
         return view('events.index', [
-            'events' => $events->take(self::LIMIT)->map(fn (Event $event) => EventDate::from($event, $today))->all(),
-            'cut' => $events->count() > self::LIMIT,
+            'events' => array_slice($events, 0, self::LIMIT),
+            'cut' => count($events) > self::LIMIT,
         ]);
     }
 }

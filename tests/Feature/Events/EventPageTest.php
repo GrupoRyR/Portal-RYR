@@ -106,6 +106,44 @@ class EventPageTest extends TestCase
         $this->page()->assertSeeText('En curso · hasta el viernes 30 de octubre, 18:00');
     }
 
+    public function test_a_yearly_event_is_listed_on_its_next_occurrence(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-20')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2020-03-15')->yearly()->create(['title' => 'Cierre contable', 'published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->allDay('2026-12-01')->create(['title' => 'Jornada de salud']);
+
+        $response = $this->page()
+            ->assertSeeInOrder(['Aniversario', 'Jornada de salud', 'Cierre contable'])
+            ->assertSeeText('Viernes 20 de noviembre · Todo el día')
+            ->assertSeeText('Lunes 15 de marzo de 2027 · Todo el día')
+            ->assertDontSeeText('2020');
+
+        $badge = $this->xpath($response)->query('//*[@id="e-'.$anniversary->id.'"]//time')->item(0);
+        $this->assertSame('2026-11-20', $badge->getAttribute('datetime'));
+    }
+
+    public function test_a_yearly_event_says_it_repeats(): void
+    {
+        $anniversary = Event::factory()->allDay('2020-11-20')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        $once = Event::factory()->allDay('2026-12-01')->create(['title' => 'Jornada de salud']);
+
+        $xpath = $this->xpath($this->page());
+
+        $this->assertStringContainsString('Cada año', $xpath->query('//*[@id="e-'.$anniversary->id.'"]')->item(0)->textContent);
+        $this->assertStringNotContainsString('Cada año', $xpath->query('//*[@id="e-'.$once->id.'"]')->item(0)->textContent);
+    }
+
+    public function test_old_yearly_events_do_not_crowd_out_the_soonest_ones(): void
+    {
+        Event::factory()->count(EventController::LIMIT + 1)->allDay('2019-03-15')->yearly()->create(['published_at' => '2019-01-01 08:00:00']);
+        $tomorrow = Event::factory()->create(['title' => 'Pausa activa', 'starts_at' => '2026-10-30 09:00:00', 'ends_at' => null]);
+
+        $xpath = $this->xpath($this->page()->assertSeeText('Se muestran los 100 eventos más próximos.'));
+
+        $this->assertSame(1, $xpath->query('//*[@id="e-'.$tomorrow->id.'"]')->length);
+        $this->assertSame('e-'.$tomorrow->id, $xpath->query('//ol/li')->item(0)->getAttribute('id'));
+    }
+
     public function test_a_cut_list_says_so(): void
     {
         Event::factory()->count(EventController::LIMIT)->create();

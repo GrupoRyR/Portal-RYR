@@ -109,7 +109,7 @@ final readonly class HomeSearchIndex
             $dates[] = [$event->sortKey(), [
                 'title' => $event->title,
                 'detail' => $event->searchDetail(),
-                'search' => AppSearch::normalize("{$event->title} evento {$event->dateAndTime()}"),
+                'search' => AppSearch::normalize("{$event->title} {$event->kind()} {$event->dateAndTime()}"),
                 'date' => $event->lastIsoDate(),
                 'end' => $event->overIso(),
                 'href' => $event->href(),

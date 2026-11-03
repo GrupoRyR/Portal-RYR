@@ -148,7 +148,7 @@ Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi ca
 
 **Quién los maneja.** Las mismas personas que los anuncios, sin un rol nuevo: súper administrador y administrador, todos; el editor de anuncios, solo los de su propia empresa (no puede publicar para todas las empresas ni para otra).
 
-**Lista.** Pestañas **Todos**, **Publicados**, **Programados**, **Pasados** y **Retirados**, con la fecha y las empresas de cada evento.
+**Lista.** Pestañas **Todos**, **Publicados**, **Programados**, **Pasados** y **Retirados**, con la fecha y las empresas de cada evento. Los que se repiten cada año muestran su próxima fecha y «Cada año».
 
 **Nuevo evento / editar:**
 
@@ -156,6 +156,7 @@ Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi ca
 - **Fecha**, en hora de Colombia:
   - Con hora: **Empieza** y **Termina** (opcional; debe ser posterior al inicio). Sin fin, el evento sigue en el portal hasta que acaba ese día, y el calendario lo muestra como un momento.
   - **Todo el día:** **Primer día** y **Último día** (opcional; el mismo día o sin fecha es un solo día). En el calendario ocupa los días completos.
+  - **Se repite cada año** (solo con **Todo el día**): para fechas que vuelven cada año, como el aniversario de la empresa, el cierre contable o la entrega de dotación. Las fechas que escriba son la primera vez. El portal muestra la próxima: la de este año hasta que termina y luego la del año siguiente (un 29 de febrero cae el 28 en los años que no son bisiestos). Nunca pasa a **Pasados** y en el inicio y en **Eventos** dice «Cada año» en lugar de «Evento». Su `.ics` lo repite cada año en el calendario de cada persona. Si quita **Todo el día**, la opción se desmarca: un evento con hora no puede repetirse. Debe durar menos de un año (el último día, antes de que vuelva el primero). Si desmarca la opción en una fecha cuyo primer día ya pasó, deja de verse en el portal, pero los calendarios que ya la importaron la siguen repitiendo hasta que cada persona la borre.
 - **Publicación:** **Para quién** (todas las empresas o algunas) y **Se muestra desde** (antes de esa fecha queda programado y nadie lo ve).
 - **Retirar** lo quita del portal de inmediato sin borrarlo; **Volver a publicar** lo devuelve. Los eventos no se borran.
 

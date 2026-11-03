@@ -9,12 +9,13 @@ use Illuminate\Support\Str;
 /**
  * One company event as «Próximas fechas» of the home screen, the /eventos
  * page and the «Ctrl K» search print it. Dates are in the app timezone
- * (Bogotá); times are 24-hour, as elsewhere in the portal.
+ * (Bogotá); times are 24-hour, as elsewhere in the portal. A yearly event
+ * is its next occurrence (Event::occurrenceStart()).
  */
 final readonly class EventDate
 {
     /**
-     * @param  CarbonImmutable  $start  Start, local; midnight for an all-day event.
+     * @param  CarbonImmutable  $start  Start, local; midnight for an all-day event. The occurrence's of a yearly one.
      * @param  CarbonImmutable|null  $end  End of a timed event, local.
      * @param  CarbonImmutable  $lastDay  Midnight of its last day, local.
      * @param  CarbonImmutable  $over  When it is over (Event::endsAtMoment()).
@@ -22,6 +23,7 @@ final readonly class EventDate
      * @param  int  $year  This year, local: other years are spelled out.
      * @param  bool  $isOngoing  It started on an earlier day and is not over: under way.
      * @param  CarbonImmutable  $day  The day beside it: its first day, or today while it is under way.
+     * @param  bool  $repeatsYearly  It comes back every year (Event::repeatsYearly()).
      */
     public function __construct(
         public int $id,
@@ -37,6 +39,7 @@ final readonly class EventDate
         public int $year,
         public bool $isOngoing,
         public CarbonImmutable $day,
+        public bool $repeatsYearly = false,
     ) {}
 
     /**
@@ -45,7 +48,7 @@ final readonly class EventDate
     public static function from(Event $event, CarbonImmutable $today): self
     {
         $timezone = config('app.timezone');
-        $start = $event->starts_at->toImmutable()->setTimezone($timezone);
+        $start = $event->occurrenceStart($today);
         // Not over (it is visible) and started before today.
         $ongoing = $start->toDateString() < $today->toDateString();
 
@@ -57,13 +60,34 @@ final readonly class EventDate
             allDay: (bool) $event->all_day,
             start: $start,
             end: $event->all_day ? null : $event->ends_at?->toImmutable()->setTimezone($timezone),
-            lastDay: $event->lastDay(),
-            over: $event->endsAtMoment(),
+            lastDay: $event->occurrenceLastDay($today),
+            over: $event->endsAtMoment($today),
             isToday: $start->toDateString() === $today->toDateString(),
             year: $today->year,
             isOngoing: $ongoing,
             day: $ongoing ? $today : $start->startOfDay(),
+            repeatsYearly: $event->repeatsYearly(),
         );
+    }
+
+    /**
+     * The events by {@see sortKey()}: a yearly one goes by its next
+     * occurrence, not by its stored first date.
+     *
+     * @param  iterable<Event>  $events
+     * @param  CarbonImmutable  $today  Midnight today in the app timezone.
+     * @return list<self>
+     */
+    public static function soonestFirst(iterable $events, CarbonImmutable $today): array
+    {
+        $dates = [];
+        foreach ($events as $event) {
+            $dates[] = self::from($event, $today);
+        }
+
+        usort($dates, fn (self $a, self $b) => $a->sortKey() <=> $b->sortKey());
+
+        return $dates;
     }
 
     /**
@@ -210,11 +234,20 @@ final readonly class EventDate
     }
 
     /**
-     * «Evento · jueves 5 de noviembre, 15:00», for the «Ctrl K» search.
+     * «Cada año» for a yearly event, «Evento» otherwise: its kind beside
+     * the date, as «Festivo» is a holiday's.
+     */
+    public function kind(): string
+    {
+        return $this->repeatsYearly ? 'Cada año' : 'Evento';
+    }
+
+    /**
+     * «Evento · jueves 5 de noviembre, 15:00» («Cada año · …»), for the «Ctrl K» search.
      */
     public function searchDetail(): string
     {
-        return 'Evento · '.$this->dateAndTime();
+        return $this->kind().' · '.$this->dateAndTime();
     }
 
     /** The event on /eventos. */

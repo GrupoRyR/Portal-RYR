@@ -97,6 +97,54 @@ class EventCalendarFileTest extends TestCase
         $this->assertContains('DTEND;VALUE=DATE:20261227', $lines);
     }
 
+    public function test_a_yearly_event_repeats_from_its_first_date(): void
+    {
+        $yearly = Event::factory()->allDay('2020-03-15', '2020-03-16')->yearly()->create(['title' => 'Aniversario', 'published_at' => '2020-01-01 08:00:00']);
+        $once = Event::factory()->allDay('2026-11-16')->create(['title' => 'Jornada de salud']);
+
+        // Its first date is long past, and it still downloads.
+        $lines = $this->lines($this->download($yearly));
+        $this->assertContains('DTSTART;VALUE=DATE:20200315', $lines);
+        $this->assertContains('DTEND;VALUE=DATE:20200317', $lines);
+        $this->assertContains('RRULE:FREQ=YEARLY', $lines);
+        $this->assertLessThan(array_search('SUMMARY:Aniversario', $lines, true), array_search('RRULE:FREQ=YEARLY', $lines, true));
+
+        $this->assertSame([], array_values(array_filter(
+            $this->lines($this->download($once)),
+            fn (string $line) => str_starts_with($line, 'RRULE'),
+        )));
+    }
+
+    public function test_a_yearly_event_on_29_february_repeats_on_the_last_day_of_february(): void
+    {
+        $event = Event::factory()->allDay('2024-02-29')->yearly()->create(['published_at' => '2024-01-01 08:00:00']);
+
+        $lines = $this->lines($this->download($event));
+
+        // RFC 5545 skips 29 February in common years; the portal shows it on the 28th.
+        $this->assertContains('DTSTART;VALUE=DATE:20240229', $lines);
+        $this->assertContains('RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1', $lines);
+    }
+
+    public function test_a_leap_day_event_of_several_days_keeps_its_days_in_the_file(): void
+    {
+        $event = Event::factory()->allDay('2024-02-29', '2024-03-02')->yearly()->create(['published_at' => '2024-01-01 08:00:00']);
+
+        $lines = $this->lines($this->download($event));
+
+        // Three days from the last day of February, as the portal shows it (28 February to 2 March in 2027).
+        $this->assertContains('DTSTART;VALUE=DATE:20240229', $lines);
+        $this->assertContains('DTEND;VALUE=DATE:20240303', $lines);
+        $this->assertContains('RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1', $lines);
+    }
+
+    public function test_a_past_event_that_does_not_repeat_is_still_not_found(): void
+    {
+        $event = Event::factory()->allDay('2020-03-15')->create(['published_at' => '2020-01-01 08:00:00']);
+
+        $this->actingAs($this->ana)->get(route('events.calendar', $event))->assertNotFound();
+    }
+
     public function test_a_timed_event_without_an_end_has_no_dtend(): void
     {
         $event = Event::factory()->create(['starts_at' => '2026-11-05 15:00:00', 'ends_at' => null]);

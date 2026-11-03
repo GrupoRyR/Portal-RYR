@@ -243,15 +243,15 @@
                                     </time>
                                     <div class="flex min-w-0 flex-col gap-0.5">
                                         @if ($date->isOngoing)
-                                            <span class="sr-only">{{ $date->ongoingDetail() }}, evento:</span>
+                                            <span class="sr-only">{{ $date->ongoingDetail() }}, {{ mb_strtolower($date->kind()) }}:</span>
                                         @else
-                                            <span class="sr-only">@if ($date->isToday)<span data-event-today>Hoy, </span>@endif{{ $date->dateAndTime() }}, evento:</span>
+                                            <span class="sr-only">@if ($date->isToday)<span data-event-today>Hoy, </span>@endif{{ $date->dateAndTime() }}, {{ mb_strtolower($date->kind()) }}:</span>
                                         @endif
                                         <a href="{{ $date->href() }}" class="text-sm leading-snug font-bold break-words underline-offset-4 hover:underline">{{ $date->title }}</a>
                                         @if ($date->isOngoing)
-                                            <p class="text-xs text-fg-muted" aria-hidden="true">{{ $date->ongoingDetail() }} · Evento</p>
+                                            <p class="text-xs text-fg-muted" aria-hidden="true">{{ $date->ongoingDetail() }} · {{ $date->kind() }}</p>
                                         @else
-                                            <p class="text-xs text-fg-muted" aria-hidden="true"><span data-event-weekday="{{ $date->dayName() }}">{{ $date->weekday() }}</span>@if ($detail = $date->shortDetail()) · {{ $detail }}@endif · Evento</p>
+                                            <p class="text-xs text-fg-muted" aria-hidden="true"><span data-event-weekday="{{ $date->dayName() }}">{{ $date->weekday() }}</span>@if ($detail = $date->shortDetail()) · {{ $detail }}@endif · {{ $date->kind() }}</p>
                                         @endif
                                     </div>
                                 </li>

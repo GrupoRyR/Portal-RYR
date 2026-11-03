@@ -261,14 +261,9 @@ final class HomePageBuilder
             return [];
         }
 
-        return Event::query()
-            ->select(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day'])
-            ->visibleTo($user)
-            ->chronological()
-            ->limit(HomeSearchIndex::EVENT_LIMIT)
-            ->get()
-            ->map(fn (Event $event) => EventDate::from($event, $today))
-            ->all();
+        $events = Event::visibleSoonest($user, HomeSearchIndex::EVENT_LIMIT, ['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'repeats_yearly']);
+
+        return array_slice(EventDate::soonestFirst($events, $today), 0, HomeSearchIndex::EVENT_LIMIT);
     }
 
     /**

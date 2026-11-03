@@ -31,7 +31,7 @@
                             </time>
                             <div class="flex min-w-0 flex-1 flex-col gap-2">
                                 <h2 id="event-{{ $event->id }}-title" class="font-sans text-lg leading-snug font-bold tracking-normal break-words md:text-xl">{{ $event->title }}</h2>
-                                <p class="text-sm font-semibold text-fg-soft">{{ $event->listedWhen() }}</p>
+                                <p class="text-sm font-semibold text-fg-soft">{{ $event->listedWhen() }}@if ($event->repeatsYearly) · Cada año @endif</p>
                                 @if ($event->location)
                                     <p class="text-sm break-words text-fg-muted"><span class="sr-only">Lugar: </span>{{ $event->location }}</p>
                                 @endif
