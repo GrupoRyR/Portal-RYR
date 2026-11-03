@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -219,6 +220,126 @@ class FetchNewsCommandTest extends TestCase
         foreach ($source->items as $item) {
             $this->assertTrue($item->published_at->equalTo(now()), $item->title);
         }
+    }
+
+    // --- Review fixes (odd/tasks/noticias.md, R1) ---------------------------
+
+    public function test_undated_and_future_items_keep_their_first_seen_time(): void
+    {
+        $source = $this->source(['url' => 'https://news.example.com/rss']);
+        $dated = now()->subDay()->toRfc2822String();
+        Http::fake(['https://news.example.com/rss' => Http::response($this->rss([
+            ['Sin fecha', 'https://news.example.com/a', null, 'a'],
+            ['Del futuro', 'https://news.example.com/b', 'Fri, 01 Jan 2100 00:00:00 +0000', 'b'],
+            ['Con fecha', 'https://news.example.com/c', $dated, 'c'],
+        ]))]);
+        $firstRun = now()->toImmutable();
+
+        $this->artisan('portal:fetch-news');
+        $this->travel(1)->hours();
+        $this->artisan('portal:fetch-news');
+        $this->travel(1)->hours();
+        $this->artisan('portal:fetch-news');
+
+        $items = $source->items()->get()->keyBy('title');
+        $this->assertCount(3, $items);
+        $this->assertTrue($items['Sin fecha']->published_at->equalTo($firstRun), (string) $items['Sin fecha']->published_at);
+        $this->assertTrue($items['Del futuro']->published_at->equalTo($firstRun), (string) $items['Del futuro']->published_at);
+        $this->assertTrue($items['Con fecha']->published_at->equalTo($firstRun->subDay()));
+    }
+
+    public function test_undated_items_age_out_after_60_days_like_the_others(): void
+    {
+        $source = $this->source(['url' => 'https://news.example.com/rss']);
+        Http::fake(['https://news.example.com/rss' => Http::sequence()
+            ->push($this->rss([['Sin fecha', 'https://news.example.com/a', null, 'a']]))
+            ->push($this->rss([['Sin fecha', 'https://news.example.com/a', null, 'a'], ['Otra', 'https://news.example.com/b', now()->addDays(61)->toRfc2822String(), 'b']]))]);
+
+        $this->artisan('portal:fetch-news');
+        $this->travel(61)->days();
+        $this->artisan('portal:fetch-news');
+
+        $this->assertSame(['Otra'], $source->items()->pluck('title')->all());
+    }
+
+    public function test_stored_items_beyond_the_newest_30_are_deleted(): void
+    {
+        $source = $this->source(['url' => 'https://news.example.com/rss']);
+        foreach (range(1, 30) as $day) {
+            NewsItem::factory()->for($source, 'source')->create(['title' => "Guardada {$day}", 'published_at' => now()->subDays($day)]);
+        }
+        $fresh = [];
+        foreach (range(1, 10) as $hour) {
+            $fresh[] = ["Nueva {$hour}", "https://news.example.com/nueva-{$hour}", now()->subHours($hour)->toRfc2822String()];
+        }
+        Http::fake(['https://news.example.com/rss' => Http::response($this->rss($fresh))]);
+
+        $this->artisan('portal:fetch-news');
+
+        $this->assertSame(30, $source->items()->count());
+        $this->assertSame(10, $source->items()->where('title', 'like', 'Nueva %')->count());
+        foreach (range(21, 30) as $day) {
+            $this->assertFalse($source->items()->where('title', "Guardada {$day}")->exists(), "Guardada {$day} should be gone.");
+        }
+        $this->assertTrue($source->items()->where('title', 'Guardada 20')->exists());
+    }
+
+    public function test_a_feed_without_usable_items_is_a_failure_and_keeps_the_old_ones(): void
+    {
+        $source = $this->source(['url' => 'https://news.example.com/rss']);
+        $old = NewsItem::factory()->for($source, 'source')->create();
+        Http::fake(['https://news.example.com/rss' => Http::response($this->rss([
+            ['Insegura', 'http://news.example.com/a'],
+            ['', 'https://news.example.com/b'],
+        ]))]);
+
+        $this->artisan('portal:fetch-news')->expectsOutputToContain('0 fuentes leídas, 1 con error');
+
+        $this->assertSame('no_entries', $source->fresh()->last_error_code);
+        $this->assertModelExists($old);
+    }
+
+    public function test_relative_item_links_resolve_against_the_source_url(): void
+    {
+        $source = $this->source(['url' => 'https://news.example.com/feeds/rss.xml']);
+        Http::fake(['https://news.example.com/feeds/rss.xml' => Http::response($this->rss([
+            ['Raíz', '/noticia/1'],
+            ['Relativa', 'noticia-2'],
+        ]))]);
+
+        $this->artisan('portal:fetch-news');
+
+        $this->assertEqualsCanonicalizing(
+            ['https://news.example.com/noticia/1', 'https://news.example.com/feeds/noticia-2'],
+            $source->items()->pluck('link')->all(),
+        );
+    }
+
+    public function test_an_admin_edit_during_the_fetch_discards_its_result(): void
+    {
+        $edited = $this->source(['url' => 'https://news.example.com/old', 'last_error_code' => null]);
+        $failing = $this->source(['url' => 'https://news.example.com/old-failing']);
+        $deleted = $this->source(['url' => 'https://news.example.com/deleted']);
+        $good = $this->source(['url' => 'https://news.example.com/good']);
+        $feed = $this->rss([['Titular', 'https://news.example.com/t']]);
+
+        Http::fake(function (Request $request) use ($edited, $failing, $deleted, $feed) {
+            return match ($request->url()) {
+                'https://news.example.com/old' => tap(Http::response($feed), fn () => NewsSource::query()->whereKey($edited->id)->update(['url' => 'https://news.example.com/new'])),
+                'https://news.example.com/old-failing' => tap(Http::response('', 500), fn () => NewsSource::query()->whereKey($failing->id)->update(['url' => 'https://news.example.com/new-failing'])),
+                'https://news.example.com/deleted' => tap(Http::response($feed), fn () => NewsSource::query()->whereKey($deleted->id)->delete()),
+                default => Http::response($this->rss([['Bien', 'https://news.example.com/bien']])),
+            };
+        });
+
+        $this->artisan('portal:fetch-news')->assertSuccessful();
+
+        $this->assertSame(0, $edited->items()->count());
+        $this->assertNull($edited->fresh()->last_fetched_at, 'The new URL has not been read yet.');
+        $this->assertNull($failing->fresh()->last_error_code, 'The old URL\'s error does not apply to the new one.');
+        $this->assertNull($failing->fresh()->last_fetched_at);
+        $this->assertSame(0, NewsItem::query()->where('news_source_id', $deleted->id)->count());
+        $this->assertSame(['Bien'], $good->items()->pluck('title')->all());
     }
 
     public function test_the_fetch_runs_every_hour_in_bogota_without_overlapping(): void
