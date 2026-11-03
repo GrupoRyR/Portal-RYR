@@ -20,7 +20,7 @@
             <div class="flex min-w-0 flex-col gap-1.5">
                 <dt class="text-[0.8125rem] text-fg-muted">{{ $figure->label }}</dt>
                 <dd @class(['font-bold leading-tight tabular-nums break-words', 'text-[2rem] tracking-[-0.02em]' => $loop->first, 'text-2xl' => ! $loop->first])>
-                    {{ $figure->value }}@if ($figure->unit)<span class="ml-1 text-[0.9375rem] font-bold text-fg-muted">{{ $figure->unit }}</span>@endif
+                    {{ $figure->value }}@if ($figure->unit) <span class="text-[0.9375rem] font-bold text-fg-muted">{{ $figure->unit }}</span>@endif
                 </dd>
                 @if (($meter = $figure->meter()) !== null)
                     <dd class="flex flex-col gap-1">

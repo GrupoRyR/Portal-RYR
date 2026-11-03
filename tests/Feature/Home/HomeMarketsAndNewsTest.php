@@ -78,6 +78,19 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertNoElement($response, 'data-market', 'eur');
     }
 
+    public function test_a_change_under_half_a_cent_is_neutral(): void
+    {
+        MarketRate::factory()->trm()->create(['value' => 3861.38, 'valid_from' => '2026-11-02']);
+        MarketRate::factory()->trm()->create(['value' => 3861.383, 'valid_from' => '2026-11-03']);
+
+        $trm = $this->element($this->home(), 'data-market', 'trm');
+
+        $this->assertStringContainsString('= 0,00 %', $trm);
+        $this->assertStringContainsString('Sin cambio frente al valor anterior', $trm);
+        $this->assertStringNotContainsString('▲', $trm);
+        $this->assertStringNotContainsString('Subió', $trm);
+    }
+
     // --- Noticias ------------------------------------------------------------
 
     public function test_there_is_no_news_block_without_headlines(): void

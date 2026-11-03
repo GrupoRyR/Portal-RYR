@@ -17,6 +17,9 @@ final readonly class MarketFigure
         MarketRate::EUR => 'Euro',
     ];
 
+    /** A change (in pesos, or in percent) below this prints as none. */
+    public const NO_CHANGE = 0.005;
+
     /**
      * @param  'up'|'down'|'flat'|null  $direction  null when there is no previous value
      */
@@ -33,11 +36,13 @@ final readonly class MarketFigure
 
     public static function from(MarketQuote $quote): self
     {
+        // Under half a cent (or a percent that prints as 0,00) is no move:
+        // it would show an arrow beside «0,00 %».
         $direction = match (true) {
             $quote->change === null => null,
+            abs($quote->change) < self::NO_CHANGE || ($quote->changePercent !== null && abs($quote->changePercent) < self::NO_CHANGE) => 'flat',
             $quote->change > 0 => 'up',
-            $quote->change < 0 => 'down',
-            default => 'flat',
+            default => 'down',
         };
 
         return new self(
@@ -53,14 +58,15 @@ final readonly class MarketFigure
     }
 
     /**
-     * «▲ 0,32 %» beside the value (hidden from screen readers), or null.
+     * «▲ 0,32 %» beside the value (hidden from screen readers), «= 0,00 %»
+     * without a move, or null.
      */
     public function shortChange(): ?string
     {
         return match ($this->direction) {
             'up' => '▲ '.($this->percent ?? $this->change),
             'down' => '▼ '.($this->percent ?? $this->change),
-            'flat' => 'Sin cambio',
+            'flat' => '= 0,00'.($this->percent === null ? '' : ' %'),
             default => null,
         };
     }

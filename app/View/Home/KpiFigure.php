@@ -8,7 +8,8 @@ use App\Management\ManagementKpi;
  * One figure of the «Panel gerencial» (App\Management\ManagementKpi),
  * ready to print in Colombian format:
  *
- * - pesos (`COP`): «$1.250» with «millones» from a million up, «$850.000» below;
+ * - pesos (`COP`): «$1.250» with «millones» (one: «millón») from a million up,
+ *   «$850.000» below, rounded to the peso first;
  * - percent (`%`): «12,5 %»;
  * - anything else: the number, with its unit beside it («45 días»).
  *
@@ -64,11 +65,16 @@ final readonly class KpiFigure
 
         if (in_array(mb_strtoupper($unit), ['COP', '$'], true)) {
             $sign = $value < 0 ? '-' : '';
-            $amount = abs($value);
+            // Rounded first, so 999.999,6 is «$1 millón», never «$1.000.000».
+            $amount = round(abs($value));
 
-            return $amount >= 1_000_000
-                ? [$sign.'$'.self::number($amount / 1_000_000, $amount < 10_000_000 ? 1 : 0), 'millones']
-                : [$sign.'$'.self::number($amount, 0), null];
+            if ($amount < 1_000_000) {
+                return [$sign.'$'.self::number($amount, 0), null];
+            }
+
+            $millions = self::number($amount / 1_000_000, $amount < 10_000_000 ? 1 : 0);
+
+            return [$sign.'$'.$millions, $millions === '1' ? 'millón' : 'millones'];
         }
 
         if ($unit === '%') {

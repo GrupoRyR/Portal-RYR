@@ -214,6 +214,20 @@ class HomeCatalogAndPanelTest extends TestCase
         $this->assertStringContainsString('aria-valuenow="100"', $panel);
     }
 
+    public function test_pesos_are_rounded_before_choosing_millions(): void
+    {
+        foreach ([[999_999.6, 'Casi un millón'], [999_999.4, 'Menos de un millón'], [1_500_000, 'Millón y medio']] as $position => [$value, $label]) {
+            CompanyKpi::factory()->create(['company_id' => $this->company->id, 'position' => $position + 1, 'label' => $label, 'value' => $value, 'unit' => 'COP', 'goal' => null]);
+        }
+
+        $response = $this->home(as: $this->manager());
+        $text = fn (string $label) => preg_replace('/\s+/', ' ', trim($this->xpath($response)->query("//dt[.='{$label}']/following-sibling::dd[1]")->item(0)->textContent));
+
+        $this->assertSame('$1 millón', $text('Casi un millón'));
+        $this->assertSame('$999.999', $text('Menos de un millón'));
+        $this->assertSame('$1,5 millones', $text('Millón y medio'));
+    }
+
     public function test_an_older_closing_names_its_day(): void
     {
         $this->figures(['as_of' => CarbonImmutable::parse('2026-11-02 23:59', 'America/Bogota')]);
