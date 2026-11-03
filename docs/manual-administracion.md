@@ -547,7 +547,7 @@ El inicio muestra, en **Mi día**, el bloque **Cumpleaños y aniversarios** con 
 
 ## 10. Conectar Claude al portal
 
-Esta sección es para todas las personas, no solo para los administradores. Explica cómo conectar Claude (claude.ai) al portal para hacerle preguntas sobre lo que usted ya ve en él. La parte de administración está en §2.8 (Auditoría) y §2.10 (Configuración › **Conector de Claude**); la instalación en el servidor, en `docs/despliegue.md` §1.13.
+Esta sección es para todas las personas, no solo para los administradores. Explica cómo conectar Claude (claude.ai) al portal para hacerle preguntas sobre lo que usted ya ve en él. La parte de administración está en §2.8 (Auditoría) y §2.10 (Configuración › **Conector de Claude**); la instalación en el servidor, en `docs/despliegue.md` §1.15.
 
 ### 10.1 Qué hace
 
@@ -626,7 +626,7 @@ Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de A
 
 | Qué pasa | Por qué | Qué hacer |
 |---|---|---|
-| Claude dice que el conector no está disponible o no responde, o la dirección da 404. | El conector está apagado en el portal (Configuración, §2.10) o en el servidor (`docs/despliegue.md` §1.13). | Pregunte a TI. Sus conexiones no se borran: vuelven a funcionar cuando lo enciendan. |
+| Claude dice que el conector no está disponible o no responde, o la dirección da 404. | El conector está apagado en el portal (Configuración, §2.10) o en el servidor (`docs/despliegue.md` §1.15). | Pregunte a TI. Sus conexiones no se borran: vuelven a funcionar cuando lo enciendan. |
 | Al conectar aparece «Esta cuenta no puede conectar Claude.» | La cuenta es de invitado, es la cuenta de emergencia o su empresa no tiene acceso al portal. | Entre con su propia cuenta de Microsoft de una empresa del grupo. |
 | «No pudimos confirmar esa cuenta. No se incluyó en la conexión.» o «Microsoft respondió con otra cuenta. No se incluyó en la conexión.» | Microsoft no confirmó la cuenta de **Incluir**, o entró con otra. | Pulse **Incluir** otra vez y elija la cuenta correcta en Microsoft. |
 | Claude ya no ve lo de una de sus empresas. | La cuenta incluida se desvinculó (§8.4), su empresa se desactivó o pasó a invitada. Sale sola en la siguiente consulta; la cuenta que aprobó sigue funcionando. | Pregunte a Claude «¿Con qué cuentas estás conectado al portal?». Si la cuenta vuelve a estar vinculada, conecte otra vez desde Claude e inclúyala. |

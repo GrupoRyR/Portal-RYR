@@ -445,7 +445,7 @@ Ruta: escritor delegado, solo documentos, en `docs/conector-mcp-5-manual` sobre 
 
 ### Qué quedó
 
-- **`docs/manual-administracion.md` §10, «Conectar Claude al portal»**, para todas las personas: qué hace (las siete herramientas en palabras simples; tareas y aprobaciones después), cómo conectar, la pantalla de permiso, privacidad, cómo desconectar, qué preguntar primero y problemas frecuentes. Remite a §2.8, §2.10 y `docs/despliegue.md` §1.13 en lugar de repetirlos. La introducción del manual nombra la §10.
+- **`docs/manual-administracion.md` §10, «Conectar Claude al portal»**, para todas las personas: qué hace (las siete herramientas en palabras simples; tareas y aprobaciones después), cómo conectar, la pantalla de permiso, privacidad, cómo desconectar, qué preguntar primero y problemas frecuentes. Remite a §2.8, §2.10 y `docs/despliegue.md` §1.15 en lugar de repetirlos. La introducción del manual nombra la §10.
 - **`docs/estado-del-proyecto.md`:** una entrada del conector en «Estado» y la §10 en la tabla de documentos.
 - **Menús de Claude, verificados el 2026-10-30** en https://claude.com/docs/connectors/custom: **Customize › Connectors › Add custom connector** (Free, Pro, Max), **Organization settings › Connectors › Add › Custom** (propietario de Team o Enterprise), **Connect**, **Remove**, y el **+** del chat › **Connectors**. El plan gratuito permite un solo conector propio. Como el portal no anuncia CIMD, el manual dice que, si Claude pregunta, se elija **Register automatically**. Los nombres en español del menú no están verificados: el manual da los ingleses con una traducción entre comillas.
 - **Privacidad, verificada** en https://privacy.claude.com/en/articles/12109829-how-do-i-change-my-model-improvement-privacy-settings: **Settings › Privacy** (`claude.ai/settings/data-privacy-controls`). La ayuda llama a la opción «Help Improve our AI models»; el manual nombra las dos formas («Help improve Claude» y esa).
@@ -459,7 +459,7 @@ Ruta: escritor delegado, solo documentos, en `docs/conector-mcp-5-manual` sobre 
 ## Siguiente paso
 
 1. **Prueba real (Jhon), después del despliegue con `PORTAL_MCP_ENABLED=true`:**
-   - Los tres `curl` del `docs/despliegue.md` §1.13.
+   - Los tres `curl` del `docs/despliegue.md` §1.15.
    - En claude.ai, con una cuenta personal, seguir el manual §10.2: **Add custom connector** con `https://apps.segurexlatam.net/mcp/portal`, **Connect**, inicio con Microsoft, pantalla de permiso con «Claude» y claude.ai, **Incluir** la cuenta de Derivados y **Aprobar**.
    - Las preguntas del manual §10.5: que cada dato diga su empresa y que «¿Con qué cuentas estás conectado al portal?» devuelva las dos cuentas.
    - Revisar Auditoría › Seguridad (`mcp.connected` y una línea por consulta) y, en Configuración, la conexión en **Conexiones activas**.
