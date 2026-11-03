@@ -42,8 +42,9 @@ class MarketRate extends Model
     {
         return [
             'value' => 'decimal:4',
-            'valid_from' => 'date',
-            'valid_until' => 'date',
+            // `Y-m-d` also when written: a date column compares as text in SQLite.
+            'valid_from' => 'date:Y-m-d',
+            'valid_until' => 'date:Y-m-d',
             'fetched_at' => 'datetime',
         ];
     }
