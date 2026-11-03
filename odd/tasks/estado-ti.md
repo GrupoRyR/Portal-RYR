@@ -24,7 +24,7 @@ Esta línea construye el backend, la página de Administración y la documentaci
 
 ## Decisiones
 
-- **Quién edita los servicios:** las mismas personas que administran las apps (`App\Policies\AppPolicy::ROLES`: `super_admin` y `portal_admin`), para todas las empresas, como Catálogos. El editor de anuncios y Gerencia no entran. No se crea un rol nuevo.
+- **Quién edita los servicios (decisión de Jhon, 2026-11-03, reemplaza la primera versión):** `super_admin` y `portal_admin`, todas las empresas; el editor de anuncios (`announcements_editor`), solo su propia empresa, con las reglas de `App\Policies\Rules\CompanyAddressedRules` (nuevo `managesCompany`). La lista de empresas le muestra solo la suya; `?empresa=` de otra empresa, o cambiarla desde el navegador, es 403; las búsquedas siguen limitadas a la empresa elegida (404). Un editor sin empresa no entra. Gerencia no entra. No se crea un rol nuevo. `RoleMatrix` gana la fila «Estado de TI» («Solo de su empresa» para el editor).
 - **Estado general:** «Hay servicios caídos» si algún servicio está `down` o alguna app tiene un reporte vigente `down`; «Con fallas» si algún servicio está `degraded`, alguna app tiene un reporte vigente `degraded` o alguna app está en mantenimiento; si no, «Todo funciona». El mantenimiento cuenta como falla parcial, no como caída: es planeado y tiene mensaje.
 - **Sin caché:** los reportes externos vencen según la hora (`api_status_ttl_hours`), así que una caché necesitaría invalidarse también por tiempo. La lectura de servicios es una consulta por índice (`company_id`, `position`) sobre pocas filas, y las apps reutilizan `AppCatalog::visibleApps()` (el inicio ya la tiene y la puede pasar).
 - **Orden:** servicios caídos primero, luego con fallas; dentro de cada grupo, el orden de Administración. Las apps siguen el orden del catálogo.
@@ -34,11 +34,13 @@ Esta línea construye el backend, la página de Administración y la documentaci
 
 - [x] T1. Tabla, modelo, fábrica, política, auditoría y Administración › Estado de TI (ruta, menú, Livewire). Ruta: delegada (este escritor). Commit `c1f7f59`.
 - [x] T2. `App\ItStatus\ItStatusBoard` y sus objetos de valor (`ItStatus`, `ItStatusItem`, `ItStatusLevel`). Ruta: delegada (este escritor). Commit `fcc7eb0`.
-- [x] T3. Documentación (§1.21 de despliegue y §13 del manual). Ruta: delegada (este escritor). Commit: `docs(estado-ti): ...` (el último de la rama).
+- [x] T3. Documentación (§1.21 de despliegue y §13 del manual). Ruta: delegada (este escritor). Commit `de8ec3e`.
+- [x] T4. Decisión 2026-11-03: el editor de anuncios administra los servicios de su propia empresa (política, componente, menú, `RoleMatrix`, manual §1.2 y §13, despliegue §1.21). Ruta: delegada (este escritor). Commit: `feat(estado-ti): let announcements editors manage their own company`.
+- [ ] T5. Correcciones bajas de la revisión independiente. Ruta: delegada (este escritor).
 
 ## Criterios de aceptación
 
-- Solo `super_admin` y `portal_admin` entran y actúan; se revisa en cada acción y en `render()`. Un id de otra empresa es 404.
+- `super_admin` y `portal_admin` entran y actúan en todas las empresas; el editor de anuncios, solo en la suya (otra empresa es 403). Se revisa en cada acción y en `render()`. Un id de otra empresa es 404.
 - Nombre obligatorio (hasta 80 caracteres), único por empresa sin importar mayúsculas ni tildes; estado de la lista; mensaje opcional de hasta 160 caracteres.
 - Crear, cambiar, mover y borrar un servicio queda en Auditoría con etiquetas y estados en español.
 - La lectura nunca trae servicios de otra empresa ni apps que la persona no ve; una persona sin empresa activa (o la cuenta de emergencia) recibe un tablero vacío y no disponible.
@@ -57,7 +59,7 @@ Un solo escritor delegado (esta sesión) en su propio worktree. Disparadores: m�
 - T1: RED 25 pruebas, 0 pasan (clase y ruta inexistentes). GREEN 25/25; `tests/Feature/{ItStatus,Admin,Products,Audit}` 516/516. Pint pasa.
 - T2: RED 13 pruebas, 0 pasan (`ItStatusBoard` no existe). GREEN 13/13; `tests/Feature/ItStatus` 38/38. Pint pasa.
 - T3: documentación pasiva, revisión estructural (sin prueba RED aplicable). Suite completa: 2768 pruebas, todas pasan. `vendor/bin/pint --test`: pasa.
-- No se agregó una fila «Estado de TI» a `App\Admin\RoleMatrix` (tampoco la tienen Catálogos ni Noticias); la política se prueba contra `AppPolicy` en `ItServiceModelTest`.
+- T4: RED 8 pruebas fallan (editor en la página, menú, empresa propia, `?empresa=`, cambio de empresa, render tras quitar el rol, política, `RoleMatrix`). GREEN: `tests/Feature/{ItStatus,Admin,Announcements,Events}` 556/556. Pint pasa.
 - Engram mirror: pending.
 
 ## Siguiente paso

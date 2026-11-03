@@ -36,15 +36,16 @@ class ItServiceAdminTest extends TestCase
 
     // --- Access -----------------------------------------------------------
 
-    public function test_only_the_people_who_manage_apps_reach_the_page(): void
+    public function test_admins_and_announcements_editors_reach_the_page(): void
     {
         $super = tap(User::factory()->create())->assignRole('super_admin');
-        $editor = tap(User::factory()->create())->assignRole('announcements_editor');
-        $management = tap(User::factory()->create())->assignRole('management');
+        $homelessEditor = tap(User::factory()->create(['company_id' => null]))->assignRole('announcements_editor');
+        $management = tap(User::factory()->create(['company_id' => $this->segurex->id]))->assignRole('management');
 
         $this->actingAs($this->admin)->get(route('admin.it-services.index'))->assertOk()->assertSee('Estado de TI');
         $this->actingAs($super)->get(route('admin.it-services.index'))->assertOk();
-        $this->actingAs($editor)->get(route('admin.it-services.index'))->assertForbidden();
+        $this->actingAs($this->editor())->get(route('admin.it-services.index'))->assertOk();
+        $this->actingAs($homelessEditor)->get(route('admin.it-services.index'))->assertForbidden();
         $this->actingAs($management)->get(route('admin.it-services.index'))->assertForbidden();
         $this->actingAs(User::factory()->create())->get(route('admin.it-services.index'))->assertForbidden();
 
@@ -54,8 +55,9 @@ class ItServiceAdminTest extends TestCase
 
     public function test_the_component_refuses_people_without_the_role(): void
     {
-        Livewire::actingAs(User::factory()->create())->test(ItServiceManager::class)->assertForbidden();
-        Livewire::actingAs(tap(User::factory()->create())->assignRole('announcements_editor'))->test(ItServiceManager::class)->assertForbidden();
+        Livewire::actingAs(User::factory()->create(['company_id' => $this->segurex->id]))->test(ItServiceManager::class)->assertForbidden();
+        Livewire::actingAs(tap(User::factory()->create(['company_id' => $this->segurex->id]))->assignRole('management'))->test(ItServiceManager::class)->assertForbidden();
+        Livewire::actingAs(tap(User::factory()->create(['company_id' => null]))->assignRole('announcements_editor'))->test(ItServiceManager::class)->assertForbidden();
     }
 
     public function test_a_role_taken_away_stops_the_next_action(): void
@@ -73,10 +75,92 @@ class ItServiceAdminTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.it-services.index'))
             ->assertSee('href="'.route('admin.it-services.index').'" aria-current="page"', false);
 
-        $editor = tap(User::factory()->create(['company_id' => $this->segurex->id]))->assignRole('announcements_editor');
-        $this->actingAs($editor)->get(route('admin.announcements.index'))
+        $this->actingAs($this->editor())->get(route('admin.announcements.index'))
+            ->assertOk()
+            ->assertSee('href="'.route('admin.it-services.index').'"', false);
+
+        $homeless = tap(User::factory()->create(['company_id' => null]))->assignRole('announcements_editor');
+        $this->actingAs($homeless)->get(route('admin.announcements.index'))
             ->assertOk()
             ->assertDontSee('href="'.route('admin.it-services.index').'"', false);
+    }
+
+    // --- Announcements editors: their own company only ------------------------
+
+    public function test_an_editor_sees_and_manages_only_their_own_company(): void
+    {
+        ItService::factory()->for($this->segurex)->create(['name' => 'Correo', 'position' => 1]);
+        ItService::factory()->for($this->sdc)->create(['name' => 'Impresoras']);
+
+        $component = Livewire::actingAs($this->editor())->test(ItServiceManager::class)
+            ->assertSet('companyId', $this->segurex->id)
+            ->assertViewHas('companies', fn ($companies) => $companies->pluck('id')->all() === [$this->segurex->id])
+            ->assertSee('Correo')
+            ->assertDontSee('Impresoras');
+
+        $component->call('newService')->set('name', 'Intranet')->set('status', ItService::STATUS_DOWN)->call('saveService')->assertHasNoErrors();
+        $created = ItService::where('name', 'Intranet')->sole();
+        $this->assertSame($this->segurex->id, $created->company_id);
+
+        $component->call('editService', $created->id)->set('status', ItService::STATUS_OPERATIONAL)->call('saveService')->assertHasNoErrors();
+        $this->assertSame(ItService::STATUS_OPERATIONAL, $created->fresh()->status);
+
+        $component->call('moveService', $created->id, -1);
+        $this->assertSame(['Intranet', 'Correo'], $this->names($this->segurex));
+
+        $component->call('deleteService', $created->id);
+        $this->assertNull($created->fresh());
+    }
+
+    public function test_an_editor_cannot_open_another_company_from_the_address(): void
+    {
+        Livewire::withQueryParams(['empresa' => $this->sdc->id])
+            ->actingAs($this->editor())
+            ->test(ItServiceManager::class)
+            ->assertForbidden();
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.it-services.index', ['empresa' => $this->sdc->id]))
+            ->assertForbidden();
+
+        // Their own company in the address is fine.
+        Livewire::withQueryParams(['empresa' => $this->segurex->id])
+            ->actingAs($this->editor())
+            ->test(ItServiceManager::class)
+            ->assertOk()
+            ->assertSet('companyId', $this->segurex->id);
+    }
+
+    public function test_an_editor_cannot_switch_to_another_company(): void
+    {
+        Livewire::actingAs($this->editor())->test(ItServiceManager::class)
+            ->set('companyId', $this->sdc->id)
+            ->assertForbidden();
+    }
+
+    public function test_an_editor_cannot_touch_another_companys_services(): void
+    {
+        $theirs = ItService::factory()->for($this->sdc)->create(['name' => 'Impresoras', 'position' => 1]);
+        ItService::factory()->for($this->sdc)->create(['position' => 2]);
+        $editor = $this->editor();
+
+        Livewire::actingAs($editor)->test(ItServiceManager::class)->call('editService', $theirs->id)->assertNotFound();
+        Livewire::actingAs($editor)->test(ItServiceManager::class)->call('moveService', $theirs->id, 1)->assertNotFound();
+        Livewire::actingAs($editor)->test(ItServiceManager::class)->call('deleteService', $theirs->id)->assertNotFound();
+
+        $this->assertSame('Impresoras', $theirs->fresh()?->name);
+        $this->assertSame(1, $theirs->fresh()->position);
+    }
+
+    public function test_an_editor_who_loses_the_role_is_refused_on_the_next_render(): void
+    {
+        $editor = $this->editor();
+        $component = Livewire::actingAs($editor)->test(ItServiceManager::class)->assertOk();
+
+        $editor->removeRole('announcements_editor');
+
+        // cancelService checks nothing itself: the render refuses.
+        $component->call('cancelService')->assertForbidden();
     }
 
     // --- Companies --------------------------------------------------------
@@ -252,6 +336,11 @@ class ItServiceAdminTest extends TestCase
     }
 
     // --- Helpers ------------------------------------------------------------
+
+    private function editor(): User
+    {
+        return tap(User::factory()->create(['company_id' => $this->segurex->id]))->assignRole('announcements_editor');
+    }
 
     private function manager(?Company $company = null): Testable
     {

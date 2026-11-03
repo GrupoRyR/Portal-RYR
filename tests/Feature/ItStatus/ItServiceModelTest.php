@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\ItStatus;
 
-use App\Models\App;
 use App\Models\Company;
 use App\Models\ItService;
 use App\Models\User;
@@ -74,25 +73,53 @@ class ItServiceModelTest extends TestCase
         $this->assertContains('it_svc_company_pos_ix', $names);
     }
 
-    public function test_the_policy_lets_in_exactly_the_people_who_manage_apps(): void
+    public function test_admins_manage_every_company_and_announcements_editors_only_their_own(): void
     {
         $this->seed(RoleSeeder::class);
-        $service = ItService::factory()->create();
+        $mine = Company::factory()->create();
+        $theirs = Company::factory()->create();
+        $own = ItService::factory()->for($mine)->create();
+        $foreign = ItService::factory()->for($theirs)->create();
 
-        foreach (['super_admin', 'portal_admin', 'announcements_editor', 'management', null] as $role) {
-            $user = User::factory()->create();
+        foreach (['super_admin', 'portal_admin'] as $role) {
+            $admin = tap(User::factory()->create())->assignRole($role);
+            $gate = Gate::forUser($admin);
+
+            $this->assertTrue($gate->allows('viewAny', ItService::class), $role);
+            $this->assertTrue($gate->allows('create', ItService::class), $role);
+            $this->assertTrue($gate->allows('manageCompany', [ItService::class, $theirs]), $role);
+            $this->assertTrue($gate->allows('update', $foreign), $role);
+            $this->assertTrue($gate->allows('delete', $foreign), $role);
+        }
+
+        $editor = Gate::forUser(tap(User::factory()->create(['company_id' => $mine->id]))->assignRole('announcements_editor'));
+        $this->assertTrue($editor->allows('viewAny', ItService::class));
+        $this->assertTrue($editor->allows('create', ItService::class));
+        $this->assertTrue($editor->allows('manageCompany', [ItService::class, $mine]));
+        $this->assertTrue($editor->allows('update', $own));
+        $this->assertTrue($editor->allows('delete', $own));
+        $this->assertFalse($editor->allows('manageCompany', [ItService::class, $theirs]));
+        $this->assertFalse($editor->allows('update', $foreign));
+        $this->assertFalse($editor->allows('delete', $foreign));
+
+        // An editor without a company manages no company (like announcements).
+        $homeless = Gate::forUser(tap(User::factory()->create(['company_id' => null]))->assignRole('announcements_editor'));
+        $this->assertFalse($homeless->allows('create', ItService::class));
+        $this->assertFalse($homeless->allows('manageCompany', [ItService::class, $mine]));
+        $this->assertFalse($homeless->allows('update', $own));
+
+        foreach (['management', null] as $role) {
+            $user = User::factory()->create(['company_id' => $mine->id]);
             if ($role !== null) {
                 $user->assignRole($role);
             }
+            $gate = Gate::forUser($user);
+            $who = $role ?? 'nobody';
 
-            $managesApps = Gate::forUser($user)->allows('viewAny', App::class);
-
-            foreach (['viewAny', 'create'] as $ability) {
-                $this->assertSame($managesApps, Gate::forUser($user)->allows($ability, ItService::class), "{$ability} for ".($role ?? 'nobody'));
-            }
-            foreach (['update', 'delete'] as $ability) {
-                $this->assertSame($managesApps, Gate::forUser($user)->allows($ability, $service), "{$ability} for ".($role ?? 'nobody'));
-            }
+            $this->assertFalse($gate->allows('viewAny', ItService::class), $who);
+            $this->assertFalse($gate->allows('create', ItService::class), $who);
+            $this->assertFalse($gate->allows('manageCompany', [ItService::class, $mine]), $who);
+            $this->assertFalse($gate->allows('update', $own), $who);
         }
     }
 }

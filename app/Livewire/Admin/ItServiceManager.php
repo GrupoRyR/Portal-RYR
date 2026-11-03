@@ -4,10 +4,13 @@ namespace App\Livewire\Admin;
 
 use App\Models\Company;
 use App\Models\ItService;
+use App\Models\User;
+use App\Policies\Rules\CompanyAddressedRules;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -19,9 +22,11 @@ use Livewire\Component;
 /**
  * Administración › Estado de TI: the services of one company that IT
  * reports by hand (the apps report their own status in Aplicaciones).
+ * Admins pick any company; announcements editors get only their own
+ * (another company in `?empresa=` or sent by the browser is a 403).
  * Every action and every render re-checks App\Policies\ItServicePolicy,
- * and every record is looked up inside the selected company, so an id
- * from another company is a 404.
+ * for the selected company too, and every record is looked up inside
+ * that company, so an id from another company is a 404.
  */
 class ItServiceManager extends Component
 {
@@ -176,8 +181,16 @@ class ItServiceManager extends Component
     {
         $this->authorize('viewAny', ItService::class);
 
-        $companies = Company::query()->orderBy('name')->get(['id', 'name', 'short_name', 'is_active']);
+        // Announcements editors are offered their own company only.
+        $companies = Company::query()
+            ->when(! CompanyAddressedRules::manages($this->user()), fn ($query) => $query->whereKey($this->user()->company_id))
+            ->orderBy('name')
+            ->get(['id', 'name', 'short_name', 'is_active']);
         $company = $companies->firstWhere('id', $this->companyId);
+
+        if ($company !== null) {
+            $this->authorize('manageCompany', [ItService::class, $company]);
+        }
 
         $services = $company === null
             ? new Collection
@@ -218,7 +231,8 @@ class ItServiceManager extends Component
     }
 
     /**
-     * The selected company, or a 404 when it does not exist.
+     * The selected company, or a 404 when it does not exist; a 403 when
+     * the user may not manage it.
      */
     private function company(): Company
     {
@@ -226,16 +240,37 @@ class ItServiceManager extends Component
 
         abort_if($company === null, 404);
 
+        $this->authorize('manageCompany', [ItService::class, $company]);
+
         return $company;
     }
 
     private function resolveCompanyId(?int $id): ?int
     {
+        $user = $this->user();
+
+        // Announcements editors only ever get their own company: another
+        // one in the address (or sent by the browser) is refused, not swapped.
+        if (! CompanyAddressedRules::manages($user)) {
+            abort_if($user->company_id === null || ($id !== null && $id !== (int) $user->company_id), 403);
+
+            return (int) $user->company_id;
+        }
+
         if ($id !== null && Company::query()->whereKey($id)->exists()) {
             return $id;
         }
 
         return Company::query()->orderBy('name')->value('id');
+    }
+
+    private function user(): User
+    {
+        $user = Auth::user();
+
+        abort_unless($user instanceof User, 403);
+
+        return $user;
     }
 
     private function service(int $id): ItService
