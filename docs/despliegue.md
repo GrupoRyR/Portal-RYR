@@ -3,7 +3,7 @@
 Esta guía explica cómo instalar el Portal RYR por primera vez en el hosting de GoDaddy (cPanel) y cómo publicar cambios después.
 
 - **URL de producción:** https://apps.segurexlatam.net
-- **Servidor:** GoDaddy, cPanel compartido, PHP 8.3, MySQL 8, acceso SSH y Git.
+- **Servidor:** GoDaddy, cPanel compartido, PHP 8.3, MariaDB 10.11 (compatible con MySQL; versión verificada el 2026-11-03 con `select version()`), acceso SSH y Git.
 - **Importante:** el servidor no tiene Node. Los archivos de diseño (CSS/JS) se compilan en el equipo local y se suben ya compilados en `public/build`.
 
 En los comandos, reemplace estos marcadores por los valores reales:
@@ -51,9 +51,9 @@ En los comandos, reemplace estos marcadores por los valores reales:
 
    > El document root debe apuntar a la carpeta `public`, nunca a la raíz del proyecto. Así el archivo `.env` y el código no quedan expuestos en internet.
 
-### 1.4 Base de datos MySQL
+### 1.4 Base de datos (MariaDB)
 
-1. En cPanel, abra **MySQL Databases**.
+1. En cPanel, abra **MySQL Databases** (cPanel lo llama así aunque el motor sea MariaDB).
 2. Cree una base de datos (cPanel le agrega el prefijo `<usuario>_`).
 3. Cree un usuario con una contraseña segura y guárdela en un gestor de contraseñas.
 4. Agregue el usuario a la base de datos con **ALL PRIVILEGES**.
@@ -541,7 +541,7 @@ El portal guarda la **TRM** y el **euro en pesos** para la banda de mercados del
 
 Administración › **Catálogos** guarda las categorías y los productos de cada empresa en las tablas `product_categories` y `products`, y las fotos de los productos en el disco `public`: `storage/app/public/products/<id de la empresa>/`.
 
-1. **Migraciones.** `php artisan migrate --force` crea las dos tablas (el script de despliegue ya lo hace, paso 1.7). Los nombres de índices y claves son cortos a propósito: MySQL admite 64 caracteres como máximo.
+1. **Migraciones.** `php artisan migrate --force` crea las dos tablas (el script de despliegue ya lo hace, paso 1.7). Los nombres de índices y claves son cortos a propósito: MariaDB y MySQL admiten 64 caracteres como máximo.
 2. **Enlace de almacenamiento.** Las fotos se publican en `/storage/products/...`, con el mismo enlace `public/storage` de los logos (paso 1.10). Si las fotos no se ven, ejecute `php artisan storage:link` y compruebe que `public/storage` apunta a `storage/app/public`.
 3. **Permisos de carpeta.** El usuario de PHP debe poder escribir en `storage/app/public/`. La carpeta `products/` y la de cada empresa se crean solas con la primera foto. No hace falta crearlas a mano.
 4. **Extensión GD.** Cada foto se vuelve a codificar con GD antes de guardarse (quita metadatos y cualquier dato escondido tras la imagen) y las mayores de 1200 px se reducen. Compruebe que está instalada con `php -m | grep -i gd`. Sin GD no se pueden subir fotos.
