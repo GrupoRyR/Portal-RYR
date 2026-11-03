@@ -25,11 +25,13 @@ Cada sistema tiene su propio token. Lo crea un súper administrador en **Adminis
   | `catalog:read` | Leer el catálogo de apps, sin usuarios ni reglas de acceso |
   | `status:write` | Reportar si una app funciona, falla o está caída |
   | `work:write` | Publicar tareas y aprobaciones en el inicio de cada persona (sección 7) |
+  | `kpis:write` | Publicar las cifras del panel gerencial de una empresa (sección 8) |
 
 - **App del catálogo** y **URL base de la app**: solo con `work:write`, y obligatorias con él (sección 7).
+- **Empresa de las cifras**: solo con `kpis:write`, y obligatoria con él. El token solo puede reemplazar las cifras de esa empresa (sección 8).
 - **IP permitidas** (opcional): direcciones (`10.0.0.5`) o rangos (`192.168.1.0/24`) desde las que se acepta el token. Si la lista está vacía, se acepta desde cualquier IP. Se recomienda limitarla a la IP del servidor que hace las llamadas.
 
-Para crear o rotar un token, dar `work:write` o cambiar la app del catálogo o la URL base de un sistema, el portal pide confirmar de nuevo la sesión con Microsoft si la última confirmación tiene más de 10 minutos (igual que al crear una empresa). La cuenta de emergencia no puede hacer ninguna de esas cosas.
+Para crear o rotar un token, dar `work:write` o `kpis:write`, o cambiar la app del catálogo, la URL base o la empresa de las cifras de un sistema, el portal pide confirmar de nuevo la sesión con Microsoft si la última confirmación tiene más de 10 minutos (igual que al crear una empresa). La cuenta de emergencia no puede hacer ninguna de esas cosas.
 
 El token empieza por `ryr_` y **se muestra una sola vez**, al crearlo. Guárdelo en el gestor de secretos del sistema que lo va a usar; el portal solo conserva una huella del token y no puede volver a mostrarlo.
 

@@ -73,6 +73,9 @@
                                             <code class="{{ $code }}">{{ $ability }}</code>
                                         @endforeach
                                     </span>
+                                    @if (in_array(Integration::KPIS_WRITE, $integration->abilities, true) && $integration->company)
+                                        <span class="mt-1 block text-xs text-fg-muted">Cifras de {{ $integration->company->name }}</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3.5 whitespace-nowrap max-md:p-0 max-md:text-xs">
                                     <span class="md:sr-only">Último uso: </span>{{ $integration->last_used_at?->diffForHumans() ?? 'Nunca' }}
@@ -138,6 +141,22 @@
                                @error('appBaseUrl') aria-invalid="true" @enderror>
                         <span id="in-base-url-hint" class="{{ $hint }}">https, sin usuario, sin ? ni #. El portal la usa para completar tareas.</span>
                         @error('appBaseUrl') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                    </div>
+                </fieldset>
+
+                <fieldset class="flex flex-col gap-3">
+                    <legend class="mb-1.5 text-[0.8125rem] font-bold">Panel gerencial <span class="font-normal text-fg-muted">(solo con kpis:write)</span></legend>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="in-company" class="{{ $label }}">Empresa de las cifras</label>
+                        <select id="in-company" wire:model="companyId" aria-describedby="in-company-hint" class="{{ $field }}"
+                                @error('companyId') aria-invalid="true" @enderror>
+                            <option value="">Elige una empresa</option>
+                            @foreach ($companies as $company)
+                                <option value="{{ $company->id }}">{{ $company->name }}</option>
+                            @endforeach
+                        </select>
+                        <span id="in-company-hint" class="{{ $hint }}">El token solo puede reemplazar las cifras de esta empresa.</span>
+                        @error('companyId') <p class="{{ $error }}">{{ $message }}</p> @enderror
                     </div>
                 </fieldset>
 
@@ -230,6 +249,25 @@
                         @error('workBaseUrl') <p class="{{ $error }}">{{ $message }}</p> @enderror
                         @if ($live)
                             <button type="submit" class="h-9 self-start rounded-[10px] border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">Guardar app</button>
+                        @endif
+                    </fieldset>
+                </form>
+
+                <form wire:submit="saveKpiCompany" aria-labelledby="in-kpi-label" class="flex flex-col gap-2">
+                    <span id="in-kpi-label" class="text-[0.8125rem] font-bold">Panel gerencial</span>
+                    <span class="{{ $hint }}">Obligatoria con <code>kpis:write</code>. Cambiarla o dar <code>kpis:write</code> pide confirmar con Microsoft.</span>
+                    <fieldset class="flex flex-col gap-2" @disabled(! $live)>
+                        <label for="in-kpi-company" class="{{ $label }}">Empresa de las cifras</label>
+                        <select id="in-kpi-company" wire:model="kpiCompanyId" class="{{ $field }} h-9 text-[0.8125rem]"
+                                @error('kpiCompanyId') aria-invalid="true" @enderror>
+                            <option value="">Ninguna</option>
+                            @foreach ($companies as $company)
+                                <option value="{{ $company->id }}" @selected((string) $company->id === (string) $kpiCompanyId)>{{ $company->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('kpiCompanyId') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                        @if ($live)
+                            <button type="submit" class="h-9 self-start rounded-[10px] border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">Guardar empresa</button>
                         @endif
                     </fieldset>
                 </form>

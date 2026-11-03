@@ -36,7 +36,7 @@ Que cada empresa tenga su propio juego de cifras gerenciales, publicado por un s
 ## Tareas
 
 - [x] T1. **Rol Gerencia.** Ruta: delegada (escritor único de la línea; 2 o más archivos no triviales). Migración `management_group_id`, `App\Auth\ManagementGroup`, `MicrosoftLogin`, `RoleSeeder`, `RoleMatrix`, `AuditPresenter`, Administración › Empresas. Pruebas: `tests/Feature/Auth/ManagementRoleTest.php`, `tests/Feature/Admin/CompanyManagementGroupTest.php`, `RoleMatrixTest`.
-- [ ] T2. **Permiso `kpis:write` con empresa.** Ruta: delegada (mismo escritor). Migración `integrations.company_id`, `Integration`, `IntegrationManager` y su vista. Pruebas en `IntegrationsPageTest`.
+- [x] T2. **Permiso `kpis:write` con empresa.** Ruta: delegada (mismo escritor). Migración `integrations.company_id`, `Integration`, `IntegrationManager` y su vista. Pruebas en `IntegrationsPageTest`.
 - [ ] T3. **`PUT /api/v1/kpis` y tabla `company_kpis`.** Ruta: delegada (mismo escritor). Migración, `CompanyKpi`, fábrica, `PutKpisRequest`, `KpiController`, `routes/api.php`, Auditoría, revocar borra las cifras. `docs/api.md` §8. Pruebas: `tests/Feature/Api/KpisApiTest.php`.
 - [ ] T4. **Modelo de lectura y permiso.** Ruta: delegada (mismo escritor). `ManagementPanel`, `ManagementSnapshot`, `ManagementKpi`, `ManagementPanelPolicy`, `AppServiceProvider`. `docs/despliegue.md` §1.19 y `docs/manual-administracion.md` §11. Pruebas: `tests/Feature/Management/ManagementPanelTest.php`.
 
@@ -67,7 +67,8 @@ Ver la sección «Evidencia» al final; se actualiza al cerrar cada tarea.
 
 ## Evidencia
 
-- Línea base (`main` 31e7cdd): suite completa lanzada antes de cambiar nada (resultado abajo, en T4).
-- **T1.** RED: 22 pruebas (`ManagementRoleTest`, `CompanyManagementGroupTest`, `RoleMatrixTest`), 18 fallan (4 fallos, 14 errores: no existían la columna, `ManagementGroup` ni el rol). GREEN: 22/22. `tests/Feature/Auth`, `Admin`, `Companies` y `Audit`: 562 pruebas, 4 fallos esperados en `AuthSetupTest` (contaba 3 roles), corregidos; `tests/Feature/Auth` 131/131 después. Revisión nativa: según el interruptor de RDD del coordinador.
+- Línea base (`main` 31e7cdd): la suite completa se lanzó en paralelo con las primeras ediciones de T1: 2263 pruebas, 2260 pasan; las 3 que fallaron (`AdminBrandTest` ×2, `SecurityHeadersTest`) eran la vista del editor a medio editar (`$managementGroupId` aún sin propiedad) y pasan 23/23 al repetirlas.
+- **T1** (commit `ea3c14f`). RED: 22 pruebas (`ManagementRoleTest`, `CompanyManagementGroupTest`, `RoleMatrixTest`), 18 fallan (4 fallos, 14 errores: no existían la columna, `ManagementGroup` ni el rol). GREEN: 22/22. `tests/Feature/Auth`, `Admin`, `Companies` y `Audit`: 562 pruebas, 4 fallos esperados en `AuthSetupTest` (contaba 3 roles), corregidos; `tests/Feature/Auth` 131/131 después. Revisión nativa: según el interruptor de RDD del coordinador.
+- **T2.** RED: `IntegrationsPageTest` 31 pruebas, 6 fallan (las nuevas: no existían `KPIS_WRITE`, `companyId` ni `kpiCompanyId`). GREEN: 31/31. `tests/Feature/Api` y `Audit`: 146/146.
 
 Engram mirror: `odd/panel-gerencial/tasks` (proyecto `portal_ryr`).

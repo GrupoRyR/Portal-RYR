@@ -22,7 +22,10 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * managed in Administración → Integraciones. The tasks app publishes its
  * work items (`work:write`, docs/contrato-tareas-aprobaciones.md): it
  * also needs its catalog app (`app_id`, whose host is the only one allowed
- * in the links) and its base URL (`app_base_url`).
+ * in the links) and its base URL (`app_base_url`). The SAP robot publishes
+ * the figures of the management panel (`kpis:write`,
+ * odd/tasks/panel-gerencial.md): bound to exactly one company
+ * (`company_id`), the only one whose figures it may replace.
  *
  * The integration owns the Sanctum token (never a user). It has at most one
  * live token: rotating replaces it at once, revoking deletes it for good.
@@ -30,7 +33,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * stored nor logged: only its SHA-256 hash (Sanctum) and its last four
  * characters (`token_hint`, to recognise it in the list).
  */
-#[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'created_by'])]
+#[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'company_id', 'created_by'])]
 class Integration extends Model
 {
     use HasApiTokens;
@@ -51,11 +54,14 @@ class Integration extends Model
 
     public const WORK_WRITE = 'work:write';
 
+    public const KPIS_WRITE = 'kpis:write';
+
     /** The only abilities a token may have, with their description. */
     public const ABILITIES = [
         self::CATALOG_READ => 'Leer el catálogo de apps, sin usuarios ni reglas',
         self::STATUS_WRITE => 'Reportar si una app funciona, falla o está caída',
         self::WORK_WRITE => 'Publicar tareas y aprobaciones en el inicio de cada persona',
+        self::KPIS_WRITE => 'Publicar las cifras del panel gerencial de una empresa',
     ];
 
     /** Rate limit of each token (named limiter `api`). */
@@ -126,6 +132,17 @@ class Integration extends Model
     public function app(): BelongsTo
     {
         return $this->belongsTo(App::class);
+    }
+
+    /**
+     * The only company whose management figures a `kpis:write` integration
+     * may replace; the API never takes the company from the request.
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

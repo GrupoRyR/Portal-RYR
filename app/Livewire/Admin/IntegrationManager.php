@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Auth\RecentMicrosoftLogin;
 use App\Models\App;
+use App\Models\Company;
 use App\Models\Integration;
 use App\Models\User;
 use App\Policies\AdminSections;
@@ -39,6 +40,11 @@ use Livewire\Component;
  * §2.2) also needs the catalog app whose host the links must use and the
  * base URL of the app: both are asked when creating, and must be saved
  * before granting it on an existing system.
+ *
+ * `kpis:write` (management panel, odd/tasks/panel-gerencial.md) works the
+ * same way with the one company whose figures the system publishes: asked
+ * when creating, saved before granting it, never taken away while granted,
+ * and granting it or changing the company needs a recent Microsoft sign-in.
  */
 class IntegrationManager extends Component
 {
@@ -47,7 +53,7 @@ class IntegrationManager extends Component
     public const LATEST_CHANGES = 5;
 
     /** Emergency accounts have no Microsoft identity to confirm with. */
-    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens, dar work:write o cambiar la app de tareas requiere iniciar sesión con Microsoft.';
+    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens, dar work:write o kpis:write, o cambiar la app de tareas o la empresa de las cifras requiere iniciar sesión con Microsoft.';
 
     /** The system shown in the detail panel (`?sistema=` in the address). */
     #[Url(as: 'sistema', history: true)]
@@ -76,6 +82,12 @@ class IntegrationManager extends Component
 
     public string $workBaseUrl = '';
 
+    /** Company of a new `kpis:write` token. */
+    public int|string|null $companyId = null;
+
+    /** Company of the management figures being edited in the detail panel. */
+    public int|string|null $kpiCompanyId = null;
+
     /** Plaintext of the token just created or rotated; null once dismissed. */
     #[Locked]
     public ?string $plainToken = null;
@@ -94,6 +106,7 @@ class IntegrationManager extends Component
         $this->selectedId = $selected?->id;
         $this->workAppId = $selected?->app_id;
         $this->workBaseUrl = (string) $selected?->app_base_url;
+        $this->kpiCompanyId = $selected?->company_id;
     }
 
     public function select(int $id): void
@@ -104,6 +117,7 @@ class IntegrationManager extends Component
         $this->selectedId = $integration->id;
         $this->workAppId = $integration->app_id;
         $this->workBaseUrl = (string) $integration->app_base_url;
+        $this->kpiCompanyId = $integration->company_id;
         $this->creating = false;
         $this->newIp = '';
         $this->notice = '';
@@ -122,6 +136,7 @@ class IntegrationManager extends Component
         $this->ips = '';
         $this->appId = null;
         $this->appBaseUrl = '';
+        $this->companyId = null;
         $this->notice = '';
         $this->resetErrorBag();
     }
@@ -142,9 +157,10 @@ class IntegrationManager extends Component
         $this->appBaseUrl = self::normalizeBaseUrl($this->appBaseUrl);
         $ips = [];
         $work = in_array(Integration::WORK_WRITE, $this->abilities, true);
+        $kpis = in_array(Integration::KPIS_WRITE, $this->abilities, true);
 
-        $this->withValidator(function ($validator) use (&$ips, $work) {
-            $validator->after(function ($validator) use (&$ips, $work) {
+        $this->withValidator(function ($validator) use (&$ips, $work, $kpis) {
+            $validator->after(function ($validator) use (&$ips, $work, $kpis) {
                 [$ips, $error] = self::parseIps($this->ips);
 
                 if ($error !== null) {
@@ -155,6 +171,12 @@ class IntegrationManager extends Component
                     foreach (self::workAppErrors(self::idOf($this->appId), $this->appBaseUrl, true) as $field => $message) {
                         $validator->errors()->add($field === 'app' ? 'appId' : 'appBaseUrl', $message);
                     }
+                }
+
+                $companyError = $kpis ? self::kpiCompanyError(self::idOf($this->companyId), true) : null;
+
+                if ($companyError !== null) {
+                    $validator->errors()->add('companyId', $companyError);
                 }
             });
         })->validate([
@@ -174,6 +196,7 @@ class IntegrationManager extends Component
             'allowed_ips' => $ips,
             'app_id' => $work ? self::idOf($this->appId) : null,
             'app_base_url' => $work ? $this->appBaseUrl : null,
+            'company_id' => $kpis ? self::idOf($this->companyId) : null,
             'created_by' => Auth::id(),
         ]);
         $this->plainToken = $integration->issueToken();
@@ -185,6 +208,7 @@ class IntegrationManager extends Component
                 'abilities' => $integration->abilities,
                 'allowed_ips' => $integration->allowed_ips,
                 ...($work ? self::workAppAudit($integration) : []),
+                ...($kpis ? self::kpiCompanyAudit($integration) : []),
             ],
         ]);
 
@@ -192,6 +216,7 @@ class IntegrationManager extends Component
         $this->selectedId = $integration->id;
         $this->workAppId = $integration->app_id;
         $this->workBaseUrl = (string) $integration->app_base_url;
+        $this->kpiCompanyId = $integration->company_id;
     }
 
     public function dismissToken(): void
@@ -258,7 +283,15 @@ class IntegrationManager extends Component
             return;
         }
 
-        if ($grantsWork && ! $this->hasRecentLogin($recent)) {
+        $grantsKpis = in_array(Integration::KPIS_WRITE, $new, true) && ! in_array(Integration::KPIS_WRITE, $old, true);
+
+        if ($grantsKpis && self::kpiCompanyError($integration->company_id, true) !== null) {
+            $this->addError('abilities', 'Antes de dar kpis:write, guarda la empresa de las cifras.');
+
+            return;
+        }
+
+        if (($grantsWork || $grantsKpis) && ! $this->hasRecentLogin($recent)) {
             return;
         }
 
@@ -317,6 +350,46 @@ class IntegrationManager extends Component
         $this->notice = 'App de tareas actualizada.';
     }
 
+    /**
+     * Saves the company whose management figures the selected system
+     * publishes. While it has `kpis:write`, one is required. A change needs
+     * a recent Microsoft sign-in; saving the same company does nothing.
+     */
+    public function saveKpiCompany(RecentMicrosoftLogin $recent): void
+    {
+        $integration = $this->liveSelection();
+        $this->resetErrorBag();
+
+        if ($integration === null) {
+            return;
+        }
+
+        $companyId = self::idOf($this->kpiCompanyId);
+        $error = self::kpiCompanyError($companyId, in_array(Integration::KPIS_WRITE, $integration->abilities, true));
+
+        if ($error !== null) {
+            $this->addError('kpiCompanyId', $error);
+
+            return;
+        }
+
+        $old = self::kpiCompanyAudit($integration);
+        $integration->forceFill(['company_id' => $companyId]);
+
+        if ($integration->isDirty('company_id') && ! $this->hasRecentLogin($recent)) {
+            return;
+        }
+
+        $integration->save();
+        $new = self::kpiCompanyAudit($integration);
+
+        if ($old !== $new) {
+            $integration->audit('integration.kpi_company_changed', ['old' => $old, 'attributes' => $new]);
+        }
+
+        $this->notice = 'Empresa de las cifras actualizada.';
+    }
+
     public function addIp(): void
     {
         $integration = $this->liveSelection();
@@ -366,6 +439,7 @@ class IntegrationManager extends Component
 
         $selected = $this->selectedId === null ? null : $integrations->firstWhere('id', $this->selectedId);
         $selected?->load(['creator:id,name']);
+        $integrations->load('company:id,name');
 
         return view('livewire.admin.integration-manager', [
             'integrations' => $integrations,
@@ -377,6 +451,7 @@ class IntegrationManager extends Component
                 ->get(),
             'tokenOwner' => $this->plainToken === null ? null : $selected,
             'catalogApps' => self::catalogApps(),
+            'companies' => Company::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -490,6 +565,32 @@ class IntegrationManager extends Component
         return [
             'app' => $integration->app_id === null ? null : App::query()->whereKey($integration->app_id)->value('slug'),
             'app_base_url' => $integration->app_base_url,
+        ];
+    }
+
+    /**
+     * Why the company of the management figures cannot be saved, if any.
+     * No company is only an error when required.
+     */
+    private static function kpiCompanyError(?int $companyId, bool $required): ?string
+    {
+        if ($companyId === null) {
+            return $required ? 'Elige la empresa de las cifras.' : null;
+        }
+
+        return Company::query()->whereKey($companyId)->exists() ? null : 'Esa empresa no existe.';
+    }
+
+    /**
+     * The company of the management figures, by its slug (readable in
+     * Auditoría).
+     *
+     * @return array{company: ?string}
+     */
+    private static function kpiCompanyAudit(Integration $integration): array
+    {
+        return [
+            'company' => $integration->company_id === null ? null : Company::query()->whereKey($integration->company_id)->value('slug'),
         ];
     }
 
