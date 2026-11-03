@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AppCatalogController;
 use App\Http\Controllers\Api\AppStatusController;
+use App\Http\Controllers\Api\KpiController;
 use App\Http\Controllers\Api\WorkItemController;
 use App\Models\Integration;
 use App\Models\WorkItem;
@@ -39,4 +40,10 @@ Route::prefix('v1')
             ->where('externalId', WorkItem::EXTERNAL_ID_PATTERN)
             ->middleware('abilities:'.Integration::WORK_WRITE)
             ->name('work-items.destroy');
+
+        // Management panel (odd/tasks/panel-gerencial.md): the whole set of
+        // figures of the token's own company.
+        Route::put('/kpis', KpiController::class)
+            ->middleware('abilities:'.Integration::KPIS_WRITE)
+            ->name('kpis.update');
     });

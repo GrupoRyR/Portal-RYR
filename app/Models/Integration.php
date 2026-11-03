@@ -156,6 +156,16 @@ class Integration extends Model
     }
 
     /**
+     * Management figures this system published (`kpis:write`).
+     *
+     * @return HasMany<CompanyKpi, $this>
+     */
+    public function kpis(): HasMany
+    {
+        return $this->hasMany(CompanyKpi::class);
+    }
+
+    /**
      * Status changes this system reported.
      *
      * @return HasMany<AppStatusEvent, $this>
@@ -203,15 +213,16 @@ class Integration extends Model
     }
 
     /**
-     * Deletes the token for good, and the work items it published, which
-     * leave the home at once (contract §2.2). A revoked integration stays
-     * listed.
+     * Deletes the token for good, and the work items and management
+     * figures it published, which leave the portal at once (contract §2.2,
+     * odd/tasks/panel-gerencial.md). A revoked integration stays listed.
      */
     public function revoke(): void
     {
         DB::transaction(function () {
             $this->tokens()->delete();
             $this->workItems()->withTrashed()->forceDelete();
+            $this->kpis()->delete();
             $this->forceFill(['revoked_at' => now()])->save();
         });
     }

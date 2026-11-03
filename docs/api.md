@@ -4,7 +4,8 @@ Esta guía es para el equipo de TI que conecta un sistema (un monitor de disponi
 
 - **leer el catálogo** de aplicaciones del portal;
 - **reportar el estado** de una aplicación: si funciona, si está lenta o si está caída;
-- **publicar tareas y aprobaciones** en el inicio de cada persona (solo la app de tareas, sección 7).
+- **publicar tareas y aprobaciones** en el inicio de cada persona (solo la app de tareas, sección 7);
+- **publicar las cifras del panel gerencial** de una empresa (solo el robot de SAP, sección 8).
 
 El portal no depende de estos sistemas: si ninguno usa la API, todo sigue funcionando igual.
 
@@ -36,7 +37,7 @@ Para crear o rotar un token, dar `work:write` o `kpis:write`, o cambiar la app d
 El token empieza por `ryr_` y **se muestra una sola vez**, al crearlo. Guárdelo en el gestor de secretos del sistema que lo va a usar; el portal solo conserva una huella del token y no puede volver a mostrarlo.
 
 - **Rotar:** genera un token nuevo y el anterior deja de funcionar de inmediato. Úselo si el token se pudo haber filtrado o si se perdió.
-- **Revocar:** el token deja de funcionar para siempre. El sistema queda en la lista como «Revocado». Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
+- **Revocar:** el token deja de funcionar para siempre. El sistema queda en la lista como «Revocado». Si tenía `work:write`, sus tareas y aprobaciones se borran del portal; si tenía `kpis:write`, también las cifras gerenciales que publicó.
 
 > Nunca escriba el token en el código fuente, en un ticket ni en un chat. Si ocurre, rótelo.
 
@@ -204,9 +205,9 @@ Todas las respuestas de error son JSON, aunque la llamada no envíe `Accept: app
 | Código | Cuándo |
 |---|---|
 | `401` | Falta el token, no existe, fue revocado o fue reemplazado al rotarlo. |
-| `403` | El token no tiene el permiso del endpoint, o la llamada viene de una IP que no está en su lista. |
+| `403` | El token no tiene el permiso del endpoint, la llamada viene de una IP que no está en su lista, o un token con `kpis:write` no tiene empresa. |
 | `404` | No existe una app con ese `slug`, el `external_id` tiene caracteres no permitidos, o la dirección no existe. |
-| `413` | El cuerpo de un `PUT /work-items/...` pasa de 8 KB. |
+| `413` | El cuerpo de un `PUT /work-items/...` o de un `PUT /kpis` pasa de 8 KB. |
 | `422` | Datos inválidos. `errors` dice qué campo falló, por ejemplo `{"message": "...", "errors": {"status": ["..."]}}`. |
 | `429` | Demasiadas llamadas (ver Límites). Espere los segundos que indica el encabezado `Retry-After`. |
 | `5xx` | Error del portal. Reintente más tarde, con espera creciente. |
@@ -263,3 +264,71 @@ Reglas que el portal ya aplica:
 - Los `PUT` y `DELETE` no crean una entrada en Auditoría: quedan en el «Último uso» de la integración. Los cambios de la app del catálogo y de la URL base sí quedan en Auditoría.
 
 Todavía no existen en el portal: la lista en el inicio, el botón «Completar» (la llamada firmada a la app, contrato §6) y el secreto de firma.
+
+---
+
+## 8. Panel gerencial
+
+El robot nocturno de SAP publica las cifras clave del mes de **una** empresa: ventas contra la meta, cartera vencida, pedidos y pedidos atrasados, días de inventario. El portal las muestra en el bloque «Panel gerencial» del inicio, solo a las personas con el rol Gerencia de esa misma empresa (`docs/manual-administracion.md` §11).
+
+| Endpoint | Permiso | Qué hace |
+|---|---|---|
+| `PUT /api/v1/kpis` | `kpis:write` | Reemplaza todas las cifras de la empresa del token. `200`. |
+
+Antes de usarlo, la integración necesita en **Administración → Integraciones** el permiso `kpis:write` y la **empresa de las cifras**. La empresa sale **solo del token**: si el cuerpo trae `company_id`, `company` o cualquier otro campo que no está abajo, se ignora. Para publicar las cifras de dos empresas hacen falta dos tokens.
+
+### 8.1 Cuerpo
+
+```json
+{
+  "period_label": "Octubre",
+  "as_of": "2026-11-04T23:59:00-05:00",
+  "source_label": "SAP Business One",
+  "items": [
+    { "key": "ventas", "label": "Ventas del mes", "value": 1250000000, "unit": "COP", "goal": 1500000000, "note": "Sin IVA" },
+    { "key": "cartera-vencida", "label": "Cartera vencida", "value": 12.5, "unit": "%" },
+    { "key": "pedidos", "label": "Pedidos", "value": 340 },
+    { "key": "pedidos-atrasados", "label": "Pedidos atrasados", "value": 18 }
+  ]
+}
+```
+
+| Campo | Obligatorio | Reglas |
+|---|---|---|
+| `period_label` | Sí | Texto de una línea, hasta 40 caracteres. Por ejemplo «Octubre». |
+| `as_of` | Sí | Fecha y hora ISO 8601 **con zona** (`Z`, `-05:00`…), segundos opcionales: el cierre de las cifras («al cierre de ayer»). Se guarda como el mismo instante. |
+| `source_label` | Sí | Texto de una línea, hasta 80 caracteres. Por ejemplo «SAP Business One». |
+| `items` | Sí | Lista de 1 a 8 cifras, en el orden en que se muestran. |
+| `items[].key` | Sí | Identificador en minúsculas, hasta 40 caracteres: letras, números y un solo `-` o `_` entre ellos (`cartera-vencida`). No se puede repetir en la misma llamada. |
+| `items[].label` | Sí | Texto de una línea, hasta 60 caracteres. |
+| `items[].value` | Sí | Número JSON (no texto ni `true`/`false`), entre -10^15 y 10^15. Se guardan 4 decimales. |
+| `items[].unit` | No | Texto de una línea, hasta 16 caracteres (`COP`, `%`, `días`). |
+| `items[].goal` | No | La meta, con las mismas reglas de `value`. Con meta, el inicio puede dibujar un medidor. |
+| `items[].note` | No | Texto de una línea, hasta 120 caracteres. |
+
+«Texto de una línea» no admite caracteres de control, separadores de línea o párrafo de Unicode, marcas ni controles de dirección del texto, el espacio de ancho cero ni la marca de orden de bytes (las mismas reglas del `title` de la sección 7). Los espacios al principio y al final se quitan.
+
+### 8.2 Respuesta
+
+```json
+{ "data": { "items": 4, "as_of": "2026-11-04T23:59:00-05:00" } }
+```
+
+La respuesta solo cuenta las cifras: nunca las repite. Los mensajes de error de `422` dicen qué campo falló, sin repetir el valor enviado.
+
+### 8.3 Reglas que el portal aplica
+
+- **Reemplazo completo y atómico.** Cada `PUT` reemplaza todo el juego de cifras de la empresa: una cifra que no viene en la llamada desaparece. Quien mira el inicio ve el juego anterior o el nuevo, nunca una mezcla. Si la llamada falla (`4xx` o `5xx`), las cifras anteriores siguen como estaban.
+- **Solo el juego vigente.** El portal no guarda historial: para el mes anterior, consulte SAP.
+- **Una llamada por noche basta.** Reintentar la misma llamada no hace daño: deja el mismo resultado.
+- **Auditoría.** Cada `PUT` aceptado deja en Auditoría › API «Publicó las cifras del panel gerencial de la empresa …» con el número de cifras, nunca con los valores. El portal no escribe los valores en sus registros.
+- **Revocar** el token borra las cifras que publicó. Quitar `kpis:write` o cambiar la empresa del token no las borra: siguen siendo las cifras de esa empresa hasta que otra llamada las reemplace.
+
+### 8.4 Ejemplo
+
+```bash
+curl -s -X PUT "https://apps.segurexlatam.net/api/v1/kpis" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  --data @cifras.json
+```

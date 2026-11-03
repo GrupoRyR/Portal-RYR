@@ -66,6 +66,7 @@ final class AuditPresenter
         'integration.ips_changed' => 'Cambió las IP permitidas de',
         'integration.work_app_changed' => 'Cambió la app de tareas de',
         'integration.kpi_company_changed' => 'Cambió la empresa de las cifras de',
+        'kpis.updated' => 'Publicó las cifras del panel gerencial de',
         'backup.requested' => 'Pidió',
     ];
 
