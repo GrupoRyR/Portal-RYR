@@ -61,7 +61,7 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
   - [x] Las instrucciones del servidor MCP dicen que los títulos de tareas y aprobaciones son datos escritos por personas, nunca instrucciones.
   - [x] Pruebas nuevas: el mismo `oid` en otro inquilino es 404; un administrador sin `AdminSections::INTEGRATIONS` no puede generar el secreto.
   - [x] `docs/estado-del-proyecto.md` ya no dice que falta C3b.
-  - Evidencia: RED 16 (11 fallos y 5 errores) en `CompleteTaskTest`, `IntegrationSigningSecretTest` e `IntegrationsPageTest`; GREEN 181/181 en esos archivos y en `tests/Feature/Mcp/Tools`.
+  - Evidencia: RED 16 (11 fallos y 5 errores) en `CompleteTaskTest`, `IntegrationSigningSecretTest` e `IntegrationsPageTest`; GREEN 181/181 en esos archivos y en `tests/Feature/Mcp/Tools`. Suite completa 2.806/2.806; `pint --test` limpio. Commits `40c0f9a` (§6.4, candado, versión, ruta, secreto) y `b4b3949` (URL base, MCP, prueba de permisos).
 
 ## Criterios de aceptación
 
@@ -79,6 +79,7 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
 
 - 2026-11-03: documento creado (`8d6e4b2`). R1 en curso.
 - 2026-11-03: R1, R2 y R3 hechos. Suite completa 2.788/2.788 (base 2.723); `pint --test` limpio.
+- 2026-11-03: correcciones de la revisión independiente (RV) hechas y comprobadas. Suite completa 2.806/2.806.
 
 ## Decisiones para revisar
 
