@@ -120,7 +120,7 @@ class CompanyWizardTest extends TestCase
 
         $this->actingAs($emergency)->get(route('admin.companies.create'))
             ->assertForbidden()
-            ->assertSee('Crear empresas o cambiar su inquilino requiere iniciar sesión con Microsoft.');
+            ->assertSee('Esta acción requiere iniciar sesión con Microsoft.');
     }
 
     public function test_the_companies_list_links_to_the_wizard(): void

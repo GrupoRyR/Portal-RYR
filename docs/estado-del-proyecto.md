@@ -1,10 +1,10 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-10-27.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-10-29.
 
 ## 1. Qué es y dónde está
 
-Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y Derivados): inicio de sesión con Microsoft, catálogo de apps por empresa y grupo, anuncios, administración, auditoría, informe de uso, API para sistemas externos, PWA y respaldos.
+Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y Derivados): inicio de sesión con Microsoft, catálogo de apps por empresa y grupo, anuncios, cuentas vinculadas entre empresas, administración, auditoría, informe de uso, API para sistemas externos, PWA y respaldos.
 
 | Qué | Ubicación |
 |---|---|
@@ -34,6 +34,10 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
   - #52: correos con marca y color de la barra del navegador en la PWA.
   - #54: logos animados de las apps en el inicio.
   - #55: nuevo inicio de sesión de escritorio (cometas detrás de una tarjeta).
+- **Cuentas vinculadas** (fase 1 del nuevo inicio, `odd/tasks/cuentas-vinculadas.md`). Una persona con una cuenta de Microsoft en cada empresa cambia de empresa desde el encabezado. Aún no está en producción:
+  - T1 y T2 (#61 a #65), fusionadas en `main` el 2026-10-29: confirmación reciente ligada a la cuenta, personas, vincular y desvincular automático.
+  - T3 (#67, abierta): cambiar de empresa con un inicio de sesión de Microsoft con la cuenta de destino.
+  - T4 (rama `feat/cuentas-vinculadas-4-interfaz`, sobre #67): selector en el encabezado, página `/cuenta`, desvincular, comando `portal:unlink-account` y manual (§8 de `docs/manual-administracion.md`).
 
 ## 3. Pendientes
 
@@ -48,7 +52,8 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 9. **Lighthouse en producción:** medir `/login` y el inicio. En local, `/login` dio móvil 99/100/96 y escritorio 100/100/96; el 96 de buenas prácticas viene de errores 404 de `sw.js` y del manifiesto en el servidor local (`odd/tasks/marca-sgx-sydc-y-entrada.md`, F5).
 10. **Prueba en celular real:** tocar un logo animado del inicio (se encoge y la app abre) y comprobar que, con «Reducir movimiento» activo, nada se mueve (`docs/lista-de-chequeo.md`, sección D).
 11. **Desplegar la seguridad (#56 y #57):** pasos en `docs/despliegue.md`, sección 2.3. Antes del despliegue: revisar que los grupos de las reglas sean de seguridad, tomar los IDs del grupo `APP-PortalAdmin` y del inquilino de Segurex, y agregar el dato `auth_time` al registro de la app. Después: `portal:sync-portal-admins`, cerrar sesiones, `portal:purge-public-avatars --force`, Force HTTPS Redirect en cPanel, comprobar cabeceras con `curl` y desactivar «Users can create security groups» en cada inquilino.
-12. **Decisiones abiertas de la auditoría:**
+12. **Prueba de las cuentas vinculadas (Jhon):** con dos cuentas reales, antes de fusionar #67 y el PR de T4: cambio silencioso, cambio con MFA y con una cuenta desactivada en Microsoft (`odd/tasks/cuentas-vinculadas.md`, Chequeos).
+13. **Decisiones abiertas de la auditoría:**
     - Invitados B2B del inquilino de Segurex: si entran con la pertenencia a `APP-PortalAdmin` del inquilino, quedan como administradores. Hoy es una decisión de Segurex sobre quién puede estar en ese grupo; no hay cambio en el código.
     - Respaldos sin cifrar: el `.zip` de cada respaldo (base de datos y archivos) no tiene contraseña, a propósito (`config/backup.php`, `password` en `null`). Decidir si se cifra, con quién se guarda la clave y cómo se recupera (`docs/despliegue.md`, sección 6).
     - `Mail.Send` podría estar concedido en otros inquilinos por consentimiento de administrador. Revisar en cada inquilino (ver el punto 1).
@@ -63,6 +68,8 @@ El servidor descarga de GitHub con una llave de despliegue de solo lectura (alia
 
 ## 5. Decisiones que no hay que reabrir
 
+- **Alcance del portal.** Ya no es solo «muestra y abre apps»: el 2026-10-28 el gerente aprobó el nuevo inicio (prototipo en `odd/tasks/cuentas-vinculadas.md`), que agrega cuentas vinculadas y, en fases siguientes, anuncios y eventos, personas, contenido externo, integraciones, asistente y avisos. Las tareas y aprobaciones vendrán de una app aparte, según `docs/contrato-tareas-aprobaciones.md` (planeado, versión 0.1); el portal solo las muestra y abre su enlace.
+- **Cuentas vinculadas.** Vincular nunca da una sesión: cambiar de empresa es un inicio de sesión real de Microsoft con la cuenta de destino. `person_id` nunca autoriza nada: roles, grupos, favoritos y anuncios siguen siendo de cada cuenta. Solo se vinculan cuentas de Microsoft de la propia organización (no invitados ni la cuenta de emergencia), de empresas activas, una por empresa. Una prueba (`tests/Unit/Auth/PersonNeverAuthorizesTest.php`) falla si otro código lee la persona.
 - Laravel 13 (no 11, que ya no tiene soporte), Livewire 4 solo en Administración; el inicio no usa Livewire ni Alpine.
 - Identidad = inquilino + `oid` de Microsoft; los invitados no se vinculan. Inicio de sesión multiinquilino («Allow all tenants»); el portal filtra por las empresas activas.
 - Roles: `super_admin` (correos de `PORTAL_SUPER_ADMIN_EMAILS`), `portal_admin` (grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, por ID de objeto: `PORTAL_ADMIN_GROUP_ID` + `PORTAL_ADMIN_TENANT_ID`; sin ellos nadie es administrador; `app/Auth/PortalAdminGroup.php`), `announcements_editor` (manual). Configuración e Integraciones: solo súper administrador.
@@ -94,6 +101,7 @@ El servidor descarga de GitHub con una llave de despliegue de solo lectura (alia
 | Documento | Para qué |
 |---|---|
 | `docs/despliegue.md` | Instalación, publicar cambios (§2), reversa (§3), qué no hacer (§4), problemas (§5), respaldos (§6), Microsoft y correo (§1.10) |
-| `docs/manual-administracion.md` | Uso diario de Administración, cuenta de emergencia (§3), tareas frecuentes (§4), pruebas en equipos (§6) |
+| `docs/manual-administracion.md` | Uso diario de Administración, cuenta de emergencia (§3), tareas frecuentes (§4), pruebas en equipos (§6), cuentas vinculadas y `portal:unlink-account` (§8) |
 | `docs/api.md` | API para sistemas externos |
+| `docs/contrato-tareas-aprobaciones.md` | Contrato planeado con la app de tareas y aprobaciones (aún no implementado) |
 | `docs/migracion-apps.md` | Pasar las demás apps a «Entrar con Microsoft» |

@@ -35,6 +35,11 @@ const NETWORK_TIMEOUT = 3000;
 const BYPASS = /^\/(api\/|auth\/|livewire)/;
 const IMAGE_PATHS = /^\/(storage|icons)\//;
 
+// The message of the last account action (`data-flash`, home.blade.php)
+// belongs to the response it came with: the saved copy never replays it.
+// Its text is escaped by Blade, so it holds no `<`.
+const FLASH = /<p\b[^>]*\bdata-flash\b[^>]*>[^<]*<\/p>\s*/g;
+
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches
@@ -116,8 +121,11 @@ async function remember(response, isHome) {
 
     if (!isHome || !response.ok || user === GUEST) return;
 
-    // Marked so the page knows it came from here (resources/js/home.js).
-    const html = (await response.text()).replace('data-pwa-source="network"', 'data-pwa-source="cache"');
+    // Marked so the page knows it came from here (resources/js/home.js),
+    // without the message of that one response.
+    const html = (await response.text())
+        .replace('data-pwa-source="network"', 'data-pwa-source="cache"')
+        .replace(FLASH, '');
     const headers = new Headers(response.headers);
     headers.set(SAVED_AT_HEADER, String(Date.now()));
 

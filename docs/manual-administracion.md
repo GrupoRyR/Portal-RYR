@@ -1,6 +1,6 @@
 # Manual de administración — Portal RYR
 
-Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes y la lista de pruebas en celulares y tablets antes de publicar cambios.
+Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes, la lista de pruebas en celulares y tablets antes de publicar cambios y las cuentas vinculadas de las personas que trabajan en varias empresas (§8).
 
 - **Dirección:** https://apps.segurexlatam.net
 - **Para instalar o publicar el portal** en el servidor, vea `docs/despliegue.md`.
@@ -253,6 +253,11 @@ Revise en este orden:
 5. **¿Su empresa está activa?** En **Empresas**.
 6. **¿Entra con la cuenta correcta?** En **Auditoría**, busque su nombre o correo con el tipo **Seguridad**: verá sus inicios de sesión y con qué empresa entró. Un invitado de otra empresa entra con la marca y las apps de la empresa de su propia organización de Microsoft.
 7. **¿Ve una copia guardada?** Si el portal muestra «Sin conexión · mostrando tus apps guardadas» o «Conexión lenta…», la lista puede ser vieja: pídale que recargue con conexión.
+8. **¿Está en la cuenta de la otra empresa?** Si tiene cuentas vinculadas, el encabezado marca la empresa en la que está. Cada cuenta ve solo las apps de su empresa (§8).
+
+### 4.6 Desvincular la cuenta de una persona
+
+Cuando alguien deja una empresa del grupo, no reconoce un vínculo o una de sus cuentas pudo estar comprometida, un súper administrador la desvincula con `portal:unlink-account` (§8.5). La persona también puede hacerlo sola desde **Cuentas vinculadas** (§8.4).
 
 ---
 
@@ -344,3 +349,58 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - Con el mouse encima, o al llegar con la tecla Tab, la tarjeta se levanta y el logo se balancea una vez. En el celular, al tocar, el logo se encoge un instante y la app abre.
 - Apps en mantenimiento: logo gris y quieto. Apps con fallas: un punto rojo que late en la esquina del logo.
 - Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
+
+---
+
+## 8. Cuentas vinculadas: una persona en varias empresas
+
+Quien tiene una cuenta de Microsoft en cada empresa del grupo (por ejemplo, `edward.ramanan@segurex.com` y `edward.ramanan@derivadoscol.com`) puede vincularlas y cambiar de empresa desde el encabezado, sin cerrar la sesión. Sirve para cualquier número de empresas.
+
+### 8.1 Reglas
+
+- **Vincular nunca da una sesión.** Cambiar de empresa es siempre un inicio de sesión real de Microsoft con la cuenta de destino. Si Microsoft responde con otra cuenta, o la cuenta de destino ya no sirve (desactivada en Microsoft, empresa inactiva), la sesión queda como estaba.
+- **Vincular no da permisos.** Cada cuenta conserva sus propios roles, grupos, aplicaciones, favoritos y anuncios. Ser súper administrador en una cuenta no lo hace súper administrador en la otra.
+- **Vincular exige dos pruebas:** confirmar con Microsoft la cuenta actual (§1.3) y luego entrar con la otra cuenta. Nunca se vincula por correo ni por nombre.
+- **No se pueden vincular** las cuentas de invitado (B2B) ni la cuenta de emergencia.
+- **Solo empresas activas.** Si una empresa se desactiva, su cuenta deja de aparecer en el selector de empresas; el vínculo se conserva.
+- **Una cuenta por empresa por persona.** Para cambiar la cuenta de una empresa, primero se desvincula la que hay.
+- **Cambio de empresa automático.** Si una cuenta pasa a otra empresa (por ejemplo, porque se movió un dominio) y la persona ya tenía una cuenta en esa empresa, el portal la desvincula solo. En Auditoría aparece «por cambio de empresa».
+- **Todo queda en Auditoría › Seguridad:** vínculos, rechazos, cambios de empresa (también los fallidos) y desvinculaciones. Cada cuenta de la persona recibe un correo cuando ella o un administrador vincula o desvincula sus cuentas (la desvinculación automática no envía correo).
+
+### 8.2 Vincular (lo hace la persona)
+
+1. En el inicio, toque su avatar y elija **Cuentas vinculadas**.
+2. Pulse **Vincular otra empresa** y confirme con Microsoft (pide la contraseña).
+3. Pulse **Continuar con Microsoft**, elija la cuenta de la otra empresa y entre con ella.
+4. El portal vuelve al inicio con «Vinculaste tu cuenta de …». La sesión sigue en la cuenta con la que estaba.
+
+### 8.3 Cambiar de empresa
+
+- El selector aparece en el encabezado del inicio y de las páginas secundarias, solo si hay otra cuenta a la que se puede cambiar. Con hasta 3 empresas son botones; desde 4, un menú. La empresa actual está marcada y no es un botón.
+- Al tocar otra empresa, Microsoft entra con esa cuenta, normalmente sin preguntar nada. Si pide la contraseña o el segundo factor, lo pide una sola vez.
+- Al terminar aparece «Ahora estás en tu cuenta de …». Si no se pudo: «No pudimos cambiar de empresa. Sigues en tu cuenta actual.»
+
+### 8.4 Desvincular (lo hace la persona)
+
+1. Avatar › **Cuentas vinculadas** › **Desvincular** en la cuenta que quiere separar.
+2. Confirme con Microsoft, revise la página de confirmación y pulse **Desvincular**.
+
+- Puede desvincular la cuenta con la que está: sigue en ella, pero ya no cambia a las otras.
+- Si solo le quedaban dos cuentas, las dos quedan separadas.
+- La cuenta no se borra: conserva sus permisos y puede volver a vincularse.
+
+### 8.5 Desvincular como administrador: `portal:unlink-account`
+
+Mientras no exista **Administración › Usuarios**, Jhon o un súper administrador lo hace por SSH en el servidor:
+
+```bash
+cd /home/<usuario>/<ruta-app>
+php artisan portal:unlink-account <correo>
+```
+
+- Muestra las cuentas de la persona, marca la que se desvincula y pide confirmar. `--force` omite la pregunta.
+- Si la persona queda con una sola cuenta, lo avisa: esa también se desvincula.
+- Si varias cuentas tienen ese correo (por ejemplo, la propia y una de invitado), las lista con su id y pide elegir una con `--id=<id>`.
+- El correo solo sirve para encontrar la cuenta: nunca vincula ni da acceso.
+- En Auditoría queda como «Sistema» con «por un administrador». Todas las cuentas de la persona reciben el correo.
+- Si la cuenta no está vinculada, no cambia nada.

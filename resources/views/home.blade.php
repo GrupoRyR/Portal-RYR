@@ -1,6 +1,7 @@
 {{--
     Home screen (docs/diseno/Main, Tablet, PhoneHome, PhoneDark, PhoneSearch
-    and PhoneEmpty). Announcements: a card in the desktop aside, a banner
+    and PhoneEmpty), with «Cambiar de empresa» in the header for linked
+    accounts and the `status` message of the last account action. Announcements: a card in the desktop aside, a banner
     with the top one on phone and tablet. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search, the
     favorite toggle and the offline notice. No Livewire or Alpine on this page.
@@ -31,6 +32,11 @@
                     <span class="hidden text-xs text-white/80 md:block">Portal de aplicaciones</span>
                 </x-brand-logo>
             </a>
+
+            {{-- Its own row on phones, between the search and the account on wider screens. --}}
+            @if ($page->switcher)
+                <x-account-switcher :switcher="$page->switcher" class="order-3 min-w-0 basis-full md:order-3 md:basis-auto md:shrink-0" />
+            @endif
 
             @if ($page->hasApps())
                 <form role="search" method="GET" action="{{ route('home') }}" class="order-3 min-w-0 basis-full md:order-2 md:mx-auto md:max-w-[560px] md:flex-1 md:basis-auto" data-search-form>
@@ -63,6 +69,11 @@
                                 <span class="truncate text-[0.8125rem] text-fg-muted">{{ $page->userEmail }}</span>
                             @endif
                         </div>
+                        @if ($page->accountsHref)
+                            <a href="{{ $page->accountsHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
+                                <x-home.icon name="link" class="size-[18px] text-fg-muted" />Cuentas vinculadas
+                            </a>
+                        @endif
                         @if ($page->canAdminister)
                             <a href="{{ route('admin.index') }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
                                 <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
@@ -82,6 +93,11 @@
 
     <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:px-10 lg:pt-10 xl:flex-row">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
+            {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController). --}}
+            @if (is_string($status = session('status')) && $status !== '')
+                <p role="status" data-flash class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">{{ $status }}</p>
+            @endif
+
             <div class="flex flex-col gap-1 md:gap-1.5">
                 <p class="text-sm font-semibold text-brand-ink">{{ $page->dateLine }}</p>
                 <h1 class="text-[1.75rem] leading-[1.05] font-bold tracking-[-0.025em] md:text-[2.125rem] lg:text-[2.5rem]">{{ $page->greeting() }}</h1>
