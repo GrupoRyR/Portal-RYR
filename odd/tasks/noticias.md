@@ -82,8 +82,8 @@ writer (writer trigger: 2+ non-trivial files).
 - N2: done in `677fa56` feat(news): add the NewsBoard read model. `NewsBoard::forCompany()` returns every tab of
   `NewsSource::TABS` as a list of `NewsHeadline` (title, link, date,
   source name), using ROW_NUMBER() per tab in one query.
-- N3: done in the `feat(admin): add the Noticias page for super admins`
-  commit after `677fa56` (Livewire `NewsManager`, `NewsSourcePolicy`, route
+- N3: done in `06b1331` feat(admin): add the Noticias page for super admins
+  (Livewire `NewsManager`, `NewsSourcePolicy`, route
   `admin.news.index`, nav item in Catálogo, audit labels, manual §2.11).
 
 Decisions:
@@ -118,6 +118,8 @@ Decisions:
 - N3 RED: 23 tests, 22 errors (route and component missing), 1 passed.
   GREEN: 23 passed. Full suite: 2428 passed. `vendor/bin/pint --test`:
   passed. Not checked in a browser (no local `.env`).
+- Docs fix `22bb239` docs(news): state that the 10 second limit applies
+  per request.
 
 ## Next step
 
