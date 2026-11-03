@@ -79,3 +79,30 @@ Schedule::command('activitylog:clean --force')
     ->dailyAt('04:30')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
+
+// «Enviar recordatorio» (Admin, mandatory announcements) only records the
+// request; this mails a batch of it every minute
+// (App\Announcements\AnnouncementReminders). The overlap lock expires
+// after 10 minutes, so a killed run does not block it for a day.
+Schedule::command('portal:send-announcement-reminders')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
+// Announcements that ask for it go to each company's all-staff list from
+// the company's own mailbox (App\Announcements\AnnouncementListEmails),
+// once each, when they are published. A run sends at most 10 emails of
+// a few seconds each; the overlap lock expires after 10 minutes.
+Schedule::command('portal:send-announcement-list-emails')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
+// «Resumen de los lunes» (App\Digest\WeeklyDigests): on Mondays, every
+// hour from 07:00 to 12:00 in Bogotá. The first run sends each company's
+// digest once; the later ones only catch up the companies it did not
+// record (a missed run, a switch turned on in the morning). After the noon
+// run nothing goes out for that week. The overlap lock expires after 10
+// minutes.
+Schedule::command('portal:send-weekly-digest')
+    ->cron('0 7-12 * * 1')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping(10);

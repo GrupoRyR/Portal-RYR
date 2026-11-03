@@ -12,7 +12,7 @@ use Tests\TestCase;
  * What every read tool shares: listed read only with a Spanish description
  * and its schema, and the two queries added for them next to the portal's
  * own (Announcement::scopeUnreadByPersonOf(),
- * DirectoryEntry::scopeWithShownBirthday()).
+ * DirectoryEntry::scopeCelebrationsOf()).
  */
 class PortalToolsTest extends TestCase
 {
@@ -80,7 +80,7 @@ class PortalToolsTest extends TestCase
         $this->assertSame([$readByLinked->id, $readByStranger->id, $unread->id], $ids($this->approver->fresh()));
     }
 
-    public function test_with_shown_birthday_reads_only_the_entry_s_own_account_when_it_chose_to_show_it(): void
+    public function test_celebrations_of_reads_only_the_entry_s_own_account_when_it_chose_to_show_it(): void
     {
         $shown = User::factory()->microsoft($this->segurex)->birthday(5, 20)->create();
         $hidden = User::factory()->microsoft($this->segurex)->birthday(6, 21, shown: false)->create();
@@ -95,7 +95,7 @@ class PortalToolsTest extends TestCase
 
         $birthdays = DirectoryEntry::query()
             ->select('directory_entries.id')
-            ->withShownBirthday()
+            ->celebrationsOf($this->segurex->id)
             ->get()
             ->mapWithKeys(fn (DirectoryEntry $entry) => [$entry->id => [$entry->shown_birthday_month, $entry->shown_birthday_day]]);
 
