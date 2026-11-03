@@ -200,4 +200,13 @@ class AnnouncementModelTest extends TestCase
             'Expected the announcement to be hidden.',
         );
     }
+
+    public function test_the_status_scope_names_the_announcements_table_so_joins_stay_unambiguous(): void
+    {
+        $sql = Announcement::query()->inStatus(Announcement::STATUS_PUBLISHED)->toSql();
+
+        foreach (['withdrawn_at', 'starts_at', 'ends_at'] as $column) {
+            $this->assertStringContainsString('"announcements"."'.$column.'"', $sql);
+        }
+    }
 }
