@@ -16,7 +16,7 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 
 - WU1: lectura obligatoria (tabla `announcement_reads`), botón «Confirmar lectura» y conteo «X de Y cuentas lo leyeron» en Admin (por cuenta, no por persona).
 - WU2: eventos con `.ics`.
-- WU3: resumen de los lunes por cron (bloqueada si necesita correo).
+- WU3: resumen de los lunes por correo a la lista de cada empresa (desbloqueada por Jhon el 2026-11-03).
 - WU4: correo a las listas de cada empresa (desbloqueada por Jhon el 2026-10-30).
 
 ## Fuera de alcance
@@ -48,14 +48,20 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 - [x] WU1-R. **Arreglos de la revisión independiente del PR5.** Ruta: delegada (escritor), 2 o más archivos no triviales (controlador, límite, modelo, editor, vistas, pruebas, manual). Hecho y verificado (ver el registro).
 - [x] WU2. **PR6, eventos con `.ics`.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, política, `.ics`, Admin, inicio, buscador, vistas y pruebas). Hecho y verificado (ver el registro del WU2).
 - [x] WU2-R. **Arreglos de la revisión independiente del PR6.** Ruta: delegada (escritor), 2 o más archivos no triviales (Auditoría, modelos, políticas, `.ics`, rutas, inicio, `/eventos`, buscador, `home.js` y pruebas). Hecho y verificado (ver el registro).
-- [ ] WU3. **PR7, resumen de los lunes.** Bloqueada si necesita correo (ver preguntas).
+- [ ] WU3. **PR9, resumen de los lunes por correo.** Desbloqueada con la decisión de Jhon del 2026-11-03 (pregunta 2). Rama `feat/inicio-11-resumen-lunes`, desde `feat/inicio-10-correo-listas` (PR #83). Ruta: delegada (escritor), porque son 2 o más archivos no triviales (migración, `Company`, el armado del resumen, el comando y su horario, el editor de Empresas, la vista del correo, pruebas y documentos).
+  - Cada lunes por la mañana (hora de Bogotá), una vez por empresa activa con el interruptor encendido y con lista y buzón remitente válidos (`canReceiveListEmail()`), a su lista y desde su buzón, por Graph con `TenantMailSender` de #83. Nunca SMTP.
+  - Una fila por empresa y semana (par único) que se anota antes de llamar a Graph: nunca sale dos veces. Si el cron falla a las 7:00, lo intenta de nuevo cada hora hasta el mediodía del mismo lunes; después no.
+  - Contenido por empresa, solo lo que cualquier persona de esa empresa ve: anuncios publicados en los últimos 7 días y los de lectura obligatoria que siguen vigentes; las fechas de la semana (lunes a domingo: festivos y «Puente festivo», eventos y fechas anuales de la empresa); cumpleaños (solo con «mostrar», sin año) y aniversarios de la semana; y un enlace al portal. Si no hay nada, no se envía y la fila queda como «Sin contenido».
+  - Admin › Empresas: interruptor «Resumen de los lunes» (apagado por defecto, auditado) y el estado del último envío.
+  - Fuera: reintento manual (documentado).
+- Pruebas primero (RED), Pint, suite completa, revisión independiente y PR sobre #83.
 - [x] WU4. **PR8, correo a las listas de cada empresa.** Desbloqueada con la decisión de Jhon del 2026-10-30 (pregunta 1). Rama `feat/inicio-10-correo-listas`, desde `feat/inicio-9-recordatorios` (PR #81). Ruta: delegada (escritor), porque son 2 o más archivos no triviales (migraciones, `Company`, `Announcement`, `AnnouncementListEmail`, el servicio de envío, el cliente de Graph por inquilino, el comando, los dos editores de Admin, la vista del correo, pruebas y documentos). Hecho y verificado (ver el registro del WU4).
 - [x] WU4-R. **Arreglos de la revisión independiente del WU4** (sin hallazgos altos, 2 medios y 4 bajos). Ruta: delegada (escritor), 2 o más archivos no triviales (servicio de envío, editor, vistas, modelo, cron, pruebas y documentos). Hecho y verificado (ver el registro del WU4-R).
 
 ## Preguntas para Jhon
 
 1. ~~WU4: las listas de Exchange solo aceptan remitentes internos. ¿Con qué buzón se envía y cómo se acota `Mail.Send` (RBAC por inquilino) en cada empresa?~~ **Decidida (Jhon, 2026-10-30):** cada empresa envía a su lista desde un buzón de su propio inquilino (Segurex desde `segurex.info@segurex.com`, Derivados desde `derivados.info@derivadoscol.com`), siempre con Microsoft Graph, nunca SMTP; el buzón es un dato de la empresa en Admin › Empresas. El acotado (RBAC para aplicaciones de Exchange por inquilino y quitar el `Mail.Send` sin límite de Entra) lo hace Jhon con `docs/despliegue.md` §1.13. Hecho en el WU4.
-2. WU3: ¿el resumen de los lunes va por correo (bloqueado como WU4) o basta con verlo en el portal?
+2. ~~WU3: ¿el resumen de los lunes va por correo (bloqueado como WU4) o basta con verlo en el portal?~~ **Decidida (Jhon, 2026-11-03): por correo** a la lista de cada empresa, reutilizando el envío del WU4.
 3. WU1: «Y» solo cuenta a quien ya entró al portal (las cuentas se crean al iniciar sesión). ¿Sirve así o hace falta traer el directorio de Microsoft?
 4. WU1: ¿quien no ha leído debe recibir un recordatorio (correo o aviso)? Hoy no se construye.
 5. ~~WU1: ¿contar por persona entre cuentas vinculadas?~~ **Decidida (Jhon, 2026-10-30): por persona.** Hecho en T4 de `odd/tasks/ajustes-inicio-y-tareas.md` (`0be536c`): quien tiene cuentas vinculadas confirma una vez, el reporte dice «X de Y personas» y «Personas que faltan», con un ayudante en `App\Auth\LinkedAccounts` y una entrada razonada en `tests/Unit/Auth/PersonNeverAuthorizesTest.php`.
@@ -193,4 +199,4 @@ Que un anuncio importante llegue a todos y se sepa quién lo leyó: lectura obli
 
 ## Siguiente paso
 
-WU4 (`feat/inicio-10-correo-listas`): abrir su PR encima de #81 (`feat/inicio-9-recordatorios`) y pasarle `/code-review`, decisión del coordinador o de Jhon. Para que salgan los correos, Jhon sigue `docs/despliegue.md` §1.13 en Segurex y en Derivados y llena la lista y el buzón remitente de cada empresa en Admin › Empresas. WU3 sigue esperando la respuesta a la pregunta 2.
+WU3 (`feat/inicio-11-resumen-lunes`, sobre #83): escritor delegado con pruebas primero, revisión independiente, arreglos y PR. WU4 está en el PR #83; para que salgan los correos, Jhon sigue `docs/despliegue.md` §1.13 y llena la lista y el buzón remitente de cada empresa.
