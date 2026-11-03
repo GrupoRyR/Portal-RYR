@@ -32,8 +32,8 @@ Esta línea construye el backend, la página de Administración y la documentaci
 
 ## Tareas
 
-- [ ] T1. Tabla, modelo, fábrica, política, auditoría y Administración › Estado de TI (ruta, menú, Livewire). Ruta: delegada (este escritor).
-- [ ] T2. `App\ItStatus\ItStatusBoard` y sus objetos de valor. Ruta: delegada (este escritor).
+- [x] T1. Tabla, modelo, fábrica, política, auditoría y Administración › Estado de TI (ruta, menú, Livewire). Ruta: delegada (este escritor). Commit `c1f7f59`.
+- [x] T2. `App\ItStatus\ItStatusBoard` y sus objetos de valor (`ItStatus`, `ItStatusItem`, `ItStatusLevel`). Ruta: delegada (este escritor). Commit: el de `feat(estado-ti): add the IT status read model`.
 - [ ] T3. Documentación (§1.21 de despliegue y §13 del manual). Ruta: delegada (este escritor).
 
 ## Criterios de aceptación
@@ -54,8 +54,9 @@ Un solo escritor delegado (esta sesión) en su propio worktree. Disparadores: m�
 
 ## Progreso
 
-Pendiente.
+- T1: RED 25 pruebas, 0 pasan (clase y ruta inexistentes). GREEN 25/25; `tests/Feature/{ItStatus,Admin,Products,Audit}` 516/516. Pint pasa.
+- T2: RED 13 pruebas, 0 pasan (`ItStatusBoard` no existe). GREEN 13/13; `tests/Feature/ItStatus` 38/38. Pint pasa.
 
 ## Siguiente paso
 
-T1.
+T3.
