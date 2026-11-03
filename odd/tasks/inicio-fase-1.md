@@ -51,10 +51,11 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
   - Menú «Secciones» (`<details>`) en el celular.
   - Sin «Ver como». Consultas del inicio ≤ 12.
   - Hecho y verificado (ver el registro del WU3).
-- [ ] WU4. **PR4, búsqueda `Ctrl K`.** Ruta: por decidir al empezar.
+- [x] WU4. **PR4, búsqueda `Ctrl K`.** Ruta: delegada (escritor), porque son 2 o más archivos no triviales: `HomeSearchIndex`, `HomePageBuilder`, el diálogo, `home.js` y sus pruebas.
   - Índice JSON incrustado que reutiliza `App\Catalog\AppSearch::normalize`.
   - Apps, anuncios visibles (`Announcement::scopeVisibleTo`) y fechas.
   - Búsqueda de personas: bloqueada, decisión de Jhon.
+  - Hecho y verificado (ver el registro del WU4).
 
 ## Preguntas para Jhon
 
@@ -79,7 +80,7 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
 ## Entrega
 
 - **Estrategia:** `ask-on-risk`, con cadena `stacked-to-main` (ya elegida por el coordinador): un PR por WU, encadenados encima de #68 (`feat/cuentas-vinculadas-4-interfaz`).
-- **Ramas:** `feat/inicio-1-festivos` (WU1), desde `feat/cuentas-vinculadas-4-interfaz`; `feat/inicio-2-mi-dia` (WU3), desde `feat/inicio-1-festivos`.
+- **Ramas:** `feat/inicio-1-festivos` (WU1), desde `feat/cuentas-vinculadas-4-interfaz`; `feat/inicio-2-mi-dia` (WU3), desde `feat/inicio-1-festivos`; `feat/inicio-3-buscador` (WU4), desde `feat/inicio-2-mi-dia`.
 - **Pronóstico:** WU1 ~400 líneas (más de la mitad, pruebas). Salió con 625 (este documento ~130, código ~210, pruebas ~280).
 - **Revisión nativa (RDD):** apagada (global: off). Se usan los chequeos ordinarios.
 
@@ -137,6 +138,43 @@ Un inicio que responda «qué hay hoy» en un vistazo: festivos de Colombia, fec
   - GREEN: suite completa 1.401 de 1.401 (6.873 aserciones). `vendor/bin/pint --test`: sin cambios.
   - Capturas nuevas a 390 px (`home-sin-vinculos-390-light-fix`, `-dark-fix`, `home-secciones-abierto-390-light-fix`): sin desborde; sin menú, el nombre pasa de «Solucio…» a «Soluciones y Derivados de …». La razón social completa aún se recorta en el celular: es el componente `x-brand-logo`, igual que con apps.
 
+- 2026-10-29: WU4 hecha (ruta delegada, un escritor). Rama `feat/inicio-3-buscador`, desde `feat/inicio-2-mi-dia`. Sin `push` ni PR.
+  - RED: `tests/Feature/Search/HomeSearchIndexTest.php` nueva, 10 pruebas: 0 en verde, 8 fallas y 2 errores (sin índice en la página; `HomeSearchIndex` no existía).
+  - GREEN, índice (`e93c5ce` `feat(search)`): `App\Search\HomeSearchIndex` con las apps de la página (enlace y pestaña nueva como la tarjeta), hasta 50 anuncios visibles (`ANNOUNCEMENT_LIMIT`; título y extracto de 90 caracteres, `EXCERPT_LENGTH`, nunca el cuerpo) y los festivos de 12 meses (`HOLIDAY_MONTHS`). Diálogo `x-home.search-dialog` y botón «Ctrl K» en el buscador del encabezado.
+  - GREEN, interfaz (`c54340e` `feat(home)`): `home.js` abre el diálogo con `Ctrl K`, `Cmd K`, `/` y «Buscar» de la barra inferior; flechas, Enter, Escape (vuelve el foco a quien lo abrió), clic en el fondo; `public/build` reconstruido.
+  - Suite completa: 1.412 de 1.412 (6.945 aserciones). `vendor/bin/pint --test`: sin cambios. Consultas del inicio: sin cambio.
+  - Capturas `busqueda-390-light`, `-390-dark`, `-1440-light`, `-1440-dark` (consulta «ca»: 2 apps, 1 anuncio, 3 fechas): sin desborde a 390 px (diálogo de 358 px). En Playwright: `Ctrl K` abre, flecha abajo mueve `aria-activedescendant`, Escape cierra y devuelve el foco a la tarjeta, «camaras» encuentra «Cámaras», sin resultados sale «No encontramos resultados para «…».», y con el reloj en el 20 de noviembre «cartagena» (16 de noviembre) ya no sale.
+  - Decisiones:
+    - Cero consultas nuevas: la consulta de anuncios del inicio trae hasta 50; las 3 primeras hacen las tarjetas y todas el índice.
+    - Cada anuncio enlaza a su página de `/anuncios` (`?page=N#a-id`), porque la lista está paginada de a 10. Cambió en la revisión: ahora enlaza a `/anuncios/{id}`, que calcula la página al abrirlo.
+    - Una búsqueda en el servidor (`?q=`) no lleva índice ni diálogo: es el camino sin JavaScript, igual que antes (y las pruebas de `?q=` siguen sin ver las apps que no coinciden). Ahí `/` vuelve a enfocar el buscador.
+    - El buscador del encabezado sigue filtrando las tarjetas al escribir; el botón «Ctrl K» (`⌘ K` en Mac) abre el diálogo, solo desde tableta y con JavaScript.
+    - Los festivos no enlazan: el resultado ya dice la fecha. Los que ya pasaron se ocultan siempre (hoy en `America/Bogota`), lo que cubre la copia guardada.
+    - El JSON escapa `<`, `>`, `&` y comillas (`JSON_HEX_*`): un título con `</script>` no cierra el script.
+    - Sin personas ni otras cuentas en el índice. Máximo 6 resultados por grupo.
+  - Pendiente: Lighthouse; probar con lector de pantalla real (solo se revisó el marcado ARIA).
+- 2026-10-29: revisión independiente del WU4, ocho arreglos (ruta: delegada, un escritor). Sin `push` ni PR.
+  - RED: 14 de 23 en `HomeSearchIndexTest` y la nueva `tests/Feature/Announcements/AnnouncementLinkTest.php` (4 fallas: `?q=` sin la pista `/`, `?q=` pedía 50 anuncios, y dos de prueba mal escrita que se corrigieron; 10 errores: ruta `announcements.show` y `Announcement::PER_PAGE` inexistentes, «Malformed UTF-8» en `toJson()`).
+  - `255a877` `fix(search)`:
+    - `GET /anuncios/{announcement}` (`announcements.show`, mismo grupo `auth`, `throttle:60,1`): redirige a `/anuncios?page=N#a-{id}` calculando la página al abrirlo (misma visibilidad `visibleTo`, mismo orden `ordered()` y `Announcement::PER_PAGE`); 404 si quien lo abre no lo ve (otra empresa, retirado, programado, vencido, sin empresa) o si no existe. El índice enlaza ahí, así la copia guardada nunca apunta a una página vieja.
+    - `Announcement::PER_PAGE` reemplaza a `AnnouncementController::PER_PAGE` (controlador, índice y redirección).
+    - `toJson()` con `JSON_INVALID_UTF8_SUBSTITUTE` (U+FFFD): un texto dañado no tumba el inicio.
+    - La búsqueda en el servidor (`?q=`) trae solo los 3 anuncios de las tarjetas y vuelve a mostrar la pista `<kbd>/</kbd>`.
+    - Pruebas nuevas del índice: cuenta de emergencia y usuario sin empresa (sin anuncios ni apps, igual que `/anuncios`, que dice «No hay anuncios por ahora.»), empresa inactiva y escape del extracto.
+  - `f097f68` `fix(home)`:
+    - Una sola fila activa: sin `hover:bg-subtle`; el puntero mueve la opción activa (`pointermove`, no `pointerover`, así las flechas mandan mientras el mouse está quieto) y la activa lleva contorno interior `outline-brand-ink` además del fondo (también se ve en colores forzados).
+    - Teclas: se ignora `event.isComposing` (IME) en el diálogo y en el atajo global. `Ctrl K`/`Cmd K` sigue funcionando desde campos de texto, por convención de paleta de comandos (ningún campo de texto lo usa); `/` nunca se toma mientras se escribe.
+    - `public/build` reconstruido (`home-W6Ub_hgl.js`, `app-wz3uzfFq.css`).
+  - GREEN: suite completa 1.425 de 1.425 (7.012 aserciones). `vendor/bin/pint --test`: sin cambios.
+  - Hallazgo (sin cambiar): `Announcement::scopeVisibleTo` no mira `is_active`, así que quien sigue con sesión en una empresa desactivada ve sus anuncios en `/anuncios`, aunque el catálogo no le muestra apps (`AppCatalog::mayUseCatalog`). El índice hace lo mismo que esas dos páginas; si se quiere ocultar, se cambia el scope (decisión aparte).
+  - Playwright (servidor local en 8802, ya detenido): a 390 px, claro y oscuro, el mouse sobre la última fila y las flechas en la segunda: solo la segunda tiene `aria-selected`, fondo y contorno; la de debajo del mouse queda sin fondo. Enter con `isComposing` no abre nada; `a/b` se escribe entero en el buscador del encabezado y `Ctrl K` abre el diálogo desde ahí; `?q=ca` muestra la pista `/` y no lleva diálogo; `/anuncios/1` llega a `/anuncios#a-1` con el ancla en la página. Capturas `busqueda-390-light-fix`, `busqueda-390-dark-fix`: sin desborde.
+
+## Estado de la fase 1
+
+- Hechas: WU1, WU3 y WU4 (con sus revisiones).
+- Bloqueadas por Jhon: WU2 y la búsqueda de personas.
+- Pendiente: Lighthouse en el celular (≥ 90) y lector de pantalla real.
+
 ## Siguiente paso
 
-Abrir los PR de `feat/inicio-1-festivos` (encima de #68) y `feat/inicio-2-mi-dia` (encima del anterior): decisión de Jhon. Después, WU4: búsqueda `Ctrl K`. WU2, la barra inferior junto a «Secciones» y la búsqueda de personas esperan las respuestas de Jhon.
+Abrir el PR de `feat/inicio-3-buscador` encima de #70 (`feat/inicio-2-mi-dia`): decisión de Jhon. WU2, la barra inferior junto a «Secciones» y la búsqueda de personas esperan las respuestas de Jhon.

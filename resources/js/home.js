@@ -5,7 +5,9 @@
 // - Instant search over the rendered cards, with the count announced.
 // - Favorite toggle without a reload: the card moves between Favoritos and
 //   its category.
-// - "/" focuses the search; the bottom bar focuses search and opens the
+// - «Ctrl K» (⌘ K), "/" and the bottom bar's «Buscar» open the search
+//   dialog over apps, announcements and dates; without it (a server search),
+//   "/" and «Buscar» focus the search field. The bottom bar also opens the
 //   account menu.
 // - Animated logos: ends the entrance, pops the star when it gets pressed.
 // - Installable app: registers the service worker (/sw.js, see
@@ -95,13 +97,182 @@ if (input && !serverSearch) {
     input.form.addEventListener('submit', (event) => event.preventDefault());
 }
 
+// Today in Bogotá, the calendar timezone (App\Calendar\ColombianHolidays,
+// from config app.timezone), as an ISO date: ISO dates compare as strings.
+const bogotaToday = () =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+        new Date(),
+    );
+
+// «Ctrl K» search (x-home.search-dialog) over the index embedded in the page
+// (App\Search\HomeSearchIndex): apps, announcements and holidays, matched
+// like the server search. Absent on a server search (?q=).
+const dialog = $('[data-search-dialog]');
+const SEARCH_GROUP_LIMIT = 6;
+let found = [];
+let active = -1;
+let opener = null;
+
+function selectResult(position) {
+    active = position;
+    found.forEach(({ option }, n) => option.setAttribute('aria-selected', String(n === position)));
+
+    const field = $('[data-search-input]', dialog);
+    if (position < 0) {
+        field.removeAttribute('aria-activedescendant');
+        return;
+    }
+    field.setAttribute('aria-activedescendant', found[position].option.id);
+    found[position].option.scrollIntoView({ block: 'nearest' });
+}
+
+function renderResults(index) {
+    const field = $('[data-search-input]', dialog);
+    const query = field.value.trim();
+    const terms = normalize(query).split(' ').filter(Boolean);
+    // The saved copy can be a day old: no holiday that is already over.
+    const today = bogotaToday();
+    found = [];
+
+    for (const group of $$('[data-search-group]', dialog)) {
+        $$('[role="option"]', group).forEach((option) => option.remove());
+
+        const hits =
+            terms.length === 0
+                ? []
+                : index[group.dataset.searchGroup]
+                      .filter((entry) => !(entry.date && entry.date < today))
+                      .filter((entry) => terms.every((term) => entry.search.includes(term)))
+                      .slice(0, SEARCH_GROUP_LIMIT);
+
+        for (const entry of hits) {
+            const option = $('template', group).content.firstElementChild.cloneNode(true);
+            option.id = `busqueda-opcion-${found.length}`;
+            if (entry.href) option.dataset.link = '';
+            $('[data-title]', option).textContent = entry.title;
+            $('[data-detail]', option).textContent = entry.detail;
+            group.append(option);
+            found.push({ option, entry });
+        }
+
+        group.hidden = hits.length === 0;
+    }
+
+    $('[data-search-results]', dialog).hidden = found.length === 0;
+    field.setAttribute('aria-expanded', String(found.length > 0));
+    $('[data-search-status]', dialog).textContent =
+        terms.length === 0
+            ? 'Escribe para buscar aplicaciones, anuncios y fechas.'
+            : found.length === 0
+              ? `No encontramos resultados para «${query}».`
+              : found.length === 1
+                ? '1 resultado'
+                : `${found.length} resultados`;
+    selectResult(found.length > 0 ? 0 : -1);
+}
+
+// Holidays have no link: the result is the answer.
+function openResult(position) {
+    const entry = found[position]?.entry;
+    if (!entry?.href) return;
+
+    if (entry.newTab) {
+        window.open(entry.href, '_blank', 'noopener');
+        dialog.close();
+    } else {
+        window.location.assign(entry.href);
+    }
+}
+
+function openSearch() {
+    if (!dialog || dialog.open) return;
+
+    opener = document.activeElement;
+    dialog.showModal();
+    const field = $('[data-search-input]', dialog);
+    field.focus();
+    field.select();
+}
+
+if (dialog) {
+    const index = JSON.parse($('#search-index').textContent);
+    const field = $('[data-search-input]', dialog);
+
+    field.addEventListener('input', () => renderResults(index));
+    field.addEventListener('keydown', (event) => {
+        // Enter or an arrow that confirms an IME composition is not ours.
+        if (event.isComposing) return;
+
+        if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && found.length > 0) {
+            event.preventDefault();
+            const step = event.key === 'ArrowDown' ? 1 : -1;
+            selectResult((active + step + found.length) % found.length);
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            openResult(active);
+        }
+    });
+
+    const results = $('[data-search-results]', dialog);
+    const positionOf = (target) => {
+        const option = target.closest('[role="option"]');
+        return option ? found.findIndex((result) => result.option === option) : -1;
+    };
+
+    results.addEventListener('click', (event) => {
+        const position = positionOf(event.target);
+        if (position >= 0) openResult(position);
+    });
+    // The pointer moves the active option, so only one row ever looks
+    // active; pointermove (not pointerover) leaves the arrow keys in charge
+    // while the mouse rests on a row.
+    results.addEventListener('pointermove', (event) => {
+        const position = positionOf(event.target);
+        if (position >= 0 && position !== active) selectResult(position);
+    });
+
+    // A click on the backdrop lands on the <dialog> itself.
+    dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) dialog.close();
+    });
+    $('[data-search-close]', dialog).addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => {
+        opener?.focus?.();
+        opener = null;
+    });
+
+    const trigger = $('[data-search-open]');
+    if (trigger) {
+        if (/Mac|iPhone|iPad/.test(navigator.platform)) $('[data-search-shortcut]', trigger).textContent = '⌘ K';
+        trigger.hidden = false;
+        trigger.addEventListener('click', openSearch);
+    }
+}
+
 document.addEventListener('keydown', (event) => {
-    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || !input) return;
+    if (event.isComposing) return;
+
+    // Ctrl K / Cmd K works from any field, inputs included: the command
+    // palette convention, and no browser text field uses it. «/» below does
+    // not, since it is typed in text.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k' && dialog) {
+        event.preventDefault();
+        if (dialog.open) dialog.close();
+        else openSearch();
+        return;
+    }
+
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
 
-    event.preventDefault();
-    input.focus();
-    input.select();
+    if (dialog) {
+        event.preventDefault();
+        openSearch();
+    } else if (input) {
+        event.preventDefault();
+        input.focus();
+        input.select();
+    }
 });
 
 // Put a card back in its category, in catalog order.
@@ -159,7 +330,10 @@ document.addEventListener('submit', async (event) => {
 document.addEventListener('click', (event) => {
     const trigger = event.target.closest('[data-focus-search], [data-open-account]');
 
-    if (trigger?.hasAttribute('data-focus-search') && input) {
+    if (trigger?.hasAttribute('data-focus-search') && dialog) {
+        event.preventDefault();
+        openSearch();
+    } else if (trigger?.hasAttribute('data-focus-search') && input) {
         event.preventDefault();
         input.focus();
         input.scrollIntoView({ block: 'center' });
@@ -215,15 +389,8 @@ function showConnection() {
 
 // The saved copy can be up to a day old (resources/js/sw.js): drop holiday
 // lines that are over and the «Hoy» of a day that is no longer today.
-// Bogotá is the calendar timezone (App\Calendar\ColombianHolidays, from
-// config app.timezone); ISO dates compare as strings.
 function correctSavedHolidays() {
-    const today = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Bogota',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(new Date());
+    const today = bogotaToday();
 
     const holidayNotice = $('[data-holiday-notice]');
     if (holidayNotice && holidayNotice.dataset.holidayDate < today) holidayNotice.hidden = true;

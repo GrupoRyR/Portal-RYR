@@ -2,6 +2,8 @@
 
 namespace App\View\Home;
 
+use App\Search\HomeSearchIndex;
+
 /**
  * The view model of the home screen (resources/views/home.blade.php). The
  * view only prints it: every query and decision happens in
@@ -20,6 +22,7 @@ final readonly class HomePage
      * @param  string|null  $accountsHref  «Cuentas vinculadas» (`/cuenta`) in the account menu; null hides it (emergency accounts).
      * @param  list<HolidayDay>  $upcomingHolidays  «Próximas fechas», from today: see HomePageBuilder::UPCOMING_HOLIDAY_LIMIT and UPCOMING_HOLIDAY_DAYS.
      * @param  HolidayDay|null  $nextHoliday  Today's holiday or the next one, beside the date line.
+     * @param  HomeSearchIndex|null  $searchIndex  The «Ctrl K» search; null (a server search, `?q=`) leaves the dialog out.
      */
     public function __construct(
         public string $salutation,
@@ -43,6 +46,7 @@ final readonly class HomePage
         public ?string $accountsHref = null,
         public array $upcomingHolidays = [],
         public ?HolidayDay $nextHoliday = null,
+        public ?HomeSearchIndex $searchIndex = null,
     ) {}
 
     /**

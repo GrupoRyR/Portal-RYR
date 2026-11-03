@@ -51,6 +51,12 @@ class Announcement extends Model
 
     public const BODY_MAX = 280;
 
+    /**
+     * Announcements per page of /anuncios (App\Http\Controllers\AnnouncementController),
+     * also used to find the page of one of them (its show route).
+     */
+    public const PER_PAGE = 10;
+
     public const AUDIENCE_ALL = 'all';
 
     public const AUDIENCE_COMPANIES = 'companies';

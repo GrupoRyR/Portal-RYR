@@ -7,6 +7,7 @@
     tablets get a banner with the top one) and the Microsoft 365 links. Phones
     also get a «Secciones» menu. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search, the
+    «Ctrl K» search dialog (x-home.search-dialog, not on a server search), the
     favorite toggle and the offline notice. No Livewire or Alpine on this page.
     data-pwa-source turns to "cache" when the service worker (resources/js/sw.js)
     answers with the saved copy of this page.
@@ -63,7 +64,15 @@
                     <div class="flex h-12 items-center gap-2.5 rounded-[14px] bg-surface pr-2 pl-3.5 text-fg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white md:h-11 md:rounded-control">
                         <x-home.icon name="search" stroke-width="2" class="size-[18px] text-fg-muted" />
                         <input id="buscar" name="q" type="search" value="{{ $page->query }}" maxlength="{{ \App\Catalog\AppSearch::MAX_LENGTH }}" placeholder="Buscar aplicaciones" autocomplete="off" enterkeyhint="search" aria-describedby="resultados" class="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted md:text-[0.9375rem]">
-                        <kbd class="hidden rounded-md border border-line-strong bg-surface px-2 py-0.5 font-sans text-xs text-fg-muted md:inline" title="Pulsa / para buscar">/</kbd>
+                        @if ($page->searchIndex)
+                            {{-- home.js shows it: the «Ctrl K» search over apps, announcements and dates. --}}
+                            <button type="button" data-search-open hidden class="hidden min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong px-2 text-xs font-semibold text-fg-muted hover:bg-subtle md:inline-flex">
+                                <span class="sr-only">Buscar en todo el portal</span><kbd class="font-sans" data-search-shortcut>Ctrl K</kbd>
+                            </button>
+                        @else
+                            {{-- A server search (?q=) has no dialog: «/» focuses this field (home.js). --}}
+                            <kbd class="hidden rounded-md border border-line-strong bg-surface px-2 py-0.5 font-sans text-xs text-fg-muted md:inline" title="Pulsa / para buscar">/</kbd>
+                        @endif
                     </div>
                 </form>
             @endif
@@ -281,4 +290,9 @@
             <x-home.icon name="user" class="size-[22px]" />Perfil
         </a>
     </nav>
+
+    {{-- Not on a server search (?q=): that page is the plain search without JavaScript. --}}
+    @if ($page->searchIndex)
+        <x-home.search-dialog :index="$page->searchIndex" />
+    @endif
 </x-layouts.app>
