@@ -44,12 +44,21 @@ class TrmDatasetTest extends TestCase
         $this->assertNull($rows[1]['valid_until']);
     }
 
-    public function test_it_keeps_the_first_row_when_a_start_date_repeats(): void
+    public function test_it_keeps_the_first_row_of_a_repeated_start_date_whole(): void
     {
-        $rows = TrmDataset::parse('[{"valor":"3200","unidad":"COP","vigenciadesde":"2026-10-31T00:00:00.000"},{"valor":"3100","unidad":"COP","vigenciadesde":"2026-10-31T00:00:00.000"}]');
+        // The command asks for `vigenciadesde DESC, :updated_at DESC`: of two
+        // revisions of one validity the newest comes first and is the one kept,
+        // with its own end date and not a mix of both.
+        $rows = TrmDataset::parse(json_encode([
+            ['valor' => '3200', 'unidad' => 'COP', 'vigenciadesde' => '2026-10-31T00:00:00.000', 'vigenciahasta' => '2026-11-03T00:00:00.000'],
+            ['valor' => '3190', 'unidad' => 'COP', 'vigenciadesde' => '2026-10-30T00:00:00.000', 'vigenciahasta' => '2026-10-30T00:00:00.000'],
+            ['valor' => '3100', 'unidad' => 'COP', 'vigenciadesde' => '2026-10-31T00:00:00.000', 'vigenciahasta' => '2026-10-31T00:00:00.000'],
+        ]));
 
-        $this->assertCount(1, $rows);
-        $this->assertSame('3200.0000', $rows[0]['value']);
+        $this->assertSame([
+            ['value' => '3200.0000', 'valid_from' => '2026-10-31', 'valid_until' => '2026-11-03'],
+            ['value' => '3190.0000', 'valid_from' => '2026-10-30', 'valid_until' => '2026-10-30'],
+        ], $rows);
     }
 
     public function test_it_rejects_a_body_that_is_not_a_list_of_rows(): void

@@ -14,20 +14,27 @@ use Throwable;
  *
  * - TRM: the last validities of the official dataset of datos.gov.co,
  *   saved by (code, start date).
- * - Euro in pesos: the TRM in force today (Bogotá) times the ECB's dollars
- *   per euro, saved on the ECB's reference date. The ECB has no peso rate.
+ * - Euro in pesos: the ECB's dollars per euro of its reference date D times
+ *   the TRM in force ON D (the newest stored with `valid_from <= D`), saved
+ *   on D. The ECB has no peso rate. The row of D is therefore always
+ *   TRM(D) × ECB(D), however many times and whenever it runs: the ECB
+ *   publishes at about 16:00 CET (09:00–10:00 in Bogotá), so the 07:10 run
+ *   still sees the previous business day's file, and over a weekend or a
+ *   TARGET holiday every run sees Friday's. Using today's TRM instead would
+ *   rewrite the row of the previous day with a TRM that was not in force.
  * - Each source stands alone: a failure (HTTP error, redirect, a response
  *   over the limit, a timeout, a body that is not what it should be) keeps
  *   the last stored value, logs a short code (never the body) and the other
  *   source goes on. With the TRM down, the euro still follows the last
  *   stored one.
- * - Requests wait about `markets.timeout` seconds, never follow redirects
- *   and read at most `markets.max_bytes` of the body.
+ * - Requests never follow redirects and read at most `markets.max_bytes` of
+ *   the body. `markets.timeout` is both the connection timeout and a
+ *   wall-clock deadline for the whole answer: with `stream` Guzzle's stream
+ *   handler drops its total timeout and keeps only the idle time between
+ *   reads, so a source that trickles bytes would never end without it.
  */
 final class MarketSync
 {
-    private const TZ = 'America/Bogota';
-
     private const READ_CHUNK = 8192;
 
     public function __construct(private readonly Http $http) {}
@@ -61,7 +68,8 @@ final class MarketSync
     private function syncTrm(): int
     {
         $body = $this->fetch((string) config('markets.trm_url'), [
-            '$order' => 'vigenciadesde DESC',
+            // The newest revision of a validity first: TrmDataset keeps the first of a repeated date.
+            '$order' => 'vigenciadesde DESC, :updated_at DESC',
             '$limit' => (int) config('markets.trm_limit', 10),
         ]);
         $now = now();
@@ -91,10 +99,10 @@ final class MarketSync
     {
         $ecb = EcbRates::usdPerEur($this->fetch((string) config('markets.ecb_url')));
 
-        // The TRM in force today in Bogotá, as stored (this run's or an earlier one).
+        // The TRM in force on the ECB's date, as stored (this run's or an earlier one).
         $trm = MarketRate::query()
             ->where('code', MarketRate::TRM)
-            ->where('valid_from', '<=', now(self::TZ)->toDateString())
+            ->where('valid_from', '<=', $ecb['date'])
             ->orderByDesc('valid_from')
             ->first();
 
@@ -106,7 +114,7 @@ final class MarketSync
 
         MarketRate::query()->upsert([[
             'code' => MarketRate::EUR,
-            'value' => number_format((float) $trm->value * (float) $ecb['rate'], 4, '.', ''),
+            'value' => Decimal::multiply($trm->value, $ecb['rate'], 4),
             'valid_from' => $ecb['date'],
             'valid_until' => null,
             'source' => 'ecb.europa.eu',
@@ -129,6 +137,7 @@ final class MarketSync
     {
         $timeout = (int) config('markets.timeout', 10);
         $max = (int) config('markets.max_bytes', 1024 * 1024);
+        $deadline = microtime(true) + $timeout;
 
         try {
             // `stream`: the body is read below, a piece at a time, so a huge one is never downloaded whole.
@@ -142,21 +151,23 @@ final class MarketSync
             throw new MarketSourceException('connection');
         }
 
-        if ($response->status() !== 200) {
-            // Includes 3xx: a redirect is never followed.
-            throw new MarketSourceException('http_'.$response->status());
-        }
-
-        $length = $response->header('Content-Length');
-
-        if (is_numeric($length) && (int) $length > $max) {
-            throw new MarketSourceException('too_large');
-        }
-
         $stream = $response->toPsrResponse()->getBody();
-        $body = '';
 
+        // Every way out closes the stream, also the early ones.
         try {
+            if ($response->status() !== 200) {
+                // Includes 3xx: a redirect is never followed.
+                throw new MarketSourceException('http_'.$response->status());
+            }
+
+            $length = $response->header('Content-Length');
+
+            if (is_numeric($length) && (int) $length > $max) {
+                throw new MarketSourceException('too_large');
+            }
+
+            $body = '';
+
             while (! $stream->eof()) {
                 $chunk = $stream->read(self::READ_CHUNK);
 
@@ -175,7 +186,14 @@ final class MarketSync
                 if (strlen($body) > $max) {
                     throw new MarketSourceException('too_large');
                 }
+
+                // The idle timeout of each read does not bound a trickle.
+                if (! $stream->eof() && microtime(true) > $deadline) {
+                    throw new MarketSourceException('timeout');
+                }
             }
+
+            return $body;
         } catch (MarketSourceException $e) {
             throw $e;
         } catch (Throwable) {
@@ -183,7 +201,5 @@ final class MarketSync
         } finally {
             $stream->close();
         }
-
-        return $body;
     }
 }

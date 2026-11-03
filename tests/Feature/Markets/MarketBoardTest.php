@@ -17,11 +17,21 @@ class MarketBoardTest extends TestCase
 {
     use RefreshDatabase;
 
+    private string $phpTimezone;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->phpTimezone = date_default_timezone_get();
         Carbon::setTestNow(Carbon::parse('2026-11-03 10:00:00', 'America/Bogota'));
+    }
+
+    protected function tearDown(): void
+    {
+        date_default_timezone_set($this->phpTimezone);
+
+        parent::tearDown();
     }
 
     public function test_it_gives_the_latest_value_and_the_change_for_each_code(): void
@@ -74,7 +84,10 @@ class MarketBoardTest extends TestCase
 
     public function test_today_is_the_date_in_bogota_not_in_utc(): void
     {
-        // 22:00 in Bogotá on 3 Nov is already 4 Nov in UTC.
+        // 22:00 in Bogotá on 3 Nov is already 4 Nov in UTC, and the app and
+        // PHP run in UTC here, so only the Bogotá date can pass this test.
+        config(['app.timezone' => 'UTC']);
+        date_default_timezone_set('UTC');
         Carbon::setTestNow(Carbon::parse('2026-11-03 22:00:00', 'America/Bogota'));
         MarketRate::factory()->trm()->create(['value' => '3182.9900', 'valid_from' => '2026-11-03']);
         MarketRate::factory()->trm()->create(['value' => '9999.0000', 'valid_from' => '2026-11-04']);
