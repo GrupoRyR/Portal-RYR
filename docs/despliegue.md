@@ -505,6 +505,25 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
 
 Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
 
+
+### 1.19 Panel gerencial
+
+El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa las cifras clave del mes «al cierre de ayer». Las publica cada noche un robot de SAP (otro proyecto) con `PUT /api/v1/kpis` (`docs/api.md` §8), y solo las ven las personas del grupo de Gerencia de **esa** empresa. No hay claves nuevas en `.env`. El diseño está en `odd/tasks/panel-gerencial.md`.
+
+1. **Migraciones.** El despliegue de rutina (paso 2.2) agrega `companies.management_group_id` e `integrations.company_id` y crea la tabla `company_kpis` con `php artisan migrate --force`.
+2. **Crear el grupo en cada empresa.** En el inquilino de cada empresa que vaya a usar el panel, un administrador de Microsoft 365 crea el grupo de **seguridad** `APP-PortalGerencia`. Puede usar el mismo script de los grupos `APP-…` (sección 1.10):
+
+   ```powershell
+   cd <carpeta-del-proyecto>\docs\scripts
+   .\crear-grupos-app.ps1 -TenantId <id-de-inquilino> -Grupos 'APP-PortalGerencia'
+   ```
+
+   O a mano: Entra admin center (https://entra.microsoft.com) › **Groups** › **New group** › **Group type: Security**. Un grupo de Microsoft 365 o de Teams **no sirve**: el portal lo ignora aunque tenga el mismo nombre. Agregue como miembros a las personas de la gerencia de esa empresa.
+3. **Copiar el Object ID.** En el mismo inquilino: **Groups** › **All groups** › `APP-PortalGerencia` › copie **Object ID**. En el portal, **Administración › Empresas** › la empresa › **Microsoft 365** › **Grupo de Gerencia**, pegue el Object ID y guarde. Lo puede hacer solo un súper administrador y queda en Auditoría. El portal compara solo el Object ID, nunca el nombre, y solo con cuentas de esa empresa que entran por su propio inquilino: el grupo de una empresa no da acceso en otra.
+4. **Primer inicio de sesión.** Cada persona del grupo recibe el rol **Gerencia** la próxima vez que entra con Microsoft; quien sale del grupo lo pierde en su siguiente inicio. Si cambia o borra el Object ID en la empresa, el panel se cierra de inmediato para quien ya no está en el grupo vigente. Sin Object ID, nadie de esa empresa tiene el rol.
+5. **Crear el token del robot.** **Administración › Integraciones › Nuevo token**: nombre (por ejemplo «Robot de SAP · Segurex»), permiso `kpis:write`, **Empresa de las cifras** y, de preferencia, la IP del equipo del robot en **IP permitidas**. Pide confirmar con Microsoft. Se necesita un token por empresa: cada token solo puede reemplazar las cifras de su empresa. Entregue el token al responsable del robot por el gestor de secretos, nunca por correo ni chat.
+6. **Comprobar.** Después de la primera noche, en **Auditoría** con el filtro **API** debe aparecer «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras (nunca los valores). Revocar el token en Integraciones borra las cifras que publicó.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

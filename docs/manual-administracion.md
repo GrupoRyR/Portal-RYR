@@ -644,3 +644,37 @@ Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de A
 | Quiere agregar otra cuenta a una conexión que ya existe. | Las cuentas se eligen solo en la pantalla de permiso. | Conecte otra vez desde Claude e incluya todas las cuentas que quiera: al aprobar, la lista nueva reemplaza la anterior. |
 | Claude pide conectar otra vez después de un tiempo sin usarlo. | La conexión vence tras 30 días sin uso. | En Claude, **Customize › Connectors** › **Connect**. Pasa de nuevo por Microsoft y por la pantalla de permiso; incluya otra vez sus cuentas vinculadas. |
 | En `/cuenta` aparece una conexión que ya no usa. | Por ejemplo, quitó el conector en Claude y lo agregó otra vez. | Pulse **Desconectar** en la que no usa. |
+
+## 11. Panel gerencial
+
+El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» («Solo Gerencia»): las cifras clave del mes de su empresa al cierre de ayer, por ejemplo las ventas contra la meta, la cartera vencida, los pedidos y los pedidos atrasados, con la fuente («SAP Business One»). La instalación está en `docs/despliegue.md` §1.19; el formato de las cifras, en `docs/api.md` §8.
+
+### 11.1 Quién lo ve
+
+- Solo las cuentas con el rol **Gerencia** de esa misma empresa. Ningún otro rol lo abre, tampoco súper administrador ni administrador.
+- El rol sale del grupo de seguridad `APP-PortalGerencia` del inquilino de la empresa. No se asigna a mano: en **Administración › Roles** la columna **Gerencia** no tiene acceso a ninguna sección de Administración.
+- Una persona con cuentas vinculadas (§8) ve el panel solo cuando la cuenta activa es de una empresa en cuyo grupo está.
+
+### 11.2 Configurar una empresa (solo súper administrador)
+
+1. Pida a TI de la empresa que cree el grupo de seguridad `APP-PortalGerencia` en su inquilino y agregue a la gerencia.
+2. En **Administración › Empresas** › la empresa › **Microsoft 365**, pegue el **Object ID** del grupo en **Grupo de Gerencia** y pulse **Guardar**. El portal acepta solo un Object ID (GUID), nunca el nombre del grupo. El cambio queda en Auditoría.
+3. Las personas del grupo reciben el rol la próxima vez que entran con Microsoft.
+
+Para quitar el panel a toda la empresa, borre el **Grupo de Gerencia** y guarde: se cierra de inmediato.
+
+### 11.3 El token del robot (solo súper administrador)
+
+En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y elija la **Empresa de las cifras**. Ese token solo puede reemplazar las cifras de esa empresa; para otra empresa, cree otro token. En la ficha de un sistema, **Panel gerencial › Empresa de las cifras** permite cambiarla. Dar `kpis:write` o cambiar la empresa pide confirmar con Microsoft; quitar el permiso es un clic.
+
+- **Revocar** el token borra las cifras que publicó: el panel de esa empresa queda vacío hasta que otro token las publique.
+- Cada publicación queda en **Auditoría** (filtro **API**) como «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras. Los valores nunca quedan en Auditoría.
+
+### 11.4 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| Una persona de la gerencia no ve el panel. | No está en `APP-PortalGerencia` de su empresa, el grupo es de Microsoft 365 y no de seguridad, el **Grupo de Gerencia** está vacío o tiene otro Object ID, o no ha vuelto a entrar desde que la agregaron. | Revise el grupo en Entra y el Object ID en la empresa. Pida a la persona cerrar sesión y entrar de nuevo con Microsoft. |
+| El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
+| El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
+
