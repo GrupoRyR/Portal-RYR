@@ -15,6 +15,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // The first production run (2026-11-03) failed on MySQL's 64-character
+        // identifier limit after creating both tables, and MySQL does not roll
+        // back DDL. Nothing could use them while this migration was pending,
+        // so they are dropped and built again.
+        Schema::dropIfExists('announcement_reminder_deliveries');
+        Schema::dropIfExists('announcement_reminders');
+
         Schema::create('announcement_reminders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('announcement_id')->constrained()->cascadeOnDelete();
@@ -34,7 +41,10 @@ return new class extends Migration
 
         Schema::create('announcement_reminder_deliveries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('announcement_reminder_id')->constrained()->cascadeOnDelete();
+            // Explicit names: the generated ones pass MySQL's 64-character limit.
+            $table->foreignId('announcement_reminder_id')
+                ->constrained(indexName: 'reminder_deliveries_reminder_id_foreign')
+                ->cascadeOnDelete();
             // App\Auth\LinkedAccounts::PERSON_KEY of the person mailed.
             $table->unsignedBigInteger('person_key');
             // The account the email went to.
@@ -42,7 +52,7 @@ return new class extends Migration
             $table->string('status', 10);
             $table->timestamp('created_at');
 
-            $table->unique(['announcement_reminder_id', 'person_key']);
+            $table->unique(['announcement_reminder_id', 'person_key'], 'reminder_deliveries_reminder_person_unique');
         });
     }
 
