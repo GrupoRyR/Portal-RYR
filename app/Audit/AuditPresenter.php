@@ -15,6 +15,7 @@ use App\Models\AppLaunch;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
+use App\Models\NewsSource;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
@@ -191,6 +192,9 @@ final class AuditPresenter
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
         PortalSettings::ALLOWED_APP_HOSTS => 'Dominios permitidos',
         PortalSettings::API_STATUS_TTL => 'Quitar «Con fallas» después de (horas)',
+        // News sources (App\Models\NewsSource); name, url and company use the labels above.
+        'tab' => 'Pestaña',
+        'active' => 'Activa',
         'summary' => 'Resumen',
         'photo_path' => 'Foto',
         'link_url' => 'Enlace',
@@ -278,6 +282,7 @@ final class AuditPresenter
             (new Event)->getMorphClass() => 'el evento «'.($name('title') ?? '(eliminado)').'»',
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
             (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
+            (new NewsSource)->getMorphClass() => 'la fuente de noticias «'.($name('name') ?? '(eliminada)').'»',
             (new ProductCategory)->getMorphClass() => 'la categoría de productos «'.($name('name') ?? '(eliminada)').'»',
             (new Product)->getMorphClass() => 'el producto «'.($name('name') ?? '(eliminado)').'»',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',

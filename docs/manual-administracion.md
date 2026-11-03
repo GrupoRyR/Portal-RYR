@@ -263,6 +263,24 @@ Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Gu
   - **Revocar** corta la conexión completa, con todas sus cuentas, y anula sus tokens: Claude deja de leer de inmediato. La persona puede conectar otra vez desde Claude, con el inicio de sesión de Microsoft y la pantalla de permiso.
   - **Cómo desconecta una persona:** en `/cuenta` (menú de la cuenta), sección **Conexiones con Claude**, ve las conexiones en las que está cualquiera de sus cuentas y pulsa **Desconectar**. Una cuenta incluida también puede desconectar, porque Claude lee sus datos. Cada cuenta ve solo las conexiones en las que está: estar vinculada con otra cuenta de la misma persona no basta.
 
+### 2.11 Noticias (solo súper administrador)
+
+Fuentes RSS o Atom de la sección **Noticias** del inicio, con sus tres pestañas: **Colombia**, **Internacional** y **Sector**. Cada empresa tiene sus propias fuentes. El portal las lee cada hora y guarda solo el título, el enlace y la fecha de cada noticia, nunca el texto ni imágenes. Las personas ven las 5 noticias más recientes de cada pestaña.
+
+Solo el súper administrador entra a esta pantalla, como a Integraciones: cada fuente hace que el servidor visite un sitio externo. Los demás roles no ven el enlace y la dirección `/admin/noticias` les responde con error 403.
+
+- **Empresa y pestaña:** elija la empresa (si hay más de una) y la pestaña. Cada pestaña muestra cuántas fuentes tiene.
+- **Lista:** nombre, dirección, **Última lectura** (o «Todavía no se ha leído») y el estado **Activa** o **Inactiva**. Si la última lectura falló, aparece el motivo en rojo con su código, por ejemplo «El sitio respondió 404 (http_404)» o «La fuente no trae noticias con título y enlace https (no_entries)». Los códigos están en la guía de despliegue (`docs/despliegue.md`, §1.17).
+- **Agregar fuente:** nombre (hasta 80 caracteres, por ejemplo «El Tiempo») y dirección del RSS o Atom. Se agrega a la empresa y la pestaña que están elegidas. Al guardar, el portal no visita el sitio: la primera lectura llega con la siguiente hora en punto.
+- **Qué direcciones se aceptan:** `https://`, sin usuario, contraseña ni puerto, y con un nombre de dominio, no una IP (por ejemplo `https://www.eltiempo.com/rss/colombia.xml`). La misma dirección no se puede repetir en la misma pestaña de una empresa; la comparación no distingue mayúsculas (`https://Ejemplo.com/RSS` y `https://ejemplo.com/rss` cuentan como la misma). Aunque la dirección se acepte, el portal no la lee si el sitio apunta a una red interna, y lo muestra como «La dirección apunta a una red interna (blocked_address)».
+- **Editar:** cambia el nombre, la dirección o la pestaña. La empresa no cambia: para otra empresa, agregue la fuente allí. Si cambia la dirección, el error anterior se borra hasta la siguiente lectura.
+- **Desactivar / Activar:** una fuente inactiva no se lee y sus noticias no se muestran. Sirve para pausar una fuente que falla sin perderla.
+- **Borrar:** pide confirmación y borra la fuente con sus noticias guardadas. No se puede deshacer.
+
+Cada fuente guarda sus 30 noticias más recientes, y el portal borra las de más de 60 días. Si una fuente falla, las demás se leen igual y sus noticias anteriores se siguen mostrando.
+
+Todo cambio queda en **Auditoría** («Creó la fuente de noticias «El Tiempo»», con la empresa, la pestaña, la dirección y si está activa). Las lecturas de cada hora no se registran en Auditoría.
+
 ---
 
 ## 3. Cuenta de emergencia

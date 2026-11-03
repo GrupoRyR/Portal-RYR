@@ -3,6 +3,7 @@
 namespace App\View\Components\Layouts;
 
 use App\Models\Company;
+use App\Models\NewsSource;
 use App\Models\User;
 use App\Policies\AdminSections;
 use App\Policies\AnnouncementPolicy;
@@ -57,13 +58,17 @@ class Admin extends Component
         }
 
         return array_values(array_filter([
-            ['label' => 'Catálogo', 'items' => [
+            ['label' => 'Catálogo', 'items' => array_values(array_filter([
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
                 ['label' => 'Catálogos', 'icon' => 'box', 'route' => 'admin.products.index', 'active' => 'admin.products.*'],
                 $announcements,
                 $events,
-            ]],
+                // News sources: super admins only (App\Policies\NewsSourcePolicy).
+                $this->user->can('viewAny', NewsSource::class)
+                    ? ['label' => 'Noticias', 'icon' => 'newspaper', 'route' => 'admin.news.index', 'active' => 'admin.news.*']
+                    : null,
+            ]))],
             ['label' => 'Organización', 'items' => array_values(array_filter([
                 // Only super admins manage companies (CompanyPolicy): nobody
                 // else is offered a link that ends in a 403.
