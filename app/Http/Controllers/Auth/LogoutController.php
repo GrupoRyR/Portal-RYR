@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Push\PushSubscriptions;
 use App\Settings\PortalSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,11 +25,19 @@ class LogoutController extends Controller
      * cache, the service worker and its saved pages, storage), so the next
      * person on a shared device sees nothing of this user. Not "cookies":
      * the response itself sets the new, empty session cookie.
+     *
+     * The devices this session subscribed to «Avisos en el celular» stop
+     * getting the account's notices (App\Push\PushSubscriptions::signedOut()),
+     * also on browsers without Clear-Site-Data.
      */
-    public function __invoke(Request $request, PortalSettings $settings): RedirectResponse
+    public function __invoke(Request $request, PortalSettings $settings, PushSubscriptions $pushSubscriptions): RedirectResponse
     {
         $user = $request->user();
         $toMicrosoft = $settings->signsOutOfMicrosoft() && $user instanceof User && ! $user->is_emergency;
+
+        if ($user instanceof User) {
+            $pushSubscriptions->signedOut($user, $request->session());
+        }
 
         Auth::guard('web')->logout();
 

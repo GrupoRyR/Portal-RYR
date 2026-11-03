@@ -61,11 +61,23 @@ class PushOptInTest extends TestCase
 
         $this->assertStringContainsString('Notification.requestPermission()', $html);
         $this->assertStringContainsString('pushManager', $html);
-        $this->assertStringContainsString('manager.subscribe(options)', $html);
+        $this->assertStringContainsString('manager.subscribe(options())', $html);
         $this->assertStringContainsString('userVisibleOnly: true', $html);
         $this->assertStringContainsString("'X-CSRF-TOKEN'", $html);
         $this->assertStringNotContainsString('x-data', $html);
         $this->assertStringNotContainsString('wire:', $html);
+    }
+
+    public function test_a_subscription_made_with_old_keys_is_renewed_on_the_next_visit(): void
+    {
+        $this->configurePush();
+
+        $html = $this->actingAs($this->ana)->get(route('account.show'))->getContent();
+
+        // refresh() compares the subscription's key with data-vapid-key and subscribes again.
+        $this->assertStringContainsString('subscription.options && subscription.options.applicationServerKey', $html);
+        $this->assertStringContainsString('!sameKey(subscription)', $html);
+        $this->assertStringContainsString('await subscription.unsubscribe();', $html);
     }
 
     public function test_without_the_vapid_settings_the_page_has_no_control(): void

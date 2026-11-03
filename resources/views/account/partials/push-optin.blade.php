@@ -71,13 +71,30 @@
 
     const registration = () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(() => navigator.serviceWorker.ready);
 
+    const options = () => ({ userVisibleOnly: true, applicationServerKey: keyBytes(box.dataset.vapidKey) });
+
+    // Whether the subscription was made with the portal's current key.
+    const sameKey = (subscription) => {
+        const key = subscription.options && subscription.options.applicationServerKey;
+        if (!key) return true; // The browser does not say: keep it.
+        const current = keyBytes(box.dataset.vapidKey);
+        const old = new Uint8Array(key);
+        return old.length === current.length && old.every((byte, i) => byte === current[i]);
+    };
+
     const refresh = async () => {
         if (Notification.permission === 'denied') {
             show('Bloqueaste las notificaciones del portal en este navegador. Para activarlas, permítelas en los ajustes del navegador y vuelve a esta página.', null);
             return;
         }
 
-        const subscription = await (await registration()).pushManager.getSubscription();
+        const manager = (await registration()).pushManager;
+        let subscription = await manager.getSubscription();
+        if (subscription && Notification.permission === 'granted' && !sameKey(subscription)) {
+            // The portal changed its VAPID keys: the old subscription no longer works.
+            await subscription.unsubscribe();
+            subscription = await manager.subscribe(options()).catch(() => null);
+        }
         if (subscription && Notification.permission === 'granted') {
             // Keep the server in step: the device follows the account signed in on it.
             await post(subscription).catch(() => {});
@@ -96,16 +113,15 @@
             }
 
             const manager = (await registration()).pushManager;
-            const options = { userVisibleOnly: true, applicationServerKey: keyBytes(box.dataset.vapidKey) };
             let subscription;
             try {
-                subscription = await manager.subscribe(options);
+                subscription = await manager.subscribe(options());
             } catch (error) {
                 // Subscribed earlier with other keys: start again with these.
                 const old = await manager.getSubscription();
                 if (!old) throw error;
                 await old.unsubscribe();
-                subscription = await manager.subscribe(options);
+                subscription = await manager.subscribe(options());
             }
 
             await post(subscription);

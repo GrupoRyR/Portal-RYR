@@ -35,6 +35,9 @@ class PushSubscriptionController extends Controller
             $request->userAgent(),
         );
 
+        // So signing out forgets this browser (LogoutController).
+        PushSubscriptions::remember($request->session(), (string) $request->validated('endpoint'), subscribed: true);
+
         return response()->noContent();
     }
 
@@ -47,6 +50,7 @@ class PushSubscriptionController extends Controller
         ])['endpoint'];
 
         $subscriptions->unsubscribe($user, $endpoint);
+        PushSubscriptions::remember($request->session(), $endpoint, subscribed: false);
 
         return response()->noContent();
     }

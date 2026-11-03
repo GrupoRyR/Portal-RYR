@@ -761,7 +761,8 @@ Los anuncios más importantes pueden llegar al celular como notificación. Lo de
 - **iPhone y iPad:** solo con iOS 16.4 o posterior y con el portal instalado en la pantalla de inicio (Safari › Compartir › «Agregar a inicio»). Abra el portal desde ese ícono y actívelos ahí.
 - Si el navegador dice que las notificaciones están bloqueadas, hay que permitirlas para el portal en los ajustes del navegador.
 - El dispositivo recibe los avisos de la cuenta con la que se activó o se abrió `/cuenta` por última vez. Con cuentas vinculadas (§8), cada aviso llega solo a los dispositivos de la cuenta que ve el anuncio.
-- **Cerrar sesión** borra lo que el navegador guardó del portal y, en la mayoría de los navegadores, también la suscripción: al volver a entrar hay que activarlos de nuevo.
+- **Cerrar sesión** borra lo que el navegador guardó del portal y la suscripción de ese navegador: el siguiente que use el equipo no recibe los avisos de la persona anterior. Al volver a entrar hay que activarlos de nuevo.
+- Si TI cambia las llaves de los avisos, basta con abrir `/cuenta` en cada dispositivo: el portal los activa de nuevo solo.
 - **Si la cuenta no entra al portal en 90 días deja de recibir avisos**, y el portal olvida sus dispositivos esa noche. Al volver a entrar, hay que activarlos de nuevo.
 
 ### 14.2 Enviar un anuncio al celular (quien publica)
@@ -781,5 +782,5 @@ En **Administración › Anuncios**, al crear o editar un anuncio, marque **Envi
 | No aparece **Enviar al celular** ni **Avisos en el celular**. | Faltan las llaves VAPID en el servidor. | TI sigue `docs/despliegue.md` §1.22. |
 | En un iPhone dice que el navegador no puede recibir avisos. | Se abrió en Safari sin instalar, o el iOS es anterior a 16.4. | Instale el portal en la pantalla de inicio y actívelos desde ese ícono. |
 | Una persona no recibió el aviso. | No activó los avisos en ese dispositivo, su cuenta no ve el anuncio, el anuncio todavía no está publicado, o el dispositivo estuvo apagado o sin conexión más de 12 horas. | Revise que el anuncio esté publicado para su empresa y pídale que active los avisos en `/cuenta`. |
-| Dejaron de llegar avisos a todos. | TI cambió las llaves VAPID: las suscripciones anteriores dejan de servir. | Cada persona vuelve a activar los avisos en `/cuenta`. |
+| Dejaron de llegar avisos a todos. | TI cambió las llaves VAPID: las suscripciones anteriores dejan de servir. | Cada persona abre `/cuenta` en cada dispositivo: el portal los activa de nuevo solo. |
 

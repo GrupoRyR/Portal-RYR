@@ -4,6 +4,7 @@ namespace App\Push;
 
 use App\Models\PushSubscription;
 use App\Models\User;
+use Illuminate\Contracts\Session\Session;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -22,6 +23,9 @@ class PushSubscriptions
     public const MAX_PER_USER = 10;
 
     public const MAX_ENDPOINT_LENGTH = 2048;
+
+    /** Where the session keeps the hashes of the endpoints it subscribed. */
+    public const SESSION_KEY = 'push.endpoint_hashes';
 
     /**
      * The devices that may get notices at all, with the users table joined
@@ -107,6 +111,37 @@ class PushSubscriptions
         PushSubscription::query()
             ->where('user_id', $user->getKey())
             ->where('endpoint_hash', PushSubscription::hashOf($endpoint))
+            ->delete();
+    }
+
+    /**
+     * The session remembers the endpoints it subscribed (by hash), so
+     * signing out can forget this browser ({@see signedOut()}).
+     */
+    public static function remember(Session $session, string $endpoint, bool $subscribed): void
+    {
+        $hash = PushSubscription::hashOf($endpoint);
+        $hashes = array_values(array_filter((array) $session->get(self::SESSION_KEY, []), fn ($known) => $known !== $hash));
+
+        $session->put(self::SESSION_KEY, $subscribed ? [...$hashes, $hash] : $hashes);
+    }
+
+    /**
+     * Logout (App\Http\Controllers\Auth\LogoutController): the devices this
+     * session subscribed for the account stop getting its notices. One that
+     * moved to another account meanwhile is left alone. Returns how many went.
+     */
+    public function signedOut(User $user, Session $session): int
+    {
+        $hashes = array_values(array_filter((array) $session->get(self::SESSION_KEY, []), 'is_string'));
+
+        if ($hashes === []) {
+            return 0;
+        }
+
+        return PushSubscription::query()
+            ->where('user_id', $user->getKey())
+            ->whereIn('endpoint_hash', $hashes)
             ->delete();
     }
 
