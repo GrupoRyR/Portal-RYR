@@ -4,39 +4,35 @@ namespace App\Policies;
 
 use App\Models\Announcement;
 use App\Models\User;
+use App\Policies\Rules\CompanyAddressedRules;
 
 /**
  * Super and portal admins manage every announcement. Announcements editors
  * (assigned by hand) write only for their own company: the audience must be
- * exactly that company, never «Todas las empresas» nor another company.
- * Nobody deletes an announcement: it is withdrawn instead. Whoever may
- * edit one also sees who read it, when it is mandatory (`viewReads`).
+ * exactly that company, never «Todas las empresas» nor another company
+ * (App\Policies\Rules\CompanyAddressedRules, shared with events). Nobody
+ * deletes an announcement: it is withdrawn instead. Whoever may edit one
+ * also sees who read it, when it is mandatory (`viewReads`).
  */
 class AnnouncementPolicy
 {
-    public const MANAGERS = ['super_admin', 'portal_admin'];
+    public const MANAGERS = CompanyAddressedRules::MANAGERS;
 
-    public const EDITOR = 'announcements_editor';
+    public const EDITOR = CompanyAddressedRules::EDITOR;
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole([...self::MANAGERS, self::EDITOR]);
+        return CompanyAddressedRules::mayList($user);
     }
 
     public function create(User $user): bool
     {
-        return self::manages($user) || self::isCompanyEditor($user);
+        return CompanyAddressedRules::mayCreate($user);
     }
 
     public function update(User $user, Announcement $announcement): bool
     {
-        if (self::manages($user)) {
-            return true;
-        }
-
-        return self::isCompanyEditor($user)
-            && $announcement->audience === Announcement::AUDIENCE_COMPANIES
-            && $announcement->companies()->pluck('companies.id')->map(fn ($id) => (int) $id)->all() === [(int) $user->company_id];
+        return CompanyAddressedRules::mayEdit($user, $announcement);
     }
 
     /**
@@ -61,19 +57,7 @@ class AnnouncementPolicy
      */
     public function publishTo(User $user, string $audience, array $companyIds): bool
     {
-        if (! in_array($audience, Announcement::AUDIENCES, true)) {
-            return false;
-        }
-
-        if (self::manages($user)) {
-            return true;
-        }
-
-        $ids = array_values(array_unique(array_map('intval', $companyIds)));
-
-        return self::isCompanyEditor($user)
-            && $audience === Announcement::AUDIENCE_COMPANIES
-            && $ids === [(int) $user->company_id];
+        return CompanyAddressedRules::mayPublishTo($user, $audience, $companyIds, Announcement::AUDIENCES);
     }
 
     /**
@@ -81,11 +65,6 @@ class AnnouncementPolicy
      */
     public static function manages(User $user): bool
     {
-        return $user->hasAnyRole(self::MANAGERS);
-    }
-
-    private static function isCompanyEditor(User $user): bool
-    {
-        return $user->company_id !== null && $user->hasRole(self::EDITOR);
+        return CompanyAddressedRules::manages($user);
     }
 }

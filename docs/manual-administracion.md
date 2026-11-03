@@ -25,9 +25,9 @@ Los roles no se reparten a mano, salvo el de editor de anuncios:
 
 | Rol | Quién lo recibe | Qué puede hacer |
 |---|---|---|
-| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, roles, auditoría, informe de uso, integraciones y configuración. |
-| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
-| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, y solo para su propia empresa. |
+| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, eventos, roles, auditoría, informe de uso, integraciones y configuración. |
+| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, eventos, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
+| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios** y **Eventos**, y solo para su propia empresa. |
 
 Un grupo con el nombre `APP-PortalAdmin` en otra empresa, o en un Team, no da ningún rol. Si `PORTAL_ADMIN_GROUP_ID` o `PORTAL_ADMIN_TENANT_ID` no están configurados, nadie es administrador del portal. Solo hay un grupo de administradores, el de Segurex: las empresas no tienen grupo propio.
 
@@ -142,14 +142,33 @@ Un editor de anuncios solo publica para su propia empresa. Los anuncios no se bo
 - Se cuenta según la empresa actual de la cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando.
 - Si alguien pulsa **Confirmar lectura** en una página vieja de un anuncio que ya no la pide (retirado, vencido o ya no obligatorio), el portal lo devuelve con el aviso «Este anuncio ya no pide confirmación.» y no guarda nada.
 
-### 2.5 Roles
+### 2.5 Eventos
+
+Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi calendario**. Las personas los ven en **Próximas fechas** del inicio, junto a los festivos, y en la página **Eventos** (`/eventos`), desde **Se muestra desde** hasta que el evento termina. Cada evento descarga un archivo `.ics` que abren Outlook, Google Calendar y el calendario del celular.
+
+**Quién los maneja.** Las mismas personas que los anuncios, sin un rol nuevo: súper administrador y administrador, todos; el editor de anuncios, solo los de su propia empresa (no puede publicar para todas las empresas ni para otra).
+
+**Lista.** Pestañas **Todos**, **Publicados**, **Programados**, **Pasados** y **Retirados**, con la fecha y las empresas de cada evento.
+
+**Nuevo evento / editar:**
+
+- **Evento:** título (hasta 120 caracteres), descripción opcional (solo texto, hasta 500; los saltos de línea se respetan) y lugar opcional (hasta 120, por ejemplo «Sala de juntas» o «Teams»).
+- **Fecha**, en hora de Colombia:
+  - Con hora: **Empieza** y **Termina** (opcional; debe ser posterior al inicio). Sin fin, el evento sigue en el portal hasta que acaba ese día, y el calendario lo muestra como un momento.
+  - **Todo el día:** **Primer día** y **Último día** (opcional; el mismo día o sin fecha es un solo día). En el calendario ocupa los días completos.
+- **Publicación:** **Para quién** (todas las empresas o algunas) y **Se muestra desde** (antes de esa fecha queda programado y nadie lo ve).
+- **Retirar** lo quita del portal de inmediato sin borrarlo; **Volver a publicar** lo devuelve. Los eventos no se borran.
+
+Todo cambio queda en **Auditoría**. Quien ya agregó un evento a su calendario no recibe los cambios: si cambia la fecha, avísele para que lo descargue de nuevo.
+
+### 2.6 Roles
 
 - **Qué puede hacer cada rol:** la tabla de permisos (siempre la real).
 - **Súper administrador** y **Administradores:** solo lectura. Para quitar a un administrador, sáquelo del grupo `APP-PortalAdmin` de la organización de Segurex en Microsoft; pierde el rol en su siguiente inicio de sesión. Después de cambiar la configuración del grupo, TI puede ejecutar `php artisan portal:sync-portal-admins` para aplicar la regla a todas las personas de una vez, según sus grupos guardados.
 - **Editores de anuncios:** **+ Agregar persona**, busque por nombre o correo (al menos 2 letras; solo personas que ya entraron al portal) y pulse **Agregar**. **Quitar** pide confirmación.
 - **Cuenta de emergencia:** muestra si existe, si tiene el segundo factor confirmado y su último uso. Se gestiona solo desde el servidor (sección 3).
 
-### 2.6 Integraciones (solo súper administrador)
+### 2.7 Integraciones (solo súper administrador)
 
 Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo o reporten el estado de las aplicaciones. Si nadie los usa, el portal funciona igual. Detalle técnico en `docs/api.md`.
 
@@ -160,7 +179,7 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado.
 
-### 2.7 Auditoría
+### 2.8 Auditoría
 
 Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que hacen los sistemas externos por la API.
 
@@ -170,7 +189,7 @@ Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que
 - **Exportar CSV** descarga lo filtrado (separado por `;` para Excel con configuración regional de Colombia), hasta 50 000 filas.
 - **Seguridad** incluye inicios de sesión con Microsoft (aceptados y rechazados), los de la cuenta de emergencia y las confirmaciones con Microsoft. Nunca se guardan contraseñas, códigos ni tokens.
 
-### 2.8 Informe de uso
+### 2.9 Informe de uso
 
 Qué apps se usan, quién entra y qué se puede retirar. Periodo de 7, 30 o 90 días.
 
@@ -179,7 +198,7 @@ Qué apps se usan, quién entra y qué se puede retirar. Periodo de 7, 30 o 90 d
 - **Apps más abiertas:** las 10 primeras; **Ver como tabla** muestra los números exactos.
 - **Sin uso en 90 días:** aplicaciones publicadas que nadie abrió desde el portal en 90 días. Revise si sus accesos están bien asignados o si conviene ocultarlas.
 
-### 2.9 Configuración (solo súper administrador)
+### 2.10 Configuración (solo súper administrador)
 
 Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Guardar cambios** y quedan en Auditoría con el antes y el después.
 
@@ -358,6 +377,7 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - Con el mouse encima, o al llegar con la tecla Tab, la tarjeta se levanta y el logo se balancea una vez. En el celular, al tocar, el logo se encoge un instante y la app abre.
 - Apps en mantenimiento: logo gris y quieto. Apps con fallas: un punto rojo que late en la esquina del logo.
 - Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
+- **Mi día › Próximas fechas:** hasta 5 fechas de los próximos 60 días, festivos y eventos juntos y en orden («Festivo» o «Evento»). **Ver eventos** lleva a la página de eventos, con **Agregar a mi calendario**.
 
 ---
 

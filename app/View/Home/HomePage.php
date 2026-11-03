@@ -20,9 +20,11 @@ final readonly class HomePage
      * @param  string|null  $supportHref  «Soporte TI» link (`/soporte`); null hides the button.
      * @param  array{current: string, targets: list<array{id: int, label: string}>, menu: bool}|null  $switcher  «Cambiar de empresa» (App\View\Components\AccountSwitcher::for()); null hides it.
      * @param  string|null  $accountsHref  «Cuentas vinculadas» (`/cuenta`) in the account menu; null hides it (emergency accounts).
-     * @param  list<HolidayDay>  $upcomingHolidays  «Próximas fechas», from today: see HomePageBuilder::UPCOMING_HOLIDAY_LIMIT and UPCOMING_HOLIDAY_DAYS.
+     * @param  list<HolidayDay>  $upcomingHolidays  The holidays of «Próximas fechas», from today: see HomePageBuilder::UPCOMING_HOLIDAY_LIMIT and UPCOMING_HOLIDAY_DAYS.
      * @param  HolidayDay|null  $nextHoliday  Today's holiday or the next one, beside the date line.
      * @param  HomeSearchIndex|null  $searchIndex  The «Ctrl K» search; null (a server search, `?q=`) leaves the dialog out.
+     * @param  list<HolidayDay|EventDate>  $upcomingDates  «Próximas fechas»: holidays and company events by start, at most HomePageBuilder::UPCOMING_DATE_LIMIT.
+     * @param  bool  $hasEvents  Some of them are events: «Ver eventos» links to /eventos.
      */
     public function __construct(
         public string $salutation,
@@ -47,6 +49,8 @@ final readonly class HomePage
         public array $upcomingHolidays = [],
         public ?HolidayDay $nextHoliday = null,
         public ?HomeSearchIndex $searchIndex = null,
+        public array $upcomingDates = [],
+        public bool $hasEvents = false,
     ) {}
 
     /**
@@ -93,7 +97,7 @@ final readonly class HomePage
             $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
         }
 
-        if ($this->upcomingHolidays !== []) {
+        if ($this->upcomingDates !== []) {
             $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
         }
 

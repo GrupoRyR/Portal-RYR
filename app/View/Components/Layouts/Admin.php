@@ -47,11 +47,13 @@ class Admin extends Component
     public function navigation(): array
     {
         $announcements = ['label' => 'Anuncios', 'icon' => 'megaphone', 'route' => 'admin.announcements.index', 'active' => 'admin.announcements.*'];
+        $events = ['label' => 'Eventos', 'icon' => 'calendar', 'route' => 'admin.events.index', 'active' => 'admin.events.*'];
 
-        // Announcements editors reach nothing else: the other sections are
-        // left out, not merely disabled.
+        // Announcements editors reach nothing else (events are theirs too,
+        // App\Policies\EventPolicy): the other sections are left out, not
+        // merely disabled.
         if ($this->user === null || ! AnnouncementPolicy::manages($this->user)) {
-            return [['label' => null, 'items' => [$announcements]]];
+            return [['label' => null, 'items' => [$announcements, $events]]];
         }
 
         return array_values(array_filter([
@@ -59,6 +61,7 @@ class Admin extends Component
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
                 $announcements,
+                $events,
             ]],
             ['label' => 'Organización', 'items' => array_values(array_filter([
                 // Only super admins manage companies (CompanyPolicy): nobody

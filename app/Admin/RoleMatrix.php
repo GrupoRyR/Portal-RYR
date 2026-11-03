@@ -6,6 +6,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\Event;
 use App\Models\User;
 use App\Policies\AdminSections;
 use Spatie\Permission\Models\Role;
@@ -55,6 +56,13 @@ final class RoleMatrix
                 'Anuncios',
                 ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
                 fn (User $user) => $user->can('viewAny', Announcement::class),
+            ),
+            // No role of its own: the same people as announcements
+            // (App\Policies\EventPolicy).
+            new RoleMatrixSection(
+                'Eventos',
+                ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
+                fn (User $user) => $user->can('viewAny', Event::class),
             ),
             // super_admin and portal_admin are assigned automatically at
             // sign-in, so nobody adds them by hand: both only manage editors.
