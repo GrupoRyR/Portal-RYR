@@ -134,6 +134,30 @@ class LinkedAccounts
     }
 
     /**
+     * Whether the signed-in account may switch to the target one: another
+     * account of the same person, a Microsoft home account (not a guest,
+     * not an emergency account) of an active company. This is the only
+     * thing the person decides; the switch itself is still a Microsoft
+     * sign-in with the target account, which checks everything a sign-in
+     * checks.
+     */
+    public function canSwitch(User $current, User $target): bool
+    {
+        return $current->exists
+            && $target->exists
+            && ! $current->is($target)
+            && ! $current->is_emergency
+            && $current->person_id !== null
+            && $current->person_id === $target->person_id
+            && ! $target->is_emergency
+            && $target->tenant_id !== null
+            && $target->azure_oid !== null
+            // Null means not known yet: refused like a guest.
+            && $target->is_guest === false
+            && $target->company?->is_active === true;
+    }
+
+    /**
      * Takes the account out of its person. A person left with one account
      * (or none) is deleted and that last account is unlinked too; each
      * unlinked account is a security event. False when the account was not

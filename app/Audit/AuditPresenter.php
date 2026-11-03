@@ -85,6 +85,17 @@ final class AuditPresenter
         'user' => 'por la misma persona',
     ];
 
+    /** Reasons of a failed switch; the sign-in ones come from REJECTION_REASONS. */
+    private const SWITCH_FAILURE_REASONS = [
+        'wrong_account' => 'Microsoft respondió con otra cuenta',
+        'target_unavailable' => 'la cuenta ya no se puede usar',
+        'login_required' => 'Microsoft pidió iniciar sesión',
+        'interaction_required' => 'Microsoft pidió una acción de la persona',
+        'consent_required' => 'falta un consentimiento en Microsoft',
+        'account_selection_required' => 'Microsoft pidió elegir la cuenta',
+        'access_denied' => 'cancelado o denegado en Microsoft',
+    ];
+
     private const ROLE_LABELS = [
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
@@ -247,6 +258,11 @@ final class AuditPresenter
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             SecurityLog::ACCOUNT_UNLINKED => 'Desvinculó la cuenta de '.$this->account($properties->get('company'), $properties->get('email'))
                 .' · '.(self::UNLINK_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason')),
+            SecurityLog::ACCOUNT_SWITCHED => 'Cambió a su cuenta de '.$this->account($properties->get('to_company'), $properties->get('to_email')),
+            SecurityLog::ACCOUNT_SWITCH_FAILED => 'Cambio de empresa rechazado · '
+                .(self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
+                .' · hacia '.$this->account($properties->get('to_company'), $properties->get('to_email'))
+                .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             default => (string) $activity->description,
         };
     }
