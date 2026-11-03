@@ -1,5 +1,6 @@
 <?php
 
+use App\Mcp\StaleClients;
 use App\Models\WorkItem;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -55,6 +56,35 @@ Schedule::command('portal:run-requested-backup')
 // deletion traces, done and cancelled items older than 30 days.
 Schedule::command('model:prune', ['--model' => [WorkItem::class]])
     ->dailyAt('03:00')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
+// Claude connector (Passport): delete revoked tokens and codes, and the
+// ones that expired more than 7 days ago (`passport:purge`, --hours=168).
+Schedule::command('passport:purge')
+    ->dailyAt('04:00')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
+// passport:purge never deletes clients, and registering one is public:
+// connector clients older than a day that never became a connection go,
+// with their codes and tokens (App\Mcp\StaleClients).
+Artisan::command('portal:purge-mcp-clients', function (StaleClients $clients) {
+    $this->info('Clientes eliminados: '.$clients->purge());
+})->purpose('Delete Claude connector OAuth clients that never became a connection');
+
+Schedule::command('portal:purge-mcp-clients')
+    ->dailyAt('04:15')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
+// Auditoría keeps a year (config/activitylog.php, delete_records_older_than_days):
+// older activity log rows go every day. `--force` because the command asks
+// for confirmation in production; no `--days`, so the config decides. The
+// Claude connector writes one row per tool call (up to 120 a minute per
+// connection), so without this the table only grows.
+Schedule::command('activitylog:clean --force')
+    ->dailyAt('04:30')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
 

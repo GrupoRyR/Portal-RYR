@@ -7,6 +7,7 @@
     $card = 'flex min-w-0 flex-col gap-3.5 rounded-[18px] border border-line bg-surface p-5 sm:p-[22px]';
     $heading = 'font-sans text-lg font-bold tracking-normal';
 @endphp
+<div class="flex flex-col gap-5">
 <form wire:submit="save" class="flex flex-col gap-5" novalidate>
     <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div class="flex min-w-0 flex-col gap-1">
@@ -144,3 +145,7 @@
         </section>
     </div>
 </form>
+
+{{-- «Conector de Claude» (App\Livewire\Admin\McpConnector): acts at once, outside the form. --}}
+<livewire:admin.mcp-connector />
+</div>

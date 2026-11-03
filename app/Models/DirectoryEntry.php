@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Catalog\AppSearch;
+use App\Search\HomeSearchIndex;
 use App\Support\Like;
 use Database\Factories\DirectoryEntryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -135,10 +137,11 @@ class DirectoryEntry extends Model
      * account, only when it chose to show it: `shown_birthday_month` and
      * `shown_birthday_day`, null otherwise (App\View\Home\Celebration).
      * The account is the one with the entry's tenant, object ID and
-     * company; never one found another way. Shared by «Cumpleaños y
-     * aniversarios» of the home screen (App\View\Home\HomePageBuilder)
-     * and the Monday digest (App\Digest\WeeklyDigestBuilder). Select the
-     * entry's columns (qualified) before calling it.
+     * company; never one found another way, never through `person_id`.
+     * Shared by the home screen and the Claude connector (through
+     * {@see homeDirectory()}) and the Monday digest
+     * (App\Digest\WeeklyDigestBuilder). Select the entry's columns
+     * (qualified) before calling it.
      *
      * @param  Builder<DirectoryEntry>  $query
      */
@@ -167,6 +170,40 @@ class DirectoryEntry extends Model
         foreach ($terms as $term) {
             $query->whereRaw('search_text like ? '.Like::ESCAPE, [Like::contains($term)]);
         }
+    }
+
+    /**
+     * The company directory as the home screen reads it, in one query: the
+     * «Ctrl K» search index and «Cumpleaños y aniversarios» of «Mi día»
+     * (App\View\Home\HomePageBuilder), and `cumpleanos_y_aniversarios` of
+     * the Claude connector, so both list the same people. By name, at most
+     * HomeSearchIndex::PEOPLE_LIMIT, only the columns those need, with the
+     * shown birthday ({@see scopeCelebrationsOf()}, which the Monday digest
+     * reads without a limit). Whether the viewer may see this directory is
+     * the caller's job ({@see companyIdFor()}).
+     *
+     * @return Collection<int, DirectoryEntry>
+     */
+    public static function homeDirectory(int $companyId): Collection
+    {
+        return self::query()
+            ->select([
+                'directory_entries.id',
+                'directory_entries.tenant_id',
+                'directory_entries.azure_oid',
+                'directory_entries.display_name',
+                'directory_entries.job_title',
+                'directory_entries.department',
+                'directory_entries.email',
+                'directory_entries.hire_date',
+                'directory_entries.search_text',
+            ])
+            ->celebrationsOf($companyId)
+            // Only directory_entries has display_name.
+            ->orderBy('display_name')
+            ->orderBy('directory_entries.id')
+            ->limit(HomeSearchIndex::PEOPLE_LIMIT)
+            ->get();
     }
 
     /**

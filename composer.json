@@ -9,6 +9,8 @@
         "php": "^8.3",
         "enshrined/svg-sanitize": "^1.0",
         "laravel/framework": "^13.17",
+        "laravel/mcp": "^1.1",
+        "laravel/passport": "^13.10",
         "laravel/sanctum": "^4.3",
         "laravel/socialite": "^5.31",
         "laravel/tinker": "^3.0",
