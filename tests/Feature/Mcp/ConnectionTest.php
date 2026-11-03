@@ -95,7 +95,7 @@ class ConnectionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('result.tools.0.name', 'quien_soy')
             ->assertJsonPath('result.tools.0.annotations.readOnlyHint', true)
-            ->assertJsonCount(7, 'result.tools');
+            ->assertJsonCount(9, 'result.tools');
 
         $call = $this->mcp($tokens['access_token'], 'tools/call', ['name' => 'quien_soy', 'arguments' => []])
             ->assertOk();

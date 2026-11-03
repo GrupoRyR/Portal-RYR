@@ -92,6 +92,8 @@ class WorkItemController extends Controller
             'due_at' => ['bail', 'nullable', function (string $attribute, mixed $value, Closure $fail) {
                 if (! is_string($value) || ! self::isDateTimeWithZone($value)) {
                     $fail('The due at field must be an ISO 8601 date and time with a time zone.');
+                } elseif (! self::isWithinDueAtRange($value)) {
+                    $fail('The due at field must be between 2000-01-01 and 2037-12-31 (UTC).');
                 }
             }],
             'url' => ['bail', 'required', 'string', 'max:'.WorkItem::MAX_URL, function (string $attribute, mixed $value, Closure $fail) use ($authority) {
@@ -141,6 +143,18 @@ class WorkItemController extends Controller
     private static function instant(string $value): CarbonImmutable
     {
         return CarbonImmutable::parse($value)->setTimezone(config('app.timezone'));
+    }
+
+    /**
+     * Within what the `due_at` column keeps (WorkItem::EARLIEST_DUE_AT and
+     * LATEST_DUE_AT), compared as instants: the offset counts.
+     */
+    private static function isWithinDueAtRange(string $value): bool
+    {
+        $instant = CarbonImmutable::parse($value);
+
+        return $instant->gte(CarbonImmutable::parse(WorkItem::EARLIEST_DUE_AT))
+            && $instant->lte(CarbonImmutable::parse(WorkItem::LATEST_DUE_AT));
     }
 
     private static function isDateTimeWithZone(string $value): bool

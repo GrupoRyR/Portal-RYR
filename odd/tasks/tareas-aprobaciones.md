@@ -55,7 +55,7 @@ Que el inicio muestre a cada persona sus tareas y lo que tiene por aprobar, con 
   - [x] **Contrato v0.2: cambiar la persona** (decisión de Jhon, 2026-10-30; ruta: delegada, escritor). La app puede equivocarse: con una `version` mayor, un `PUT` cambia el `assignee` y el elemento pasa del portal de una persona al de la otra (`WorkItem::visibleTo()` lee el `tenant_id` y el `oid` guardados). Al reasignar un elemento pendiente se comprueba el límite de 500 de la persona nueva (antes no se comprobaba porque el elemento ya estaba pendiente). Con la misma `version`, otro `assignee` responde `422` pidiendo subir la versión. `kind` sigue sin cambiar con ninguna versión (Jhon corrigió el primer planteamiento, que también lo dejaba cambiar). Quien envía el elemento no entra en el contrato.
     - Evidencia: RED 7/101 con el primer planteamiento y RED 3/102 tras la corrección de `kind`; GREEN 102/102 en `WorkItemsApiTest`; suite completa 1364/1364; `pint --test` limpio. Commit `593da49`.
 - [ ] T2. **«Mi día» en el inicio.** Lista «Por aprobar» y «Tareas» con «Ver tarea» y «Ver aprobación» (§4, §5). Depende de la cadena del inicio (#69 a #73). Ruta: por decidir.
-- [ ] T3. **«Completar» firmado.** Secreto `ryrsig_` cifrado, llamada `POST {app_base_url}/api/portal/v1/tasks/{external_id}/complete` con HMAC-SHA256, 5 s, sin redirecciones, Auditoría `work_item.completed` y `work_item.complete_failed` (§6). Ruta: por decidir.
+- [x] T3. **«Completar» firmado.** Secreto `ryrsig_` cifrado, llamada `POST {app_base_url}/api/portal/v1/tasks/{external_id}/complete` con HMAC-SHA256, 5 s, sin redirecciones, Auditoría `work_item.completed` y `work_item.complete_failed` (§6). Ruta: delegada (escritor), rama `feat/tareas-3-completar`. Detalle y evidencia en [`tareas-3-completar.md`](tareas-3-completar.md): commits `c92210f` («Completar») y `d84d531` (rango de `due_at`, contrato 0.2.1). El botón del inicio queda para T2.
 - [ ] T4. **Carga inicial y conciliación.** Bloqueada: pregunta abierta 1 del contrato (§11).
 - [ ] T5. **Invitados (B2B) con otro `oid`.** Bloqueada: pregunta abierta 2 del contrato (§11).
 
@@ -99,6 +99,7 @@ Ambigüedades del contrato v0.1 encontradas en T1. Todas decididas; solo la 1 ca
 - 2026-10-29: correcciones de la revisión independiente de T1 (9 puntos) hechas y comprobadas. Sin push ni PR.
 - 2026-10-30: Jhon decidió las preguntas 1, 4, 5 y 8. La 1 cambia el código: misma `version` con otro `kind` o `assignee` responde `422` (`633629f`, contrato v0.1.1; 1.359 pruebas en verde). Sin push.
 - 2026-10-30: contrato v0.2. Con una `version` mayor la persona puede cambiar y el elemento pasa a la nueva; el tipo no cambia nunca (`593da49`; 1.364 pruebas en verde). Sin push.
+- 2026-11-03: T3 hecho en `feat/tareas-3-completar` (`odd/tasks/tareas-3-completar.md`); `due_at` fuera de 2000–2037 responde `422` (contrato v0.2.1). Suite completa 2.788/2.788.
 
 ## Siguiente paso
 

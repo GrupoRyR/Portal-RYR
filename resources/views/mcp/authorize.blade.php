@@ -92,6 +92,7 @@
                 <li>Las próximas fechas: festivos, eventos, cumpleaños y aniversarios.</li>
                 <li>El directorio de personas de tu empresa.</li>
                 <li>Tus apps del portal.</li>
+                <li>Tus tareas y aprobaciones.</li>
             </ul>
             <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Solo verá lo que tú ya ves en el portal. No podrá cambiar nada. Puedes desconectarlo cuando quieras.</p>
         </section>

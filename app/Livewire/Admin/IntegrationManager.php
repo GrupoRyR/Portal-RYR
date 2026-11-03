@@ -45,6 +45,11 @@ use Livewire\Component;
  * same way with the one company whose figures the system publishes: asked
  * when creating, saved before granting it, never taken away while granted,
  * and granting it or changing the company needs a recent Microsoft sign-in.
+ *
+ * A `work:write` system also has the signing secret of «Completar»
+ * (`ryrsig_…`, contract §6.2): generated or rotated here behind a recent
+ * Microsoft sign-in, shown once in the «Secreto de firma» dialog and only
+ * kept in this component until it is closed, like a token.
  */
 class IntegrationManager extends Component
 {
@@ -53,7 +58,7 @@ class IntegrationManager extends Component
     public const LATEST_CHANGES = 5;
 
     /** Emergency accounts have no Microsoft identity to confirm with. */
-    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens, dar work:write o kpis:write, o cambiar la app de tareas o la empresa de las cifras requiere iniciar sesión con Microsoft.';
+    public const EMERGENCY_MESSAGE = 'Crear o rotar tokens o secretos de firma, dar work:write o kpis:write, o cambiar la app de tareas o la empresa de las cifras requiere iniciar sesión con Microsoft.';
 
     /** The system shown in the detail panel (`?sistema=` in the address). */
     #[Url(as: 'sistema', history: true)]
@@ -94,6 +99,13 @@ class IntegrationManager extends Component
 
     #[Locked]
     public bool $rotated = false;
+
+    /** Plaintext of the signing secret just generated; null once dismissed. */
+    #[Locked]
+    public ?string $plainSecret = null;
+
+    #[Locked]
+    public bool $secretRotated = false;
 
     #[Locked]
     public string $notice = '';
@@ -240,6 +252,42 @@ class IntegrationManager extends Component
         $this->plainToken = $integration->rotate();
         $this->rotated = true;
         $integration->audit('integration.rotated');
+    }
+
+    /**
+     * Generates the signing secret of «Completar» of the selected
+     * `work:write` system, or replaces it: the portal signs with the new one
+     * at once.
+     */
+    public function generateSigningSecret(RecentMicrosoftLogin $recent): void
+    {
+        $integration = $this->liveSelection();
+        $this->resetErrorBag();
+
+        if ($integration === null) {
+            return;
+        }
+
+        if (! in_array(Integration::WORK_WRITE, $integration->abilities, true)) {
+            $this->addError('signingSecret', 'El secreto de firma solo sirve con work:write.');
+
+            return;
+        }
+
+        if (! $this->hasRecentLogin($recent)) {
+            return;
+        }
+
+        $rotated = $integration->signing_secret_hint !== null;
+        $this->plainSecret = $integration->issueSigningSecret();
+        $this->secretRotated = $rotated;
+        $integration->audit($rotated ? 'integration.signing_secret_rotated' : 'integration.signing_secret_created');
+    }
+
+    public function dismissSecret(): void
+    {
+        $this->plainSecret = null;
+        $this->secretRotated = false;
     }
 
     public function revoke(): void
@@ -550,6 +598,10 @@ class IntegrationManager extends Component
             }
         } elseif (! Integration::isValidAppBaseUrl($baseUrl)) {
             $errors['url'] = 'Escribe una dirección https, sin usuario, sin ? ni #.';
+        } elseif ($appId !== null && ! isset($errors['app'])
+            && ! Integration::isOnHostOf($baseUrl, self::catalogApps()->firstWhere('id', $appId)?->url)) {
+            // «Completar» only calls that host (Integration::completionUrl()).
+            $errors['url'] = 'La URL base debe estar en el mismo host (y puerto) que la app del catálogo.';
         }
 
         return $errors;
