@@ -584,7 +584,7 @@ Esta sección es para todas las personas, no solo para los administradores. Expl
 
 ### 10.1 Qué hace
 
-Claude consulta el portal con sus cuentas y responde con lo mismo que usted ve al entrar. Es **solo lectura**: Claude no puede confirmar lecturas, cambiar datos ni abrir apps por usted.
+Claude consulta el portal con sus cuentas y responde con lo mismo que usted ve al entrar. Es **solo lectura**: Claude no puede confirmar lecturas, completar tareas, aprobar, cambiar datos ni abrir apps por usted.
 
 Lo que puede consultar:
 
@@ -594,11 +594,11 @@ Lo que puede consultar:
 - **Cumpleaños y aniversarios:** de las personas de su empresa, como en **Mi día** (§9.6).
 - **Buscar personas:** en el directorio de su empresa, como en `/personas` (§9).
 - **Mis apps:** las aplicaciones que usted puede abrir, con el enlace del portal. El enlace abre la app con la cuenta que tenga la sesión del portal en su navegador.
+- **Mis tareas:** las tareas pendientes que la app de tareas y aprobaciones le asignó a cada una de sus cuentas, con su fecha límite, si están vencidas y el enlace para abrirlas en esa app. Primero las que vencen antes.
+- **Mis aprobaciones:** lo que tiene por aprobar en la app de tareas y aprobaciones, igual que las tareas. Se aprueba o se rechaza solo en esa app.
 - **Quién soy:** con qué cuentas del portal está conectado Claude.
 
 Cada respuesta dice de qué empresa es cada dato («Segurex», «Derivados»). Si incluye sus cuentas vinculadas (§8), Claude lee con todas ellas, y cada una ve solo lo de su empresa, con sus propias reglas.
-
-Sus tareas y aprobaciones llegarán después. La pantalla de permiso ya las nombra, pero por ahora Claude no puede consultarlas.
 
 ### 10.2 Cómo conectar
 

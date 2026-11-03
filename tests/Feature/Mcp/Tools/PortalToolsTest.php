@@ -26,6 +26,8 @@ class PortalToolsTest extends TestCase
         'cumpleanos_y_aniversarios',
         'buscar_personas',
         'mis_apps',
+        'mis_tareas',
+        'mis_aprobaciones',
     ];
 
     protected function setUp(): void
