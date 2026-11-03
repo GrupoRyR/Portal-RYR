@@ -19,6 +19,7 @@ use App\Http\Controllers\EventCalendarController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\People\PeopleController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Http\Controllers\Pwa\ServiceWorkerController;
 use App\Http\Controllers\SupportController;
@@ -126,6 +127,11 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('event')
         ->middleware('throttle:60,1')
         ->name('events.calendar');
+
+    // The directory of the user's own company, copied from Microsoft
+    // (App\Models\DirectoryEntry::companyIdFor(); the «Ctrl K» search
+    // links here with ?q=).
+    Route::get('/personas', [PeopleController::class, 'index'])->name('people.index');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)

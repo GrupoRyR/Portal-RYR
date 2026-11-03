@@ -4,6 +4,7 @@ namespace App\Search;
 
 use App\Catalog\AppSearch;
 use App\Models\Announcement;
+use App\Models\DirectoryEntry;
 use App\View\Home\AppCard;
 use App\View\Home\EventDate;
 use App\View\Home\HolidayDay;
@@ -17,8 +18,12 @@ use Illuminate\Support\Str;
  * already see: their openable apps, the announcements addressed to their
  * company (App\Models\Announcement::scopeVisibleTo), upcoming Colombian
  * holidays and the upcoming company events they may see
- * (App\Models\Event::scopeVisibleTo), which link to /eventos#e-{id}. No
- * people and no other accounts.
+ * (App\Models\Event::scopeVisibleTo), which link to /eventos#e-{id}, and
+ * the people of the viewer's own company directory
+ * (App\Models\DirectoryEntry::companyIdFor(), copied from Microsoft), which
+ * link to /personas searching their name. Never the portal's accounts, and of a
+ * person only the name, «Cargo · Área» and the search text (name, title,
+ * area, office and email): no phone or dates.
  *
  * Every entry carries `search`, its text through AppSearch::normalize(), so
  * resources/js/home.js matches it exactly like the server search does.
@@ -34,6 +39,9 @@ final readonly class HomeSearchIndex
     /** Soonest upcoming events in the index (all of them on the first /eventos page). */
     public const EVENT_LIMIT = 50;
 
+    /** People in the index, by name (all of them on /personas). */
+    public const PEOPLE_LIMIT = 1000;
+
     /** Characters of an announcement's text in its excerpt; the body never ships whole. */
     public const EXCERPT_LENGTH = 90;
 
@@ -41,11 +49,13 @@ final readonly class HomeSearchIndex
      * @param  list<array{title: string, detail: string, search: string, href: string, newTab: bool}>  $apps
      * @param  list<array{title: string, detail: string, search: string, href: string}>  $announcements
      * @param  list<array{title: string, detail: string, search: string, date: string, end?: string, href?: string}>  $dates  Holidays and events by start; `date` is the last day, after which a saved copy hides it; an event's `end` (ISO 8601) is the moment it is over, when the saved copy hides it instead (like `data-event-end` on the home list).
+     * @param  list<array{title: string, detail: string, search: string, href: string}>  $people  By name.
      */
     public function __construct(
         public array $apps,
         public array $announcements,
         public array $dates,
+        public array $people = [],
     ) {}
 
     /**
@@ -54,8 +64,9 @@ final readonly class HomeSearchIndex
      * @param  list<HolidayDay>  $holidays
      * @param  CarbonImmutable  $today  Midnight today in the calendar timezone.
      * @param  list<EventDate>  $events  Visible to the viewer, soonest first.
+     * @param  iterable<DirectoryEntry>  $people  The viewer's company directory by name, with `display_name`, `job_title`, `department` and `search_text`.
      */
-    public static function build(array $cards, iterable $announcements, array $holidays, CarbonImmutable $today, array $events = []): self
+    public static function build(array $cards, iterable $announcements, array $holidays, CarbonImmutable $today, array $events = [], iterable $people = []): self
     {
         $apps = array_map(fn (AppCard $card) => [
             'title' => $card->name,
@@ -108,7 +119,22 @@ final readonly class HomeSearchIndex
         // By start, a holiday before the events of its day (HomePageBuilder::sortKey()).
         usort($dates, fn (array $a, array $b) => $a[0] <=> $b[0]);
 
-        return new self(array_values($apps), $notices, array_column($dates, 1));
+        $directory = [];
+        foreach ($people as $person) {
+            if (count($directory) >= self::PEOPLE_LIMIT) {
+                break;
+            }
+
+            $directory[] = [
+                'title' => (string) $person->display_name,
+                'detail' => $person->roleLine(),
+                'search' => (string) $person->search_text,
+                // /personas finds the person by name, today's page and all.
+                'href' => route('people.index', ['q' => (string) $person->display_name]),
+            ];
+        }
+
+        return new self(array_values($apps), $notices, array_column($dates, 1), $directory);
     }
 
     /**
@@ -122,6 +148,7 @@ final readonly class HomeSearchIndex
             'apps' => $this->apps,
             'announcements' => $this->announcements,
             'dates' => $this->dates,
+            'people' => $this->people,
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 }

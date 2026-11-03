@@ -25,6 +25,7 @@ final readonly class HomePage
      * @param  HomeSearchIndex|null  $searchIndex  The «Ctrl K» search; null (a server search, `?q=`) leaves the dialog out.
      * @param  list<HolidayDay|EventDate>  $upcomingDates  «Próximas fechas»: holidays and company events by start, at most HomePageBuilder::UPCOMING_DATE_LIMIT.
      * @param  bool  $hasEvents  Some of them are events: «Ver eventos» links to /eventos.
+     * @param  string|null  $peopleHref  «Personas» (/personas, the company directory); null hides it (no directory for this account).
      */
     public function __construct(
         public string $salutation,
@@ -51,6 +52,7 @@ final readonly class HomePage
         public ?HomeSearchIndex $searchIndex = null,
         public array $upcomingDates = [],
         public bool $hasEvents = false,
+        public ?string $peopleHref = null,
     ) {}
 
     /**

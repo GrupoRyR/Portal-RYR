@@ -7,11 +7,13 @@ use App\Models\App;
 use App\Models\AppAccessRule;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\DirectoryEntry;
 use App\Models\User;
 use App\Search\HomeSearchIndex;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -199,7 +201,11 @@ class HomeSearchIndexTest extends TestCase
         $this->assertSame("Cartera \u{FFFD}", $decoded['apps'][0]['title']);
     }
 
-    public function test_the_index_holds_no_people(): void
+    /**
+     * People come from the company directory (App\Models\DirectoryEntry,
+     * copied from Microsoft), never from the portal's accounts.
+     */
+    public function test_the_index_holds_no_accounts(): void
     {
         User::factory()->microsoft($this->segurex)->create(['name' => 'Rodrigo Quiñónez', 'email' => 'rodrigo.quinonez@segurex.test']);
         $category = AppCategory::factory()->create(['name' => 'Finanzas']);
@@ -209,11 +215,123 @@ class HomeSearchIndexTest extends TestCase
         $response = $this->home();
         $raw = $this->rawIndex($response);
 
-        $this->assertSame(['apps', 'announcements', 'dates'], array_keys($this->index($response)));
+        $this->assertSame(['apps', 'announcements', 'dates', 'people'], array_keys($this->index($response)));
+        $this->assertSame([], $this->index($response)['people']);
 
         foreach (['Rodrigo', 'rodrigo', 'Quiñónez', 'quinonez', 'Ana María', 'Pérez', 'perez', 'segurex.test'] as $person) {
             $this->assertStringNotContainsString($person, $raw);
         }
+    }
+
+    public function test_the_index_lists_the_people_of_the_viewers_company_by_name(): void
+    {
+        DirectoryEntry::factory()->forCompany($this->segurex)->create([
+            'display_name' => 'Marta Díaz',
+            'job_title' => null,
+            'department' => 'Operaciones',
+            'office_location' => 'Medellín',
+            'business_phone' => '+57 601 555 0199',
+            'email' => 'mdiaz@segurex.com',
+            'hire_date' => '2020-03-14',
+        ]);
+        DirectoryEntry::factory()->forCompany($this->segurex)->create([
+            'display_name' => 'Luis Gómez',
+            'job_title' => 'Analista de cartera',
+            'department' => 'Finanzas',
+            'office_location' => 'Bogotá',
+            'email' => 'lgomez@segurex.com',
+        ]);
+        $derivados = Company::factory()->forTenant($this->segurex->tenant_id, ['derivados.com'], primary: false)->create();
+        DirectoryEntry::factory()->forCompany($derivados)->create(['display_name' => 'Persona de Derivados']);
+        DirectoryEntry::factory()->forCompany(Company::factory()->create())->create(['display_name' => 'Persona de otra empresa']);
+
+        $response = $this->home();
+        $people = $this->index($response)['people'];
+
+        $this->assertSame([
+            [
+                'title' => 'Luis Gómez',
+                'detail' => 'Analista de cartera · Finanzas',
+                'search' => 'luis gomez analista de cartera finanzas bogota lgomez@segurex.com',
+                'href' => route('people.index', ['q' => 'Luis Gómez']),
+            ],
+            [
+                'title' => 'Marta Díaz',
+                'detail' => 'Operaciones',
+                'search' => 'marta diaz operaciones medellin mdiaz@segurex.com',
+                'href' => route('people.index', ['q' => 'Marta Díaz']),
+            ],
+        ], $people);
+        $this->assertStringNotContainsString('555 0199', $this->rawIndex($response));
+        $this->assertStringNotContainsString('2020-03-14', $this->rawIndex($response));
+    }
+
+    public function test_viewers_without_a_directory_get_no_people(): void
+    {
+        DirectoryEntry::factory()->forCompany($this->segurex)->create(['display_name' => 'Luis Gómez']);
+        $viewers = [
+            User::factory()->emergency()->create(),
+            User::factory()->create(['company_id' => null]),
+            User::factory()->microsoft($this->segurex)->create(['is_guest' => true]),
+        ];
+
+        foreach ($viewers as $viewer) {
+            $response = $this->actingAs($viewer)->get('/')->assertOk();
+
+            $this->assertSame([], $this->index($response)['people']);
+            $this->assertStringNotContainsString('Luis', $this->rawIndex($response));
+        }
+    }
+
+    public function test_the_people_come_in_one_capped_query_of_the_needed_columns(): void
+    {
+        DirectoryEntry::factory()->forCompany($this->segurex)->count(3)->create();
+        $sql = [];
+        DB::listen(function ($query) use (&$sql) {
+            $sql[] = $query->sql;
+        });
+
+        $this->home();
+        $directory = array_values(array_filter($sql, fn (string $query) => str_contains($query, 'from "directory_entries"')));
+
+        $this->assertCount(1, $directory);
+        $this->assertStringContainsString('limit '.HomeSearchIndex::PEOPLE_LIMIT, $directory[0]);
+        $this->assertStringContainsString('order by "display_name" asc', $directory[0]);
+        foreach (['business_phone', 'hire_date', '"email"', '*'] as $column) {
+            $this->assertStringNotContainsString($column, Str::before($directory[0], ' from '));
+        }
+        $this->assertSame(1000, HomeSearchIndex::PEOPLE_LIMIT);
+    }
+
+    public function test_the_server_search_page_does_not_read_the_directory(): void
+    {
+        $this->openableApp(['name' => 'Cámaras']);
+        DirectoryEntry::factory()->forCompany($this->segurex)->create();
+        $sql = [];
+        DB::listen(function ($query) use (&$sql) {
+            $sql[] = $query->sql;
+        });
+
+        $this->home('?q=camaras');
+
+        $this->assertSame([], array_filter($sql, fn (string $query) => str_contains($query, 'directory_entries')));
+    }
+
+    public function test_the_dialog_offers_people_only_when_there_are_some(): void
+    {
+        $this->openableApp();
+
+        $this->home()
+            ->assertSee('placeholder="Buscar aplicaciones, anuncios y fechas"', false)
+            ->assertDontSee('placeholder="Buscar aplicaciones, anuncios, fechas y personas"', false);
+
+        DirectoryEntry::factory()->forCompany($this->segurex)->create();
+
+        $this->home()
+            ->assertSee('placeholder="Buscar aplicaciones, anuncios, fechas y personas"', false)
+            ->assertSeeText('Escribe para buscar aplicaciones, anuncios, fechas y personas.')
+            ->assertSee('data-search-group="people"', false)
+            ->assertSeeInOrder(['Aplicaciones', 'Anuncios', 'Fechas', 'Personas']);
     }
 
     public function test_a_title_cannot_break_out_of_the_index_script(): void
@@ -288,6 +406,7 @@ class HomeSearchIndexTest extends TestCase
 
         Announcement::factory()->count(HomeSearchIndex::ANNOUNCEMENT_LIMIT + 5)->create();
         Announcement::factory()->forCompanies($this->segurex)->count(3)->create();
+        DirectoryEntry::factory()->forCompany($this->segurex)->count(30)->create();
         foreach (range(1, 5) as $i) {
             $this->openableApp();
         }

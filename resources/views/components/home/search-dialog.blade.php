@@ -8,6 +8,8 @@
     One row looks active at a time: the pointer moves the active option
     (home.js) instead of a separate hover style, and the active one gets an
     inset outline besides the tint, which also shows in forced colors.
+    People (the company directory) are named in the copy only when the index
+    holds some; home.js reads the idle status line from data-idle.
 --}}
 @props(['index'])
 @use('App\Catalog\AppSearch')
@@ -16,7 +18,9 @@
         'apps' => ['label' => 'Aplicaciones', 'icon' => 'grid'],
         'announcements' => ['label' => 'Anuncios', 'icon' => 'megaphone'],
         'dates' => ['label' => 'Fechas', 'icon' => 'calendar'],
+        'people' => ['label' => 'Personas', 'icon' => 'user'],
     ];
+    $searchable = $index->people === [] ? 'aplicaciones, anuncios y fechas' : 'aplicaciones, anuncios, fechas y personas';
 @endphp
 {{-- Safe unescaped output: HomeSearchIndex::toJson() escapes every tag character. --}}
 <script type="application/json" id="search-index">{!! $index->toJson() !!}</script>
@@ -24,8 +28,8 @@
     <h2 id="busqueda-titulo" class="sr-only">Buscar en el portal</h2>
     <div class="flex items-center gap-3 border-b border-line pr-2 pl-4">
         <x-home.icon name="search" stroke-width="2" class="size-5 text-fg-muted" />
-        <label for="busqueda-texto" class="sr-only">Buscar aplicaciones, anuncios y fechas</label>
-        <input id="busqueda-texto" type="text" role="combobox" aria-expanded="false" aria-controls="busqueda-resultados" aria-autocomplete="list" aria-describedby="busqueda-estado" autocomplete="off" spellcheck="false" enterkeyhint="go" maxlength="{{ AppSearch::MAX_LENGTH }}" placeholder="Buscar aplicaciones, anuncios y fechas" data-search-input class="h-14 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted">
+        <label for="busqueda-texto" class="sr-only">Buscar {{ $searchable }}</label>
+        <input id="busqueda-texto" type="text" role="combobox" aria-expanded="false" aria-controls="busqueda-resultados" aria-autocomplete="list" aria-describedby="busqueda-estado" autocomplete="off" spellcheck="false" enterkeyhint="go" maxlength="{{ AppSearch::MAX_LENGTH }}" placeholder="Buscar {{ $searchable }}" data-search-input class="h-14 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted">
         <button type="button" data-search-close class="inline-flex min-h-touch shrink-0 cursor-pointer items-center gap-2 rounded-control px-3 text-sm font-semibold text-brand-ink hover:bg-subtle">
             Cerrar<kbd class="hidden rounded-md border border-line-strong px-1.5 font-sans text-xs text-fg-muted md:inline">Esc</kbd>
         </button>
@@ -48,5 +52,5 @@
             </ul>
         @endforeach
     </div>
-    <p id="busqueda-estado" role="status" data-search-status class="px-5 py-3 text-sm text-fg-muted">Escribe para buscar aplicaciones, anuncios y fechas.</p>
+    <p id="busqueda-estado" role="status" data-search-status data-idle="Escribe para buscar {{ $searchable }}." class="px-5 py-3 text-sm text-fg-muted">Escribe para buscar {{ $searchable }}.</p>
 </dialog>

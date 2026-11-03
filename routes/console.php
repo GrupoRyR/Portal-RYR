@@ -37,6 +37,13 @@ Schedule::command('backup:monitor')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
 
+// The people of each company from Microsoft (App\Directory\DirectorySync),
+// after the backups. A tenant that fails keeps its previous people.
+Schedule::command('portal:sync-directory')
+    ->dailyAt('03:30')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
 // «Respaldar ahora» (Configuración) only leaves a request; this runs it.
 Schedule::command('portal:run-requested-backup')
     ->everyMinute()

@@ -8,6 +8,7 @@ use App\Catalog\AppSearch;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\Company;
+use App\Models\DirectoryEntry;
 use App\Models\Event;
 use App\Models\User;
 use App\Search\HomeSearchIndex;
@@ -38,8 +39,10 @@ use InvalidArgumentException;
  * - the upcoming company events the user may see (one query), merged with
  *   the holidays in «Próximas fechas»;
  * - the index of the «Ctrl K» search (App\Search\HomeSearchIndex): every
- *   app on the page, the announcements of the same query, and the holidays
- *   and events of the next twelve months.
+ *   app on the page, the announcements of the same query, the holidays
+ *   and events of the next twelve months, and the people of the user's
+ *   company directory (one query, none on a server search);
+ * - the «Personas» link (/personas) for users with a directory.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -108,6 +111,7 @@ final class HomePageBuilder
         $searchHorizon = $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS);
         $events = array_values(array_filter($visibleEvents, fn (EventDate $event) => $event->start < $searchHorizon));
         $upcomingDates = self::upcomingDates($upcoming, $events, $today);
+        $directoryCompanyId = DirectoryEntry::companyIdFor($user);
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
@@ -143,9 +147,11 @@ final class HomePageBuilder
                 $this->holidaysAhead($today, $today->addMonths(HomeSearchIndex::HOLIDAY_MONTHS)->subDay()),
                 $today,
                 $events,
+                $this->people($directoryCompanyId),
             ),
             upcomingDates: $upcomingDates,
             hasEvents: $visibleEvents !== [],
+            peopleHref: $directoryCompanyId === null ? null : route('people.index'),
         );
     }
 
@@ -253,6 +259,28 @@ final class HomePageBuilder
             ->get()
             ->map(fn (Event $event) => EventDate::from($event, $today))
             ->all();
+    }
+
+    /**
+     * The company directory of the search index, in one query: by name, at
+     * most HomeSearchIndex::PEOPLE_LIMIT, only the columns the index ships.
+     * No query without a directory (DirectoryEntry::companyIdFor()).
+     *
+     * @return Collection<int, DirectoryEntry>
+     */
+    private function people(?int $companyId): Collection
+    {
+        if ($companyId === null) {
+            return new Collection;
+        }
+
+        return DirectoryEntry::query()
+            ->select(['id', 'display_name', 'job_title', 'department', 'search_text'])
+            ->where('company_id', $companyId)
+            ->orderBy('display_name')
+            ->orderBy('id')
+            ->limit(HomeSearchIndex::PEOPLE_LIMIT)
+            ->get();
     }
 
     /**

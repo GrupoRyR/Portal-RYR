@@ -4,7 +4,8 @@
     accounts and the `status` message of the last account action. The «Mi día»
     column (prototype of the new home, odd/tasks/inicio-fase-1.md WU3) holds the
     upcoming holidays, the announcements card (beside the apps only; phones and
-    tablets get a banner with the top one) and the Microsoft 365 links. Phones
+    tablets get a banner with the top one), the link to the company directory
+    (/personas) and the Microsoft 365 links. Phones
     also get a «Secciones» menu. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search, the
     «Ctrl K» search dialog (x-home.search-dialog, not on a server search), the
@@ -65,7 +66,7 @@
                         <x-home.icon name="search" stroke-width="2" class="size-[18px] text-fg-muted" />
                         <input id="buscar" name="q" type="search" value="{{ $page->query }}" maxlength="{{ \App\Catalog\AppSearch::MAX_LENGTH }}" placeholder="Buscar aplicaciones" autocomplete="off" enterkeyhint="search" aria-describedby="resultados" class="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted md:text-[0.9375rem]">
                         @if ($page->searchIndex)
-                            {{-- home.js shows it: the «Ctrl K» search over apps, announcements and dates. --}}
+                            {{-- home.js shows it: the «Ctrl K» search over apps, announcements, dates and people. --}}
                             <button type="button" data-search-open hidden class="hidden min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong px-2 text-xs font-semibold text-fg-muted hover:bg-subtle md:inline-flex">
                                 <span class="sr-only">Buscar en todo el portal</span><kbd class="font-sans" data-search-shortcut>Ctrl K</kbd>
                             </button>
@@ -283,6 +284,16 @@
                             </li>
                         @endforeach
                     </ul>
+                </section>
+            @endif
+
+            @if ($page->peopleHref)
+                <section id="personas" aria-labelledby="personas-titulo" class="flex scroll-mt-6 flex-col gap-2 p-5">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="personas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Personas</h2>
+                        <a href="{{ $page->peopleHref }}" class="-my-3 inline-flex min-h-touch items-center text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Ver directorio</a>
+                    </div>
+                    <p class="text-sm text-fg-muted">Encuentra a tus compañeros por nombre, cargo o área.</p>
                 </section>
             @endif
 
