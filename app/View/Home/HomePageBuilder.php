@@ -2,9 +2,11 @@
 
 namespace App\View\Home;
 
+use App\Auth\MicrosoftLogin;
 use App\Calendar\ColombianHolidays;
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
+use App\Management\ManagementPanel;
 use App\Markets\MarketBoard;
 use App\Models\Announcement;
 use App\Models\App;
@@ -13,6 +15,7 @@ use App\Models\DirectoryEntry;
 use App\Models\Event;
 use App\Models\User;
 use App\News\NewsBoard;
+use App\Products\ProductBoard;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
@@ -50,7 +53,11 @@ use InvalidArgumentException;
  *   anniversaries of today and the next seven days (none on a server search);
  * - the «Mercados» band: TRM and euro (App\Markets\MarketBoard, one query);
  * - «Noticias» of the user's company (App\News\NewsBoard, one query), the
- *   tab named in `?noticias=` selected (none on a server search).
+ *   tab named in `?noticias=` selected (none on a server search);
+ * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,
+ *   two queries), the category of `?catalogo=` selected (none on a server search);
+ * - the «Panel gerencial» for a «Gerencia» account of the same company
+ *   (App\Management\ManagementPanel: two queries for them, none for others).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -83,12 +90,15 @@ final class HomePageBuilder
         private readonly ColombianHolidays $holidays,
         private readonly MarketBoard $markets,
         private readonly NewsBoard $news,
+        private readonly ProductBoard $products,
+        private readonly ManagementPanel $management,
     ) {}
 
     /**
      * @param  string|null  $newsTab  the «Noticias» tab of `?noticias=`
+     * @param  string|null  $catalogCategory  the «Catálogos» category of `?catalogo=`
      */
-    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null, ?string $newsTab = null): HomePage
+    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null, ?string $newsTab = null, ?string $catalogCategory = null): HomePage
     {
         $search = new AppSearch($query);
         $visible = $this->catalog->visibleApps($user);
@@ -174,7 +184,27 @@ final class HomePageBuilder
             markets: array_values(array_map(MarketFigure::from(...), $this->markets->current())),
             // A server search shows the cards only.
             news: $search->isActive() || $company === null ? [] : NewsTab::fromBoard($this->news->forCompany($company->id), $newsTab),
+            catalog: $search->isActive() || $company === null ? null : ProductShelf::fromBoard($this->products->forCompany($company), $catalogCategory),
+            management: $search->isActive() ? null : $this->managementCard($user, $today),
         );
+    }
+
+    /**
+     * The «Panel gerencial» when the account may see it and the robot has
+     * published figures (ManagementPanel::forViewer()).
+     */
+    private function managementCard(User $user, CarbonImmutable $today): ?ManagementCard
+    {
+        // Only an account with the role can pass the ability: the others skip
+        // the gate, and with it the permission lookup of its `before` hook
+        // (the roles are already loaded by canAdminister).
+        if (! $user->hasRole(MicrosoftLogin::MANAGEMENT)) {
+            return null;
+        }
+
+        $snapshot = $this->management->forViewer($user);
+
+        return $snapshot === null ? null : ManagementCard::from($snapshot, $today);
     }
 
     /**

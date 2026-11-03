@@ -31,6 +31,8 @@ final readonly class HomePage
      * @param  string|null  $moreCelebrationsHref  «Ver directorio» when more fall in those days than the block shows.
      * @param  list<MarketFigure>  $markets  The «Mercados» band (TRM, euro); empty hides it (before the first sync).
      * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
+     * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
+     * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
      */
     public function __construct(
         public string $salutation,
@@ -63,6 +65,8 @@ final readonly class HomePage
         public ?string $moreCelebrationsHref = null,
         public array $markets = [],
         public array $news = [],
+        public ?ProductShelf $catalog = null,
+        public ?ManagementCard $management = null,
     ) {}
 
     /**
@@ -95,6 +99,10 @@ final readonly class HomePage
 
         $sections = [['href' => '#contenido', 'label' => 'Inicio']];
 
+        if ($this->management !== null) {
+            $sections[] = ['href' => '#panel-gerencial', 'label' => 'Panel gerencial'];
+        }
+
         // A search hides Favoritos without matches (home.blade.php).
         if (! $this->isSearching() || $this->favorites !== []) {
             $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
@@ -111,6 +119,10 @@ final readonly class HomePage
 
         if ($this->news !== []) {
             $sections[] = ['href' => '#noticias', 'label' => 'Noticias'];
+        }
+
+        if ($this->catalog !== null) {
+            $sections[] = ['href' => '#catalogos', 'label' => 'Catálogos'];
         }
 
         if ($this->upcomingDates !== []) {

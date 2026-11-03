@@ -9,7 +9,8 @@ use Illuminate\Http\Request;
 /**
  * The home screen: the user's apps, favorites, recents, «Mi día» and the
  * company blocks. Without JavaScript, `?q=` filters the apps on the server
- * and `?noticias=` picks the «Noticias» tab.
+ * `?noticias=` picks the «Noticias» tab and `?catalogo=` the category of
+ * «Catálogos».
  */
 class HomeController extends Controller
 {
@@ -20,6 +21,7 @@ class HomeController extends Controller
                 $request->user(),
                 self::text($request->query('q')),
                 newsTab: self::text($request->query('noticias')),
+                catalogCategory: self::text($request->query('catalogo')),
             ),
         ]);
     }

@@ -10,7 +10,8 @@
 //   "/" and «Buscar» focus the search field. The bottom bar also opens the
 //   account menu.
 // - Animated logos: ends the entrance, pops the star when it gets pressed.
-// - «Noticias» tabs in place (they are links to `?noticias=` without it).
+// - «Noticias» tabs and «Catálogos» filters in place (without it they are
+//   links to `?noticias=` and `?catalogo=`).
 // - Installable app: registers the service worker (/sw.js, see
 //   resources/js/sw.js), shows the offline notice and asks the worker to
 //   forget this user's saved page when signing out.
@@ -423,6 +424,25 @@ if (newsTabs.length > 0) {
         selectNewsTab(next, true);
     });
 }
+
+// «Catálogos y categorías»: without JavaScript each filter is a link
+// (`?catalogo=`, a new page); here it shows that category's cards in place.
+const catalogFilters = $$('[data-catalog-filter]');
+
+catalogFilters[0]?.closest('nav').addEventListener('click', (event) => {
+    const filter = event.target.closest('[data-catalog-filter]');
+    if (!filter || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+
+    const category = filter.dataset.catalogFilter;
+    for (const other of catalogFilters) {
+        if (other === filter) other.setAttribute('aria-current', 'true');
+        else other.removeAttribute('aria-current');
+    }
+    for (const card of $$('[data-products] > [data-product]')) {
+        card.hidden = category !== 'todas' && card.dataset.category !== category;
+    }
+});
 
 // Offline notice (docs/diseno/PhoneDark): without network, or when the
 // service worker answered with the saved copy of this page.

@@ -10,5 +10,5 @@ namespace Tests\Feature\Home;
  */
 final class HomeQueryBudget
 {
-    public const MAX = 13;
+    public const MAX = 14;
 }

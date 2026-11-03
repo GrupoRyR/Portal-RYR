@@ -159,6 +159,10 @@
                 <x-announcements.banner :card="$top" data-announcement-banner class="lg:hidden" />
             @endif
 
+            @if ($page->management)
+                <x-home.management-panel :card="$page->management" />
+            @endif
+
             @if (! $page->hasApps())
                 <section aria-labelledby="sin-apps" class="flex flex-col items-center gap-3.5 rounded-[20px] border border-line bg-surface px-6 py-7 text-center md:max-w-md md:self-start">
                     <span class="flex size-22 items-center justify-center rounded-full bg-brand-tint text-brand-ink">
@@ -227,6 +231,10 @@
 
             @if ($page->news !== [])
                 <x-home.news :tabs="$page->news" />
+            @endif
+
+            @if ($page->catalog)
+                <x-home.catalog :shelf="$page->catalog" />
             @endif
         </main>
 
