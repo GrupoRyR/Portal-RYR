@@ -505,6 +505,18 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
 
 Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
 
+### 1.18 Catálogos
+
+Administración › **Catálogos** guarda las categorías y los productos de cada empresa en las tablas `product_categories` y `products`, y las fotos de los productos en el disco `public`: `storage/app/public/products/<id de la empresa>/`.
+
+1. **Migraciones.** `php artisan migrate --force` crea las dos tablas (el script de despliegue ya lo hace, paso 1.7). Los nombres de índices y claves son cortos a propósito: MySQL admite 64 caracteres como máximo.
+2. **Enlace de almacenamiento.** Las fotos se publican en `/storage/products/...`, con el mismo enlace `public/storage` de los logos (paso 1.10). Si las fotos no se ven, ejecute `php artisan storage:link` y compruebe que `public/storage` apunta a `storage/app/public`.
+3. **Permisos de carpeta.** El usuario de PHP debe poder escribir en `storage/app/public/`. La carpeta `products/` y la de cada empresa se crean solas con la primera foto. No hace falta crearlas a mano.
+4. **Extensión GD.** Cada foto se vuelve a codificar con GD antes de guardarse (quita metadatos y cualquier dato escondido tras la imagen) y las mayores de 1200 px se reducen. Compruebe que está instalada con `php -m | grep -i gd`. Sin GD no se pueden subir fotos.
+5. **Límites.** JPG, PNG o WebP, de 200 px o más por lado y de hasta 2 MB. Si el servidor rechaza fotos menores de 2 MB, revise `upload_max_filesize` y `post_max_size` en cPanel › **MultiPHP INI Editor**.
+6. **Copia de seguridad.** Las fotos están en `storage/app/public`, que ya incluyen los respaldos diarios (sección 6). Al restaurar una copia, el paso 6 de §6.3 también recupera las fotos.
+7. **Qué se borra.** Al borrar un producto o reemplazar su foto, el archivo anterior se borra del disco. Una categoría con productos no se puede borrar.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

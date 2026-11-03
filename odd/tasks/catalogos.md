@@ -31,11 +31,11 @@ Esta línea construye solo el backend y las páginas de Administración. El cabl
 
 ## Tareas
 
-- [ ] T1. Esquema, modelos, fábricas y políticas.
-- [ ] T2. `ProductPhotoStore` y `ProductLinkPolicy`.
-- [ ] T3. `ProductBoard` (lectura, 2 consultas).
-- [ ] T4. Administración › Catálogos (Livewire), rutas, menú y auditoría.
-- [ ] T5. Documentación (§1.18 y manual).
+- [x] T1. Esquema, modelos, fábricas y políticas. Commit `b980dd0`.
+- [x] T2. `ProductPhotoStore` y `ProductLinkPolicy`. Commit `6858ac1`.
+- [x] T3. `ProductBoard` (lectura, 2 consultas). Commit `bcecf4f`.
+- [x] T4. Administración › Catálogos (Livewire), rutas, menú y auditoría. Commit `1f58d27`.
+- [x] T5. Documentación (§1.18 y manual §11).
 
 ## Criterios de aceptación
 
@@ -55,8 +55,16 @@ Un solo escritor delegado (esta sesión). Disparadores: más de 2 archivos no tr
 
 ## Progreso
 
-Sin avances todavía.
+Las cinco tareas están hechas en la rama `feat/catalogos`. Decisiones adicionales:
+
+- `ProductBoard` deja fuera las categorías sin productos publicados, para que un botón del inicio nunca abra una lista vacía.
+- Borrar una categoría con productos se rechaza (como en las categorías de apps), para no dejar fotos huérfanas.
+- Mover categorías y productos escribe una sola entrada de Auditoría (`product_category.moved`, `product.moved`); la renumeración no genera una entrada por fila.
+- No se tocó `app/Models/Company.php` (fuera del alcance): la relación se consulta desde `ProductCategory` y `Product`.
 
 ## Evidencia de verificación
 
-Pendiente.
+- RED (con la implementación apartada): modelos, foto, enlaces y lectura, 42 pruebas, 0 pasan (1 falla, 41 errores). Página de Administración, 26 pruebas, 0 pasan. Auditoría, 4 pruebas, 0 pasan.
+- GREEN: modelos 6/6, fotos y enlaces 30/30 (con las de enlaces), lectura 6/6, Administración 26/26, Auditoría 4/4.
+- Suite completa: 2343 pruebas, todas pasan. `vendor/bin/pint --test`: pasa.
+- Engram mirror: pending.
