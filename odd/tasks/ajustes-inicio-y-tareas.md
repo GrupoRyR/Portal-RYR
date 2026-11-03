@@ -51,7 +51,7 @@ Aplicar cinco decisiones de Jhon:
 - [x] T2. **«Puente festivo».** Ruta: delegada (escritor), código, vista y pruebas. Hecho: `ad00aa4` en `feat/inicio-6-puentes`, sin empujar. `HolidayDay::kind()` (con `isBridge()`) da la etiqueta en «Próximas fechas» y en el buscador; `/eventos` no lista festivos y el aviso de la línea de fecha no lleva tipo. RED 6 de 42, GREEN 159/159 en Home, Search y Unit/View; suite 1.639/1.639; Pint limpio; consultas de `/` sin cambio (≤ 12, `HomeScreenTest`); sin clases nuevas de Tailwind, así que sin `npm run build`. Manual §7.2 con una línea.
 - [x] T3. **Fechas que se repiten cada año.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, `.ics`, Admin, inicio, buscador, `/eventos`, Auditoría, manual y pruebas). Hecho: `f6246b5` y `a0f5117` en `feat/inicio-7-fechas-anuales`, sin empujar (ver el registro de T3).
 - [x] T4. **Lectura obligatoria por persona.** Ruta: delegada (escritor). Hecho: `0be536c` en `feat/inicio-8-lectura-por-persona`, sin empujar (ver el registro de T4).
-- [ ] T5. **Recordatorios.** Ruta: delegada (escritor).
+- [x] T5. **Recordatorios.** Ruta: delegada (escritor). Hecho: `df20a1a` en `feat/inicio-9-recordatorios`, sin empujar (ver el registro de T5). Arreglos de la revisión: `ba2a542` (ver el registro de T5-R).
 - [ ] Revisión independiente y arreglos de cada PR.
 
 ## Preguntas para Jhon
@@ -145,6 +145,48 @@ Lectura obligatoria por persona. Ruta: delegada (escritor), 2 o más archivos no
   6. **Textos.** «X de Y personas lo leyeron» («1 persona lo leyó»), «Personas que faltan», ayuda de la tarjeta («Quien tiene cuentas vinculadas en dos empresas cuenta como una persona y confirma una sola vez.») y manual §2.4.
 - **No hecho / seguimiento:** sin capturas (el escritor no levantó el servidor; el cambio visual es solo de texto y de la lista de empresas). Una carrera entre dos cuentas de la misma persona que confirman a la vez puede dejar dos filas; no cambia nada (se toma la primera fecha y se cuentan personas).
 
+- 2026-10-30: T5 hecho en `feat/inicio-9-recordatorios` (`df20a1a`), sin empujar.
+
+### Registro del T5
+
+Recordatorios por correo a quien no ha confirmado. Ruta: delegada (escritor), 2 o más archivos no triviales (migración, dos modelos, servicio, aviso, comando, programación, editor, vista, Auditoría, manual y pruebas).
+
+- Commit: `df20a1a` `feat(announcements)` (código, pruebas y manual §2.4 juntos).
+- RED: 20 de 20 en `tests/Feature/Admin/AnnouncementReminderTest.php` (10) y `tests/Feature/Console/SendAnnouncementRemindersCommandTest.php` (10), 2 fallas y 18 errores: sin botón «Enviar recordatorio», sin `sendReminder`, sin `AnnouncementReminders`, sin el aviso, sin el comando y sin la programación.
+- GREEN: 20/20. Relacionadas: 409/409 (guarda `PersonNeverAuthorizesTest`, `tests/Feature/Announcements`, reporte y editor de anuncios, Auditoría y `tests/Feature/Home`). Suite 1.704/1.704 (1.678 + 20 pruebas nuevas + 6 casos de la guarda por los 6 archivos PHP nuevos de `app/`). Pint limpio. `npm run build` sin cambios en `public/build` (sin clases nuevas de Tailwind). El inicio no cambia: nada nuevo en `/`.
+- Decisiones:
+  1. **El pedido solo se anota.** `App\Announcements\AnnouncementReminders::request()` bloquea la fila del anuncio (`lockForUpdate`) dentro de una transacción y revisa: publicado (no programado, vencido ni retirado), lectura obligatoria, sin otro pedido en las últimas 24 horas (`AnnouncementReminder::INTERVAL_HOURS`) y con alguien pendiente. Si algo falla lanza `ReminderNotAllowed` con el mensaje para el editor y no guarda nada. Un doble clic o dos editores a la vez esperan el bloqueo y el segundo recibe «Ya se pidió un recordatorio… Podrás pedir otro el …». A las 24 horas exactas ya se puede.
+  2. **Tablas.** `announcement_reminders` (anuncio, quién, cuándo, `missing_count` al pedirlo, `finished_at` nulo mientras se envía) y `announcement_reminder_deliveries` con único (recordatorio, `person_key`), la cuenta a la que fue y el estado (`pending`, `sent`, `failed`). Migración `2026_10_30_000004`.
+  3. **El cron envía.** `portal:send-announcement-reminders`, cada minuto con `withoutOverlapping()`, hasta `BATCH` = 50 correos por vuelta entre todos los pendientes (el más antiguo primero). Sin colas. La fila de entrega se escribe antes del correo: si una vuelta muere a la mitad, esa persona queda en `pending` y no se vuelve a intentar. Así nadie recibe dos correos del mismo recordatorio, aunque se pierda uno. Un fallo del correo queda en el log (`Announcement reminder could not be sent.`) y en `failed`, no se reintenta y no corta la vuelta. Un recordatorio termina cuando ya no queda nadie o cuando el anuncio deja de estar publicado y obligatorio.
+  4. **Una persona, un correo.** `Announcement::reminderRecipients()` usa la regla del T4 al momento de enviar: el público sin las personas que leyeron (con cualquier cuenta) ni las ya anotadas en el recordatorio, agrupado por `LinkedAccounts::PERSON_KEY`. Elige la cuenta de menor `id` de la persona dentro del público, así que un anuncio solo para Derivados nunca escribe a la cuenta de Segurex. El correo lleva la marca de la empresa de esa cuenta (`MailBrand`). Quien confirma antes de su turno queda fuera.
+  5. **Correo.** `AnnouncementReminderNotice`: asunto «Recordatorio: confirma la lectura de «título»», el título, que pide confirmar la lectura, el botón «Ver el anuncio» a `/anuncios/{id}` y nada del texto del anuncio. Sale por el mismo transporte de Graph (`MAIL_FROM_ADDRESS`), con `Notification::sendNow` y try/catch como los demás avisos. No lleva `afterCommit` porque el comando no corre dentro de una transacción.
+  6. **Reporte.** La tarjeta **Lectura** muestra «Último recordatorio: pedido el … por … · enviado a N personas.» o «Enviando…». El botón (con `wire:confirm`) solo aparece si se puede pedir; si no, «Podrás pedir otro recordatorio el …». El dato entra en el mismo `readReport` guardado 60 segundos (sigue el tope de 200 y el recuento cada minuto) y se borra al pedir uno. `sendReminder` revisa `update` en cada llamada (403 si se perdió el rol).
+  7. **Auditoría.** `announcement.reminder_requested` en el registro de anuncios, con quien lo pidió y `missing_people`: «Pidió un recordatorio de lectura para el anuncio «…»» y la fila «Personas que faltan».
+  8. **Guarda.** Sin cambios en `PersonNeverAuthorizesTest`: la consulta por persona vive en `Announcement` (ya permitido para `LinkedAccounts`). El servicio, el comando, el aviso, el editor y los modelos nuevos no mencionan a la persona. `person_key` solo agrupa.
+- **No hecho / seguimiento:** sin capturas (el escritor no levantó el servidor). Con `lockForUpdate` en SQLite no se prueba la carrera real; en MySQL (producción) el bloqueo de la fila del anuncio la ordena. Una persona sin ninguna cuenta con correo no existe hoy (`users.email` es obligatorio). El correo de un recordatorio en `pending` perdido no se reintenta a propósito.
+
+- 2026-10-30: T5-R hecho en `feat/inicio-9-recordatorios` (`ba2a542`), sin empujar.
+
+### Registro del T5-R
+
+Arreglos de la revisión independiente del T5: ningún hallazgo alto ni medio, cinco bajos. Ruta: delegada (escritor), 2 o más archivos no triviales (servicio, modelo, editor, vista, migración, manual y pruebas).
+
+- Commit: `ba2a542` `fix(announcements)` (los cinco hallazgos, con sus pruebas y el manual §2.4).
+- RED: 6 de 27 en `AnnouncementReminderTest` y `SendAnnouncementRemindersCommandTest` (5 fallas y 1 error):
+  - B1: Ana recibió un correo como cuenta sola, luego vinculó sus cuentas y recibió otro del mismo recordatorio.
+  - B2: una cuenta borrada entre la consulta de personas y la de cuentas cerró el recordatorio antes de tiempo.
+  - B3: un recordatorio detenido no tenía `stopped_at` (2 pruebas) y, con el anuncio publicado otra vez, seguía bloqueando 24 horas.
+  - B4: un `QueryException` (espera del bloqueo) al pedirlo subía como error 500.
+- Las 2 de B5 ya pasaban: son guardas. Un editor de Segurex recibe 403 con un anuncio para Segurex y Derivados o para todas las empresas, también si lo amplían con la página abierta. Las cuentas invitadas, de emergencia y de empresas inactivas nunca reciben el correo.
+- GREEN: 27/27. Suite 1.711/1.711 (1.704 + 7). Pint limpio. Sin clases nuevas de Tailwind. El inicio no cambia.
+- Decisiones:
+  1. **B1.** `Announcement::reminderCandidates()` deja fuera a la persona si cualquiera de sus cuentas actuales ya tiene una entrega en el recordatorio (por `user_id`, llevado a la clave de persona actual). También la deja fuera por la clave guardada, que cubre una cuenta borrada.
+  2. **B2.** `reminderCandidates()` es solo la consulta agrupada (id de cuenta y clave de persona). El servicio carga después las cuentas con su empresa. «No queda nadie» se decide con el número de personas elegidas, así que una cuenta que desaparece en medio se salta y la siguiente vuelta vuelve a elegir.
+  3. **B3.** `announcement_reminders.stopped_at`, en la misma migración `2026_10_30_000004` (aún no desplegada). Se llena junto con `finished_at` cuando el anuncio ya no está publicado y obligatorio. La tarjeta dice «… · se detuvo porque el anuncio ya no pide confirmación: enviado a N personas.». El límite de 24 horas solo cuenta los recordatorios no detenidos, así que con el anuncio de vuelta se puede pedir otro enseguida. Quien recibió el detenido puede recibir el nuevo, que es otro recordatorio.
+  4. **B4.** `sendReminder` atrapa `QueryException`, la anota en el log («Announcement reminder could not be requested.») y muestra «No se pudo pedir el recordatorio. Inténtalo de nuevo.» en la tarjeta.
+  5. **Manual §2.4.** Agrega el aviso de fallo al pedirlo, el «un correo aunque vincule después» y el recordatorio detenido que no cuenta para las 24 horas.
+- **No hecho / seguimiento:** sin capturas (no hubo cambios visuales, salvo los textos de la tarjeta).
+
 ## Siguiente paso
 
-T5 en `feat/inicio-9-recordatorios`, sobre T4.
+Abrir el PR apilado de T5 (`feat/inicio-9-recordatorios`, sobre #79) con los arreglos del T5-R, sin fusionar ni desplegar.

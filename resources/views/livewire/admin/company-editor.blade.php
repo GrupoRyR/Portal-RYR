@@ -151,6 +151,44 @@
                 </div>
                 @error('newDomain') <p id="c-new-domain-error" class="{{ $error }}">{{ $message }}</p> @enderror
             </div>
+
+            {{-- Announcements by email (App\Announcements\AnnouncementListEmails): both or neither, at the company's domains. --}}
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                    <label for="c-all-staff" class="{{ $label }}">Lista de todo el personal</label>
+                    <input id="c-all-staff" type="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="todos@{{ $domains[0] ?? 'ejemplo.com' }}"
+                           wire:model="allStaffEmail" class="{{ $field }}" aria-describedby="c-list-help{{ $errors->has('allStaffEmail') ? ' c-all-staff-error' : '' }}"
+                           @error('allStaffEmail') aria-invalid="true" @enderror>
+                    @error('allStaffEmail') <p id="c-all-staff-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label for="c-mail-sender" class="{{ $label }}">Buzón remitente</label>
+                    <input id="c-mail-sender" type="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="info@{{ $domains[0] ?? 'ejemplo.com' }}"
+                           wire:model="mailSender" class="{{ $field }}" aria-describedby="c-list-help{{ $errors->has('mailSender') ? ' c-mail-sender-error' : '' }}"
+                           @error('mailSender') aria-invalid="true" @enderror>
+                    @error('mailSender') <p id="c-mail-sender-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p id="c-list-help" class="-mt-2 text-[0.8125rem] text-fg-muted">Opcional, los dos o ninguno. Los anuncios marcados «Enviar también por correo» llegan a esta lista desde el buzón remitente, con Microsoft Graph. Los dos deben ser de un dominio de la empresa, y el buzón necesita el permiso de envío de Exchange de su inquilino (docs/despliegue.md).</p>
+
+            {{-- The Monday digest to the list (App\Digest\WeeklyDigests): a switch and how the last one went. No resend. --}}
+            <div class="flex flex-col gap-2">
+                <label class="flex min-h-touch cursor-pointer items-center gap-2.5 text-sm font-semibold">
+                    <input type="checkbox" role="switch" wire:model="weeklyDigest" aria-describedby="c-digest-help c-digest-status"
+                           class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
+                    Resumen de los lunes
+                </label>
+                <p id="c-digest-help" class="text-[0.8125rem] text-fg-muted">Cada lunes por la mañana envía a la lista los anuncios de la semana, los de lectura obligatoria vigentes, las fechas de la semana y los cumpleaños y aniversarios. Necesita la lista de todo el personal y el buzón remitente de arriba; si la semana no tiene nada, no se envía.</p>
+                <div id="c-digest-status" class="flex flex-col gap-0.5 text-[0.8125rem]">
+                    <p class="{{ $digest['failed'] ? 'font-semibold text-status-failure' : 'text-fg-soft' }}"><span class="font-semibold">Último resumen:</span> {{ $digest['text'] }}</p>
+                    @if ($digest['hint'])
+                        <p class="text-fg-muted">{{ $digest['hint'] }}</p>
+                    @endif
+                    @if ($digest['failed'])
+                        <p class="text-fg-muted">El resumen no se reenvía: el siguiente sale el próximo lunes.</p>
+                    @endif
+                </div>
+            </div>
         </section>
 
         {{-- Quick links --}}

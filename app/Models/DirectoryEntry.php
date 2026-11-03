@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 
 /**
@@ -127,6 +128,30 @@ class DirectoryEntry extends Model
     public static function searchTextFor(array $fields): string
     {
         return AppSearch::normalize(implode(' ', array_filter(array_map(fn ($value) => (string) $value, $fields))));
+    }
+
+    /**
+     * One company's directory with the birthday of each entry's own
+     * account, only when it chose to show it: `shown_birthday_month` and
+     * `shown_birthday_day`, null otherwise (App\View\Home\Celebration).
+     * The account is the one with the entry's tenant, object ID and
+     * company; never one found another way. Shared by «Cumpleaños y
+     * aniversarios» of the home screen (App\View\Home\HomePageBuilder)
+     * and the Monday digest (App\Digest\WeeklyDigestBuilder). Select the
+     * entry's columns (qualified) before calling it.
+     *
+     * @param  Builder<DirectoryEntry>  $query
+     */
+    public function scopeCelebrationsOf(Builder $query, int $companyId): void
+    {
+        $query->addSelect(['users.birthday_month as shown_birthday_month', 'users.birthday_day as shown_birthday_day'])
+            ->leftJoin('users', function (JoinClause $join) {
+                $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
+                    ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
+                    ->on('users.company_id', '=', 'directory_entries.company_id')
+                    ->where('users.show_birthday', true);
+            })
+            ->where('directory_entries.company_id', $companyId);
     }
 
     /**
