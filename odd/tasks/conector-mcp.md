@@ -464,6 +464,6 @@ Ruta: escritor delegado, solo documentos, en `docs/conector-mcp-5-manual` sobre 
    - Revisar Auditoría › Seguridad (`mcp.connected` y una línea por consulta) y, en Configuración, la conexión en **Conexiones activas**.
    - **Desconectar** en `/cuenta` y comprobar que Claude ya no lee; apagar y encender el interruptor de Administración.
    - Anotar los nombres reales del menú de Claude en español y corregir el manual si cambian.
-2. **C3b** (`mis_tareas` y `mis_aprobaciones`), cuando #74 (`work_items`) esté en la base. Al terminarla, quitar del manual §10.1 la frase de que las tareas llegarán después.
+2. **C3b** (`mis_tareas` y `mis_aprobaciones`), cuando #74 (`work_items`) esté en la base. Al terminarla, quitar del manual §10.1 la frase de que las tareas llegarán después. Volver a poner «Tus tareas y aprobaciones.» en la pantalla de aprobación (`resources/views/mcp/authorize.blade.php`) y su `assertSee` en `ConsentTest`: se quitó el 2026-11-03 (`b48ee80`, decisión de Jhon) porque Claude aún no puede verlas.
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom
