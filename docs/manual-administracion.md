@@ -27,7 +27,7 @@ Los roles no se reparten a mano, salvo el de editor de anuncios:
 |---|---|---|
 | **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, eventos, roles, auditoría, informe de uso, integraciones y configuración. |
 | **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, eventos, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
-| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios** y **Eventos**, y solo para su propia empresa. |
+| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, **Eventos** y **Estado de TI** (§13), y solo para su propia empresa. |
 
 Un grupo con el nombre `APP-PortalAdmin` en otra empresa, o en un Team, no da ningún rol. Si `PORTAL_ADMIN_GROUP_ID` o `PORTAL_ADMIN_TENANT_ID` no están configurados, nadie es administrador del portal. Solo hay un grupo de administradores, el de Segurex: las empresas no tienen grupo propio.
 
@@ -751,3 +751,65 @@ En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y 
 | El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
 | El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
 
+
+## 13. Estado de TI
+
+**Administración › Estado de TI** registra los servicios de cada empresa que TI reporta a mano, por ejemplo el correo, internet, la VPN o la telefonía. Junto con las apps que están en mantenimiento o con fallas, forman el bloque «Estado de TI» del inicio: de un vistazo, cada persona sabe si algo está fallando para **su** empresa y tiene el enlace «Reportar un problema». El súper administrador y el administrador del portal administran los servicios de todas las empresas. El **editor de anuncios** (decisión del 3 de noviembre de 2026) administra solo los de **su propia empresa**, igual que sus anuncios. Gerencia no ve esta pantalla. La instalación está en `docs/despliegue.md` §1.21.
+
+> El bloque «Estado de TI» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+
+### 13.1 De dónde sale el estado
+
+| Qué se muestra | De dónde sale |
+|---|---|
+| Apps **en mantenimiento** | El **Estado** de la app en **Aplicaciones** (con su mensaje y su hora de fin, si la tiene). |
+| Apps **con fallas** | Lo que reporta otro sistema por la API, mientras el reporte esté vigente (Configuración › **Quitar «Con fallas» después de (horas)**). |
+| **Servicios** con fallas o fuera de servicio | Esta pantalla. |
+
+Cada persona ve solo las apps que puede abrir y solo los servicios de la empresa de la cuenta con la que entró. Con cuentas vinculadas (§8), al cambiar de empresa cambia también el estado.
+
+El estado general del bloque es el peor de todos:
+
+- **Todo funciona con normalidad**: ninguna app en mantenimiento o con fallas y ningún servicio con problemas.
+- **Algunos servicios tienen fallas**: un servicio **Con fallas**, una app reportada con fallas parciales o una app en mantenimiento.
+- **Hay servicios fuera de servicio**: un servicio **Fuera de servicio** o una app reportada como caída.
+
+### 13.2 Elegir la empresa
+
+Arriba, en **Servicios de**, elija la empresa. Cada empresa tiene sus propios servicios; no se comparten. La dirección de la página recuerda la empresa elegida (`?empresa=`).
+
+El editor de anuncios solo ve su propia empresa en la lista. Si abre la página con `?empresa=` de otra empresa, el portal responde «Acceso denegado» (403). Un editor de anuncios sin empresa no puede abrir esta pantalla.
+
+### 13.3 Servicios
+
+Pulse **Nuevo servicio** (o el lápiz de un servicio para editarlo) y complete:
+
+| Campo | Qué poner |
+|---|---|
+| **Nombre** | Obligatorio, hasta 80 caracteres. No puede repetirse dentro de la misma empresa, sin importar mayúsculas ni tildes («Telefonía» y «telefonia» son el mismo). Sí puede repetirse en otra empresa. |
+| **Estado** | **Operativo**, **Con fallas** o **Fuera de servicio**. Un servicio nuevo empieza **Operativo**. |
+| **Mensaje** | Opcional, hasta 160 caracteres, sin formato. Por ejemplo «Lento en la sede norte» o «Microsoft 365 no responde». Solo se muestra cuando el servicio no está operativo. |
+
+- Un servicio **Operativo** no aparece en el inicio: el bloque muestra solo lo que tiene problemas. Los servicios **Fuera de servicio** van primero y luego los que tienen **Con fallas**; dentro de cada grupo, en el orden de esta pantalla.
+- Las flechas (**Subir** / **Bajar**) cambian ese orden.
+- Cuando el problema se resuelva, edite el servicio y póngalo **Operativo**. El estado no vence solo.
+- **Borrar** (papelera) elimina el servicio. No se puede deshacer.
+- El estado de las apps no se cambia aquí: use **Aplicaciones** (§2.2) para ponerlas en mantenimiento.
+
+### 13.4 «Reportar un problema»
+
+Lleva al mismo lugar que el botón **Soporte TI** (Gestor TI), con la empresa de la persona. Usa la **Dirección de soporte TI** de **Configuración**; si está vacía, el bloque no muestra el enlace.
+
+### 13.5 Auditoría
+
+Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó o borró un servicio de TI y qué campos cambiaron («Nombre», «Estado», «Mensaje», «Posición», «Empresa»), con los estados en español.
+
+### 13.6 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| «Esta empresa ya tiene un servicio con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas ni tildes. | Use otro nombre o edite el servicio existente. |
+| Un servicio arreglado sigue apareciendo con fallas. | El estado de un servicio no vence solo. | Edítelo y póngalo **Operativo**. |
+| Una app sigue «Con fallas» en el bloque. | El sistema que la reporta no ha enviado un reporte operativo y el reporte aún no vence. | Espere a que venza o, en **Aplicaciones**, limpie las fallas reportadas de la app. |
+| No aparece «Reportar un problema». | Falta la **Dirección de soporte TI** en Configuración. | Pida al súper administrador que la configure. |
+| Un editor de anuncios recibe «Acceso denegado» en Estado de TI. | La dirección tiene `?empresa=` de otra empresa, o su cuenta no tiene empresa. | Abra **Estado de TI** desde el menú, sin `?empresa=`. Si sigue igual, revise la empresa de la cuenta. |

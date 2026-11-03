@@ -15,6 +15,7 @@ use App\Models\AppLaunch;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
+use App\Models\ItService;
 use App\Models\NewsSource;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -78,6 +79,7 @@ final class AuditPresenter
         'backup.requested' => 'Pidió',
         'product.moved' => 'Movió',
         'product_category.moved' => 'Movió',
+        'it_service.moved' => 'Movió',
     ];
 
     private const REJECTION_REASONS = [
@@ -216,6 +218,8 @@ final class AuditPresenter
         'product_category_id' => 'Categoría',
         'published' => 'Publicado',
         'company_id' => 'Empresa',
+        // Estado de TI (App\Models\ItService); name, status and position use the labels above.
+        'message' => 'Mensaje',
     ];
 
     /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
@@ -300,6 +304,7 @@ final class AuditPresenter
             (new NewsSource)->getMorphClass() => 'la fuente de noticias «'.($name('name') ?? '(eliminada)').'»',
             (new ProductCategory)->getMorphClass() => 'la categoría de productos «'.($name('name') ?? '(eliminada)').'»',
             (new Product)->getMorphClass() => 'el producto «'.($name('name') ?? '(eliminado)').'»',
+            (new ItService)->getMorphClass() => 'el servicio de TI «'.($name('name') ?? '(eliminado)').'»',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
         };
     }
@@ -424,17 +429,24 @@ final class AuditPresenter
             ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
             : self::FIELD_LABELS;
 
-        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass()], true);
+        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass(), (new ItService)->getMorphClass()], true);
+        $itService = $activity->subject_type === (new ItService)->getMorphClass();
 
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
             $before = $old[$field] ?? null;
             $after = $new[$field] ?? null;
 
-            // Catalog rows store ids; show the company or category by name.
+            // Catalog and Estado de TI rows store ids; show the company or category by name.
             if ($catalog && in_array($field, ['company_id', 'product_category_id'], true)) {
                 $before = $this->catalogName($field, $before);
                 $after = $this->catalogName($field, $after);
+            }
+
+            // Estado de TI stores operational/degraded/down; show the Spanish name.
+            if ($itService && $field === 'status') {
+                $before = $before === null ? null : ItService::statusLabel((string) $before);
+                $after = $after === null ? null : ItService::statusLabel((string) $after);
             }
 
             $rows[] = [

@@ -12,7 +12,7 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 | Repositorio (privado) | https://github.com/GrupoRyR/Portal-RYR — rama `main` |
 | Producción | https://apps.segurexlatam.net |
 | Servidor | GoDaddy cPanel, usuario `dzx21gq5iyfc`, proyecto en `~/portal-ryr`, Document Root `portal-ryr/public` |
-| Base de datos | MySQL `PortalRYR`, usuario `Portal` (contraseña solo en el `.env` del servidor) |
+| Base de datos | MariaDB 10.11 `PortalRYR`, usuario `Portal` (contraseña solo en el `.env` del servidor) |
 | PHP | 8.3 fijo para toda la cuenta; el cron usa `/usr/local/bin/php` |
 | Brief original | `PROMPT_PORTAL.md` |
 | Decisiones y pruebas por fase | `odd/tasks/*.md` |

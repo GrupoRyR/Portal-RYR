@@ -3,7 +3,7 @@
 Esta guía explica cómo instalar el Portal RYR por primera vez en el hosting de GoDaddy (cPanel) y cómo publicar cambios después.
 
 - **URL de producción:** https://apps.segurexlatam.net
-- **Servidor:** GoDaddy, cPanel compartido, PHP 8.3, MySQL 8, acceso SSH y Git.
+- **Servidor:** GoDaddy, cPanel compartido, PHP 8.3, MariaDB 10.11 (compatible con MySQL; versión verificada el 2026-11-03 con `select version()`), acceso SSH y Git.
 - **Importante:** el servidor no tiene Node. Los archivos de diseño (CSS/JS) se compilan en el equipo local y se suben ya compilados en `public/build`.
 
 En los comandos, reemplace estos marcadores por los valores reales:
@@ -51,9 +51,9 @@ En los comandos, reemplace estos marcadores por los valores reales:
 
    > El document root debe apuntar a la carpeta `public`, nunca a la raíz del proyecto. Así el archivo `.env` y el código no quedan expuestos en internet.
 
-### 1.4 Base de datos MySQL
+### 1.4 Base de datos (MariaDB)
 
-1. En cPanel, abra **MySQL Databases**.
+1. En cPanel, abra **MySQL Databases** (cPanel lo llama así aunque el motor sea MariaDB).
 2. Cree una base de datos (cPanel le agrega el prefijo `<usuario>_`).
 3. Cree un usuario con una contraseña segura y guárdela en un gestor de contraseñas.
 4. Agregue el usuario a la base de datos con **ALL PRIVILEGES**.
@@ -587,7 +587,7 @@ Si una fuente falla, las demás se leen igual y sus noticias anteriores se conse
 
 Administración › **Catálogos** guarda las categorías y los productos de cada empresa en las tablas `product_categories` y `products`, y las fotos de los productos en el disco `public`: `storage/app/public/products/<id de la empresa>/`.
 
-1. **Migraciones.** `php artisan migrate --force` crea las dos tablas (el script de despliegue ya lo hace, paso 1.7). Los nombres de índices y claves son cortos a propósito: MySQL admite 64 caracteres como máximo.
+1. **Migraciones.** `php artisan migrate --force` crea las dos tablas (el script de despliegue ya lo hace, paso 1.7). Los nombres de índices y claves son cortos a propósito: MariaDB y MySQL admiten 64 caracteres como máximo.
 2. **Enlace de almacenamiento.** Las fotos se publican en `/storage/products/...`, con el mismo enlace `public/storage` de los logos (paso 1.10). Si las fotos no se ven, ejecute `php artisan storage:link` y compruebe que `public/storage` apunta a `storage/app/public`.
 3. **Permisos de carpeta.** El usuario de PHP debe poder escribir en `storage/app/public/`. La carpeta `products/` y la de cada empresa se crean solas con la primera foto. No hace falta crearlas a mano.
 4. **Extensión GD.** Cada foto se vuelve a codificar con GD antes de guardarse (quita metadatos y cualquier dato escondido tras la imagen) y las mayores de 1200 px se reducen. Compruebe que está instalada con `php -m | grep -i gd`. Sin GD no se pueden subir fotos.
@@ -623,6 +623,19 @@ El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa l
 4. **Generar el secreto.** **Administración › Integraciones** › el sistema con `work:write` › **Secreto de firma** › **Generar secreto**. Pide confirmar con Microsoft (la cuenta de emergencia no puede). El secreto (`ryrsig_` y 43 caracteres) **se muestra una sola vez**: entréguelo al equipo de la app por el gestor de secretos, nunca por correo ni chat. Sin secreto, «Completar» no aparece. **Rotar secreto** reemplaza el anterior de inmediato; la app puede aceptar los dos unos minutos (contrato §2.2). Revocar el token borra también el secreto.
 5. **El secreto depende de `APP_KEY`.** Se guarda cifrado con `APP_KEY`, porque el portal lo necesita para firmar. Si cambia `APP_KEY`, ponga la anterior en `APP_PREVIOUS_KEYS` o genere un secreto nuevo y entréguelo otra vez a la app.
 6. **Comprobar.** Cuando la app tenga su endpoint, en **Auditoría** con el filtro **API** cada pulsación deja «Completó una tarea de …» o «No pudo completar una tarea de …», con el `external_id`, el pedido (`request_id`), la respuesta HTTP (o `timeout`) y el motivo. Nunca el título, el secreto ni la firma. Un «No pudo completar» con `401` o `unexpected_response` suele ser el secreto, la URL base o una respuesta sin el `code` del contrato (§6.3); con `secret_unavailable`, el secreto se cifró con otra `APP_KEY` (punto 5).
+
+### 1.21 Estado de TI
+
+El bloque «Estado de TI» del inicio responde de un vistazo si algo está fallando para la empresa de la persona. Junta dos fuentes: el estado que ya tiene cada app (en mantenimiento, o con fallas reportadas por la API, `docs/api.md`) y los **servicios** que TI registra a mano en **Administración › Estado de TI** (correo, internet, VPN, telefonía...). «Reportar un problema» usa el mismo enlace de **Soporte TI** (`/soporte`, hacia Gestor TI). No hay claves nuevas en `.env` ni tareas programadas. El diseño está en `odd/tasks/estado-ti.md`.
+
+1. **Migración.** El despliegue de rutina (paso 2.2) crea la tabla `it_services` con `php artisan migrate --force`. Los nombres de índices y claves son cortos a propósito (MariaDB admite 64 caracteres como máximo): `it_svc_company_fk`, `it_svc_company_name_uq` y `it_svc_company_pos_ix`. Borrar una empresa borra sus servicios.
+2. **Quién lo administra.** El súper administrador y el administrador del portal, todas las empresas; el editor de anuncios, solo su propia empresa (como sus anuncios). No hay rol nuevo.
+3. **«Reportar un problema».** Necesita la **Dirección de soporte TI** de **Administración › Configuración** (la misma del botón «Soporte TI»). Sin ella, el bloque no muestra el enlace.
+4. **Cuándo vence un reporte de una app.** Igual que «Con fallas» en las tarjetas: según **Quitar «Con fallas» después de (horas)** de Configuración. Un servicio manual no vence: queda como está hasta que alguien lo cambie.
+5. **Sin caché.** El estado se calcula en cada carga del inicio, con una sola consulta a `it_services` por el índice de la empresa. Un cambio en Administración se ve en la siguiente carga; no hace falta limpiar nada.
+6. **Comprobar.** Después de desplegar, entre a **Administración › Estado de TI**, elija una empresa y cree un servicio de prueba con estado **Con fallas**. En **Auditoría** debe aparecer «Creó el servicio de TI «…»». Bórrelo al terminar.
+
+> El bloque del inicio se conecta en una entrega posterior (línea del inicio). Mientras tanto, lo que se cargue en Administración queda guardado y listo.
 
 ---
 

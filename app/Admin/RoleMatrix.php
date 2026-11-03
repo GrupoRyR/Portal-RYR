@@ -7,6 +7,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\ItService;
 use App\Models\User;
 use App\Policies\AdminSections;
 use Spatie\Permission\Models\Role;
@@ -66,6 +67,13 @@ final class RoleMatrix
                 'Eventos',
                 ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
                 fn (User $user) => $user->can('viewAny', Event::class),
+            ),
+            // Decision 2026-11-03: editors manage their own company's
+            // services (App\Policies\ItServicePolicy).
+            new RoleMatrixSection(
+                'Estado de TI',
+                ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
+                fn (User $user) => $user->can('viewAny', ItService::class),
             ),
             // super_admin and portal_admin are assigned automatically at
             // sign-in, so nobody adds them by hand: both only manage editors.
