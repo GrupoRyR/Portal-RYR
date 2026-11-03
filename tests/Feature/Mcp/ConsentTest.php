@@ -55,7 +55,7 @@ class ConsentTest extends TestCase
             ->assertSee('jhon.castro@segurex.com')
             ->assertSee('Segurex Latam S.A.S.')
             ->assertSee('Solo lectura')
-            ->assertSee('Tus tareas y aprobaciones')
+            ->assertDontSee('Tus tareas y aprobaciones')
             ->assertSee('Aprobar')
             ->assertSee('Rechazar')
             ->assertSee('Aprueba solo si acabas de agregar el conector en tu propio Claude. Si no lo pediste, elige Rechazar.')

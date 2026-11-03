@@ -43,7 +43,6 @@
         <section aria-labelledby="lectura" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-5 md:p-6">
             <h2 id="lectura" class="text-base font-semibold">Solo lectura: lo que podrá consultar</h2>
             <ul role="list" class="flex flex-col gap-2.5 text-[0.9375rem] leading-relaxed text-fg-soft">
-                <li>Tus tareas y aprobaciones.</li>
                 <li>Los anuncios que no has leído.</li>
                 <li>Las próximas fechas: festivos, eventos, cumpleaños y aniversarios.</li>
                 <li>El directorio de personas de tu empresa.</li>
