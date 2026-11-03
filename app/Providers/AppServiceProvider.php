@@ -4,23 +4,28 @@ namespace App\Providers;
 
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
+use App\Http\Controllers\Mcp\AuthorizeController;
 use App\Mail\GraphAccessToken;
 use App\Mail\GraphTransport;
 use App\Microsoft\GraphClient;
 use App\Microsoft\HttpGraphClient;
 use App\Models\Company;
 use App\Models\Integration;
+use App\Models\User;
 use App\Policies\AdminSections;
 use App\Policies\RolePolicy;
 use App\Pwa\PortalUserKey;
 use App\Settings\ApplySessionLifetime;
 use App\Settings\PortalSettings;
 use App\Tenancy\TenantDirectory;
+use DateInterval;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
@@ -29,6 +34,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 use Spatie\Backup\Events\BackupHasFailed;
@@ -47,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GraphClient::class, HttpGraphClient::class);
         // Holiday days are read in the portal's timezone.
         $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
+
+        // Claude connector: routes/ai.php declares only the Passport routes
+        // it needs. The consent screen (a subclass of Passport's) signs in
+        // with the portal's session guard, like Passport's own.
+        Passport::ignoreRoutes();
+        $this->app->when(AuthorizeController::class)
+            ->needs(StatefulGuard::class)
+            ->give(fn () => Auth::guard('web'));
     }
 
     /**
@@ -82,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
         // account alone, so they would share one counter with it.
         RateLimiter::for('announcement-read', fn (Request $request) => Limit::perMinute(30)
             ->by('announcement-read:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        $this->configureClaudeConnector();
 
         // Idle timeout of Configuración, applied before the session starts.
         Event::listen(RouteMatched::class, ApplySessionLifetime::class);
@@ -136,6 +152,40 @@ class AppServiceProvider extends ServiceProvider
                 'color_text', 'color_ink_dark_mode', 'color_text_dark_mode',
             ]));
             $view->with('supportUrl', app(PortalSettings::class)->supportUrl());
+        });
+    }
+
+    /**
+     * Passport and the limits of the Claude connector (routes/ai.php,
+     * odd/tasks/conector-mcp.md). The signing keys come from
+     * PASSPORT_PRIVATE_KEY / PASSPORT_PUBLIC_KEY, or from the files of
+     * `php artisan passport:keys` (docs/despliegue.md).
+     */
+    private function configureClaudeConnector(): void
+    {
+        // Short access tokens; refresh tokens rotate on every use
+        // (Passport's default, kept) and last 30 days, not a year.
+        Passport::tokensExpireIn(new DateInterval('PT1H'));
+        Passport::refreshTokensExpireIn(new DateInterval('P30D'));
+        Passport::$revokeRefreshTokenAfterUse = true;
+
+        // The portal's own consent screen (resources/views/mcp).
+        Passport::authorizationView('mcp.authorize');
+
+        // Discovery and client registration are public. Claude calls them
+        // from its own servers, so discovery gets more room than
+        // registration, which writes a client row each time.
+        RateLimiter::for('mcp-oauth', fn (Request $request) => $request->isMethod('POST')
+            ? Limit::perMinute(10)->by('mcp-register:'.$request->ip())
+            : Limit::perMinute(60)->by('mcp-discovery:'.$request->ip()));
+
+        // MCP calls: a budget per connection (account and OAuth client).
+        RateLimiter::for('mcp', function (Request $request) {
+            $user = $request->user();
+
+            return $user instanceof User
+                ? Limit::perMinute(120)->by('mcp:'.$user->getKey().':'.$user->token()?->oauth_client_id)
+                : Limit::perMinute(30)->by('mcp-ip:'.$request->ip());
         });
     }
 }

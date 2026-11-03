@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -43,6 +45,10 @@ use Spatie\Permission\Traits\HasRoles;
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
  * `portal:emergency-account` command, so the 2FA columns are not fillable.
+ *
+ * Passport's HasApiTokens gives the Claude connector its OAuth tokens
+ * (guard `api`, /mcp/portal only). Sanctum's tokens belong to
+ * App\Models\Integration, never to a user.
  */
 #[Fillable([
     'name',
@@ -56,10 +62,10 @@ use Spatie\Permission\Traits\HasRoles;
     'last_login_at',
 ])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret'])]
-class User extends Authenticatable
+class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
      * Get the attributes that should be cast.

@@ -55,6 +55,11 @@ class PersonNeverAuthorizesTest extends TestCase
         // announcement is still per account (scopeVisibleTo,
         // AnnouncementPolicy), and nothing here reads person_id itself.
         'app/Models/Announcement.php' => ['LinkedAccounts'],
+        // The Claude connector reads only for the accounts confirmed with
+        // Microsoft when connecting; LinkedAccounts::stillLinked() may only
+        // drop one that was unlinked since. The person never adds an
+        // account to a connection.
+        'app/Mcp/ConnectionAccounts.php' => ['LinkedAccounts'],
     ];
 
     private static function root(): string
