@@ -7,10 +7,12 @@ use App\Push\PushSender;
 use App\Push\PushSettings;
 use App\Push\WebPushSender;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\RequestInterface;
 use Tests\TestCase;
 
@@ -78,5 +80,51 @@ class WebPushSenderTest extends TestCase
         config(['push.vapid.private_key' => null]);
         $this->assertSame(['1' => PushSender::FAILED], $this->sender()->send([$this->message('1', 'https://fcm.googleapis.com/fcm/send/ok')]));
         $this->assertSame([], $this->history);
+    }
+
+    public function test_a_connection_error_is_unreachable_not_failed(): void
+    {
+        $this->requireEcKeys();
+        $this->configurePush();
+
+        $mock = new MockHandler([
+            fn (RequestInterface $request) => throw new ConnectException('Could not resolve host', $request),
+            new Response(201),
+        ]);
+        $sender = new WebPushSender(app(PushSettings::class), new Client(['handler' => HandlerStack::create($mock)]));
+
+        $this->assertTrue($sender->start());
+        $this->assertSame(['1' => PushSender::UNREACHABLE, '2' => PushSender::SENT], $sender->send([
+            $this->message('1', 'https://fcm.googleapis.com/fcm/send/a'),
+            $this->message('2', 'https://fcm.googleapis.com/fcm/send/b'),
+        ]));
+    }
+
+    public function test_it_does_not_start_with_settings_the_library_refuses(): void
+    {
+        Log::spy();
+        $this->configurePush();
+        config(['push.vapid.private_key' => 'too-short']);
+
+        $sender = $this->sender(new Response(201));
+
+        $this->assertFalse($sender->start());
+        $this->assertSame(['1' => PushSender::FAILED], $sender->send([$this->message('1', 'https://fcm.googleapis.com/fcm/send/ok')]));
+        $this->assertSame([], $this->history);
+        Log::shouldHaveReceived('error')->withArgs(fn (string $message) => str_contains($message, 'could not start'));
+    }
+
+    public function test_the_production_client_has_short_timeouts_and_never_follows_redirects(): void
+    {
+        $this->assertSame([
+            'timeout' => 5.0,
+            'connect_timeout' => 3.0,
+            'allow_redirects' => false,
+            'http_errors' => false,
+        ], WebPushSender::httpOptions());
+
+        config(['push.timeout' => 8, 'push.connect_timeout' => 2]);
+        $this->assertSame(8.0, WebPushSender::httpOptions()['timeout']);
+        $this->assertSame(2.0, WebPushSender::httpOptions()['connect_timeout']);
     }
 }

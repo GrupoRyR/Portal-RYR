@@ -620,7 +620,7 @@ Los anuncios publicados con la casilla **Enviar al celular** llegan como notific
 Mientras falte cualquiera de las tres claves de abajo, la función está apagada: `/cuenta` no muestra el control, el editor no muestra la casilla y el cron no envía nada. Nada falla.
 
 1. **Migraciones.** El despliegue de rutina (paso 2.2) crea las tablas `push_subscriptions` y `push_deliveries` y agrega `announcements.push_phone` y `announcements.push_finished_at` con `php artisan migrate --force`. Los nombres de índices y claves son cortos a propósito (64 caracteres como máximo).
-2. **Extensiones de PHP.** `curl`, `mbstring` y `openssl` con curvas P-256. Compruébelo con `php -m | grep -i -E "curl|mbstring|openssl"`. En Linux (el servidor) OpenSSL ya trae su configuración; en Windows, PHP necesita la variable `OPENSSL_CONF` apuntando a un `openssl.cnf` para crear llaves (sin ella, las pruebas del emisor real se saltan).
+2. **Extensiones de PHP.** `curl`, `mbstring` y `openssl` con curvas P-256, y `gmp` o `bcmath` (la firma de cada aviso hace cuentas con números grandes; sin ninguna de las dos funciona, pero mucho más lento). Compruébelo con `php -m | grep -i -E "curl|mbstring|openssl|gmp|bcmath"`; si faltan `gmp` y `bcmath`, actívelas en cPanel › **Select PHP Version** › **Extensions**. En Linux (el servidor) OpenSSL ya trae su configuración; en Windows, PHP necesita la variable `OPENSSL_CONF` apuntando a un `openssl.cnf` para crear llaves (sin ella, las pruebas del emisor real se saltan).
 3. **Crear el par de llaves VAPID (una sola vez).** Por SSH, en la carpeta del portal:
 
    ```bash
@@ -648,6 +648,8 @@ Mientras falte cualquiera de las tres claves de abajo, la función está apagada
    ```
 
    Un aviso rechazado deja en el registro el código HTTP, nunca la dirección del dispositivo. Un dispositivo que el servicio ya no reconoce (404/410) se borra solo. Un aviso fallido no se reintenta: cada dispositivo recibe cada anuncio una sola vez.
+
+   Una falla general no hace perder avisos: si las llaves están mal («Phone notices could not start» en el registro), el cron no anota nada; si ningún aviso de un bloque recibe respuesta de los servicios (sin red, DNS), descarta ese bloque, se detiene y lo intenta de nuevo al minuto siguiente («got no answer from any push service»).
 
 ---
 

@@ -12,11 +12,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Phone notices of the announcements published with «Enviar al celular»
- * (odd/tasks/avisos.md T2). No queue: the cron
+ * (odd/tasks/avisos.md T2, R1, R2). No queue: the cron
  * (portal:send-announcement-pushes, every minute) sends a bounded batch
  * ({@see send()}).
  *
@@ -35,8 +37,16 @@ use Illuminate\Support\Str;
  * is called, and the unique pair (announcement, endpoint) keeps it from a
  * second notice, whatever happened to the first. Once a run finds nobody
  * left, the announcement is finished (`push_finished_at`): a device added
- * later does not get an old notice, unless someone ticks the box again.
- * A device the push service no longer knows (404/410) is deleted.
+ * later does not get an old notice, unless someone ticks the box again or
+ * changes its companies. A device the push service no longer knows
+ * (404/410) is deleted.
+ *
+ * A failure of the whole run never costs a device its notice: nothing is
+ * claimed until the sender has started (VAPID settings the library
+ * accepts), the payload and icons are built before claiming, and when no
+ * notice of a chunk gets any HTTP answer (the network is down) those
+ * claims are dropped and the run stops, to try again next minute. One
+ * broken announcement is logged and skipped.
  */
 class AnnouncementPushes
 {
@@ -46,8 +56,17 @@ class AnnouncementPushes
     /** Characters of the text in the notice. */
     public const BODY_LENGTH = 140;
 
+    /**
+     * Largest payload this builds (the title and text at their limits, four
+     * bytes a character); web push takes 4078 bytes before encryption.
+     */
+    public const MAX_PAYLOAD_BYTES = 3072;
+
     /** @var array<int, string> icon URL by company id, for one run */
     private array $icons = [];
+
+    /** @var list<int> ids of the rows claimed and not settled yet, for the current announcement */
+    private array $pending = [];
 
     public function __construct(
         private readonly PushSettings $settings,
@@ -65,7 +84,7 @@ class AnnouncementPushes
     {
         $result = ['sent' => 0, 'failed' => 0, 'gone' => 0];
 
-        if (! $this->settings->enabled()) {
+        if (! $this->settings->enabled() || ! $this->sender->start()) {
             return $result;
         }
 
@@ -85,28 +104,73 @@ class AnnouncementPushes
                 break;
             }
 
-            $candidates = $this->candidates($announcement, $limit);
-            $exhausted = $candidates->count() < $limit;
-            $limit -= $candidates->count();
+            $this->pending = [];
 
-            foreach ($candidates->chunk(self::CHUNK) as $chunk) {
-                if (microtime(true) >= $deadline) {
-                    $exhausted = false;
-                    break;
-                }
+            try {
+                [$used, $stop] = $this->sendAnnouncement($announcement, $limit, $deadline, $result);
+                $limit -= $used;
+            } catch (Throwable $e) {
+                $this->settleAfterError($announcement, $e);
 
-                foreach ($this->deliver($announcement, $chunk) as $outcome) {
-                    $result[$outcome]++;
-                }
+                continue;
             }
 
-            // Fewer devices than asked for: nobody is left for this announcement.
-            if ($exhausted) {
-                Announcement::query()->whereKey($announcement->id)->update(['push_finished_at' => now()]);
+            if ($stop) {
+                break;
             }
         }
 
         return $result;
+    }
+
+    /**
+     * @param  array{sent: int, failed: int, gone: int}  $result
+     * @return array{int, bool} devices taken from the limit, and whether the run must stop
+     */
+    private function sendAnnouncement(Announcement $announcement, int $limit, float $deadline, array &$result): array
+    {
+        // What the box looked like now: an editor ticking it again meanwhile changes it.
+        $seen = $announcement->updated_at;
+        $base = $this->basePayload($announcement);
+
+        $candidates = $this->candidates($announcement, $limit);
+        $exhausted = $candidates->count() < $limit;
+
+        // Every icon before anything is claimed.
+        $icons = [];
+        foreach ($candidates->pluck('recipient_company_id')->unique() as $companyId) {
+            $icons[(int) $companyId] = $this->icon((int) $companyId);
+        }
+
+        foreach ($candidates->chunk(self::CHUNK) as $chunk) {
+            if (microtime(true) >= $deadline) {
+                return [$candidates->count(), false];
+            }
+
+            $outcomes = $this->deliver($announcement, $chunk, $base, $icons);
+
+            if ($outcomes === null) {
+                // No answer from any push service: try again next minute.
+                return [$candidates->count(), true];
+            }
+
+            foreach ($outcomes as $outcome) {
+                $result[$outcome]++;
+            }
+        }
+
+        // Fewer devices than asked for: nobody is left for this announcement.
+        if ($exhausted) {
+            Announcement::query()
+                ->whereKey($announcement->id)
+                ->whereNull('push_finished_at')
+                ->where('push_phone', true)
+                ->when($seen === null, fn (Builder $query) => $query->whereNull('updated_at'), fn (Builder $query) => $query->where('updated_at', $seen))
+                ->toBase()
+                ->update(['push_finished_at' => now()]);
+        }
+
+        return [$candidates->count(), false];
     }
 
     /**
@@ -131,10 +195,15 @@ class AnnouncementPushes
     }
 
     /**
+     * Claims the chunk, sends it and records each outcome. Null when no
+     * notice got any HTTP answer: the claims are dropped, as if never tried.
+     *
      * @param  Collection<int, PushSubscription>  $subscriptions
-     * @return list<string> one of 'sent', 'failed', 'gone' per device sent to
+     * @param  array{title: string, body: string, url: string, tag: string}  $base
+     * @param  array<int, string>  $icons
+     * @return list<string>|null one of 'sent', 'failed', 'gone' per device sent to
      */
-    private function deliver(Announcement $announcement, Collection $subscriptions): array
+    private function deliver(Announcement $announcement, Collection $subscriptions, array $base, array $icons): ?array
     {
         $claimed = [];
         $messages = [];
@@ -146,6 +215,7 @@ class AnnouncementPushes
                 continue;
             }
 
+            $this->pending[] = $delivery->id;
             $claimed[(string) $delivery->id] = [$delivery, $subscription];
             $messages[] = new PushMessage(
                 key: (string) $delivery->id,
@@ -153,8 +223,8 @@ class AnnouncementPushes
                 publicKey: $subscription->public_key,
                 authToken: $subscription->auth_token,
                 contentEncoding: $subscription->content_encoding,
-                payload: $this->payload($announcement, (int) $subscription->getAttribute('recipient_company_id')),
-                topic: 'anuncio-'.$announcement->id,
+                payload: self::encode([...$base, 'icon' => $icons[(int) $subscription->getAttribute('recipient_company_id')]]),
+                topic: $base['tag'],
             );
         }
 
@@ -163,13 +233,27 @@ class AnnouncementPushes
         }
 
         $outcomes = $this->sender->send($messages);
+
+        $unreachable = array_filter(array_keys($claimed), fn (string $key) => ($outcomes[$key] ?? null) === PushSender::UNREACHABLE);
+
+        if (count($unreachable) === count($claimed)) {
+            PushDelivery::query()->whereKey($this->pending)->delete();
+            $this->pending = [];
+            Log::warning('Phone notices got no answer from any push service; the run stops and tries again next minute.', [
+                'announcement_id' => $announcement->id,
+                'devices' => count($claimed),
+            ]);
+
+            return null;
+        }
+
         $result = [];
 
         foreach ($claimed as $key => [$delivery, $subscription]) {
-            $outcome = $outcomes[$key] ?? PushSender::FAILED;
-            $status = match ($outcome) {
+            $status = match ($outcomes[$key] ?? PushSender::FAILED) {
                 PushSender::SENT => PushDelivery::STATUS_SENT,
                 PushSender::GONE => PushDelivery::STATUS_GONE,
+                // One without an answer among others that got one: tried, so never again.
                 default => PushDelivery::STATUS_FAILED,
             };
 
@@ -183,12 +267,14 @@ class AnnouncementPushes
             $result[] = $status === PushDelivery::STATUS_GONE ? 'gone' : ($status === PushDelivery::STATUS_SENT ? 'sent' : 'failed');
         }
 
+        $this->pending = [];
+
         return $result;
     }
 
     /**
      * Records the device before calling the push service. Null when a row
-     * already exists (another run got there first).
+     * already exists (an overlapping run got there first).
      */
     private function claim(Announcement $announcement, PushSubscription $subscription): ?PushDelivery
     {
@@ -206,6 +292,26 @@ class AnnouncementPushes
     }
 
     /**
+     * Something broke while sending one announcement: what was claimed may
+     * have reached the device, so it is failed (never sent twice, never left
+     * pending), and the run goes on with the next announcement.
+     */
+    private function settleAfterError(Announcement $announcement, Throwable $e): void
+    {
+        try {
+            if ($this->pending !== []) {
+                PushDelivery::query()->whereKey($this->pending)->update(['status' => PushDelivery::STATUS_FAILED]);
+            }
+        } finally {
+            $this->pending = [];
+            Log::error('Phone notices of an announcement could not be sent.', [
+                'announcement_id' => $announcement->id,
+                'exception' => $e::class,
+            ]);
+        }
+    }
+
+    /**
      * What the service worker shows (resources/js/sw.js): the title, the
      * start of the text on one line, the link to the announcement, the
      * icon of the company of the device's account and a tag. Nothing about
@@ -213,21 +319,41 @@ class AnnouncementPushes
      */
     public function payload(Announcement $announcement, int $companyId): string
     {
+        $base = $this->basePayload($announcement);
+
+        return self::encode([...$base, 'icon' => $this->icon($companyId)]);
+    }
+
+    /**
+     * @return array{title: string, body: string, url: string, tag: string}
+     */
+    private function basePayload(Announcement $announcement): array
+    {
         // The cron has no request: links are built from APP_URL.
         $base = rtrim((string) config('app.url'), '/');
 
-        return (string) json_encode([
+        return [
             'title' => Str::limit(AnnouncementListEmails::oneLine($announcement->title), Announcement::TITLE_MAX, '…'),
             'body' => Str::limit(AnnouncementListEmails::oneLine($announcement->body), self::BODY_LENGTH - 1, '…'),
             'url' => $base.route('announcements.show', $announcement, false),
-            'icon' => $this->icon($companyId, $base),
             'tag' => 'anuncio-'.$announcement->id,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        ];
     }
 
-    private function icon(int $companyId, string $base): string
+    /**
+     * @param  array<string, string>  $payload
+     */
+    private static function encode(array $payload): string
+    {
+        $ordered = ['title' => $payload['title'], 'body' => $payload['body'], 'url' => $payload['url'], 'icon' => $payload['icon'], 'tag' => $payload['tag']];
+
+        return json_encode($ordered, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    private function icon(int $companyId): string
     {
         if (! isset($this->icons[$companyId])) {
+            $base = rtrim((string) config('app.url'), '/');
             $url = $this->pwaIcons->for(Company::query()->find($companyId))->any192;
             // Both live on this site (public/icons, the "public" disk): its path on
             // APP_URL, since the service worker only shows an icon of its own origin.
