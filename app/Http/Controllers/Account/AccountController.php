@@ -10,6 +10,7 @@ use App\Mcp\Connections;
 use App\Mcp\McpSwitch;
 use App\Models\Company;
 use App\Models\User;
+use App\Push\PushSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -30,11 +31,12 @@ use Illuminate\Support\Str;
  * The page also holds «Mi cumpleaños» (BirthdayController) for accounts
  * with a company directory, and «Conexiones con Claude»
  * (ClaudeConnectionController) while the connector is on or the account
- * still has connections.
+ * still has connections, and «Avisos en el celular»
+ * (PushSubscriptionController) while the VAPID settings are present.
  */
 class AccountController extends Controller
 {
-    public function show(Request $request, LinkedAccounts $linkedAccounts, McpSwitch $mcp, Connections $connections): View
+    public function show(Request $request, LinkedAccounts $linkedAccounts, McpSwitch $mcp, Connections $connections, PushSettings $push): View
     {
         $user = $request->user();
 
@@ -50,6 +52,9 @@ class AccountController extends Controller
             // must be visible and endable); with none, only while it is on.
             'claudeConnections' => ($claude = $connections->of($user))->isNotEmpty() || $mcp->enabled() ? $claude : null,
             'claudeOff' => ! $mcp->enabled(),
+            // «Avisos en el celular» (PushSubscriptionController): only with the VAPID settings
+            // and for an account with a company, which is who sees announcements.
+            'pushKey' => $user->company_id === null ? null : $push->publicKey(),
         ]);
     }
 

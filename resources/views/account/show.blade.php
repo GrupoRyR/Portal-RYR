@@ -6,6 +6,7 @@
     (day, month and whether the company sees it) when $birthdayMonths is set;
     without it, only «Quitar mi cumpleaños» for a birthday still stored.
     «Conexiones con Claude» when $claudeConnections is set (connector on).
+    «Avisos en el celular» when $pushKey is set (VAPID settings present).
 --}}
 @use('App\Models\Company')
 <x-layouts.app title="Cuentas vinculadas" brand-band noindex>
@@ -189,6 +190,10 @@
                     </ul>
                 @endif
             </section>
+        @endif
+
+        @if ($pushKey)
+            @include('account.partials.push-optin', ['key' => $pushKey])
         @endif
     </main>
 </x-layouts.app>

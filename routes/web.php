@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\BirthdayController;
 use App\Http\Controllers\Account\ClaudeConnectionController;
 use App\Http\Controllers\Account\LinkedAccountController;
+use App\Http\Controllers\Account\PushSubscriptionController;
 use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
@@ -107,6 +108,14 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('connection')
         ->middleware('throttle:20,1')
         ->name('account.claude.disconnect');
+
+    // «Avisos en el celular» on /cuenta: the page's script stores and
+    // removes this browser's push subscription (App\Push\PushSubscriptions).
+    // JSON with the CSRF token; a 404 while the VAPID settings are missing.
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('/cuenta/avisos', [PushSubscriptionController::class, 'store'])->name('account.push.store');
+        Route::delete('/cuenta/avisos', [PushSubscriptionController::class, 'destroy'])->name('account.push.destroy');
+    });
 
     // Linking another company's account (App\Auth\LinkedAccounts): a fresh
     // Microsoft confirmation first, then a sign-in to the other account.
