@@ -15,7 +15,7 @@ class WorkItemsSchemaTest extends TestCase
 {
     public function test_external_id_is_binary_collated_on_mysql(): void
     {
-        $migration = require database_path('migrations/2026_10_30_000002_create_work_items_table.php');
+        $migration = require database_path('migrations/2026_11_03_100002_create_work_items_table.php');
         $previous = DB::getDefaultConnection();
         DB::setDefaultConnection('mysql');
 
