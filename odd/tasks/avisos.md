@@ -42,8 +42,8 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - [x] T4. **Documentos.** Ruta: el mismo escritor: despliegue §1.22 y manual §14.
 - [x] R1. **Revisión, medio 1: solo cuentas activas.** Ruta: el mismo escritor (servicio, comando, horario, configuración, pruebas y documentos). Los avisos van solo a empresas activas y a cuentas que entraron en los últimos `push.max_inactive_days` (90); poda diaria `portal:prune-push-subscriptions` a las 04:45. `Announcement::scopeVisibleTo` no cambia.
 - [x] R2. **Revisión, medio 2 y bajos 1, 2 y 5: nunca perder dispositivos por una falla general.** El emisor y VAPID se validan antes de anotar entregas; corte si un bloque entero falla sin respuesta HTTP; terminar el anuncio sin deshacer una casilla marcada de nuevo; reabrir al cambiar el público; carga útil por anuncio antes de anotar; un anuncio roto no bloquea a los demás; pruebas de choque de anotaciones, presupuesto, opciones de Guzzle y tamaño de la carga útil.
-- [ ] R3. **Revisión, bajos 3 y 4: cerrar sesión y llaves cambiadas.** Al cerrar sesión se borra la suscripción del navegador (servidor y `home.js`); el control de `/cuenta` se suscribe de nuevo si la llave VAPID cambió.
-- [ ] R4. **Revisión, bajo 6: nota de dependencias.** Se deja el cambio de cuenta de un endpoint y las versiones; se anota la fecha de `web-token/jwt-library` 4.2.4.
+- [x] R3. **Revisión, bajos 3 y 4: cerrar sesión y llaves cambiadas.** Al cerrar sesión se borra la suscripción del navegador (servidor y `home.js`); el control de `/cuenta` se suscribe de nuevo si la llave VAPID cambió.
+- [x] R4. **Revisión, bajo 6: nota de dependencias.** Se deja el cambio de cuenta de un endpoint y las versiones; se anota la fecha de `web-token/jwt-library` 4.2.4.
 
 ## Criterios de aceptación
 
@@ -70,7 +70,9 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - 2026-11-03: T4 en el commit `a6fa93e`. Revisión independiente: sin altos, 2 medios y varios bajos; se arreglan como R1 a R4.
 - 2026-11-03: R1 hecho (commit `c3b21a9`). RED: el oráculo corregido (la empresa inactiva no recibe) y la cuenta sin entrar hace 31 días fallaron; GREEN después. La poda nocturna usa primero los ids y luego borra, porque MariaDB no acepta un DELETE con subconsulta sobre la misma tabla.
 - 2026-11-03: R2 hecho. RED: 11 de 16 pruebas nuevas o cambiadas fallaron; GREEN después. El emisor arranca (y valida VAPID con `VAPID::validate`, con el registro de Laravel como logger) antes de anotar nada; si un bloque entero queda sin respuesta HTTP se borran sus anotaciones y la vuelta se detiene; terminar exige `push_finished_at` nulo y el mismo `updated_at` visto al empezar; cambiar las empresas de un anuncio marcado lo reabre; carga útil e íconos antes de anotar; si algo se rompe después de anotar, esas filas quedan `failed` (pudo salir) y la vuelta sigue con el siguiente anuncio. `Str::limit` cuenta ancho de pantalla: un emoji vale dos.
+- 2026-11-03: R2 en el commit `ad2351f`. R3 hecho. RED: borrar la suscripción del navegador al cerrar sesión falló; GREEN después. La sesión guarda los hashes de los endpoints que suscribió (`push.endpoint_hashes`); al cerrar sesión se borran los de esa cuenta (uno que pasó a otra cuenta se queda). `resources/js/home.js` también quita la suscripción en el navegador al enviar el formulario de salida: **hace falta `npm run build`** para que llegue a `public/build` (este escritor no lo compila ni lo sube). El control de `/cuenta` compara la llave de la suscripción con `data-vapid-key` y se suscribe de nuevo si cambió (prueba de humo con node fuera del repositorio: quita la vieja, suscribe con la nueva y la envía).
+- 2026-11-03: R4. Se dejan como están el paso de un endpoint a la cuenta que lo envía (intencional) y las versiones. Nota de dependencias: `web-token/jwt-library` 4.2.4 se publicó el 2026-10-30 (22:08 UTC, `composer.lock`), cuatro días antes de esta rama.
 
 ## Siguiente paso
 
-Revisión independiente y PR de `feat/avisos` (decisión del coordinador). Después del despliegue: llaves VAPID en el servidor (§1.22) y prueba en un Android y un iPhone instalado.
+PR de `feat/avisos` (decisión del coordinador), con `npm run build` para el cambio de `home.js`. Después del despliegue: llaves VAPID en el servidor (§1.22) y prueba en un Android y un iPhone instalado.
