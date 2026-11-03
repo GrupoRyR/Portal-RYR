@@ -43,6 +43,12 @@ return [
         'tenant' => env('MICROSOFT_TENANT', 'organizations'),
     ],
 
+    // Claude API key of the portal assistant (config/assistant.php). Set on
+    // the server only; never in the repository.
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

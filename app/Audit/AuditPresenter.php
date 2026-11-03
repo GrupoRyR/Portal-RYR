@@ -3,6 +3,7 @@
 namespace App\Audit;
 
 use App\Api\StatusReporter;
+use App\Assistant\AssistantSwitch;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
 use App\Mcp\AccountConfirmation;
@@ -358,6 +359,9 @@ final class AuditPresenter
                 .($properties->get('error') === true && $properties->get('refused') !== true ? ' · terminó con error' : ''),
             McpSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el conector de Claude'
                 .($properties->get('deployed') === false ? ' · PORTAL_MCP_ENABLED está apagado en el servidor' : ''),
+            AssistantSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el asistente'
+                .($properties->get('deployed') === false ? ' · PORTAL_ASSISTANT_ENABLED está apagado en el servidor' : '')
+                .($properties->get('configured') === false ? ' · falta ANTHROPIC_API_KEY en el servidor' : ''),
             default => (string) $activity->description,
         };
     }

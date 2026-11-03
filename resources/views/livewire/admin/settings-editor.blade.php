@@ -148,4 +148,7 @@
 
 {{-- «Conector de Claude» (App\Livewire\Admin\McpConnector): acts at once, outside the form. --}}
 <livewire:admin.mcp-connector />
+
+{{-- «Asistente del portal» (App\Livewire\Admin\AssistantToggle): acts at once, outside the form. --}}
+<livewire:admin.assistant-toggle />
 </div>
