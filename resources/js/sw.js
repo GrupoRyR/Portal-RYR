@@ -17,6 +17,13 @@
 // page after signing out or after the session expired), drops it at once.
 // A saved page older than an idle session (maxAgeMs) is never shown.
 // Signing out also sends Clear-Site-Data, and the page asks for a purge.
+//
+// «Avisos en el celular» (App\Push\AnnouncementPushes): a push carries
+// { title, body, url, icon, tag } of an announcement, nothing about the
+// person. It is shown at once (browsers require it); tapping it focuses a
+// window already on that page or opens it. Only URLs of this origin are
+// used, for the link and the icon; anything else falls back to the home
+// and the portal icon.
 
 const { version: VERSION, precache: PRECACHE, maxAgeMs: MAX_AGE } = self.PORTAL;
 
@@ -162,6 +169,54 @@ async function cacheFirst(request, cacheName) {
 
     return response;
 }
+
+const NOTICE_ICON = '/icons/portal-192.png';
+const NOTICE_TITLE = 'Nuevo anuncio';
+
+// The absolute URL when it is on this origin, null otherwise.
+function sameOrigin(value) {
+    if (typeof value !== 'string' || value === '') return null;
+    try {
+        const url = new URL(value, self.location.origin);
+        return url.origin === self.location.origin ? url.href : null;
+    } catch {
+        return null;
+    }
+}
+
+self.addEventListener('push', (event) => {
+    let data = {};
+    try {
+        data = event.data ? event.data.json() : {};
+    } catch {
+        data = {};
+    }
+
+    const title = typeof data.title === 'string' && data.title !== '' ? data.title : NOTICE_TITLE;
+
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body: typeof data.body === 'string' ? data.body : '',
+            icon: sameOrigin(data.icon) ?? NOTICE_ICON,
+            badge: NOTICE_ICON,
+            tag: typeof data.tag === 'string' && data.tag !== '' ? data.tag : undefined,
+            lang: 'es',
+            data: { url: sameOrigin(data.url) ?? new URL(HOME, self.location.origin).href },
+        }),
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = sameOrigin(event.notification.data?.url) ?? new URL(HOME, self.location.origin).href;
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+            const open = windows.find((client) => client.url === target);
+            return open ? open.focus() : self.clients.openWindow(target);
+        }),
+    );
+});
 
 function timeout(ms) {
     return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));

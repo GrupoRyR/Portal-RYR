@@ -38,7 +38,7 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 
 - [x] T1. **Suscripciones.** Ruta: escritor único (delegado por el coordinador): paquete, migración, modelo, fábrica, controlador, petición, rutas, vista, comando y pruebas.
 - [x] T2. **Envío desde el cron.** Ruta: el mismo escritor: migraciones, `Announcement`, editor y vista de Admin, servicio de envío, emisor, comando, horario, Auditoría y pruebas.
-- [ ] T3. **Service worker.** Ruta: el mismo escritor: `resources/js/sw.js` y sus pruebas.
+- [x] T3. **Service worker.** Ruta: el mismo escritor: `resources/js/sw.js` y sus pruebas.
 - [ ] T4. **Documentos.** Ruta: el mismo escritor: despliegue §1.22 y manual §14.
 
 ## Criterios de aceptación
@@ -60,7 +60,8 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - 2026-11-03: T1 hecho. RED observado (16 pruebas nuevas, 0 en verde) y luego GREEN (16/16; `tests/Feature/Account` sigue en verde). Paquete `minishlink/web-push` v11.0.0. Pint en verde. Commit `806a47c`.
 - 2026-11-03: T2 hecho. RED observado (19 pruebas nuevas, 0 en verde) y luego GREEN (19/19, más los editores de anuncios y Auditoría: 75/75). El emisor real se prueba contra un cliente HTTP simulado (sin red); en Windows esas pruebas necesitan `OPENSSL_CONF` y, sin él, se saltan.
   - Decisiones: quién recibe es la misma regla de `Announcement::scopeVisibleTo` (por cuenta; invitados y empresas inactivas incluidos, como en el inicio); al no quedar nadie, el anuncio queda terminado (`push_finished_at`) y un dispositivo nuevo no recibe avisos viejos, salvo que alguien desmarque y vuelva a marcar la casilla; una entrega fallida o que murió a medias no se reintenta (nunca dos veces).
+- 2026-11-03: T2 en el commit `1312efd`. T3 hecho: RED observado (2 de 3 pruebas nuevas en rojo; la tercera vigila que el caché no cambie) y luego GREEN; `tests/Feature/Pwa` 32/32. Prueba de humo manual con node (fuera del repositorio): muestra la notificación, ignora ícono y enlace de otro origen, tolera una carga útil rota, enfoca la ventana abierta o abre una nueva.
 
 ## Siguiente paso
 
-T3.
+T4.
