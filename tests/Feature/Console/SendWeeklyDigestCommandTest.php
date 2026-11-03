@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Console;
 
+use App\Calendar\ColombianHolidays;
+use App\Digest\WeeklyDigestBuilder;
+use App\Digest\WeeklyDigestContent;
 use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\DirectoryEntry;
@@ -9,6 +12,7 @@ use App\Models\Event;
 use App\Models\User;
 use App\Models\WeeklyDigest;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -18,6 +22,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -576,6 +581,219 @@ class SendWeeklyDigestCommandTest extends TestCase
         $this->assertSame('America/Bogota', $event->timezone);
         $this->assertTrue($event->withoutOverlapping);
         $this->assertSame(10, $event->expiresAt);
+    }
+
+    public function test_the_announcements_start_where_last_week_s_digest_left_off(): void
+    {
+        $this->fakeMicrosoft();
+        // Last week's digest went out late, in the 12:00 catch-up (any status counts).
+        $this->previousDigest($this->segurex, '2026-11-02 12:00', WeeklyDigest::STATUS_EMPTY);
+        Announcement::factory()->create(['title' => 'Antes del resumen pasado', 'starts_at' => CarbonImmutable::parse('2026-11-02 11:00', 'America/Bogota')]);
+        Announcement::factory()->create(['title' => 'Justo en el resumen pasado', 'starts_at' => CarbonImmutable::parse('2026-11-02 12:00', 'America/Bogota')]);
+        Announcement::factory()->create(['title' => 'Después del resumen pasado', 'starts_at' => CarbonImmutable::parse('2026-11-02 12:30', 'America/Bogota')]);
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $content = $this->contentFor(self::SEGUREX_SEND_URL);
+        $this->assertStringNotContainsString('Antes del resumen pasado', $content);
+        $this->assertStringNotContainsString('Justo en el resumen pasado', $content);
+        $this->assertStringContainsString('Después del resumen pasado', $content);
+    }
+
+    public function test_a_late_run_does_not_skip_what_came_after_last_week_s_on_time_run(): void
+    {
+        $this->fakeMicrosoft();
+        $this->previousDigest($this->segurex, '2026-11-02 07:00', WeeklyDigest::STATUS_FAILED);
+        Announcement::factory()->create(['title' => 'Lunes pasado a las 9', 'starts_at' => CarbonImmutable::parse('2026-11-02 09:00', 'America/Bogota')]);
+        Announcement::factory()->create(['title' => 'Hoy a las 11', 'starts_at' => CarbonImmutable::parse('2026-11-09 11:00', 'America/Bogota')]);
+
+        // This week's digest goes out in the 12:00 catch-up.
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 12:00', 'America/Bogota'));
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $content = $this->contentFor(self::SEGUREX_SEND_URL);
+        $this->assertStringContainsString('Lunes pasado a las 9', $content);
+        $this->assertStringContainsString('Hoy a las 11', $content);
+    }
+
+    public function test_without_last_week_s_digest_the_announcements_start_last_monday_at_seven(): void
+    {
+        $this->fakeMicrosoft();
+        // Another company's row does not count.
+        $this->previousDigest($this->derivados, '2026-11-02 12:00', WeeklyDigest::STATUS_SENT);
+        Announcement::factory()->create(['title' => 'Lunes pasado 6:59', 'starts_at' => CarbonImmutable::parse('2026-11-02 06:59', 'America/Bogota')]);
+        Announcement::factory()->create(['title' => 'Lunes pasado 7:01', 'starts_at' => CarbonImmutable::parse('2026-11-02 07:01', 'America/Bogota')]);
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 12:00', 'America/Bogota'));
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $content = $this->contentFor(self::SEGUREX_SEND_URL);
+        $this->assertStringNotContainsString('Lunes pasado 6:59', $content);
+        $this->assertStringContainsString('Lunes pasado 7:01', $content);
+    }
+
+    public function test_the_week_is_read_in_bogota_even_when_the_app_stores_utc(): void
+    {
+        $previous = date_default_timezone_get();
+
+        try {
+            config(['app.timezone' => 'UTC']);
+            date_default_timezone_set('UTC');
+            $this->fakeMicrosoft();
+            // Sunday 15 November 21:00 in Bogotá, stored in UTC.
+            Event::factory()->create(['title' => 'Cierre del domingo en la noche', 'starts_at' => '2026-11-16 02:00:00', 'ends_at' => '2026-11-16 03:00:00']);
+            // Monday 16 November 08:00 in Bogotá: next week.
+            Event::factory()->create(['title' => 'Evento del lunes siguiente', 'starts_at' => '2026-11-16 13:00:00', 'ends_at' => '2026-11-16 14:00:00']);
+
+            $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+            $content = $this->contentFor(self::SEGUREX_SEND_URL);
+            $this->assertStringContainsString('Cierre del domingo en la noche', $content);
+            $this->assertStringNotContainsString('Evento del lunes siguiente', $content);
+        } finally {
+            date_default_timezone_set($previous);
+        }
+    }
+
+    public function test_a_week_across_the_new_year_names_both_years_and_finds_january_dates(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-12-28 07:00', 'America/Bogota'));
+        $this->fakeMicrosoft();
+        $this->person($this->segurex, 'Luis Gómez', birthday: [1, 2]);
+        Event::factory()->allDay('2020-01-02')->yearly()->create(['title' => 'Aniversario de la empresa']);
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        Http::assertSent(fn (Request $request) => $request->url() === self::SEGUREX_SEND_URL
+            && data_get($request->data(), 'message.subject') === 'Resumen de la semana del 28 de diciembre de 2026 al 3 de enero de 2027');
+        $content = $this->contentFor(self::SEGUREX_SEND_URL);
+        $this->assertStringContainsString('Año Nuevo', $content);
+        $this->assertStringContainsString('Sábado 2 de enero</strong> · Luis Gómez: Cumpleaños', $content);
+        $this->assertStringContainsString('Sábado 2 de enero de 2027 · Todo el día</strong> · Cada año: Aniversario de la empresa', $content);
+    }
+
+    public function test_29_february_is_celebrated_on_28_february_in_a_common_year(): void
+    {
+        // Monday 22 February 2027; 2027 is a common year.
+        $this->travelTo(CarbonImmutable::parse('2027-02-22 07:00', 'America/Bogota'));
+        $this->fakeMicrosoft();
+        $this->person($this->segurex, 'Ana Ruiz', birthday: [2, 29], hired: '2020-02-29');
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $content = $this->contentFor(self::SEGUREX_SEND_URL);
+        $this->assertStringContainsString('Domingo 28 de febrero</strong> · Ana Ruiz: Cumpleaños', $content);
+        $this->assertStringContainsString('Domingo 28 de febrero</strong> · Ana Ruiz: 7 años en Segurex', $content);
+    }
+
+    public function test_an_event_running_since_last_week_shows_as_under_way(): void
+    {
+        $this->fakeMicrosoft();
+        Event::factory()->allDay('2026-11-06', '2026-11-10')->create(['title' => 'Semana de la seguridad']);
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $this->assertStringContainsString(
+            'En curso · hasta el martes 10 de noviembre</strong> · Evento: Semana de la seguridad',
+            $this->contentFor(self::SEGUREX_SEND_URL),
+        );
+    }
+
+    public function test_a_digest_that_cannot_be_built_records_nothing_and_the_next_run_tries_again(): void
+    {
+        Log::spy();
+        $this->fakeMicrosoft();
+        Announcement::factory()->create();
+        $builder = $this->builderDouble();
+        $builder->before = function (Company $company): void {
+            throw new RuntimeException('CONTENIDO-SECRETO de '.$company->name);
+        };
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        Http::assertNothingSent();
+        $this->assertSame(0, WeeklyDigest::query()->count());
+        Log::shouldHaveReceived('error')->withArgs(function (string $message, array $context) {
+            $logged = json_encode($context);
+
+            return $context['company_id'] === $this->segurex->id
+                && $context['exception'] === RuntimeException::class
+                && str_contains((string) $context['at'], 'SendWeeklyDigestCommandTest.php:')
+                && ! str_contains($logged, 'CONTENIDO-SECRETO');
+        });
+
+        $builder->before = null;
+        $this->travel(1)->hours();
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        $this->assertSame(2, $this->sendRequests());
+        $this->assertSame(2, WeeklyDigest::query()->where('status', WeeklyDigest::STATUS_SENT)->count());
+    }
+
+    public function test_a_run_that_loses_the_week_to_another_run_never_calls_graph(): void
+    {
+        $this->fakeMicrosoft();
+        Announcement::factory()->create();
+        // Another run records Segurex's week while this one builds it.
+        $this->builderDouble()->before = function (Company $company): void {
+            if ($company->is($this->segurex)) {
+                WeeklyDigest::query()->create(['company_id' => $company->id, 'week_start' => '2026-11-09', 'status' => WeeklyDigest::STATUS_SENT, 'attempted_at' => now()]);
+            }
+        };
+
+        $this->artisan('portal:send-weekly-digest')->assertSuccessful();
+
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::SEGUREX_SEND_URL);
+        Http::assertSent(fn (Request $request) => $request->url() === self::DERIVADOS_SEND_URL);
+        $this->assertSame(WeeklyDigest::STATUS_SENT, WeeklyDigest::query()->where('company_id', $this->segurex->id)->sole()->status);
+    }
+
+    public function test_a_week_past_the_holiday_calendar_is_logged_and_built_without_holidays(): void
+    {
+        Log::spy();
+
+        $content = app(WeeklyDigestBuilder::class)->build($this->segurex, CarbonImmutable::parse('9999-12-27', 'America/Bogota'));
+
+        $this->assertSame([], $content->dates);
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context) => str_contains($message, 'holiday')
+            && $context['company_id'] === $this->segurex->id
+            && $context['week_start'] === '9999-12-27');
+    }
+
+    private function previousDigest(Company $company, string $attemptedAt, string $status): WeeklyDigest
+    {
+        $at = CarbonImmutable::parse($attemptedAt, 'America/Bogota');
+
+        return WeeklyDigest::query()->create([
+            'company_id' => $company->id,
+            'week_start' => $at->toDateString(),
+            'status' => $status,
+            'attempted_at' => $at,
+        ]);
+    }
+
+    /**
+     * The real builder, with a hook that runs before each company's
+     * digest is built (to make it fail, or to record the week first).
+     */
+    private function builderDouble(): object
+    {
+        $double = new class(app(ColombianHolidays::class)) extends WeeklyDigestBuilder
+        {
+            public ?Closure $before = null;
+
+            public function build(Company $company, CarbonImmutable $weekStart, ?CarbonImmutable $runAt = null): WeeklyDigestContent
+            {
+                if ($this->before !== null) {
+                    ($this->before)($company);
+                }
+
+                return parent::build($company, $weekStart, $runAt);
+            }
+        };
+        $this->app->instance(WeeklyDigestBuilder::class, $double);
+
+        return $double;
     }
 
     private function person(Company $company, string $name, ?array $birthday = null, bool $shown = true, ?string $hired = null): DirectoryEntry

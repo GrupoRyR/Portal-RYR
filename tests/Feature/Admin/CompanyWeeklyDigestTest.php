@@ -127,6 +127,19 @@ class CompanyWeeklyDigestTest extends TestCase
             ->assertDontSeeText('Enviando…');
     }
 
+    public function test_an_unknown_outcome_asks_to_check_the_list_without_mentioning_a_retry(): void
+    {
+        foreach (['Unavailable', 'HTTP 503'] as $code) {
+            WeeklyDigest::query()->delete();
+            WeeklyDigest::query()->create(['company_id' => $this->company->id, 'week_start' => '2026-11-09', 'status' => WeeklyDigest::STATUS_FAILED, 'error_code' => $code, 'attempted_at' => now()]);
+
+            $this->editor()
+                ->assertSeeText("No se pudo enviar ({$code}).")
+                ->assertSeeText('Microsoft no respondió a tiempo o respondió con un error, y no se sabe si salió; revisa la lista.')
+                ->assertDontSeeText('reintentar');
+        }
+    }
+
     public function test_it_shows_the_latest_week(): void
     {
         WeeklyDigest::query()->create(['company_id' => $this->company->id, 'week_start' => '2026-11-09', 'status' => WeeklyDigest::STATUS_EMPTY]);

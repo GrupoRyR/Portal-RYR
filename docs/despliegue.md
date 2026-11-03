@@ -445,7 +445,7 @@ Referencias de Microsoft Learn: [RBAC para aplicaciones en Exchange Online](http
 
 ### 1.14 Resumen de los lunes
 
-El **Resumen de los lunes** de una empresa (interruptor en **Administración › Empresas**, apagado por defecto) sale a su lista de todo el personal desde su buzón remitente, con la misma app y los mismos permisos de la sección 1.13: no hay claves nuevas en `.env` ni pasos nuevos en Exchange o Entra. Lo envía el cron del paso 1.9 (`portal:send-weekly-digest`) los lunes cada hora de 7:00 a 12:00, hora de Bogotá; cada empresa lo recibe una vez por semana y, si la semana no tiene nada que contar, no se envía.
+El **Resumen de los lunes** de una empresa (interruptor en **Administración › Empresas**, apagado por defecto) sale a su lista de todo el personal desde su buzón remitente, con la misma app y los mismos permisos de la sección 1.13: no hay claves nuevas en `.env` ni pasos nuevos en Exchange o Entra. Lo envía el cron del paso 1.9 (`portal:send-weekly-digest`) los lunes cada hora de 7:00 a 12:00, hora de Bogotá; cada empresa lo recibe una vez por semana y, si la semana no tiene nada que contar, no se envía. `APP_TIMEZONE` debe seguir en `America/Bogota` (el valor por defecto): la semana se cuenta en Bogotá y las fechas guardadas se leen en esa zona.
 
 1. **Migración.** Crea la tabla `weekly_digests` y el campo del interruptor: el despliegue de rutina la aplica con `php artisan migrate --force` (sección 2.2).
 2. **Comprobar el horario.** `php artisan schedule:list` debe mostrar `0 7-12 * * 1  php artisan portal:send-weekly-digest` (en la zona America/Bogota).

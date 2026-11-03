@@ -9,14 +9,16 @@ use App\Models\Company;
 use App\Models\DirectoryEntry;
 use App\Models\Event;
 use App\Models\User;
+use App\Models\WeeklyDigest;
 use App\View\Home\Celebration;
 use App\View\Home\EventDate;
 use App\View\Home\HolidayDay;
 use App\View\Home\HomePageBuilder;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Query\JoinClause;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -28,50 +30,82 @@ use InvalidArgumentException;
  * to every company or to this one ({@see Announcement::scopeForCompanyId()});
  * audiences are whole companies, never groups or roles.
  *
- * - announcements published now that started in the last seven days, and
- *   the mandatory ones (`requires_read`) still in force, newest first:
- *   title, date and link, never the text;
+ * - announcements published now that started since last week's digest
+ *   ({@see announcementsSince()}), and the mandatory ones (`requires_read`)
+ *   still in force, newest first: title, date and link, never the text;
  * - the dates from Monday to Sunday: holidays («Festivo», «Puente
  *   festivo»), the company's events (one-time, yearly and under way);
  * - the birthdays people chose to show (day and month) and the work
  *   anniversaries (day and years completed) of the company's directory.
  *
  * Reads the status of announcements and events at this moment (`now()`).
+ * The week is Monday to Sunday in Bogotá; the stored dates are compared
+ * in the app timezone (`config('app.timezone')`, which should stay
+ * America/Bogota: the days and times printed are read in it).
+ *
+ * Not final: the tests put a double in front of build().
  */
-final class WeeklyDigestBuilder
+class WeeklyDigestBuilder
 {
-    /** Announcements published within this many days before the run. */
-    public const ANNOUNCEMENT_DAYS = 7;
+    /**
+     * Without last week's digest, the announcements start at last Monday's
+     * first run (WeeklyDigests::FIRST_HOUR), in Bogotá.
+     */
+    public const FALLBACK_HOUR = WeeklyDigests::FIRST_HOUR;
 
     public function __construct(private readonly ColombianHolidays $holidays) {}
 
     /**
      * @param  CarbonImmutable  $weekStart  Monday, midnight in Bogotá.
+     * @param  CarbonImmutable|null  $runAt  This run's moment, the one its row records as `attempted_at`; now when null.
      */
-    public function build(Company $company, CarbonImmutable $weekStart): WeeklyDigestContent
+    public function build(Company $company, CarbonImmutable $weekStart, ?CarbonImmutable $runAt = null): WeeklyDigestContent
     {
+        $runAt ??= CarbonImmutable::now();
+
         return new WeeklyDigestContent(
             weekStart: $weekStart,
-            announcements: $this->announcements($company),
+            announcements: $this->announcements($company, $this->announcementsSince($company, $weekStart), $runAt),
             dates: $this->dates($company, $weekStart),
             celebrations: $this->celebrations($company, $weekStart),
         );
     }
 
     /**
+     * Where this week's announcements start: the moment last week's digest
+     * of the company was attempted (sent, empty, failed or interrupted),
+     * so a late catch-up last week or this week neither repeats nor skips
+     * one; without it, last Monday at FALLBACK_HOUR in Bogotá.
+     */
+    public function announcementsSince(Company $company, CarbonImmutable $weekStart): CarbonImmutable
+    {
+        $previous = WeeklyDigest::query()
+            ->where('company_id', $company->id)
+            ->where('week_start', $weekStart->subWeek()->toDateString())
+            ->whereNotNull('attempted_at')
+            ->first(['attempted_at']);
+
+        return $previous?->attempted_at?->toImmutable() ?? $weekStart->subWeek()->setTime(self::FALLBACK_HOUR, 0);
+    }
+
+    /**
+     * Published now, and either started after $since and by $runAt (the
+     * previous digest listed up to its own run) or mandatory and in force.
+     *
      * @return list<array{title: string, date: string, url: string, mandatory: bool}>
      */
-    private function announcements(Company $company): array
+    private function announcements(Company $company, CarbonImmutable $since, CarbonImmutable $runAt): array
     {
         $base = rtrim((string) config('app.url'), '/');
         $timezone = config('app.timezone');
+        [$since, $runAt] = [self::stored($since), self::stored($runAt)];
 
         return Announcement::query()
             ->select(['id', 'title', 'starts_at', 'is_pinned', 'requires_read'])
             ->inStatus(Announcement::STATUS_PUBLISHED)
             ->forCompanyId($company->id)
             ->where(fn (Builder $query) => $query
-                ->where('starts_at', '>=', now()->subDays(self::ANNOUNCEMENT_DAYS))
+                ->where(fn (Builder $query) => $query->where('starts_at', '>', $since)->where('starts_at', '<=', $runAt))
                 ->orWhere('requires_read', true))
             ->orderByDesc('starts_at')
             ->orderByDesc('id')
@@ -101,6 +135,10 @@ final class WeeklyDigestBuilder
             $holidays = HolidayDay::group($this->holidays->between($weekStart, $weekStart->addDays(6)), $weekStart);
         } catch (InvalidArgumentException) {
             // Past the calendar's supported range (ColombianHolidays).
+            Log::warning('Weekly digest left out the holidays: the week is outside the holiday calendar.', [
+                'company_id' => $company->id,
+                'week_start' => $weekStart->toDateString(),
+            ]);
             $holidays = [];
         }
 
@@ -110,13 +148,14 @@ final class WeeklyDigestBuilder
             ->inStatus(Event::STATUS_PUBLISHED)
             ->forCompanyId($company->id)
             ->where(fn (Builder $query) => $query
-                ->where('starts_at', '<', $nextMonday)
+                ->where('starts_at', '<', self::stored($nextMonday))
                 ->orWhere(fn (Builder $query) => $query->yearly()))
             ->get();
 
+        // Under way since last week, or starting before next Monday (an instant, whatever the timezone).
         $week = array_filter(
             EventDate::soonestFirst($events, $weekStart),
-            fn (EventDate $event) => $event->day < $nextMonday,
+            fn (EventDate $event) => $event->isOngoing || $event->start < $nextMonday,
         );
 
         $dates = [...$holidays, ...$week];
@@ -151,9 +190,8 @@ final class WeeklyDigestBuilder
     }
 
     /**
-     * The company's directory with the birthday of each entry's own account
-     * when it chose to show it: the same join as the home screen (tenant,
-     * object ID and company of the entry).
+     * The company's whole directory with the birthdays people chose to
+     * show (DirectoryEntry::scopeCelebrationsOf(), the home screen's rule).
      *
      * @return Collection<int, DirectoryEntry>
      */
@@ -167,18 +205,19 @@ final class WeeklyDigestBuilder
                 'directory_entries.display_name',
                 'directory_entries.email',
                 'directory_entries.hire_date',
-                'users.birthday_month as shown_birthday_month',
-                'users.birthday_day as shown_birthday_day',
             ])
-            ->leftJoin('users', function (JoinClause $join) {
-                $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
-                    ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
-                    ->on('users.company_id', '=', 'directory_entries.company_id')
-                    ->where('users.show_birthday', true);
-            })
-            ->where('directory_entries.company_id', $company->id)
+            ->celebrationsOf($company->id)
             ->orderBy('display_name')
             ->orderBy('directory_entries.id')
             ->get();
+    }
+
+    /**
+     * The moment in the app timezone, as the database stores dates: a
+     * bound Carbon is written in its own timezone.
+     */
+    private static function stored(CarbonInterface $moment): CarbonImmutable
+    {
+        return $moment->toImmutable()->setTimezone(config('app.timezone'));
     }
 }

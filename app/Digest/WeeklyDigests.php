@@ -166,10 +166,34 @@ class WeeklyDigests
             ],
             default => [
                 'text' => 'No se pudo enviar ('.($row->error_code ?? 'Unexpected').').',
-                'hint' => AnnouncementListEmails::hint($row->error_code),
+                'hint' => self::hint($row->error_code),
                 'failed' => true,
             ],
         };
+    }
+
+    /**
+     * The Spanish hint of a failed digest: the list emails' one
+     * (AnnouncementListEmails::hint()), except where it speaks of
+     * «Reintentar», which the digest does not have.
+     */
+    public static function hint(?string $error): ?string
+    {
+        return $error === 'Unavailable' || preg_match('/\AHTTP 5\d\d\z/', (string) $error) === 1
+            ? 'Microsoft no respondió a tiempo o respondió con un error, y no se sabe si salió; revisa la lista.'
+            : AnnouncementListEmails::hint($error);
+    }
+
+    /**
+     * «app/Digest/WeeklyDigestBuilder.php:120»: the file (from the app's
+     * root) and line an exception was thrown at.
+     */
+    private static function where(Throwable $e): string
+    {
+        $file = str_replace('\\', '/', $e->getFile());
+        $root = str_replace('\\', '/', base_path()).'/';
+
+        return (str_starts_with($file, $root) ? substr($file, strlen($root)) : basename($file)).':'.$e->getLine();
     }
 
     /**
@@ -178,12 +202,20 @@ class WeeklyDigests
      */
     private function deliver(Company $company, CarbonImmutable $weekStart): ?string
     {
+        // One moment for the content and the row: next week's digest lists the announcements after it.
+        $now = CarbonImmutable::now()->startOfSecond();
+
         try {
-            $content = $this->builder->build($company, $weekStart);
+            $content = $this->builder->build($company, $weekStart, $now);
             $html = $content->isEmpty() ? null : $this->html($company, $content);
         } catch (Throwable $e) {
-            // No row: the next run of the morning tries again.
-            Log::error('Weekly digest could not be built.', ['company_id' => $company->id, 'exception' => $e::class]);
+            // No row: the next run of the morning tries again. Where it broke, never the message (it may hold content).
+            Log::error('Weekly digest could not be built.', [
+                'company_id' => $company->id,
+                'week_start' => $weekStart->toDateString(),
+                'exception' => $e::class,
+                'at' => self::where($e),
+            ]);
 
             return null;
         }
@@ -196,7 +228,6 @@ class WeeklyDigests
         $error = $status === WeeklyDigest::STATUS_FAILED ? WeeklyDigest::ERROR_DOMAIN_MISMATCH : null;
         $exception = null;
 
-        $now = now();
         // The unique pair: a run at the same moment may have taken the week already.
         $claimed = WeeklyDigest::query()->insertOrIgnore([
             'company_id' => $company->id,

@@ -17,7 +17,6 @@ use App\View\Components\AccountSwitcher;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -294,16 +293,9 @@ final class HomePageBuilder
                 'directory_entries.email',
                 'directory_entries.hire_date',
                 'directory_entries.search_text',
-                'users.birthday_month as shown_birthday_month',
-                'users.birthday_day as shown_birthday_day',
             ])
-            ->leftJoin('users', function (JoinClause $join) {
-                $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
-                    ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
-                    ->on('users.company_id', '=', 'directory_entries.company_id')
-                    ->where('users.show_birthday', true);
-            })
-            ->where('directory_entries.company_id', $companyId)
+            // The birthdays people chose to show (shared with the Monday digest).
+            ->celebrationsOf($companyId)
             // Only directory_entries has display_name.
             ->orderBy('display_name')
             ->orderBy('directory_entries.id')
