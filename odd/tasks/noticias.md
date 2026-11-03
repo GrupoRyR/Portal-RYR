@@ -121,7 +121,54 @@ Decisions:
 - Docs fix `22bb239` docs(news): state that the 10 second limit applies
   per request.
 
+## Review R1 (correctness and security, 2026-11-03)
+
+The security review found nothing at confidence 8/10 or higher (SSRF, the
+DNS pin, redirects, XXE and authorization hold). Findings fixed (all
+accepted; the scope was not widened):
+
+- [x] R1.1 High: undated or future items got `published_at = now` on every
+      run (stayed on top, never pruned). They now keep the first-seen time
+      (separate upsert without `published_at`). `20852d1`.
+- [x] R1.2 High: a wrong weekday moved the date ("Fri" = next Friday). The
+      weekday is ignored; dates are built field by field. `0106693`.
+- [x] R1.3 High: `UT`, `COT`, `-05` gave no date. Named zones (RFC 822 plus
+      COT) and ±HH, ±HH:MM accepted; unknown names stay null. `0106693`.
+- [x] R1.4 Medium: the 30-item test passed through PHP trimming. New test
+      seeds 30 stored items and checks the database delete. `20852d1`.
+- [x] R1.5 Medium: zero usable items counted as success. `no_entries` now;
+      relative links resolve against the feed URL and Atom `xml:base`
+      (`App\News\RelativeUrl`) and must still be safe https. `0106693`,
+      `20852d1`.
+- [x] R1.6 Low: `strip_tags` ate «Tasa <5%». Only tag-like sequences and
+      comments are stripped. `0106693`.
+- [x] R1.7 Low: the duplicate-URL check ignores case on MySQL. Accepted;
+      documented in the manual §2.11. `57da5d0`.
+- [x] R1.8 Low: `create()` with no company hit a NOT NULL error.
+      Validation error `companyId` now. `57da5d0`.
+- [x] R1.9 Low: race with admin edits. The result and error are written
+      only while the URL is the one read (row re-read under lock, then a
+      conditional update); `lazyById()` iteration. `20852d1`.
+- [x] R1.10 Low: dates without an offset were UTC. Now America/Bogota.
+      `0106693`.
+- [x] R1.S1 Security (out of scope): gzip bomb past the 1 MB cap.
+      `Accept-Encoding: identity`, `decode_content => false`, gzip/deflate
+      inflated here in 1 KB steps under the cap (`too_large`); other or
+      broken encodings `unsupported_encoding`. `fb38448`.
+- [x] R1.S2 Security (optional): `3fff::/20` (RFC 9637) refused.
+      `fb38448`.
+
+Answers recorded: keep 10 s per request; manual wording fine; single PR
+with `size:exception`.
+
+Evidence:
+- RED: `php artisan test --compact tests/Unit/News tests/Feature/News`:
+  182 tests, 25 failures and 1 error (the new tests; the new 30-item
+  database test already passed, it strengthens coverage).
+- GREEN: same command, 182 passed. Full suite: 2462 passed.
+  `vendor/bin/pint --test`: passed.
+
 ## Next step
 
-All tasks done. Next: parent review, push and PR (human decisions); the
+All tasks and review fixes done. Next: push and PR (human decisions); the
 home lane wires `App\News\NewsBoard` into the «Noticias» section.
