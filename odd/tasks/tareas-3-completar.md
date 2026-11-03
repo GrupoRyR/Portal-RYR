@@ -34,9 +34,22 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
 
 ## Tareas
 
-- [ ] R1. **«Completar» firmado (T3).** Ruta: inline (único escritor delegado; las pruebas guían cada archivo).
-- [ ] R2. **Herramientas `mis_tareas` y `mis_aprobaciones` (C3b).** Ruta: inline.
-- [ ] R3. **Rango de `due_at`.** Ruta: inline.
+- [x] R1. **«Completar» firmado (T3).** Ruta: delegada (este escritor único; el coordinador no escribe).
+  - Migración `2026_11_05_500001`: `integrations.signing_secret` (texto, cast `encrypted`, oculto al serializar) y `signing_secret_hint` (4 caracteres). Sin índices.
+  - `App\Work\PortalSignature`: firma de §6.2 y secreto nuevo (`ryrsig_` + 32 bytes en base64url, 43 caracteres).
+  - Administración › Integraciones: **Secreto de firma** solo con `work:write`; **Generar secreto** / **Rotar secreto** con confirmación reciente de Microsoft (la cuenta de emergencia recibe 403); se muestra una sola vez en su propio diálogo. Auditoría `integration.signing_secret_created` y `integration.signing_secret_rotated`. Revocar borra el secreto.
+  - `POST /tareas/{id}/completar` (`work-items.complete`, CSRF de `web`, límite propio de 10 por minuto por cuenta): busca el elemento con `WorkItem::visibleTo()` (ajeno, de otra cuenta vinculada, hecho, borrado o de integración revocada: 404); visible pero no completable (aprobación, `completable_from_portal: false`, integración sin secreto o con la URL base fuera del host de la app del catálogo): 403 sin llamar. `WorkItem::canBeCompletedFromPortal()` le dice a la vista si mostrar el botón.
+  - `App\Work\TaskCompleter`: una pulsación a la vez por elemento (candado de caché de 15 s), 5 s de tiempo total y de conexión, sin redirecciones, TLS verificado, sin reintentos. `2xx` y `409 already_done` lo marcan hecho sin cambiar `version`; `404` lo borra dejando el rastro de versión; lo demás lo deja pendiente. Mensajes de §6.4.
+  - Auditoría (tipo API, por la persona, sobre la integración): `work_item.completed` y `work_item.complete_failed` con `external_id`, `request_id`, código HTTP o `timeout` y el motivo; etiquetas en `AuditPresenter` («Completó una tarea de», «No pudo completar una tarea de», «Elemento», «Pedido», «Respuesta HTTP», «Motivo»).
+  - Documentación: `docs/despliegue.md` §1.20, `docs/api.md` §7, contrato §2.2 y manual §2.7 y §4.7.
+  - Evidencia: RED (las clases no existían; primer fallo en `IntegrationSigningSecretTest`) y GREEN 42/42 en `PortalSignatureTest`, `CompleteTaskTest` e `IntegrationSigningSecretTest`; la firma coincide con el dato de prueba del contrato. Admin, API y Auditoría 628/628. Commit `c92210f` (unas 1.240 líneas: 525 de código y 689 de pruebas; pasa de las ~400 por las pruebas de cada fila de §6.4 y de cada rechazo).
+- [x] R2. **Herramientas `mis_tareas` y `mis_aprobaciones` (C3b).** Ruta: delegada (mismo escritor).
+  - `App\Mcp\Tools\WorkItemsTool` (base común), `MisTareas` y `MisAprobaciones`: por cada cuenta usable de la conexión, `WorkItem::visibleTo()` del tipo pedido, con la empresa de la cuenta; primero las que vencen antes, al final las sin fecha; máximo 20 (las del inicio por grupo, contrato §4.6). Devuelven solo título, empresa, fecha límite, «vencida» y el enlace a la app.
+  - «Tus tareas y aprobaciones.» vuelve a la pantalla de permiso y su `assertSee` a `ConsentTest`. Manual §10.1 sin la frase de «llegarán después», con las dos herramientas.
+  - Evidencia: RED 12 (las herramientas no existían) y GREEN 258/258 en `tests/Feature/Mcp` y `tests/Unit/Mcp`. Commit `a3c2aa4`.
+- [x] R3. **Rango de `due_at`.** Ruta: delegada (mismo escritor).
+  - La columna es `TIMESTAMP` (migración `2026_11_03_100002`). La API acepta del `2000-01-01T00:00:00Z` al `2037-12-31T23:59:59Z`, comparando el instante (la zona cuenta); fuera, `422` en `due_at`. Constantes `WorkItem::EARLIEST_DUE_AT` y `LATEST_DUE_AT`. Contrato 0.2.1 y `docs/api.md` §7.
+  - Evidencia: RED 6/108 y GREEN 108/108 en `WorkItemsApiTest`. Commit `d84d531`.
 
 ## Criterios de aceptación
 
@@ -52,8 +65,18 @@ Línea «Tareas» del portal, rama `feat/tareas-3-completar` desde `origin/main`
 
 ## Progreso
 
-- 2026-11-03: documento creado. R1 en curso.
+- 2026-11-03: documento creado (`8d6e4b2`). R1 en curso.
+- 2026-11-03: R1, R2 y R3 hechos. Suite completa 2.788/2.788 (base 2.723); `pint --test` limpio.
+
+## Decisiones para revisar
+
+- La URL base debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama. Se comprueba al llamar, no al guardar en Integraciones.
+- El secreto se genera aparte, con **Generar secreto** en el detalle del sistema, no junto con el token al crearlo.
+- Los rechazos antes de llamar (403 y 404) no dejan entrada en Auditoría: no hubo intento.
+- Cualquier `2xx` cuenta como completada (el contrato dice `200`).
+- `due_at` queda en `TIMESTAMP` con el rango validado, en vez de cambiar la columna a `DATETIME`.
 
 ## Siguiente paso
 
-- R1.
+- PR de `feat/tareas-3-completar` contra `main` (lo abre Jhon o el coordinador).
+- T2: la lista «Mi día» del inicio con el botón (`route('work-items.complete', $item)` cuando `$item->canBeCompletedFromPortal()`).
