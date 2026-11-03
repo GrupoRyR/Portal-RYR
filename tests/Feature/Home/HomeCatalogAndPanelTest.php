@@ -140,6 +140,14 @@ class HomeCatalogAndPanelTest extends TestCase
         $this->assertNoElement($this->home('?q=zzz'), 'id', 'catalogos');
     }
 
+    public function test_an_inactive_company_shows_no_catalog(): void
+    {
+        $this->product($this->category('Línea smart', 1), 'Cerradura digital S1');
+        $this->company->forceFill(['is_active' => false])->save();
+
+        $this->assertNoElement($this->home(), 'id', 'catalogos');
+    }
+
     // --- Panel gerencial -------------------------------------------------------
 
     public function test_the_panel_is_only_for_the_companys_management(): void

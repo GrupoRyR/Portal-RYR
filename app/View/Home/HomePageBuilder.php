@@ -147,6 +147,10 @@ final class HomePageBuilder
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
+        // News and catalog follow the rule of the apps and «Estado de TI»
+        // (AppCatalog, ItStatusBoard): only an active company has them.
+        $companyBlocks = $company?->is_active === true ? $company : null;
+
         // The apps already read above: one query of its own (the services).
         $itStatus = $this->itStatus->for($user, $visible);
 
@@ -192,8 +196,8 @@ final class HomePageBuilder
             moreCelebrationsHref: count($celebrations) > Celebration::LIMIT ? route('people.index') : null,
             markets: array_values(array_map(MarketFigure::from(...), $this->markets->current())),
             // A server search shows the cards only.
-            news: $search->isActive() || $company === null ? [] : NewsTab::fromBoard($this->news->forCompany($company->id), $newsTab),
-            catalog: $search->isActive() || $company === null ? null : ProductShelf::fromBoard($this->products->forCompany($company), $catalogCategory),
+            news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
+            catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
             work: WorkList::for($user, CarbonImmutable::instance($now)),
             itStatus: $itStatus->available ? $itStatus : null,

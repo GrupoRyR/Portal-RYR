@@ -176,6 +176,14 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertNoElement($this->home(), 'id', 'noticias');
     }
 
+    public function test_an_inactive_company_shows_no_news(): void
+    {
+        $this->headline(NewsSource::TAB_COLOMBIA, 'Titular de Colombia');
+        $this->company->forceFill(['is_active' => false])->save();
+
+        $this->assertNoElement($this->home(), 'id', 'noticias');
+    }
+
     /**
      * @param  array<string, mixed>  $source
      * @param  array<string, mixed>  $item
