@@ -2,6 +2,7 @@
 
 namespace App\View\Home;
 
+use App\Calendar\ColombianHolidays;
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
 use App\Models\Announcement;
@@ -10,9 +11,11 @@ use App\Models\Company;
 use App\Models\User;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * Builds the home screen of one user from App\Catalog\AppCatalog:
@@ -26,7 +29,9 @@ use Illuminate\Support\Str;
  * - up to three announcements for the user's company (one query);
  * - the «Soporte TI» link when a support URL is configured;
  * - the person's other accounts for «Cambiar de empresa» (no query when
- *   the account is not linked).
+ *   the account is not linked);
+ * - the next Colombian holidays for «Mi día» and the date line (computed,
+ *   no query), from today in `config('app.timezone')`.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents.
  * Runs a fixed number of queries whatever the size of the catalog.
@@ -37,12 +42,19 @@ final class HomePageBuilder
 
     public const ANNOUNCEMENT_LIMIT = 3;
 
+    /** Days off listed in «Próximas fechas» (two holidays on one day count once). */
+    public const UPCOMING_HOLIDAY_LIMIT = 5;
+
+    /** How far ahead «Próximas fechas» looks; with nothing in it, the next holiday is shown alone. */
+    public const UPCOMING_HOLIDAY_DAYS = 60;
+
     /** Roles offered the «Administración» link (each lands on its own section). */
     public const ADMIN_ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
 
     public function __construct(
         private readonly AppCatalog $catalog,
         private readonly PortalSettings $settings,
+        private readonly ColombianHolidays $holidays,
     ) {}
 
     public function build(User $user, ?string $query = null, ?CarbonInterface $now = null): HomePage
@@ -70,8 +82,10 @@ final class HomePageBuilder
             ->map(fn (App $app) => $cards[$app->id])
             ->all();
 
-        $greeting = Greeting::at($now ?? now());
+        $now ??= now();
+        $greeting = Greeting::at($now);
         $company = $user->company;
+        $upcoming = $this->upcomingHolidays($now);
 
         return new HomePage(
             salutation: $greeting->salutation,
@@ -93,6 +107,8 @@ final class HomePageBuilder
             supportHref: $this->settings->supportUrl() === null ? null : route('support'),
             switcher: AccountSwitcher::for($user),
             accountsHref: $user->is_emergency ? null : route('account.show'),
+            upcomingHolidays: $upcoming,
+            nextHoliday: $upcoming[0] ?? null,
         );
     }
 
@@ -170,6 +186,32 @@ final class HomePageBuilder
             ->get(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned'])
             ->map(fn (Announcement $announcement) => AnnouncementCard::from($announcement, now: $now))
             ->all();
+    }
+
+    /**
+     * Days off from today on, up to UPCOMING_HOLIDAY_LIMIT within
+     * UPCOMING_HOLIDAY_DAYS; with none in that window, just the next one.
+     *
+     * @return list<HolidayDay>
+     */
+    private function upcomingHolidays(CarbonInterface $now): array
+    {
+        $today = CarbonImmutable::instance($now)->setTimezone(config('app.timezone'))->startOfDay();
+
+        // Late in 9999 the horizon or the next holiday falls past the
+        // calendar's supported range (ColombianHolidays), and both throw.
+        try {
+            $found = $this->holidays->between($today, $today->addDays(self::UPCOMING_HOLIDAY_DAYS));
+
+            if ($found === []) {
+                $next = $this->holidays->nextOnOrAfter($today)->date;
+                $found = $this->holidays->between($next, $next);
+            }
+        } catch (InvalidArgumentException) {
+            return [];
+        }
+
+        return array_slice(HolidayDay::group($found, $today), 0, self::UPCOMING_HOLIDAY_LIMIT);
     }
 
     private static function initials(string $name): string

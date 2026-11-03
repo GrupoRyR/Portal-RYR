@@ -18,6 +18,8 @@ final readonly class HomePage
      * @param  string|null  $supportHref  «Soporte TI» link (`/soporte`); null hides the button.
      * @param  array{current: string, targets: list<array{id: int, label: string}>, menu: bool}|null  $switcher  «Cambiar de empresa» (App\View\Components\AccountSwitcher::for()); null hides it.
      * @param  string|null  $accountsHref  «Cuentas vinculadas» (`/cuenta`) in the account menu; null hides it (emergency accounts).
+     * @param  list<HolidayDay>  $upcomingHolidays  «Próximas fechas», from today: see HomePageBuilder::UPCOMING_HOLIDAY_LIMIT and UPCOMING_HOLIDAY_DAYS.
+     * @param  HolidayDay|null  $nextHoliday  Today's holiday or the next one, beside the date line.
      */
     public function __construct(
         public string $salutation,
@@ -39,7 +41,64 @@ final readonly class HomePage
         public ?string $supportHref = null,
         public ?array $switcher = null,
         public ?string $accountsHref = null,
+        public array $upcomingHolidays = [],
+        public ?HolidayDay $nextHoliday = null,
     ) {}
+
+    /**
+     * «Hoy es festivo: …» or «Próximo festivo: martes 8 de diciembre, Inmaculada Concepción».
+     */
+    public function holidayNotice(): ?string
+    {
+        if ($this->nextHoliday === null) {
+            return null;
+        }
+
+        return $this->nextHoliday->isToday
+            ? "Hoy es festivo: {$this->nextHoliday->label()}"
+            : "Próximo festivo: {$this->nextHoliday->longDate()}, {$this->nextHoliday->label()}";
+    }
+
+    /**
+     * The «Secciones» menu of phones: only sections the view renders and
+     * shows, as anchors (home.blade.php keeps the same conditions). Empty, so
+     * no menu, without apps: that page is short, and the menu would crowd
+     * the company name off the logo row.
+     *
+     * @return list<array{href: string, label: string}>
+     */
+    public function sections(): array
+    {
+        if (! $this->hasApps()) {
+            return [];
+        }
+
+        $sections = [['href' => '#contenido', 'label' => 'Inicio']];
+
+        // A search hides Favoritos without matches (home.blade.php).
+        if (! $this->isSearching() || $this->favorites !== []) {
+            $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
+        }
+
+        if ($this->recents !== []) {
+            $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
+        }
+
+        // Empty categories are hidden; a search drops those without matches.
+        if (array_filter($this->categories, fn (CategoryGroup $group) => ! $group->isEmpty()) !== []) {
+            $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+        }
+
+        if ($this->upcomingHolidays !== []) {
+            $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
+        }
+
+        if ($this->quickLinks !== []) {
+            $sections[] = ['href' => '#m365', 'label' => 'Microsoft 365'];
+        }
+
+        return $sections;
+    }
 
     /**
      * The announcement of the phone and tablet banner.

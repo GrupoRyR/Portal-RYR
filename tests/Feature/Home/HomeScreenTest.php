@@ -264,7 +264,7 @@ class HomeScreenTest extends TestCase
 
     public function test_the_favorite_star_works_without_javascript(): void
     {
-        $app = $this->openableApp(['slug' => 'cartera']);
+        $app = $this->openableApp(['slug' => 'cartera', 'name' => 'Cartera']);
         $this->user->favoriteApps()->attach($app);
 
         $this->home('?q=a')
