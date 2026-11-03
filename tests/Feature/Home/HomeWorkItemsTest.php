@@ -143,6 +143,17 @@ class HomeWorkItemsTest extends TestCase
         $this->assertStringNotContainsString('<form', $approvalRow);
     }
 
+    public function test_an_item_whose_url_is_not_http_shows_without_a_view_link(): void
+    {
+        $task = $this->item(['title' => 'Enlace raro', 'url' => 'javascript:alert(1)']);
+
+        $row = $this->element($this->home(), 'data-work-item', (string) $task->id);
+
+        $this->assertStringContainsString('Enlace raro', $row);
+        $this->assertStringNotContainsString('Ver tarea', $row);
+        $this->assertStringNotContainsString('javascript:', $row);
+    }
+
     public function test_a_completable_task_offers_completar_as_a_post_with_csrf_and_a_confirmation(): void
     {
         $task = $this->item(['title' => 'Enviar el acta de HSE']);

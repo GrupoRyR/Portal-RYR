@@ -106,6 +106,17 @@ class HomeCatalogAndPanelTest extends TestCase
         $this->assertStringNotContainsString('href=', $withoutPhoto);
     }
 
+    public function test_a_product_whose_link_is_not_http_shows_without_a_link(): void
+    {
+        $product = $this->product($this->category('Línea smart', 1), 'Enlace raro', ['link_url' => 'javascript:alert(1)']);
+
+        $card = $this->element($this->home(), 'data-product', (string) $product->id);
+
+        $this->assertStringContainsString('Enlace raro', $card);
+        $this->assertStringNotContainsString('href=', $card);
+        $this->assertStringNotContainsString('javascript:', $card);
+    }
+
     public function test_the_category_in_the_address_filters_the_products_without_javascript(): void
     {
         $smart = $this->category('Línea smart', 1);

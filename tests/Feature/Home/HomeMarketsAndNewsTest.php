@@ -119,6 +119,16 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertStringContainsString('rel="noopener noreferrer"', $news);
     }
 
+    public function test_a_headline_whose_link_is_not_http_shows_without_a_link(): void
+    {
+        $this->headline(NewsSource::TAB_COLOMBIA, 'Titular raro', [], ['link' => 'javascript:alert(1)']);
+
+        $news = $this->element($this->home(), 'id', 'noticias');
+
+        $this->assertStringContainsString('Titular raro', $news);
+        $this->assertStringNotContainsString('javascript:', $news);
+    }
+
     public function test_only_tabs_with_headlines_show_and_the_first_one_is_selected(): void
     {
         $this->headline(NewsSource::TAB_INTERNATIONAL, 'Titular internacional');

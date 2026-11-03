@@ -25,7 +25,6 @@ final readonly class ProductCard
     public static function from(Product $product, ProductCategory $category): self
     {
         $summary = trim((string) $product->summary);
-        $link = trim((string) $product->link_url);
 
         return new self(
             (int) $product->id,
@@ -34,7 +33,7 @@ final readonly class ProductCard
             (string) $product->name,
             $summary === '' ? null : $summary,
             $product->photoUrl(),
-            $link === '' ? null : $link,
+            WebLink::href($product->link_url),
         );
     }
 }

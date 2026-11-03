@@ -19,7 +19,11 @@
             <ul class="flex flex-col divide-y divide-line">
                 @foreach ($tab->headlines as $headline)
                     <li class="flex flex-col gap-0.5 py-3">
-                        <a href="{{ $headline->link }}" target="_blank" rel="noopener noreferrer" class="text-[0.9375rem] leading-snug font-semibold break-words underline-offset-4 hover:underline">{{ $headline->title }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
+                        @if ($href = \App\View\Home\WebLink::href($headline->link))
+                            <a href="{{ $href }}" target="_blank" rel="noopener noreferrer" class="text-[0.9375rem] leading-snug font-semibold break-words underline-offset-4 hover:underline">{{ $headline->title }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
+                        @else
+                            <p class="text-[0.9375rem] leading-snug font-semibold break-words">{{ $headline->title }}</p>
+                        @endif
                         <p class="text-xs text-fg-muted">{{ $headline->source }} · <time datetime="{{ $headline->publishedAt->toIso8601String() }}">{{ \App\View\Home\NewsTab::dateOf($headline) }}</time></p>
                     </li>
                 @endforeach

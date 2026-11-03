@@ -45,7 +45,7 @@ final readonly class WorkRow
             isApproval: $item->kind === WorkItem::KIND_APPROVAL,
             title: (string) $item->title,
             appName: $item->integration?->app?->name,
-            url: $item->url === null || $item->url === '' ? null : (string) $item->url,
+            url: WebLink::href($item->url),
             dueIso: $due?->toIso8601String(),
             dueLabel: $dueLabel,
             overdue: $overdue,
