@@ -11,7 +11,8 @@ use Illuminate\Http\Request;
 
 /**
  * «Ver todos»: every announcement the user may see right now, pinned
- * first, Announcement::PER_PAGE per page. Plain HTML, no Livewire. The
+ * first, Announcement::PER_PAGE per page, with the user's read state of
+ * mandatory ones («Confirmar lectura»). Plain HTML, no Livewire. The
  * phone banner links to one of them with #a-{id}; the «Ctrl K» search
  * links to show(), which finds its page.
  */
@@ -20,9 +21,11 @@ class AnnouncementController extends Controller
     public function index(Request $request): View
     {
         $announcements = Announcement::query()
+            ->select(['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned', 'requires_read'])
+            ->withReadAtFor($request->user())
             ->visibleTo($request->user())
             ->ordered()
-            ->paginate(Announcement::PER_PAGE, ['id', 'title', 'body', 'image_path', 'starts_at', 'is_pinned']);
+            ->paginate(Announcement::PER_PAGE);
 
         return view('announcements.index', [
             'announcements' => $announcements,

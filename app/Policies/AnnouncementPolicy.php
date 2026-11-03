@@ -9,7 +9,8 @@ use App\Models\User;
  * Super and portal admins manage every announcement. Announcements editors
  * (assigned by hand) write only for their own company: the audience must be
  * exactly that company, never «Todas las empresas» nor another company.
- * Nobody deletes an announcement: it is withdrawn instead.
+ * Nobody deletes an announcement: it is withdrawn instead. Whoever may
+ * edit one also sees who read it, when it is mandatory (`viewReads`).
  */
 class AnnouncementPolicy
 {
@@ -36,6 +37,15 @@ class AnnouncementPolicy
         return self::isCompanyEditor($user)
             && $announcement->audience === Announcement::AUDIENCE_COMPANIES
             && $announcement->companies()->pluck('companies.id')->map(fn ($id) => (int) $id)->all() === [(int) $user->company_id];
+    }
+
+    /**
+     * Who read a mandatory announcement and who is missing: the same
+     * people who may edit it.
+     */
+    public function viewReads(User $user, Announcement $announcement): bool
+    {
+        return $this->update($user, $announcement);
     }
 
     public function delete(User $user, Announcement $announcement): bool

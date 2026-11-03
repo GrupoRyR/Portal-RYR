@@ -76,6 +76,12 @@ class AppServiceProvider extends ServiceProvider
                 : Limit::perMinute(30)->by('ip:'.$request->ip());
         });
 
+        // «Confirmar lectura» (announcements.read): 30 a minute per account,
+        // in a bucket of its own. `throttle:N,1` keys every route by the
+        // account alone, so they would share one counter with it.
+        RateLimiter::for('announcement-read', fn (Request $request) => Limit::perMinute(30)
+            ->by('announcement-read:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
         // Idle timeout of Configuración, applied before the session starts.
         Event::listen(RouteMatched::class, ApplySessionLifetime::class);
 

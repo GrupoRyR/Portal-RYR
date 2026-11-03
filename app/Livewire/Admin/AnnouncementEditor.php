@@ -15,6 +15,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -24,7 +25,11 @@ use Throwable;
 /**
  * Creates or edits one announcement (brief §4 «Anuncios»,
  * docs/diseno/AdminAnnouncementEdit.dc.html): content, audience, window,
- * pin, and a live preview built from the same partials as the home screen.
+ * pin, mandatory reading, and a live preview built from the same partials
+ * as the home screen. A saved mandatory announcement also shows «X de Y
+ * cuentas lo leyeron» and the accounts that are missing: counted once and
+ * kept for READ_REPORT_SECONDS (typing in the form does not recount), while
+ * who may see it (`viewReads`) is re-checked on every render.
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -35,6 +40,9 @@ class AnnouncementEditor extends Component
     use WithFileUploads;
 
     public const DATETIME_FORMAT = 'Y-m-d\TH:i';
+
+    /** How long the open editor keeps «X de Y» before counting again. */
+    public const READ_REPORT_SECONDS = 60;
 
     #[Locked]
     public ?Announcement $announcement = null;
@@ -53,6 +61,9 @@ class AnnouncementEditor extends Component
     public string $endsAt = '';
 
     public bool $isPinned = false;
+
+    /** «Lectura obligatoria»: each person who sees it confirms reading it. */
+    public bool $requiresRead = false;
 
     public ?TemporaryUploadedFile $image = null;
 
@@ -83,6 +94,7 @@ class AnnouncementEditor extends Component
         $this->startsAt = $announcement->starts_at->format(self::DATETIME_FORMAT);
         $this->endsAt = (string) $announcement->ends_at?->format(self::DATETIME_FORMAT);
         $this->isPinned = $announcement->is_pinned;
+        $this->requiresRead = $announcement->requires_read;
     }
 
     public function updatedImage(): void
@@ -123,6 +135,7 @@ class AnnouncementEditor extends Component
             'starts_at' => self::parse($this->startsAt),
             'ends_at' => $this->endsAt === '' ? null : self::parse($this->endsAt),
             'is_pinned' => $this->isPinned,
+            'requires_read' => $this->requiresRead,
         ];
 
         if ($creating) {
@@ -170,6 +183,7 @@ class AnnouncementEditor extends Component
             'title' => trim($this->title) !== '' ? $this->title : 'Título del anuncio',
             'body' => trim($this->body) !== '' ? $this->body : 'El texto del anuncio aparece aquí.',
             'is_pinned' => $this->isPinned,
+            'requires_read' => $this->requiresRead,
             'image_path' => $this->removeImage ? null : $this->announcement?->image_path,
         ]);
         $preview->starts_at = $this->parsedStart() ?? Carbon::now();
@@ -193,6 +207,7 @@ class AnnouncementEditor extends Component
             'startsAt' => ['required', 'date_format:'.self::DATETIME_FORMAT],
             'endsAt' => ['nullable', 'date_format:'.self::DATETIME_FORMAT, 'after:startsAt'],
             'isPinned' => ['boolean'],
+            'requiresRead' => ['boolean'],
             'image' => [
                 'nullable', 'file',
                 'max:'.AnnouncementImageStore::MAX_KILOBYTES,
@@ -239,7 +254,33 @@ class AnnouncementEditor extends Component
             'preview' => $this->previewCard(),
             'currentImageUrl' => $this->removeImage ? null : $this->announcement?->imageUrl(),
             'newImageUrl' => $this->newImageUrl(),
+            'reads' => $this->mayViewReads() ? $this->readReport : null,
         ]);
+    }
+
+    /**
+     * Which accounts read the saved announcement. Livewire keeps it per
+     * open editor for READ_REPORT_SECONDS, so the round-trips of typing in
+     * the form do not count again; reloading the page counts afresh.
+     * Only read after {@see mayViewReads()}.
+     *
+     * @return array{read: int, total: int, pending: list<array{name: string, company: string}>}
+     */
+    #[Computed(persist: true, seconds: self::READ_REPORT_SECONDS)]
+    public function readReport(): array
+    {
+        return [...$this->announcement->readCounts(), 'pending' => $this->announcement->pendingReaders()];
+    }
+
+    /**
+     * A saved mandatory announcement the user may still see the reads of,
+     * checked on every render (the role can go away while the page is open).
+     */
+    private function mayViewReads(): bool
+    {
+        return $this->announcement !== null
+            && $this->announcement->requires_read
+            && $this->user()->can('viewReads', $this->announcement);
     }
 
     /**

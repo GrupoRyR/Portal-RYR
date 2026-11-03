@@ -44,6 +44,12 @@ class AnnouncementFactory extends Factory
         return $this->state(fn () => ['is_pinned' => true]);
     }
 
+    /** Each person who sees it confirms they read it. */
+    public function mandatory(): static
+    {
+        return $this->state(fn () => ['requires_read' => true]);
+    }
+
     public function scheduled(): static
     {
         return $this->state(fn () => ['starts_at' => now()->addDay(), 'ends_at' => null]);

@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Spatie\Activitylog\LogOptions;
@@ -21,6 +23,13 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * An announcement on the home screen (brief §4 «Anuncios»): plain text,
  * an optional 16:9 WebP image, for every company or for chosen ones, shown
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
+ *
+ * A mandatory one (`requires_read`) asks each account that sees it to
+ * confirm it was read ({@see markReadBy()}); editors see which accounts did
+ * ({@see readCounts()}, {@see pendingReaders()}). Per account, never per
+ * person: `users.person_id` decides nothing outside App\Auth\LinkedAccounts
+ * (tests/Unit/Auth/PersonNeverAuthorizesTest.php), so someone with accounts
+ * in two companies confirms once with each.
  *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
@@ -32,6 +41,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'starts_at',
     'ends_at',
     'is_pinned',
+    'requires_read',
     'author_id',
 ])]
 class Announcement extends Model
@@ -50,6 +60,9 @@ class Announcement extends Model
     public const TITLE_MAX = 120;
 
     public const BODY_MAX = 280;
+
+    /** Accounts in the «Cuentas que faltan» list of the admin editor. */
+    public const PENDING_READERS_LIMIT = 200;
 
     /**
      * Announcements per page of /anuncios (App\Http\Controllers\AnnouncementController),
@@ -85,6 +98,7 @@ class Announcement extends Model
     protected $attributes = [
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
+        'requires_read' => false,
     ];
 
     protected function casts(): array
@@ -94,6 +108,7 @@ class Announcement extends Model
             'ends_at' => 'datetime',
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
+            'requires_read' => 'boolean',
         ];
     }
 
@@ -138,6 +153,96 @@ class Announcement extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    /**
+     * @return HasMany<AnnouncementRead, $this>
+     */
+    public function reads(): HasMany
+    {
+        return $this->hasMany(AnnouncementRead::class);
+    }
+
+    /**
+     * Records that the user read it, once: a second call keeps the first
+     * date. Whether the user may see it is the caller's job.
+     */
+    public function markReadBy(User $user): AnnouncementRead
+    {
+        return AnnouncementRead::query()->createOrFirst(
+            ['announcement_id' => $this->id, 'user_id' => $user->id],
+            ['read_at' => now()],
+        );
+    }
+
+    /**
+     * The accounts expected to read it: those of its companies (every
+     * company when it is for all) that are active, without emergency or
+     * guest accounts. Only people who already signed in have an account.
+     *
+     * By the account's company now: an account that moves to another
+     * company leaves X and Y of an announcement only for the old one (its
+     * read is kept and counts again if it comes back).
+     *
+     * `is_guest = null` (the account has not signed in since the flag was
+     * added, so it is not known yet) counts: leaving it out could hide a
+     * member who must read it, while a guest counted by mistake only shows
+     * up as one more pending account until its next sign-in sets the flag.
+     *
+     * @return Builder<User>
+     */
+    public function audience(): Builder
+    {
+        $companies = Company::query()
+            ->where('is_active', true)
+            ->when(! $this->isForAllCompanies(), fn (Builder $query) => $query->whereIn(
+                'id',
+                DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'),
+            ))
+            ->select('id');
+
+        return User::query()
+            ->where('is_emergency', false)
+            ->where(fn (Builder $query) => $query->whereNull('is_guest')->orWhere('is_guest', false))
+            ->whereIn('company_id', $companies);
+    }
+
+    /**
+     * «X de Y cuentas lo leyeron»: reads by accounts of the audience
+     * only, so a read left from an earlier audience does not count.
+     *
+     * @return array{read: int, total: int}
+     */
+    public function readCounts(): array
+    {
+        return [
+            'read' => $this->audience()->whereIn('id', $this->reads()->select('user_id'))->count(),
+            'total' => $this->audience()->count(),
+        ];
+    }
+
+    /**
+     * Accounts of the audience that have not confirmed yet, alphabetical,
+     * at most PENDING_READERS_LIMIT: the name and the short name of the
+     * account's company (one person may have an account in each company).
+     *
+     * @return list<array{name: string, company: string}>
+     */
+    public function pendingReaders(): array
+    {
+        return $this->audience()
+            ->whereNotIn('id', $this->reads()->select('user_id'))
+            ->with('company:id,short_name')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->limit(self::PENDING_READERS_LIMIT)
+            ->get(['id', 'name', 'company_id'])
+            ->map(fn (User $user) => [
+                'name' => (string) $user->name,
+                'company' => (string) $user->company?->short_name,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -282,6 +387,23 @@ class Announcement extends Model
         $query->where('audience', self::AUDIENCE_COMPANIES)
             ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
             ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
+    }
+
+    /**
+     * Adds `viewer_read_at`: when the user confirmed reading each
+     * announcement, or null. A subquery, so it costs no extra query.
+     * Select the announcement columns before calling it.
+     *
+     * @param  Builder<Announcement>  $query
+     */
+    public function scopeWithReadAtFor(Builder $query, User $user): void
+    {
+        $query->addSelect(['viewer_read_at' => AnnouncementRead::query()
+            ->select('read_at')
+            ->whereColumn('announcement_reads.announcement_id', 'announcements.id')
+            ->where('announcement_reads.user_id', $user->id)
+            ->limit(1),
+        ])->withCasts(['viewer_read_at' => 'datetime']);
     }
 
     /**
