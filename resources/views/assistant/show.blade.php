@@ -71,11 +71,11 @@
                     <ol role="list" class="flex flex-col gap-4">
                         @foreach ($turns as $index => $turn)
                             <li class="flex flex-col gap-3">
-                                <div class="flex flex-col gap-1 self-end rounded-card bg-brand-tint px-4 py-3 text-brand-ink md:max-w-[85%]">
+                                <div class="flex flex-col gap-1 self-end rounded-card bg-brand-tint px-4 py-3 text-brand-ink max-w-[592px]">
                                     <span class="text-xs font-semibold">Tú</span>
                                     <p class="text-[0.9375rem] break-words whitespace-pre-line">{{ $turn['question'] }}</p>
                                 </div>
-                                <div @if ($index === $last) id="respuesta" tabindex="-1" @endif class="flex scroll-mt-6 flex-col gap-1 rounded-card border border-line bg-surface px-4 py-3 md:max-w-[85%]">
+                                <div @if ($index === $last) id="respuesta" tabindex="-1" @endif class="flex scroll-mt-6 flex-col gap-1 rounded-card border border-line bg-surface px-4 py-3 max-w-[592px]">
                                     <span class="text-xs font-semibold text-fg-muted">Asistente</span>
                                     <p class="text-[0.9375rem] leading-relaxed break-words">{{ AnswerText::html($turn['answer']) }}</p>
                                 </div>
