@@ -355,6 +355,10 @@
                 </section>
             @endif
 
+            @if ($page->itStatus)
+                <x-home.it-status :status="$page->itStatus" />
+            @endif
+
             @if ($page->quickLinks !== [])
                 <section aria-labelledby="m365" class="flex flex-col gap-3.5 p-5">
                     <h2 id="m365" class="scroll-mt-6 font-sans text-base font-bold tracking-normal text-brand-text">Microsoft 365</h2>

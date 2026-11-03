@@ -6,6 +6,7 @@ use App\Auth\MicrosoftLogin;
 use App\Calendar\ColombianHolidays;
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
+use App\ItStatus\ItStatusBoard;
 use App\Management\ManagementPanel;
 use App\Markets\MarketBoard;
 use App\Models\Announcement;
@@ -59,7 +60,9 @@ use InvalidArgumentException;
  * - the «Panel gerencial» for a «Gerencia» account of the same company
  *   (App\Management\ManagementPanel: two queries for them, none for others);
  * - «Tareas pendientes»: the account's own approvals and tasks
- *   (App\View\Home\WorkList, four queries).
+ *   (App\View\Home\WorkList, four queries);
+ * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
+ *   one query: it reuses the visible apps).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -94,6 +97,7 @@ final class HomePageBuilder
         private readonly NewsBoard $news,
         private readonly ProductBoard $products,
         private readonly ManagementPanel $management,
+        private readonly ItStatusBoard $itStatus,
     ) {}
 
     /**
@@ -143,6 +147,9 @@ final class HomePageBuilder
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
+        // The apps already read above: one query of its own (the services).
+        $itStatus = $this->itStatus->for($user, $visible);
+
         return new HomePage(
             salutation: $greeting->salutation,
             firstName: Greeting::firstName($user->name),
@@ -189,6 +196,7 @@ final class HomePageBuilder
             catalog: $search->isActive() || $company === null ? null : ProductShelf::fromBoard($this->products->forCompany($company), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
             work: WorkList::for($user, CarbonImmutable::instance($now)),
+            itStatus: $itStatus->available ? $itStatus : null,
         );
     }
 

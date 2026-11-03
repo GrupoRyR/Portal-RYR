@@ -102,7 +102,7 @@ class HomeMyDayTest extends TestCase
     public function test_the_sections_menu_links_only_to_sections_on_the_page(): void
     {
         $this->openableApp();
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
     }
 
     public function test_there_is_no_sections_menu_without_apps(): void
@@ -122,11 +122,11 @@ class HomeMyDayTest extends TestCase
         $this->openableApp(['name' => 'Cartera', 'description' => 'Cuentas por cobrar']);
 
         // No match at all: neither Favoritos nor Aplicaciones are on screen.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=zzzz'), ['#contenido', '#fechas', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=zzzz'), ['#contenido', '#fechas', '#estado-ti', '#m365']);
         // Only a category matches.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=cartera'), ['#contenido', '#aplicaciones', '#fechas', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=cartera'), ['#contenido', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
         // Only a favorite matches.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=nomina'), ['#contenido', '#favoritos', '#fechas', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=nomina'), ['#contenido', '#favoritos', '#fechas', '#estado-ti', '#m365']);
     }
 
     public function test_holiday_dates_are_marked_for_the_saved_copy(): void
@@ -167,7 +167,7 @@ class HomeMyDayTest extends TestCase
             'launched_at' => now()->subMinutes(5),
         ]);
 
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#recientes', '#aplicaciones', '#fechas', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#recientes', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
     }
 
     public function test_the_sections_menu_lists_birthdays_and_anniversaries_when_there_are_some(): void
@@ -175,7 +175,7 @@ class HomeMyDayTest extends TestCase
         $this->openableApp();
         DirectoryEntry::factory()->forCompany($this->company)->create(['hire_date' => now('America/Bogota')->subYears(3)->toDateString()]);
 
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#celebraciones', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#celebraciones', '#estado-ti', '#m365']);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\View\Home;
 
+use App\ItStatus\ItStatus;
 use App\Search\HomeSearchIndex;
 
 /**
@@ -34,6 +35,7 @@ final readonly class HomePage
      * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
      * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
      * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
+     * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
      */
     public function __construct(
         public string $salutation,
@@ -69,6 +71,7 @@ final readonly class HomePage
         public ?ProductShelf $catalog = null,
         public ?ManagementCard $management = null,
         public ?WorkList $work = null,
+        public ?ItStatus $itStatus = null,
     ) {}
 
     /**
@@ -137,6 +140,10 @@ final readonly class HomePage
 
         if ($this->celebrations !== []) {
             $sections[] = ['href' => '#celebraciones', 'label' => 'Cumpleaños'];
+        }
+
+        if ($this->itStatus !== null) {
+            $sections[] = ['href' => '#estado-ti', 'label' => 'Estado de TI'];
         }
 
         if ($this->quickLinks !== []) {
