@@ -132,8 +132,10 @@
 
     <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
-            {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController). --}}
-            @if (is_string($status = session('status')) && $status !== '')
+            {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController).
+                 «Completar»'s message goes in «Tareas pendientes» instead, where its redirect lands (#tareas). --}}
+            @php($completionStatus = \App\View\Home\WorkList::isCompletionMessage($status = session('status')) ? $status : null)
+            @if (is_string($status) && $status !== '' && $completionStatus === null)
                 <p role="status" data-flash class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">{{ $status }}</p>
             @endif
 
@@ -240,6 +242,10 @@
 
         {{-- «Mi día»: beside the apps on wide screens, after them on phones and tablets. --}}
         <aside id="mi-dia" aria-label="Mi día" class="flex min-w-0 flex-col divide-y divide-line rounded-card border border-line bg-surface lg:w-[340px] lg:shrink-0 xl:w-[360px]">
+            @if ($page->work || $completionStatus)
+                <x-home.work-list :work="$page->work" :status="$completionStatus" />
+            @endif
+
             @if ($page->upcomingDates !== [])
                 <section id="fechas" aria-labelledby="fechas-titulo" class="flex scroll-mt-6 flex-col gap-3.5 p-5">
                     <div class="flex items-center justify-between gap-3">

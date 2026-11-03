@@ -12,6 +12,7 @@
 // - Animated logos: ends the entrance, pops the star when it gets pressed.
 // - «Noticias» tabs and «Catálogos» filters in place (without it they are
 //   links to `?noticias=` and `?catalogo=`).
+// - «Completar»: one confirmation open at a time, sent once.
 // - Installable app: registers the service worker (/sw.js, see
 //   resources/js/sw.js), shows the offline notice and asks the worker to
 //   forget this user's saved page when signing out.
@@ -441,6 +442,48 @@ catalogFilters[0]?.closest('nav').addEventListener('click', (event) => {
     }
     for (const card of $$('[data-products] > [data-product]')) {
         card.hidden = category !== 'todas' && card.dataset.category !== category;
+    }
+});
+
+// «Completar» (Tareas pendientes): a <details> asks first, with or without
+// JavaScript. Here only one stays open, Escape closes it, and the form is
+// sent once: the app may take up to five seconds to answer.
+const completions = $$('[data-complete]');
+
+for (const confirmation of completions) {
+    confirmation.addEventListener('toggle', () => {
+        if (!confirmation.open) return;
+        completions.forEach((other) => other !== confirmation && (other.open = false));
+    });
+    confirmation.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !confirmation.open) return;
+        confirmation.open = false;
+        $('summary', confirmation).focus();
+    });
+}
+
+document.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-complete-form]');
+    if (!form) return;
+    if (form.dataset.busy) {
+        event.preventDefault();
+        return;
+    }
+
+    form.dataset.busy = '1';
+    const button = $('button[type="submit"]', form);
+    button.disabled = true;
+    button.textContent = 'Completando…';
+});
+
+// Back to this page from the history cache: the press is over.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    for (const form of $$('[data-complete-form][data-busy]')) {
+        delete form.dataset.busy;
+        const button = $('button[type="submit"]', form);
+        button.disabled = false;
+        button.textContent = 'Sí, completar';
     }
 });
 

@@ -57,7 +57,9 @@ use InvalidArgumentException;
  * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,
  *   two queries), the category of `?catalogo=` selected (none on a server search);
  * - the «Panel gerencial» for a «Gerencia» account of the same company
- *   (App\Management\ManagementPanel: two queries for them, none for others).
+ *   (App\Management\ManagementPanel: two queries for them, none for others);
+ * - «Tareas pendientes»: the account's own approvals and tasks
+ *   (App\View\Home\WorkList, four queries).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -186,6 +188,7 @@ final class HomePageBuilder
             news: $search->isActive() || $company === null ? [] : NewsTab::fromBoard($this->news->forCompany($company->id), $newsTab),
             catalog: $search->isActive() || $company === null ? null : ProductShelf::fromBoard($this->products->forCompany($company), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
+            work: WorkList::for($user, CarbonImmutable::instance($now)),
         );
     }
 

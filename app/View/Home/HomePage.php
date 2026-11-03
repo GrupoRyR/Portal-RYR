@@ -33,6 +33,7 @@ final readonly class HomePage
      * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
      * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
      * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
+     * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
      */
     public function __construct(
         public string $salutation,
@@ -67,6 +68,7 @@ final readonly class HomePage
         public array $news = [],
         public ?ProductShelf $catalog = null,
         public ?ManagementCard $management = null,
+        public ?WorkList $work = null,
     ) {}
 
     /**
@@ -123,6 +125,10 @@ final readonly class HomePage
 
         if ($this->catalog !== null) {
             $sections[] = ['href' => '#catalogos', 'label' => 'Catálogos'];
+        }
+
+        if ($this->work !== null) {
+            $sections[] = ['href' => '#tareas', 'label' => 'Tareas'];
         }
 
         if ($this->upcomingDates !== []) {
