@@ -38,7 +38,7 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
   - T1 y T2 (#61 a #65), fusionadas en `main` el 2026-10-29: confirmación reciente ligada a la cuenta, personas, vincular y desvincular automático.
   - T3 (#67, abierta): cambiar de empresa con un inicio de sesión de Microsoft con la cuenta de destino.
   - T4 (rama `feat/cuentas-vinculadas-4-interfaz`, sobre #67): selector en el encabezado, página `/cuenta`, desvincular, comando `portal:unlink-account` y manual (§8 de `docs/manual-administracion.md`).
-- **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR abiertas: #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`). Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.13). Falta C3b (tareas y aprobaciones), que espera a #74.
+- **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR abiertas: #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`). Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). Falta C3b (tareas y aprobaciones), que espera a #74.
 
 ## 3. Pendientes
 
