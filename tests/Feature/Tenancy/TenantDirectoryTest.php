@@ -273,4 +273,45 @@ class TenantDirectoryTest extends TestCase
 
         $this->assertTrue($primary->is($this->directory()->resolveCompany(self::SHARED_TENANT, 'ana@main.com')));
     }
+
+    /**
+     * The rule of resolveCompany() over companies already loaded, for the
+     * directory copy (App\Directory\DirectorySync): no query of its own.
+     */
+    public function test_company_among_applies_the_sign_in_rule_without_a_query(): void
+    {
+        $primary = Company::factory()->forTenant(self::SHARED_TENANT, ['main.com'])->create();
+        $secondary = Company::factory()->forTenant(self::SHARED_TENANT, ['second.com'], primary: false)->create();
+        $inactive = Company::factory()->inactive()->forTenant(self::SHARED_TENANT, ['third.com'], primary: false)->create();
+        $companies = Company::query()->where('tenant_id', self::SHARED_TENANT)->get();
+
+        $resolved = [];
+        $queries = $this->countQueries(function () use ($companies, &$resolved) {
+            $resolved = [
+                TenantDirectory::companyAmong($companies, 'ana@Second.com'),
+                TenantDirectory::companyAmong($companies, 'luis@main.com'),
+                TenantDirectory::companyAmong($companies, 'x@other.com'),
+                TenantDirectory::companyAmong($companies, null),
+                TenantDirectory::companyAmong($companies, 'x@third.com'),
+            ];
+        });
+
+        $this->assertSame(0, $queries);
+        $this->assertTrue($secondary->is($resolved[0]));
+        $this->assertTrue($primary->is($resolved[1]));
+        $this->assertTrue($primary->is($resolved[2]));
+        $this->assertTrue($primary->is($resolved[3]));
+        $this->assertNull($resolved[4]);
+        $this->assertTrue($inactive->exists);
+    }
+
+    public function test_company_among_gives_a_single_company_tenant_its_company_only_when_active(): void
+    {
+        $only = Company::factory()->forTenant('11111111-1111-1111-1111-111111111111', ['segurex.com'])->create();
+        $off = Company::factory()->inactive()->forTenant('22222222-2222-2222-2222-222222222222')->create();
+
+        $this->assertTrue($only->is(TenantDirectory::companyAmong(collect([$only]), 'guest@derivadoscol.com')));
+        $this->assertNull(TenantDirectory::companyAmong(collect([$off]), 'x@'.$off->domains[0]));
+        $this->assertNull(TenantDirectory::companyAmong(collect(), 'x@segurex.com'));
+    }
 }

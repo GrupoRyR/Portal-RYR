@@ -80,4 +80,17 @@ class UserFactory extends Factory
             ];
         });
     }
+
+    /**
+     * A birthday («Mi cumpleaños» on /cuenta), shown to the company unless
+     * $shown is false.
+     */
+    public function birthday(int $month, int $day, bool $shown = true): static
+    {
+        return $this->state(fn () => [
+            'birthday_month' => $month,
+            'birthday_day' => $day,
+            'show_birthday' => $shown,
+        ]);
+    }
 }

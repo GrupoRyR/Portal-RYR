@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
@@ -27,6 +28,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'tenant_id',
     'is_primary_for_tenant',
     'domains',
+    'all_staff_email',
+    'mail_sender',
+    'weekly_digest_enabled',
     'logo_light_path',
     'logo_dark_path',
     'icon_path',
@@ -126,6 +130,7 @@ class Company extends Model
     protected $attributes = [
         'is_primary_for_tenant' => true,
         'is_active' => true,
+        'weekly_digest_enabled' => false,
     ];
 
     /**
@@ -140,6 +145,7 @@ class Company extends Model
             'quick_links' => 'array',
             'is_primary_for_tenant' => 'boolean',
             'is_active' => 'boolean',
+            'weekly_digest_enabled' => 'boolean',
             'consent_verified_at' => 'datetime',
         ];
     }
@@ -172,6 +178,46 @@ class Company extends Model
     }
 
     /**
+     * The all-staff list (e.g. todos@segurex.com) that announcements may be
+     * emailed to (App\Announcements\AnnouncementListEmails). Lowercase,
+     * null when empty.
+     */
+    protected function allStaffEmail(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => self::normalizeEmail($value));
+    }
+
+    /**
+     * The mailbox of the company's own tenant those emails go out from:
+     * Exchange lists accept internal senders only.
+     */
+    protected function mailSender(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => self::normalizeEmail($value));
+    }
+
+    private static function normalizeEmail(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * Whether announcements can be emailed to its list: active, with both
+     * addresses, and both at one of its own domains (checked again at send
+     * time, whatever was stored).
+     */
+    public function canReceiveListEmail(): bool
+    {
+        return $this->is_active
+            && $this->all_staff_email !== null
+            && $this->mail_sender !== null
+            && $this->ownsEmailDomain($this->all_staff_email)
+            && $this->ownsEmailDomain($this->mail_sender);
+    }
+
+    /**
      * Catalog apps that apply to this company (`app_companies`).
      *
      * @return BelongsToMany<App, $this>
@@ -182,6 +228,17 @@ class Company extends Model
     }
 
     /**
+     * Its Monday digests (`weekly_digest_enabled`, App\Digest\WeeklyDigests),
+     * one per week.
+     *
+     * @return HasMany<WeeklyDigest, $this>
+     */
+    public function weeklyDigests(): HasMany
+    {
+        return $this->hasMany(WeeklyDigest::class);
+    }
+
+    /**
      * Scope a query to companies whose users may sign in.
      *
      * @param  Builder<Company>  $query
@@ -189,6 +246,19 @@ class Company extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * Scope a query to active companies with an all-staff list and a sender
+     * mailbox (the domains are checked in PHP, {@see canReceiveListEmail()}).
+     *
+     * @param  Builder<Company>  $query
+     */
+    public function scopeWithListEmail(Builder $query): void
+    {
+        $query->where('companies.is_active', true)
+            ->whereNotNull('companies.all_staff_email')
+            ->whereNotNull('companies.mail_sender');
     }
 
     /**

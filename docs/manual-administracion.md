@@ -1,6 +1,6 @@
 # Manual de administración — Portal RYR
 
-Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes y la lista de pruebas en celulares y tablets antes de publicar cambios.
+Este manual explica cómo administrar el Portal RYR: cada pantalla de **Administración**, la cuenta de emergencia, las tareas más frecuentes, la lista de pruebas en celulares y tablets antes de publicar cambios y las cuentas vinculadas de las personas que trabajan en varias empresas (§8).
 
 - **Dirección:** https://apps.segurexlatam.net
 - **Para instalar o publicar el portal** en el servidor, vea `docs/despliegue.md`.
@@ -25,9 +25,9 @@ Los roles no se reparten a mano, salvo el de editor de anuncios:
 
 | Rol | Quién lo recibe | Qué puede hacer |
 |---|---|---|
-| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, roles, auditoría, informe de uso, integraciones y configuración. |
-| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
-| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, y solo para su propia empresa. |
+| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, eventos, roles, auditoría, informe de uso, integraciones y configuración. |
+| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, eventos, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
+| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios** y **Eventos**, y solo para su propia empresa. |
 
 Un grupo con el nombre `APP-PortalAdmin` en otra empresa, o en un Team, no da ningún rol. Si `PORTAL_ADMIN_GROUP_ID` o `PORTAL_ADMIN_TENANT_ID` no están configurados, nadie es administrador del portal. Solo hay un grupo de administradores, el de Segurex: las empresas no tienen grupo propio.
 
@@ -67,6 +67,13 @@ Cada empresa del grupo entra con su propia organización de Microsoft (inquilino
 - **Datos de la empresa:** nombre, nombre corto (se usa en el ícono del celular) y el interruptor de empresa activa. Una empresa inactiva no deja entrar a sus usuarios; no se borra nada. Al desactivar, el portal pide confirmar. No puede desactivar la empresa con la que usted inició sesión.
 - **Microsoft 365:** el ID de inquilino y si el consentimiento está verificado. **Cambiar la organización de Microsoft** pide confirmar con Microsoft, el nuevo ID de inquilino y escribir el nombre corto como confirmación. Los usuarios del inquilino actual pierden el acceso de inmediato; la empresa queda inactiva y vuelve al asistente (consentimiento y activación).
 - **Dominios de correo:** los dominios de la empresa (por ejemplo `segurex.com`). Un dominio solo puede pertenecer a una empresa. Si dos empresas comparten inquilino, el dominio del correo decide a cuál entra cada persona.
+- **Lista de todo el personal** y **Buzón remitente** (en la sección Microsoft 365, opcionales): la lista de Exchange en la que están todas las personas de la empresa (por ejemplo `todos@segurex.com`) y el buzón desde el que el portal le envía los anuncios (por ejemplo `segurex.info@segurex.com`). Van los dos o ninguno, y los dos deben ser de uno de los **Dominios de correo** de la empresa (un subdominio no cuenta): así una empresa nunca envía desde ni hacia el dominio de otra. Sin ellos, los anuncios de esa empresa no se envían por correo. El buzón necesita el permiso de envío de Exchange en el inquilino de la empresa (`docs/despliegue.md`, sección 1.13). El cambio queda en Auditoría como los demás campos.
+- **Resumen de los lunes** (interruptor debajo de la lista, apagado por defecto): cada lunes por la mañana (hora de Bogotá) el portal envía a la **Lista de todo el personal**, desde el **Buzón remitente** y con Microsoft Graph, un correo con lo de la semana. Necesita los dos datos de arriba; sin ellos, o con la empresa inactiva, no sale nada. El cambio queda en Auditoría («Resumen de los lunes»).
+  - **Qué lleva**, solo lo que cualquier persona de la empresa ve en el portal (va a una lista de todo el personal): los anuncios publicados desde el resumen de la semana anterior (si no hubo, desde las 7:00 del lunes anterior), así ninguno sale en dos resúmenes ni se pierde aunque uno salga tarde, y los de lectura obligatoria que siguen vigentes (título, fecha y enlace al anuncio; nunca el texto), las fechas de la semana de lunes a domingo (festivos, con «Puente festivo» si caen lunes o viernes, eventos y fechas de cada año de la empresa), los cumpleaños de la semana (solo de quienes eligieron mostrarlo, con día y mes, nunca el año) y los aniversarios de trabajo (día y años cumplidos, nunca la fecha de ingreso), y el botón «Abrir el portal». Un anuncio o evento dirigido solo a otras empresas no aparece.
+  - **Cuándo**: el cron lo intenta cada hora de 7:00 a 12:00 del lunes. La primera vuelta lo envía; las siguientes solo envían a las empresas que aún no tienen el de esa semana (por ejemplo, si encendió el interruptor a las 9:00, sale a las 10:00). Después de la vuelta de las 12:00 ya no sale el de esa semana.
+  - **Una vez por semana**: cada empresa lo recibe como máximo una vez por semana. Si la semana no tiene nada que contar, no se envía.
+  - **Último resumen**, debajo del interruptor: «Enviado el …», «Sin contenido» (la semana no tenía nada y no se envió), «Enviando…», «Interrumpido: …» (el envío se cortó y no se sabe si salió: revise la lista), «No se pudo enviar (código)» con la misma pista en español de los correos de anuncios (sección 2.4; por ejemplo `ErrorAccessDenied` es el permiso de Exchange del buzón) o «Aún no se ha enviado.».
+  - **No hay reenvío manual**: un resumen que falló o se interrumpió no se vuelve a enviar; el siguiente sale el próximo lunes. Corrija la causa (permiso, lista o buzón) antes de ese lunes.
 - **Enlaces rápidos:** hasta 8 enlaces `https://` que aparecen en la sección «Microsoft 365» del inicio (por ejemplo SharePoint). Un enlace con el mismo nombre que uno predeterminado (Outlook, Teams, OneDrive) reemplaza su dirección.
 - **Marca:** logo claro, logo oscuro (PNG, WebP o SVG de hasta 1 MB), ícono (PNG de exactamente 512 × 512 px) y los tres colores (`#RRGGBB`). Si el color principal no tiene buen contraste con texto blanco, el portal avisa y usa un tono más oscuro para los botones. La **Vista previa** muestra el resultado en claro, oscuro y celular antes de guardar.
 - **Logos:** el **Logo oscuro** se ve sobre la franja oscura de la marca (en Segurex, el logo blanco). El **Logo claro** se ve sobre una pastilla blanca. Si el archivo falta, el portal escribe el nombre de la empresa en su lugar.
@@ -129,30 +136,85 @@ Se muestran en el inicio entre su fecha de inicio y de fin: en el computador, en
 
 - **Contenido:** título, texto (solo texto, hasta 280 caracteres; los saltos de línea se respetan) e imagen opcional (PNG, JPG o WebP de hasta 2 MB; se recorta a 16:9).
 - **Publicación:** **Para quién** (todas las empresas o algunas), **Desde** y **Hasta** (sin fecha de fin, se muestra hasta que lo retire) y **Fijar arriba** (se muestra primero y destacado con el color de la empresa).
+- **Lectura obligatoria:** cada persona que ve el anuncio debe pulsar **Confirmar lectura** (en el inicio y en la página de anuncios); después ve «Leído el …». Quien tiene cuentas vinculadas confirma una sola vez, con cualquiera de ellas. Se puede marcar al crear o al editar, y el cambio queda en Auditoría.
 - **Vista previa:** cómo se verá en escritorio y en celular.
 - **Retirar** lo quita del inicio sin borrarlo; **Volver a publicar** lo devuelve.
 
 Un editor de anuncios solo publica para su propia empresa. Los anuncios no se borran.
 
-### 2.5 Roles
+**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y personas lo leyeron» y, en **Personas que faltan**, las personas que no lo han confirmado, con el nombre y sus empresas (hasta 200, en orden alfabético; si faltan más, «Y N más»). Solo la ve quien puede editar ese anuncio. Las cifras se cuentan al abrir la página y se actualizan cada minuto o al recargarla.
+
+- **Se cuenta por persona.** Quien tiene cuentas vinculadas en dos empresas es una sola persona: confirma una vez, con cualquiera de sus cuentas, y en todas ve «Leído el …» con la fecha de la primera confirmación. Una cuenta sin vincular es una persona aparte, aunque tenga el mismo nombre que otra. Si se desvinculan las cuentas, cada una vuelve a contar sola y solo queda leída la que confirmó.
+- **Ver el anuncio sigue siendo por cuenta.** Un anuncio solo para Segurex no se muestra en la cuenta de Derivados de la misma persona. En **Personas que faltan** solo aparecen las empresas del anuncio: el editor no ve en qué otras empresas tiene cuenta esa persona.
+- **Y** cuenta a las personas con cuentas en las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
+- Una cuenta de la que todavía no se sabe si es invitada (no ha vuelto a iniciar sesión desde que el portal lo guarda) **sí se cuenta**: es mejor que sobre una cuenta pendiente que dejar por fuera a alguien que debía leerlo. En su siguiente inicio de sesión queda clara.
+- Se cuenta según la empresa actual de cada cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando. Una persona que confirmó con una cuenta vinculada cuenta como leída aunque esa cuenta ya no esté entre las empresas del anuncio, porque en sus otras cuentas también ve «Leído».
+- Si alguien pulsa **Confirmar lectura** en una página vieja de un anuncio que ya no la pide (retirado, vencido o ya no obligatorio), el portal lo devuelve con el aviso «Este anuncio ya no pide confirmación.» y no guarda nada.
+
+**Correo a las listas de cada empresa.** La casilla **Enviar también por correo a la lista de cada empresa** (en **Publicación**) aparece cuando al menos una empresa del anuncio tiene **Lista de todo el personal** y **Buzón remitente** (Empresas, sección 2.1) y está activa. Debajo dice qué listas lo reciben («Lo reciben: Derivados (todos@derivadoscol.com) y Segurex (todos@segurex.com).»). La marca quien puede editar el anuncio: un editor de anuncios solo llega a la lista de su empresa. El cambio queda en Auditoría.
+
+- **Cuándo sale.** Al **guardar** el anuncio con la casilla marcada, el portal deja un correo pendiente para cada empresa de «Lo reciben» que todavía no lo tiene. El programador de tareas del portal (cada minuto) lo envía cuando el anuncio está publicado: uno programado sale cuando llega su fecha **Desde**; uno retirado o vencido no sale mientras siga así. Si desmarca la casilla y guarda antes de que salga, los pendientes no salen.
+- **Desde dónde.** Cada empresa lo recibe desde su propio buzón remitente, con Microsoft (nunca con la contraseña de un buzón), y con la marca de la empresa: el logo, el título, el texto, la imagen si la tiene y el botón **Ver en el portal**, que abre el anuncio. Queda en **Elementos enviados** del buzón remitente.
+- **Una sola vez.** Cada lista recibe el anuncio una vez. **Si lo edita después de enviado, no se vuelve a enviar**: corrija el texto en el portal o envíe un anuncio nuevo.
+- **Empresas que llegan después.** Una empresa que se agrega al anuncio, que se activa o que recibe su lista después **no lo recibe sola**, tampoco los anuncios viejos. Para enviárselo, abra el anuncio y guárdelo de nuevo con la casilla marcada: sale solo a las empresas que aún no lo tienen; las que ya lo recibieron no lo reciben otra vez.
+- **Cómo va.** Al editar el anuncio, la tarjeta **Correo a las listas** muestra cada empresa con su lista y su estado: «Enviado el …», «Pendiente: sale en los próximos minutos», «Pendiente: sale cuando se publique, el …», «Enviando…», «No se envía mientras el anuncio no esté publicado», «No se envía: la empresa está inactiva o ya no tiene lista y buzón remitente», «Sin enviar: guarda el anuncio con la casilla marcada para enviárselo» (una empresa que puede recibirlo pero llegó después) o «No se pudo enviar (código)». Solo la ve quien puede editar el anuncio, y solo con las empresas a las que va dirigido ahora.
+- **Si falla.** El código dice qué pasó y, cuando se sabe, la tarjeta da una pista. Los más comunes:
+  - `ErrorAccessDenied`: el buzón remitente no tiene el permiso de envío de Exchange. Siga la sección 1.13 de `docs/despliegue.md`.
+  - `MailboxNotEnabledForRESTAPI` o `HTTP 404`: el buzón remitente no existe o no es un buzón de Exchange Online. Revise la dirección en Empresas.
+  - `AADSTS…`: Microsoft no le dio a la app un permiso en el inquilino de esa empresa (consentimiento o secreto vencido).
+  - `Interrupted`: el envío se cortó a mitad y no se sabe si salió. Revise la lista antes de reintentar, para no enviarlo dos veces.
+  - `DomainMismatch`: el buzón o la lista ya no son de un dominio de la empresa.
+  - `Unavailable` o `HTTP 5xx` (por ejemplo `HTTP 503`): Microsoft no respondió a tiempo o respondió con un error, o falta la configuración de la app en el servidor. Puede que el correo haya salido: revise la lista antes de reintentar.
+- **Reintentar.** Un correo que falló tiene el botón **Reintentar**: lo deja pendiente y sale en el minuto siguiente. Se puede usar una vez cada 10 minutos por correo (la tarjeta dice «Podrás reintentar a las …»). El portal nunca reintenta solo. Cada reintento queda en Auditoría («Reintentó el correo a la lista de el anuncio …», con la empresa y el error anterior).
+
+**Recordatorios.** En la tarjeta **Lectura**, **Enviar recordatorio** manda un correo a cada persona que falta. Solo aparece en un anuncio publicado (no programado, vencido ni retirado) con lectura obligatoria y con alguien pendiente, y solo para quien puede editar ese anuncio.
+
+- **Uno cada 24 horas por anuncio.** Después de pedir uno, la tarjeta dice cuándo se puede pedir el siguiente («Podrás pedir otro recordatorio el …»). El portal lo comprueba también al recibir la petición: un doble clic o una página abierta desde antes no envían dos. Si en ese momento no se puede guardar el pedido, la tarjeta dice «No se pudo pedir el recordatorio. Inténtalo de nuevo.».
+- **Un correo por persona.** Quien tiene cuentas vinculadas recibe un solo correo (también si las vincula después de recibirlo), en la cuenta más antigua de las que ven el anuncio, con la marca de la empresa de esa cuenta. El correo trae el título y el botón **Ver el anuncio**; el texto del anuncio se lee en el portal.
+- **Lo envía el portal, no la pantalla.** El botón solo deja el pedido. El programador de tareas del portal (cada minuto) envía hasta 50 correos por vuelta, desde el buzón con el que el portal ya manda sus avisos. Mientras tanto la tarjeta dice «Enviando…»; al terminar, «Último recordatorio: pedido el … por … · enviado a N personas».
+- **Se calcula al enviar.** Quien confirma la lectura antes de que le llegue el turno ya no recibe el correo. Si el anuncio se retira, vence o deja de ser obligatorio, el recordatorio se detiene y la tarjeta dice «se detuvo porque el anuncio ya no pide confirmación: enviado a N personas». Un recordatorio detenido no cuenta para las 24 horas: si el anuncio vuelve a publicarse con lectura obligatoria, se puede pedir otro enseguida (quien ya recibió el detenido puede recibir el nuevo).
+- **Si un correo falla**, el portal lo anota en el log, sigue con los demás y no lo reintenta. Nadie recibe dos correos del mismo recordatorio.
+- Pedir un recordatorio queda en **Auditoría** («Pidió un recordatorio de lectura para el anuncio …», con las personas que faltaban).
+
+### 2.5 Eventos
+
+Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi calendario**. Las personas los ven en **Próximas fechas** del inicio, junto a los festivos, y en la página **Eventos** (`/eventos`), desde **Se muestra desde** hasta que el evento termina. Cada evento descarga un archivo `.ics` que abren Outlook, Google Calendar y el calendario del celular.
+
+**Quién los maneja.** Las mismas personas que los anuncios, sin un rol nuevo: súper administrador y administrador, todos; el editor de anuncios, solo los de su propia empresa (no puede publicar para todas las empresas ni para otra).
+
+**Lista.** Pestañas **Todos**, **Publicados**, **Programados**, **Pasados** y **Retirados**, con la fecha y las empresas de cada evento. Los que se repiten cada año muestran su próxima fecha y «Cada año».
+
+**Nuevo evento / editar:**
+
+- **Evento:** título (hasta 120 caracteres), descripción opcional (solo texto, hasta 500; los saltos de línea se respetan) y lugar opcional (hasta 120, por ejemplo «Sala de juntas» o «Teams»).
+- **Fecha**, en hora de Colombia:
+  - Con hora: **Empieza** y **Termina** (opcional; debe ser posterior al inicio). Sin fin, el evento sigue en el portal hasta que acaba ese día, y el calendario lo muestra como un momento.
+  - **Todo el día:** **Primer día** y **Último día** (opcional; el mismo día o sin fecha es un solo día). En el calendario ocupa los días completos.
+  - **Se repite cada año** (solo con **Todo el día**): para fechas que vuelven cada año, como el aniversario de la empresa, el cierre contable o la entrega de dotación. Las fechas que escriba son la primera vez. El portal muestra la próxima: la de este año hasta que termina y luego la del año siguiente (un 29 de febrero cae el 28 en los años que no son bisiestos). Nunca pasa a **Pasados** y en el inicio y en **Eventos** dice «Cada año» en lugar de «Evento». Su `.ics` lo repite cada año en el calendario de cada persona. Si quita **Todo el día**, la opción se desmarca: un evento con hora no puede repetirse. Debe durar menos de un año (el último día, antes de que vuelva el primero). Si desmarca la opción en una fecha cuyo primer día ya pasó, deja de verse en el portal, pero los calendarios que ya la importaron la siguen repitiendo hasta que cada persona la borre.
+- **Publicación:** **Para quién** (todas las empresas o algunas) y **Se muestra desde** (antes de esa fecha queda programado y nadie lo ve).
+- **Retirar** lo quita del portal de inmediato sin borrarlo; **Volver a publicar** lo devuelve. Los eventos no se borran.
+
+Todo cambio queda en **Auditoría**. Quien ya agregó un evento a su calendario no recibe los cambios: si cambia la fecha, avísele para que lo descargue de nuevo.
+
+### 2.6 Roles
 
 - **Qué puede hacer cada rol:** la tabla de permisos (siempre la real).
 - **Súper administrador** y **Administradores:** solo lectura. Para quitar a un administrador, sáquelo del grupo `APP-PortalAdmin` de la organización de Segurex en Microsoft; pierde el rol en su siguiente inicio de sesión. Después de cambiar la configuración del grupo, TI puede ejecutar `php artisan portal:sync-portal-admins` para aplicar la regla a todas las personas de una vez, según sus grupos guardados.
 - **Editores de anuncios:** **+ Agregar persona**, busque por nombre o correo (al menos 2 letras; solo personas que ya entraron al portal) y pulse **Agregar**. **Quitar** pide confirmación.
 - **Cuenta de emergencia:** muestra si existe, si tiene el segundo factor confirmado y su último uso. Se gestiona solo desde el servidor (sección 3).
 
-### 2.6 Integraciones (solo súper administrador)
+### 2.7 Integraciones (solo súper administrador)
 
 Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo o reporten el estado de las aplicaciones, y para que la app de tareas publique tareas y aprobaciones. Si nadie los usa, el portal funciona igual. Detalle técnico en `docs/api.md` y `docs/contrato-tareas-aprobaciones.md`.
 
 - **Lista:** sistema, permisos, token enmascarado (`ryr_…xxxx`), último uso y estado (**Activo** / **Revocado**).
-- **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados, publicar tareas y aprobaciones) e IP permitidas (opcional; vacío = cualquier IP). Con `work:write` también pide la **app del catálogo** y la **URL base de la app** (vea 4.6). Pulse **Crear token**.
+- **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados, publicar tareas y aprobaciones) e IP permitidas (opcional; vacío = cualquier IP). Con `work:write` también pide la **app del catálogo** y la **URL base de la app** (vea 4.7). Pulse **Crear token**.
 - **El token se muestra una sola vez.** Cópielo con **Copiar**, guárdelo en un lugar seguro, marque «Ya lo guardé en un lugar seguro» y pulse **Listo**. El portal no lo puede volver a mostrar.
 - **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
 
-### 2.7 Auditoría
+### 2.8 Auditoría
 
 Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que hacen los sistemas externos por la API.
 
@@ -162,7 +224,7 @@ Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que
 - **Exportar CSV** descarga lo filtrado (separado por `;` para Excel con configuración regional de Colombia), hasta 50 000 filas.
 - **Seguridad** incluye inicios de sesión con Microsoft (aceptados y rechazados), los de la cuenta de emergencia y las confirmaciones con Microsoft. Nunca se guardan contraseñas, códigos ni tokens.
 
-### 2.8 Informe de uso
+### 2.9 Informe de uso
 
 Qué apps se usan, quién entra y qué se puede retirar. Periodo de 7, 30 o 90 días.
 
@@ -171,7 +233,7 @@ Qué apps se usan, quién entra y qué se puede retirar. Periodo de 7, 30 o 90 d
 - **Apps más abiertas:** las 10 primeras; **Ver como tabla** muestra los números exactos.
 - **Sin uso en 90 días:** aplicaciones publicadas que nadie abrió desde el portal en 90 días. Revise si sus accesos están bien asignados o si conviene ocultarlas.
 
-### 2.9 Configuración (solo súper administrador)
+### 2.10 Configuración (solo súper administrador)
 
 Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Guardar cambios** y quedan en Auditoría con el antes y el después.
 
@@ -254,8 +316,13 @@ Revise en este orden:
 5. **¿Su empresa está activa?** En **Empresas**.
 6. **¿Entra con la cuenta correcta?** En **Auditoría**, busque su nombre o correo con el tipo **Seguridad**: verá sus inicios de sesión y con qué empresa entró. Un invitado de otra empresa entra con la marca y las apps de la empresa de su propia organización de Microsoft.
 7. **¿Ve una copia guardada?** Si el portal muestra «Sin conexión · mostrando tus apps guardadas» o «Conexión lenta…», la lista puede ser vieja: pídale que recargue con conexión.
+8. **¿Está en la cuenta de la otra empresa?** Si tiene cuentas vinculadas, el encabezado marca la empresa en la que está. Cada cuenta ve solo las apps de su empresa (§8).
 
-### 4.6 Conectar la app de tareas y aprobaciones
+### 4.6 Desvincular la cuenta de una persona
+
+Cuando alguien deja una empresa del grupo, no reconoce un vínculo o una de sus cuentas pudo estar comprometida, un súper administrador la desvincula con `portal:unlink-account` (§8.5). La persona también puede hacerlo sola desde **Cuentas vinculadas** (§8.4).
+
+### 4.7 Conectar la app de tareas y aprobaciones
 
 1. En **Aplicaciones**, registre la app de tareas como app web con su dirección `https` (por ejemplo `https://tareas.segurexlatam.net`). Los enlaces «Ver tarea» solo pueden ir al host de esa dirección.
 2. En **Integraciones**, pulse **Nuevo token**, marque `work:write`, elija esa app en **App del catálogo** y escriba la **URL base de la app** (`https`, sin usuario, sin `?` ni `#`). Agregue la IP del servidor de la app.
@@ -355,3 +422,119 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - Con el mouse encima, o al llegar con la tecla Tab, la tarjeta se levanta y el logo se balancea una vez. En el celular, al tocar, el logo se encoge un instante y la app abre.
 - Apps en mantenimiento: logo gris y quieto. Apps con fallas: un punto rojo que late en la esquina del logo.
 - Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
+- **Mi día › Próximas fechas:** hasta 5 fechas de los próximos 60 días, festivos y eventos juntos y en orden («Festivo» o «Evento»). **Ver eventos** lleva a la página de eventos, con **Agregar a mi calendario**.
+  - Un festivo en lunes o viernes dice «Puente festivo», en el inicio y en el buscador (Ctrl K). De martes a jueves, o en fin de semana, dice «Festivo».
+
+---
+
+## 8. Cuentas vinculadas: una persona en varias empresas
+
+Quien tiene una cuenta de Microsoft en cada empresa del grupo (por ejemplo, `edward.ramanan@segurex.com` y `edward.ramanan@derivadoscol.com`) puede vincularlas y cambiar de empresa desde el encabezado, sin cerrar la sesión. Sirve para cualquier número de empresas.
+
+### 8.1 Reglas
+
+- **Vincular nunca da una sesión.** Cambiar de empresa es siempre un inicio de sesión real de Microsoft con la cuenta de destino. Si Microsoft responde con otra cuenta, o la cuenta de destino ya no sirve (desactivada en Microsoft, empresa inactiva), la sesión queda como estaba.
+- **Vincular no da permisos.** Cada cuenta conserva sus propios roles, grupos, aplicaciones, favoritos y anuncios. Ser súper administrador en una cuenta no lo hace súper administrador en la otra.
+- **Vincular exige dos pruebas:** confirmar con Microsoft la cuenta actual (§1.3) y luego entrar con la otra cuenta. Nunca se vincula por correo ni por nombre.
+- **No se pueden vincular** las cuentas de invitado (B2B) ni la cuenta de emergencia.
+- **Solo empresas activas.** Si una empresa se desactiva, su cuenta deja de aparecer en el selector de empresas; el vínculo se conserva.
+- **Una cuenta por empresa por persona.** Para cambiar la cuenta de una empresa, primero se desvincula la que hay.
+- **Cambio de empresa automático.** Si una cuenta pasa a otra empresa (por ejemplo, porque se movió un dominio) y la persona ya tenía una cuenta en esa empresa, el portal la desvincula solo. En Auditoría aparece «por cambio de empresa».
+- **Todo queda en Auditoría › Seguridad:** vínculos, rechazos, cambios de empresa (también los fallidos) y desvinculaciones. Cada cuenta de la persona recibe un correo cuando ella o un administrador vincula o desvincula sus cuentas (la desvinculación automática no envía correo).
+
+### 8.2 Vincular (lo hace la persona)
+
+1. En el inicio, toque su avatar y elija **Cuentas vinculadas**.
+2. Pulse **Vincular otra empresa** y confirme con Microsoft (pide la contraseña).
+3. Pulse **Continuar con Microsoft**, elija la cuenta de la otra empresa y entre con ella.
+4. El portal vuelve al inicio con «Vinculaste tu cuenta de …». La sesión sigue en la cuenta con la que estaba.
+
+### 8.3 Cambiar de empresa
+
+- El selector aparece en el encabezado del inicio y de las páginas secundarias, solo si hay otra cuenta a la que se puede cambiar. Con hasta 3 empresas son botones; desde 4, un menú. La empresa actual está marcada y no es un botón.
+- Al tocar otra empresa, Microsoft entra con esa cuenta, normalmente sin preguntar nada. Si pide la contraseña o el segundo factor, lo pide una sola vez.
+- Al terminar aparece «Ahora estás en tu cuenta de …». Si no se pudo: «No pudimos cambiar de empresa. Sigues en tu cuenta actual.»
+
+### 8.4 Desvincular (lo hace la persona)
+
+1. Avatar › **Cuentas vinculadas** › **Desvincular** en la cuenta que quiere separar.
+2. Confirme con Microsoft, revise la página de confirmación y pulse **Desvincular**.
+
+- Puede desvincular la cuenta con la que está: sigue en ella, pero ya no cambia a las otras.
+- Si solo le quedaban dos cuentas, las dos quedan separadas.
+- La cuenta no se borra: conserva sus permisos y puede volver a vincularse.
+
+### 8.5 Desvincular como administrador: `portal:unlink-account`
+
+Mientras no exista **Administración › Usuarios**, Jhon o un súper administrador lo hace por SSH en el servidor:
+
+```bash
+cd /home/<usuario>/<ruta-app>
+php artisan portal:unlink-account <correo>
+```
+
+- Muestra las cuentas de la persona, marca la que se desvincula y pide confirmar. `--force` omite la pregunta.
+- Si la persona queda con una sola cuenta, lo avisa: esa también se desvincula.
+- Si varias cuentas tienen ese correo (por ejemplo, la propia y una de invitado), las lista con su id y pide elegir una con `--id=<id>`.
+- El correo solo sirve para encontrar la cuenta: nunca vincula ni da acceso.
+- En Auditoría queda como «Sistema» con «por un administrador». Todas las cuentas de la persona reciben el correo.
+- Si la cuenta no está vinculada, no cambia nada.
+
+---
+
+## 9. Directorio de personas
+
+El buscador del inicio (**Ctrl K**, grupo **Personas**) y la página **Personas** (`/personas`, enlace **Ver directorio** en **Mi día**) muestran a las personas de la empresa: nombre, cargo, área, oficina, teléfono de la oficina, correo y **Chat en Teams**. La página busca por nombre, cargo, área, oficina o correo, sin importar tildes ni mayúsculas, y muestra 50 personas por página. El buscador del inicio lleva hasta 1.000 personas, por nombre; la página siempre las tiene todas.
+
+### 9.1 De dónde salen los datos
+
+No se escriben en el portal: se copian de Microsoft Entra. Para corregir un dato, cámbielo en Entra (centro de administración › **Usuarios** › la persona › **Propiedades**) y aparecerá en el portal después de la siguiente copia.
+
+| En el portal | Campo de Entra |
+|---|---|
+| Nombre | Nombre para mostrar |
+| Cargo | Puesto (Cargo) |
+| Área | Departamento |
+| Oficina | Oficina |
+| Teléfono | Teléfono de la oficina (el primero) |
+| Correo | Correo electrónico; si no tiene, el nombre principal de usuario |
+| Fecha de contratación | Fecha de contratación del empleado (para los aniversarios de **Mi día**, sección 9.6; no se muestra la fecha) |
+
+### 9.2 Cada cuánto se actualiza
+
+Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-directory`. Quien se crea en Entra aparece al día siguiente; quien sale de Entra o queda deshabilitado desaparece en la misma copia. Si Microsoft no responde, falta el permiso en una empresa o Microsoft responde sin nadie que copiar cuando la empresa ya tenía personas, esa empresa conserva los datos de la copia anterior (`docs/despliegue.md`, sección 1.10). Solo corre una copia a la vez: si se lanza a mano mientras otra está en curso, no copia nada y avisa; repítala cuando la otra termine.
+
+### 9.3 Qué no se copia nunca
+
+- El celular personal.
+- Los invitados de otras organizaciones (B2B) y las cuentas deshabilitadas.
+- Las cuentas sin correo.
+- Las personas de empresas inactivas.
+
+### 9.4 Quién ve qué
+
+Cada persona ve solo el directorio de su propia empresa, la de la cuenta con la que entró: con una cuenta vinculada de otra empresa, ve el de esa otra. Las personas de la empresa se reparten como al iniciar sesión (la empresa dueña del dominio del correo, o la principal del inquilino). La cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no ven ningún directorio.
+
+El buscador del inicio guarda el directorio en el equipo hasta 24 horas, junto con la copia del inicio para usarlo sin conexión, igual que la libreta de direcciones de Outlook. En un equipo compartido, cierre la sesión al terminar (sección 6.5).
+
+### 9.5 Cumpleaños
+
+El cumpleaños no sale de Microsoft: cada persona lo escribe, si quiere, en **Mi cumpleaños** (menú de la cuenta › **Mi cumpleaños**, en la página `/cuenta`).
+
+- Solo se guardan el día y el mes, nunca el año. El 29 de febrero se acepta.
+- Nadie más lo ve hasta que la persona marca **Mostrar mi cumpleaños a las personas de mi empresa** (desmarcada al empezar, Ley 1581). Puede desmarcarla, cambiar la fecha o tocar **Quitar mi cumpleaños** cuando quiera; quitarlo borra el día, el mes y la casilla.
+- Quitarlo o desmarcar la casilla vale de inmediato en el servidor, pero el celular o el computador de un compañero puede seguir mostrándolo hasta 24 horas en la copia del inicio que guardó para usar sin conexión.
+- Es por cuenta: con cuentas vinculadas en dos empresas, cada cuenta tiene el suyo.
+- Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen. Si una cuenta deja de ver el directorio (pasa a invitado, queda sin empresa o la empresa se desactiva) con un cumpleaños guardado, en `/cuenta` solo le queda **Quitar mi cumpleaños**, para que siempre pueda borrarlo.
+- Ninguna pantalla de Administración muestra ni cambia el cumpleaños.
+
+### 9.6 Cumpleaños y aniversarios en «Mi día»
+
+El inicio muestra, en **Mi día**, el bloque **Cumpleaños y aniversarios** con lo de hoy y los próximos 7 días (hora de Bogotá), solo de la empresa de la cuenta con la que se entró:
+
+- **Cumpleaños**: solo de quien lo escribió en **Mi cumpleaños** y marcó la casilla (sección 9.5), y solo si está en el directorio de esa empresa (la misma cuenta de Microsoft y la misma empresa). Quien nació el 29 de febrero aparece el 28 de febrero en los años que no son bisiestos.
+- **Aniversarios**: salen de la **Fecha de contratación** de Entra (sección 9.1), desde el primer año cumplido: «1 año en Segurex», «5 años en Segurex» (con el nombre corto de la empresa). Si la fecha está vacía en Entra, la persona no tiene aniversario; para corregirla, cámbiela en Entra y aparece después de la siguiente copia.
+- Cada fila dice **Hoy**, **Mañana** o el día de la semana, y **Felicitar** abre un chat de Teams con la persona y un saludo escrito, sin enviarlo. La fila propia no tiene **Felicitar**.
+- Van por fecha y luego por nombre, hasta 8; si hay más, **Ver directorio** lleva a `/personas`. Sin nada en esos días, el bloque no aparece.
+- Salen de las mismas 1.000 personas que lleva el buscador del inicio (sección 9). En una búsqueda sin JavaScript (`/?q=`) el bloque no aparece.
+- La copia del inicio guardada en el equipo (hasta 24 horas) quita las filas de días pasados y corrige **Hoy** y **Mañana**; los días nuevos aparecen con la siguiente conexión.

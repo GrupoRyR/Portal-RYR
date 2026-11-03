@@ -6,8 +6,9 @@ use App\Models\User;
 use App\Support\DeviceClassifier;
 
 /**
- * Sign-ins, re-authentications and linked accounts in the activity log
- * (log name {@see LOG}), shown in Auditoría as «Seguridad». Never a
+ * Sign-ins, re-authentications, linked accounts and switches between them
+ * in the activity log (log name {@see LOG}), shown in Auditoría as
+ * «Seguridad». Never a
  * secret: no password, code, token, IP address or User-Agent — only the
  * device type. The Laravel log lines written by the sign-in classes stay
  * as they are.
@@ -37,6 +38,10 @@ final class SecurityLog
     public const ACCOUNT_LINK_REFUSED = 'account.link_refused';
 
     public const ACCOUNT_UNLINKED = 'account.unlinked';
+
+    public const ACCOUNT_SWITCHED = 'account.switched';
+
+    public const ACCOUNT_SWITCH_FAILED = 'account.switch_failed';
 
     /**
      * @param  array{added: list<string>, removed: list<string>}  $roleChanges  Roles synced at this sign-in.
@@ -159,6 +164,43 @@ final class SecurityLog
             'company' => $account->company?->name,
             'email' => $account->email,
         ], $account);
+    }
+
+    /**
+     * The person moved from one of their accounts to another (the subject)
+     * through a Microsoft sign-in with that account. The causer is the
+     * account they left.
+     */
+    public static function accountSwitched(User $from, User $to): void
+    {
+        self::write(self::ACCOUNT_SWITCHED, $from, [
+            'from_user_id' => $from->getKey(),
+            'from_company_id' => $from->company?->id,
+            'from_company' => $from->company?->name,
+            'to_user_id' => $to->getKey(),
+            'to_company_id' => $to->company?->id,
+            'to_company' => $to->company?->name,
+            'to_email' => $to->email,
+        ], $to);
+    }
+
+    /**
+     * A switch to another account (the subject, when it still exists) that
+     * left the session as it was. The tenant ID is the one Microsoft
+     * answered with, when the token got that far.
+     *
+     * @param  string  $reason  `wrong_account`, `target_unavailable`, a App\Auth\LoginFailed reason or the sanitized `error` code of Microsoft.
+     */
+    public static function accountSwitchFailed(User $from, ?User $to, string $reason, int $attempt, ?string $tenantId): void
+    {
+        self::write(self::ACCOUNT_SWITCH_FAILED, $from, [
+            'reason' => $reason,
+            'attempt' => $attempt,
+            'to_user_id' => $to?->getKey(),
+            'to_company' => $to?->company?->name,
+            'to_email' => $to?->email,
+            'tenant_id' => $tenantId === null ? null : strtolower($tenantId),
+        ], $to);
     }
 
     /**

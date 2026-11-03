@@ -37,6 +37,15 @@ class LinkedAccounts
 
     public const USER = 'user';
 
+    /**
+     * One value per person, to group accounts in SQL (mandatory reading,
+     * App\Models\Announcement): odd for a linked account (its person),
+     * even for one that is not (the account alone), so the two never
+     * collide. Plain arithmetic, the same on SQLite and MySQL, and never
+     * negative (MySQL ids are unsigned). It groups; it never authorizes.
+     */
+    public const PERSON_KEY = 'CASE WHEN users.person_id IS NULL THEN users.id * 2 ELSE users.person_id * 2 + 1 END';
+
     public function __construct(private readonly LinkedAccountNotifier $notifier) {}
 
     /**
@@ -134,17 +143,122 @@ class LinkedAccounts
     }
 
     /**
+     * Whether the signed-in account may switch to the target one: another
+     * account of the same person, a Microsoft home account (not a guest,
+     * not an emergency account) of an active company. This is the only
+     * thing the person decides; the switch itself is still a Microsoft
+     * sign-in with the target account, which checks everything a sign-in
+     * checks.
+     */
+    public function canSwitch(User $current, User $target): bool
+    {
+        return $current->exists
+            && $target->exists
+            && ! $current->is($target)
+            && ! $current->is_emergency
+            && $current->person_id !== null
+            && $current->person_id === $target->person_id
+            && ! $target->is_emergency
+            && $target->tenant_id !== null
+            && $target->azure_oid !== null
+            // Null means not known yet: refused like a guest.
+            && $target->is_guest === false
+            && $target->company?->is_active === true;
+    }
+
+    /**
+     * The accounts the signed-in user may switch to ({@see canSwitch()}),
+     * oldest first, with their company. No query for an account that is
+     * not linked.
+     *
+     * @return Collection<int, User>
+     */
+    public function switchTargets(User $current): Collection
+    {
+        if (! $current->exists || $current->is_emergency || $current->person_id === null) {
+            return new Collection;
+        }
+
+        return $current->linkedAccounts()
+            ->with('company')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (User $target) => $this->canSwitch($current, $target))
+            ->values();
+    }
+
+    /**
+     * Every account of the user's person, the user's own included, oldest
+     * first, with their company (Cuentas vinculadas). Empty, without a
+     * query, for an account that is not linked.
+     *
+     * @return Collection<int, User>
+     */
+    public function accountsOf(User $user): Collection
+    {
+        if (! $user->exists || $user->person_id === null) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->where('person_id', $user->person_id)
+            ->with('company')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * The ids of every account of the user's person, the user's own
+     * included, to group what the person did with any of them (mandatory
+     * reading counts per person): a subquery with the person as a bound
+     * value, so it costs the caller no query of its own; just the user's
+     * id when the account is not linked. It groups; it never authorizes.
+     *
+     * @return list<int>|Builder<User>
+     */
+    public static function idsOfSamePerson(User $user): array|Builder
+    {
+        return $user->person_id === null
+            ? [(int) $user->getKey()]
+            : User::query()->select('id')->where('person_id', $user->person_id);
+    }
+
+    /**
+     * Whether the signed-in user may unlink the target: one of the
+     * accounts of their own person, their own included. Emergency accounts
+     * are never linked.
+     */
+    public function canUnlink(User $current, User $target): bool
+    {
+        return $current->exists
+            && $target->exists
+            && ! $current->is_emergency
+            && $current->person_id !== null
+            && $current->person_id === $target->person_id;
+    }
+
+    /**
      * Takes the account out of its person. A person left with one account
      * (or none) is deleted and that last account is unlinked too; each
-     * unlinked account is a security event. False when the account was not
-     * linked.
+     * unlinked account is a security event. Unless the system did it
+     * ({@see COMPANY_CHANGED}, during a sign-in), every account the person
+     * had is told by mail once it commits.
      *
-     * @param  string  $reason  {@see COMPANY_CHANGED}, {@see ADMIN} or {@see User}.
-     * @param  User|null  $actor  Who did it; null when the system did.
+     * The caller checked the account against the person on the given model
+     * (e.g. {@see canUnlink()}, read without a lock). False, and nothing
+     * changes, when the locked account is no longer in that person: not
+     * linked, unlinked meanwhile or moved to another person.
+     *
+     * @param  string  $reason  {@see self::COMPANY_CHANGED}, {@see self::ADMIN} or {@see self::USER}.
+     * @param  User|null  $actor  Who did it; null when the system or a console command did.
      */
     public function unlink(User $account, string $reason, ?User $actor = null): bool
     {
-        return $this->detach($account, $reason, $actor);
+        if ($account->person_id === null) {
+            return false;
+        }
+
+        return $this->detach($account, $reason, $actor, notify: $reason !== self::COMPANY_CHANGED, expectedPersonId: (int) $account->person_id);
     }
 
     /**
@@ -171,18 +285,20 @@ class LinkedAccounts
 
     /**
      * @param  (Closure(Collection<int, User>): bool)|null  $only  Unlinks only when it holds for the person's other accounts (locked).
+     * @param  bool  $notify  Mail every account the person had (after the commit).
+     * @param  int|null  $expectedPersonId  Unlinks only from this person (as the locked row has it); null for whichever it has.
      */
-    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null): bool
+    private function detach(User $account, string $reason, ?User $actor, ?Closure $only = null, bool $notify = false, ?int $expectedPersonId = null): bool
     {
         if (! $account->exists) {
             return false;
         }
 
-        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only) {
+        $unlinked = DB::transaction(function () use ($account, $reason, $actor, $only, $notify, $expectedPersonId) {
             $target = $this->lockWithPeople($account->getKey())->get($account->getKey());
             $personId = $target?->person_id;
 
-            if ($personId === null) {
+            if ($personId === null || ($expectedPersonId !== null && (int) $personId !== $expectedPersonId)) {
                 return false;
             }
 
@@ -208,6 +324,12 @@ class LinkedAccounts
                 }
 
                 Person::query()->whereKey($personId)->delete();
+            }
+
+            if ($notify) {
+                // Read before the person is gone: everyone it had, the
+                // unlinked account included.
+                $this->notifier->notifyUnlinked($rest->toBase()->prepend($target), $target, $reason, $personId);
             }
 
             return true;

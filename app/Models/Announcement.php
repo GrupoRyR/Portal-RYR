@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Policies\AnnouncementPolicy;
+use App\Auth\LinkedAccounts;
+use App\Models\Concerns\AddressedToCompanies;
 use Database\Factories\AnnouncementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,7 +12,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Spatie\Activitylog\LogOptions;
@@ -21,6 +25,16 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * An announcement on the home screen (brief §4 «Anuncios»): plain text,
  * an optional 16:9 WebP image, for every company or for chosen ones, shown
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
+ *
+ * A mandatory one (`requires_read`) asks each person who sees it to
+ * confirm it was read ({@see markReadBy()}); editors see which people did
+ * ({@see readCounts()}, {@see pendingReaders()}). Read per person: linked
+ * accounts (App\Auth\LinkedAccounts) confirm once, with any of them, and
+ * an account that is not linked is a person of its own. The person only
+ * groups the reads: seeing the announcement is still per account
+ * ({@see scopeVisibleTo()}, App\Policies\AnnouncementPolicy), and the
+ * person is read only through LinkedAccounts
+ * (tests/Unit/Auth/PersonNeverAuthorizesTest.php).
  *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
@@ -32,10 +46,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'starts_at',
     'ends_at',
     'is_pinned',
+    'requires_read',
+    'email_lists',
     'author_id',
 ])]
 class Announcement extends Model
 {
+    use AddressedToCompanies;
+
     /** @use HasFactory<AnnouncementFactory> */
     use HasFactory;
 
@@ -44,12 +62,24 @@ class Announcement extends Model
     /** Activity log name for announcement changes (spatie/laravel-activitylog). */
     public const AUDIT_LOG = 'announcements';
 
+    /** Named audit entries: «announcement.withdrawn», «announcement.republished», «announcement.companies_changed». */
+    public const AUDIT_EVENT_PREFIX = 'announcement';
+
     /** Uploaded images live on the "public" disk under {IMAGE_DIR}/{id}/. */
     public const IMAGE_DIR = 'announcements';
 
     public const TITLE_MAX = 120;
 
     public const BODY_MAX = 280;
+
+    /** People in the «Personas que faltan» list of the admin editor. */
+    public const PENDING_READERS_LIMIT = 200;
+
+    /**
+     * Announcements per page of /anuncios (App\Http\Controllers\AnnouncementController),
+     * also used to find the page of one of them (its show route).
+     */
+    public const PER_PAGE = 10;
 
     public const AUDIENCE_ALL = 'all';
 
@@ -79,6 +109,8 @@ class Announcement extends Model
     protected $attributes = [
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
+        'requires_read' => false,
+        'email_lists' => false,
     ];
 
     protected function casts(): array
@@ -88,6 +120,8 @@ class Announcement extends Model
             'ends_at' => 'datetime',
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
+            'requires_read' => 'boolean',
+            'email_lists' => 'boolean',
         ];
     }
 
@@ -102,20 +136,6 @@ class Announcement extends Model
             ->logFillable()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
-    }
-
-    /**
-     * Writes a named audit entry; the causer is the signed-in user, if any.
-     *
-     * @param  array<string, mixed>  $properties
-     */
-    public function audit(string $event, array $properties = []): void
-    {
-        activity(self::AUDIT_LOG)
-            ->performedOn($this)
-            ->event($event)
-            ->withProperties($properties)
-            ->log($event);
     }
 
     /**
@@ -135,32 +155,217 @@ class Announcement extends Model
     }
 
     /**
-     * Takes the announcement off the home screen at once. Nothing is
-     * deleted; {@see republish()} brings it back.
+     * @return HasMany<AnnouncementRead, $this>
      */
-    public function withdraw(): void
+    public function reads(): HasMany
     {
-        if ($this->withdrawn_at !== null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => now()])->save();
-        $this->audit('announcement.withdrawn');
+        return $this->hasMany(AnnouncementRead::class);
     }
 
-    public function republish(): void
+    /**
+     * «Enviar recordatorio» requests (App\Announcements\AnnouncementReminders).
+     *
+     * @return HasMany<AnnouncementReminder, $this>
+     */
+    public function reminders(): HasMany
     {
-        if ($this->withdrawn_at === null) {
-            return;
-        }
-
-        $this->forceFill(['withdrawn_at' => null])->save();
-        $this->audit('announcement.republished');
+        return $this->hasMany(AnnouncementReminder::class);
     }
 
-    public function isForAllCompanies(): bool
+    /**
+     * Its emails to the companies' all-staff lists, when it asks for them
+     * (`email_lists`, App\Announcements\AnnouncementListEmails).
+     *
+     * @return HasMany<AnnouncementListEmail, $this>
+     */
+    public function listEmails(): HasMany
     {
-        return $this->audience === self::AUDIENCE_ALL;
+        return $this->hasMany(AnnouncementListEmail::class);
+    }
+
+    /**
+     * The companies it is addressed to now: every active company when it
+     * is for all, its chosen ones otherwise (active or not).
+     *
+     * @return Builder<Company>
+     */
+    public function addressedCompanies(): Builder
+    {
+        return $this->isForAllCompanies()
+            ? Company::query()->where('companies.is_active', true)
+            : Company::query()->whereIn('companies.id', DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'));
+    }
+
+    /**
+     * Records that the account read it, once: a second call keeps the
+     * first date. Whether the user may see it is the caller's job; whether
+     * the person already read it with another account is
+     * {@see isReadByPersonOf()}.
+     */
+    public function markReadBy(User $user): AnnouncementRead
+    {
+        return AnnouncementRead::query()->createOrFirst(
+            ['announcement_id' => $this->id, 'user_id' => $user->id],
+            ['read_at' => now()],
+        );
+    }
+
+    /**
+     * Whether the user's person read it, with any of their accounts (the
+     * user's own when it is not linked).
+     */
+    public function isReadByPersonOf(User $user): bool
+    {
+        return $this->reads()->whereIn('user_id', LinkedAccounts::idsOfSamePerson($user))->exists();
+    }
+
+    /**
+     * The accounts expected to read it: those of its companies (every
+     * company when it is for all) that are active, without emergency or
+     * guest accounts. Only people who already signed in have an account.
+     *
+     * By the account's company now: an account that moves to another
+     * company leaves X and Y of an announcement only for the old one (its
+     * read is kept and counts again if it comes back).
+     *
+     * `is_guest = null` (the account has not signed in since the flag was
+     * added, so it is not known yet) counts: leaving it out could hide a
+     * member who must read it, while a guest counted by mistake only shows
+     * up as one more pending account until its next sign-in sets the flag.
+     *
+     * @return Builder<User>
+     */
+    public function audience(): Builder
+    {
+        $companies = Company::query()
+            ->where('is_active', true)
+            ->when(! $this->isForAllCompanies(), fn (Builder $query) => $query->whereIn(
+                'id',
+                DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'),
+            ))
+            ->select('id');
+
+        return User::query()
+            ->where('is_emergency', false)
+            ->where(fn (Builder $query) => $query->whereNull('is_guest')->orWhere('is_guest', false))
+            ->whereIn('company_id', $companies);
+    }
+
+    /**
+     * «X de Y personas lo leyeron»: Y is the people behind the audience's
+     * accounts, X those of them who read it with any of their accounts
+     * (the same rule as the viewer's «Leído», {@see scopeWithReadAtFor()}),
+     * so a read left from an earlier audience counts only for a person who
+     * is still in it.
+     *
+     * @return array{read: int, total: int}
+     */
+    public function readCounts(): array
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        return [
+            'read' => $this->audience()->whereIn($key, $this->readersByPerson())->distinct()->count($key),
+            'total' => $this->audience()->distinct()->count($key),
+        ];
+    }
+
+    /**
+     * People of the audience who have not confirmed yet, alphabetical, at
+     * most PENDING_READERS_LIMIT: a name and the short names of the
+     * person's companies, only those of their accounts in the audience (an
+     * editor never learns that someone also works in a company the
+     * announcement does not address). Two queries: the people, then their
+     * accounts.
+     *
+     * @return list<array{name: string, companies: list<string>}>
+     */
+    public function pendingReaders(): array
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $people = $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->toBase()
+            ->selectRaw(LinkedAccounts::PERSON_KEY.' as person_key, min(name) as person_name')
+            ->groupBy($key)
+            ->orderBy('person_name')
+            ->orderBy('person_key')
+            ->limit(self::PENDING_READERS_LIMIT)
+            ->get();
+
+        if ($people->isEmpty()) {
+            return [];
+        }
+
+        $companies = $this->audience()
+            ->whereIn($key, $people->pluck('person_key'))
+            ->with('company:id,short_name')
+            ->select(['id', 'company_id'])
+            ->selectRaw(LinkedAccounts::PERSON_KEY.' as person_key')
+            ->get()
+            ->groupBy(fn (User $account) => (int) $account->getAttribute('person_key'))
+            ->map(fn ($accounts) => $accounts
+                ->map(fn (User $account) => (string) $account->company?->short_name)
+                ->filter(fn (string $name) => $name !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all());
+
+        return $people
+            ->map(fn (object $person) => [
+                'name' => (string) $person->person_name,
+                'companies' => $companies->get((int) $person->person_key, []),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Who gets the reminder now: the people of the audience who have not
+     * confirmed yet (the rule of {@see pendingReaders()}, read at send
+     * time, so whoever confirmed meanwhile is left out) and were not
+     * mailed for this reminder yet: neither under the key recorded then
+     * nor with any of their accounts now (someone linked after being
+     * mailed has another key). One account per person: the lowest id
+     * among their accounts in the audience. At most $limit, by person key,
+     * in one query.
+     *
+     * @return Collection<int, int> person key by account id
+     */
+    public function reminderCandidates(AnnouncementReminder $reminder, int $limit): Collection
+    {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $mailedNow = User::query()
+            ->whereIn('id', $reminder->deliveries()->select('user_id'))
+            ->select($key);
+
+        return $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->whereNotIn($key, $reminder->deliveries()->select('person_key'))
+            ->whereNotIn($key, $mailedNow)
+            ->toBase()
+            ->selectRaw('min(users.id) as id, '.LinkedAccounts::PERSON_KEY.' as person_key')
+            ->groupBy($key)
+            ->orderBy('person_key')
+            ->limit($limit)
+            ->pluck('person_key', 'id')
+            ->map(fn ($personKey) => (int) $personKey);
+    }
+
+    /**
+     * The person keys ({@see LinkedAccounts::PERSON_KEY}) of every account
+     * that read it, as a subquery.
+     *
+     * @return Builder<User>
+     */
+    private function readersByPerson(): Builder
+    {
+        return User::query()
+            ->whereIn('id', $this->reads()->select('user_id'))
+            ->select(DB::raw(LinkedAccounts::PERSON_KEY));
     }
 
     public function imageUrl(): ?string
@@ -192,23 +397,6 @@ class Announcement extends Model
     }
 
     /**
-     * Announcements a user sees on the home screen right now: published and
-     * addressed to their company. Users without a company see none.
-     *
-     * @param  Builder<Announcement>  $query
-     */
-    public function scopeVisibleTo(Builder $query, User $user): void
-    {
-        if ($user->company_id === null) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $query->inStatus(self::STATUS_PUBLISHED)->forCompanyId((int) $user->company_id);
-    }
-
-    /**
      * Announcements addressed to the company, including those for every
      * company, whatever their status.
      *
@@ -220,16 +408,6 @@ class Announcement extends Model
     }
 
     /**
-     * @param  Builder<Announcement>  $query
-     */
-    public function scopeForCompanyId(Builder $query, int $companyId): void
-    {
-        $query->where(fn (Builder $query) => $query
-            ->where('audience', self::AUDIENCE_ALL)
-            ->orWhereHas('companies', fn (Builder $query) => $query->whereKey($companyId)));
-    }
-
-    /**
      * Same rule as the `status` attribute, as a query.
      *
      * @param  Builder<Announcement>  $query
@@ -237,45 +415,38 @@ class Announcement extends Model
     public function scopeInStatus(Builder $query, string $status): void
     {
         $now = Carbon::now();
+        // Qualified: other tables may be joined (App\Announcements\AnnouncementListEmails).
+        [$withdrawnAt, $startsAt, $endsAt] = [$query->qualifyColumn('withdrawn_at'), $query->qualifyColumn('starts_at'), $query->qualifyColumn('ends_at')];
 
         match ($status) {
-            self::STATUS_WITHDRAWN => $query->whereNotNull('withdrawn_at'),
-            self::STATUS_SCHEDULED => $query->whereNull('withdrawn_at')->where('starts_at', '>', $now),
-            self::STATUS_EXPIRED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->whereNotNull('ends_at')
-                ->where('ends_at', '<=', $now),
-            self::STATUS_PUBLISHED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $now)),
+            self::STATUS_WITHDRAWN => $query->whereNotNull($withdrawnAt),
+            self::STATUS_SCHEDULED => $query->whereNull($withdrawnAt)->where($startsAt, '>', $now),
+            self::STATUS_EXPIRED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->whereNotNull($endsAt)
+                ->where($endsAt, '<=', $now),
+            self::STATUS_PUBLISHED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->where(fn (Builder $query) => $query->whereNull($endsAt)->orWhere($endsAt, '>', $now)),
             default => throw new InvalidArgumentException("Unknown announcement status [{$status}]."),
         };
     }
 
     /**
-     * Announcements the user may edit (App\Policies\AnnouncementPolicy):
-     * all of them for admins; for an announcements editor, those addressed
-     * to exactly their own company; none for anybody else.
+     * Adds `viewer_read_at`: when the user's person first confirmed reading
+     * each announcement, with any of their accounts, or null. A subquery
+     * (the person is a bound value), so it costs no extra query. Select
+     * the announcement columns before calling it.
      *
      * @param  Builder<Announcement>  $query
      */
-    public function scopeManageableBy(Builder $query, User $user): void
+    public function scopeWithReadAtFor(Builder $query, User $user): void
     {
-        if (AnnouncementPolicy::manages($user)) {
-            return;
-        }
-
-        if ($user->company_id === null || ! $user->hasRole(AnnouncementPolicy::EDITOR)) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $companyId = (int) $user->company_id;
-
-        $query->where('audience', self::AUDIENCE_COMPANIES)
-            ->whereHas('companies', fn (Builder $query) => $query->whereKey($companyId))
-            ->whereDoesntHave('companies', fn (Builder $query) => $query->whereKeyNot($companyId));
+        $query->addSelect(['viewer_read_at' => AnnouncementRead::query()
+            ->selectRaw('min(announcement_reads.read_at)')
+            ->whereColumn('announcement_reads.announcement_id', 'announcements.id')
+            ->whereIn('announcement_reads.user_id', LinkedAccounts::idsOfSamePerson($user)),
+        ])->withCasts(['viewer_read_at' => 'datetime']);
     }
 
     /**

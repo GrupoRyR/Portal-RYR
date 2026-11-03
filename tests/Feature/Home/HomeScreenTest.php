@@ -7,6 +7,8 @@ use App\Models\AppAccessRule;
 use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\DirectoryEntry;
+use App\Models\Event;
 use App\Models\User;
 use App\View\Home\QuickLinks;
 use Database\Seeders\RoleSeeder;
@@ -264,7 +266,7 @@ class HomeScreenTest extends TestCase
 
     public function test_the_favorite_star_works_without_javascript(): void
     {
-        $app = $this->openableApp(['slug' => 'cartera']);
+        $app = $this->openableApp(['slug' => 'cartera', 'name' => 'Cartera']);
         $this->user->favoriteApps()->attach($app);
 
         $this->home('?q=a')
@@ -296,6 +298,74 @@ class HomeScreenTest extends TestCase
 
         $this->assertSame($small, $large);
         $this->assertLessThanOrEqual(12, $large);
+    }
+
+    /**
+     * The directory (odd/tasks/personas.md WU1) is one query, whatever its size.
+     */
+    public function test_the_query_count_does_not_grow_with_the_directory(): void
+    {
+        $this->openableApp();
+        DirectoryEntry::factory()->forCompany($this->company)->create();
+        $small = $this->countQueries();
+
+        DirectoryEntry::factory()->forCompany($this->company)->count(60)->create();
+        DirectoryEntry::factory()->forCompany(Company::factory()->create())->count(10)->create();
+
+        $large = $this->countQueries();
+
+        $this->assertSame($small, $large);
+        $this->assertLessThanOrEqual(12, $large);
+    }
+
+    /**
+     * Birthdays and anniversaries (odd/tasks/personas.md WU2) come in the
+     * directory query: none more, whatever how many fall this week.
+     */
+    public function test_the_query_count_does_not_grow_with_birthdays_and_anniversaries(): void
+    {
+        $this->travelTo(now('America/Bogota')->setTime(9, 0));
+        $this->openableApp();
+        DirectoryEntry::factory()->forCompany($this->company)->create();
+        $small = $this->countQueries();
+
+        $today = now('America/Bogota')->toImmutable();
+        foreach (range(0, 39) as $i) {
+            $day = $today->addDays($i % 8);
+            $user = User::factory()->microsoft($this->company)->birthday($day->month, $day->day)->create();
+            DirectoryEntry::factory()->forCompany($this->company)->create([
+                'tenant_id' => $user->tenant_id,
+                'azure_oid' => $user->azure_oid,
+                'hire_date' => $day->subYears(1 + $i % 5)->toDateString(),
+            ]);
+        }
+        DirectoryEntry::factory()->forCompany($this->company)->count(30)->create();
+
+        $large = $this->countQueries();
+
+        $this->assertSame($small, $large);
+        $this->assertLessThanOrEqual(12, $large);
+        $this->actingAs($this->user->fresh())->get('/')->assertSee('id="celebraciones"', false);
+    }
+
+    /**
+     * Yearly events (odd/tasks/ajustes-inicio-y-tareas.md T3) come in the
+     * same events query: none more than with a one-time event.
+     */
+    public function test_the_query_count_does_not_grow_with_yearly_events(): void
+    {
+        $this->openableApp();
+        Event::factory()->create();
+        $one = $this->countQueries();
+
+        Event::factory()->count(6)->allDay('2020-03-15')->yearly()->create(['published_at' => '2020-01-01 08:00:00']);
+        Event::factory()->count(3)->allDay(now('America/Bogota')->addDays(5)->toDateString())->yearly()->forCompanies($this->company)->create();
+
+        $many = $this->countQueries();
+
+        $this->assertSame($one, $many);
+        $this->assertLessThanOrEqual(12, $many);
+        $this->actingAs($this->user->fresh())->get('/')->assertSee('data-event-end', false);
     }
 
     private function home(string $suffix = ''): TestResponse

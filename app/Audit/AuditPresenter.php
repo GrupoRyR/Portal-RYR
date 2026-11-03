@@ -10,6 +10,7 @@ use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\Event;
 use App\Models\Integration;
 use App\Models\User;
 use App\Settings\PortalSettings;
@@ -45,6 +46,11 @@ final class AuditPresenter
         'announcement.withdrawn' => 'Retiró',
         'announcement.republished' => 'Volvió a publicar',
         'announcement.companies_changed' => 'Cambió las empresas de',
+        'announcement.reminder_requested' => 'Pidió un recordatorio de lectura para',
+        'announcement.list_email_retried' => 'Reintentó el correo a la lista de',
+        'event.withdrawn' => 'Retiró',
+        'event.republished' => 'Volvió a publicar',
+        'event.companies_changed' => 'Cambió las empresas de',
         'category.moved' => 'Movió',
         'role.assigned' => 'Hizo editor de anuncios a',
         'role.removed' => 'Quitó como editor de anuncios a',
@@ -86,6 +92,17 @@ final class AuditPresenter
         'user' => 'por la misma persona',
     ];
 
+    /** Reasons of a failed switch; the sign-in ones come from REJECTION_REASONS. */
+    private const SWITCH_FAILURE_REASONS = [
+        'wrong_account' => 'Microsoft respondió con otra cuenta',
+        'target_unavailable' => 'la cuenta ya no se puede usar',
+        'login_required' => 'Microsoft pidió iniciar sesión',
+        'interaction_required' => 'Microsoft pidió una acción de la persona',
+        'consent_required' => 'falta un consentimiento en Microsoft',
+        'account_selection_required' => 'Microsoft pidió elegir la cuenta',
+        'access_denied' => 'cancelado o denegado en Microsoft',
+    ];
+
     private const ROLE_LABELS = [
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
@@ -100,6 +117,9 @@ final class AuditPresenter
         'tenant_id' => 'Inquilino',
         'is_primary_for_tenant' => 'Principal del inquilino',
         'domains' => 'Dominios',
+        'all_staff_email' => 'Lista de todo el personal',
+        'mail_sender' => 'Buzón remitente',
+        'weekly_digest_enabled' => 'Resumen de los lunes',
         'logo_light_path' => 'Logo claro',
         'logo_dark_path' => 'Logo oscuro',
         'icon_path' => 'Ícono',
@@ -134,8 +154,18 @@ final class AuditPresenter
         'starts_at' => 'Desde',
         'ends_at' => 'Hasta',
         'is_pinned' => 'Fijado arriba',
+        'requires_read' => 'Lectura obligatoria',
+        'email_lists' => 'Enviar por correo a las listas',
+        'company' => 'Empresa',
+        'previous_error' => 'Error anterior',
         'author_id' => 'Autor',
         'companies' => 'Empresas',
+        'missing_people' => 'Personas que faltan',
+        'location' => 'Lugar',
+        'all_day' => 'Todo el día',
+        'repeats_yearly' => 'Se repite cada año',
+        'published_at' => 'Se muestra desde',
+        'created_by' => 'Creado por',
         'position' => 'Posición',
         'role' => 'Rol',
         'abilities' => 'Permisos',
@@ -147,6 +177,12 @@ final class AuditPresenter
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
         PortalSettings::ALLOWED_APP_HOSTS => 'Dominios permitidos',
         PortalSettings::API_STATUS_TTL => 'Quitar «Con fallas» después de (horas)',
+    ];
+
+    /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
+    private const EVENT_FIELD_LABELS = [
+        'starts_at' => 'Empieza',
+        'ends_at' => 'Termina',
     ];
 
     private const MAX_VALUE = 300;
@@ -219,6 +255,7 @@ final class AuditPresenter
             (new App)->getMorphClass() => 'la app '.($name('name') ?? '(eliminada)'),
             (new AppCategory)->getMorphClass() => 'la categoría '.($name('name') ?? '(eliminada)'),
             (new Announcement)->getMorphClass() => 'el anuncio «'.($name('title') ?? '(eliminado)').'»',
+            (new Event)->getMorphClass() => 'el evento «'.($name('title') ?? '(eliminado)').'»',
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
             (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
@@ -250,6 +287,11 @@ final class AuditPresenter
                 .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             SecurityLog::ACCOUNT_UNLINKED => 'Desvinculó la cuenta de '.$this->account($properties->get('company'), $properties->get('email'))
                 .' · '.(self::UNLINK_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason')),
+            SecurityLog::ACCOUNT_SWITCHED => 'Cambió a su cuenta de '.$this->account($properties->get('to_company'), $properties->get('to_email')),
+            SecurityLog::ACCOUNT_SWITCH_FAILED => 'Cambio de empresa rechazado · '
+                .(self::SWITCH_FAILURE_REASONS[$properties->get('reason')] ?? self::REJECTION_REASONS[$properties->get('reason')] ?? (string) $properties->get('reason'))
+                .' · hacia '.$this->account($properties->get('to_company'), $properties->get('to_email'))
+                .($properties->get('tenant_id') ? ' · inquilino '.$properties->get('tenant_id') : ''),
             default => (string) $activity->description,
         };
     }
@@ -289,10 +331,14 @@ final class AuditPresenter
             $new = ['role' => self::ROLE_LABELS[$activity->properties->get('role')] ?? $activity->properties->get('role')];
         }
 
+        $labels = $activity->subject_type === (new Event)->getMorphClass()
+            ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
+            : self::FIELD_LABELS;
+
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
             $rows[] = [
-                'label' => self::FIELD_LABELS[$field] ?? (string) $field,
+                'label' => $labels[$field] ?? (string) $field,
                 'old' => self::value($old[$field] ?? null),
                 'new' => self::value($new[$field] ?? null),
             ];

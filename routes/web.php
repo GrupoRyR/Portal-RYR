@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\Account\AccountController;
+use App\Http\Controllers\Account\BirthdayController;
 use App\Http\Controllers\Account\LinkedAccountController;
+use App\Http\Controllers\Account\SwitchAccountController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AppController;
 use App\Http\Controllers\Admin\AuditController;
@@ -8,12 +11,16 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
+use App\Http\Controllers\EventCalendarController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\People\PeopleController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Http\Controllers\Pwa\ServiceWorkerController;
 use App\Http\Controllers\SupportController;
@@ -21,6 +28,7 @@ use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
 use App\Models\Company;
+use App\Models\Event;
 use App\Policies\AdminSections;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -66,6 +74,27 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/logout', LogoutController::class)->middleware('throttle:20,1')->name('logout');
 
+    // «Cuentas vinculadas»: the person's accounts. Unlinking one is a
+    // confirmation page and a POST, both behind a fresh Microsoft
+    // confirmation that the controller checks itself (a 404, not the 403
+    // of microsoft.recent, for emergency accounts).
+    Route::get('/cuenta', [AccountController::class, 'show'])->name('account.show');
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::get('/cuenta/desvincular/{user}', [AccountController::class, 'confirmUnlink'])
+            ->whereNumber('user')
+            ->name('account.unlink.confirm');
+        Route::post('/cuenta/desvincular/{user}', [AccountController::class, 'unlink'])
+            ->whereNumber('user')
+            ->name('account.unlink');
+    });
+
+    // «Mi cumpleaños» on /cuenta: day and month only, shown to the
+    // company only when the person says so (404 without a directory).
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('/cuenta/cumpleanos', [BirthdayController::class, 'update'])->name('account.birthday.update');
+        Route::delete('/cuenta/cumpleanos', [BirthdayController::class, 'destroy'])->name('account.birthday.destroy');
+    });
+
     // Linking another company's account (App\Auth\LinkedAccounts): a fresh
     // Microsoft confirmation first, then a sign-in to the other account.
     // microsoft.recent only guards GET; the POST checks it itself.
@@ -76,8 +105,41 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:20,1')
         ->name('account.link.start');
 
+    // Switching to another linked account: a real Microsoft sign-in with
+    // that account (App\Http\Controllers\Account\SwitchAccountController).
+    Route::post('/cuenta/cambiar/{user}', [SwitchAccountController::class, 'store'])
+        ->whereNumber('user')
+        ->middleware('throttle:20,1')
+        ->name('account.switch');
+
     // Every announcement the user may see (the home shows the latest ones).
     Route::get('/anuncios', [AnnouncementController::class, 'index'])->name('announcements.index');
+    // One of them, on its page of the list (the «Ctrl K» search links here).
+    Route::get('/anuncios/{announcement}', [AnnouncementController::class, 'show'])
+        ->whereNumber('announcement')
+        ->middleware('throttle:60,1')
+        ->name('announcements.show');
+    // «Confirmar lectura» of a mandatory announcement (once per account).
+    // Its own limiter (AppServiceProvider): `throttle:N,1` routes share one
+    // counter per account, so other pages could use up its budget.
+    Route::post('/anuncios/{announcement}/leido', [AnnouncementReadController::class, 'store'])
+        ->whereNumber('announcement')
+        ->middleware('throttle:announcement-read')
+        ->name('announcements.read');
+
+    // Company events the user may see (App\Models\Event::scopeVisibleTo),
+    // soonest first, and «Agregar a mi calendario» of one of them: an .ics
+    // file, or a 404 when the user cannot see it right now.
+    Route::get('/eventos', [EventController::class, 'index'])->name('events.index');
+    Route::get('/eventos/{event}.ics', EventCalendarController::class)
+        ->whereNumber('event')
+        ->middleware('throttle:60,1')
+        ->name('events.calendar');
+
+    // The directory of the user's own company, copied from Microsoft
+    // (App\Models\DirectoryEntry::companyIdFor(); the «Ctrl K» search
+    // links here with ?q=).
+    Route::get('/personas', [PeopleController::class, 'index'])->name('people.index');
 
     // Catalog (App\Catalog\AppCatalog decides access; no access is a 404).
     Route::get('/apps/{app:slug}', AppLaunchController::class)
@@ -124,6 +186,22 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
             ->whereNumber('announcement')
             ->can('update', 'announcement')
             ->name('announcements.edit');
+
+        // App\Policies\EventPolicy: the same people as announcements.
+        // App\Livewire\Admin\EventList and EventEditor re-authorize every
+        // action. The edit page binds {event} by its typed parameter (no
+        // global Route::model), so `can` gets the model and a missing one
+        // is a 404.
+        Route::view('/eventos', 'admin.events.index')
+            ->can('viewAny', Event::class)
+            ->name('events.index');
+        Route::view('/eventos/nuevo', 'admin.events.edit', ['event' => null])
+            ->can('create', Event::class)
+            ->name('events.create');
+        Route::get('/eventos/{event}', fn (Event $event) => view('admin.events.edit', ['event' => $event]))
+            ->whereNumber('event')
+            ->can('update', 'event')
+            ->name('events.edit');
 
         // App\Policies\AppPolicy: super_admin and portal_admin.
         Route::get('/aplicaciones', [AppController::class, 'index'])

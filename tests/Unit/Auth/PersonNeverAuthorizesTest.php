@@ -10,7 +10,8 @@ use RecursiveIteratorIterator;
 
 /**
  * Linked accounts share a person, never permissions: roles, groups,
- * favorites, announcements and app access stay per account. Outside the
+ * favorites, seeing announcements and app access stay per account (the
+ * person may only group what was done, like mandatory reading). Outside the
  * linking code below, no PHP file of app/ or routes/ may look at the
  * person, so a new policy, gate, middleware or access rule that does
  * fails here. Comments are not code and are ignored.
@@ -33,6 +34,27 @@ class PersonNeverAuthorizesTest extends TestCase
         'app/Audit/SecurityLog.php' => ['person_id'],
         'app/Auth/MicrosoftLogin.php' => ['LinkedAccounts', 'linkedAccounts'],
         'app/Http/Controllers/Auth/MicrosoftLoginController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // Switching company is the one place where the person decides
+        // something: which accounts may be switched to. The rule lives in
+        // LinkedAccounts::canSwitch(); the controller only calls it, and
+        // the switch is still a Microsoft sign-in with the target account.
+        'app/Http/Controllers/Account/SwitchAccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // The header switcher only lists what LinkedAccounts::switchTargets()
+        // (canSwitch) allows; each entry is still a POST to the switch above.
+        'app/View/Components/AccountSwitcher.php' => ['LinkedAccounts'],
+        // «Cuentas vinculadas» lists the person's accounts and unlinks one;
+        // which accounts it may touch is LinkedAccounts::canUnlink().
+        'app/Http/Controllers/Account/AccountController.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // portal:unlink-account: an administrator unlinks through the same
+        // service; the email only finds the row.
+        'app/Console/Commands/UnlinkAccountCommand.php' => ['LinkedAccounts', 'linkedAccounts'],
+        // Mandatory reading counts per person (Jhon, 2026-10-30): the
+        // person only groups the reads («Leído el …», «X de Y personas»,
+        // «Personas que faltan»), through LinkedAccounts::idsOfSamePerson()
+        // and LinkedAccounts::PERSON_KEY. Who may see or confirm an
+        // announcement is still per account (scopeVisibleTo,
+        // AnnouncementPolicy), and nothing here reads person_id itself.
+        'app/Models/Announcement.php' => ['LinkedAccounts'],
     ];
 
     private static function root(): string

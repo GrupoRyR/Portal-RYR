@@ -58,11 +58,21 @@ class TenantDirectory
             return null;
         }
 
-        $companies = Company::query()->where('tenant_id', $tenantId)->get();
+        return self::companyAmong(Company::query()->where('tenant_id', $tenantId)->get(), $email);
+    }
 
-        $company = $companies->count() === 1
-            ? $companies->first()
-            : self::byDomain($companies, $email) ?? self::primary($companies);
+    /**
+     * The rule of resolveCompany() over companies already loaded, without
+     * a query: the directory copy (App\Directory\DirectorySync) loads a
+     * tenant's companies once for all of its people.
+     *
+     * @param  Collection<int, Company>  $tenantCompanies  Every company of one tenant, active or not.
+     */
+    public static function companyAmong(Collection $tenantCompanies, ?string $email): ?Company
+    {
+        $company = $tenantCompanies->count() === 1
+            ? $tenantCompanies->first()
+            : self::byDomain($tenantCompanies, $email) ?? self::primary($tenantCompanies);
 
         return $company?->is_active ? $company : null;
     }

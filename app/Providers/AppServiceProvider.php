@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Backups\RecordBackupOutcome;
+use App\Calendar\ColombianHolidays;
 use App\Mail\GraphAccessToken;
 use App\Mail\GraphTransport;
 use App\Microsoft\GraphClient;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -43,6 +45,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TenantDirectory::class);
         $this->app->singleton(PortalSettings::class);
         $this->app->bind(GraphClient::class, HttpGraphClient::class);
+        // Holiday days are read in the portal's timezone.
+        $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
     }
 
     /**
@@ -72,6 +76,12 @@ class AppServiceProvider extends ServiceProvider
                 ? Limit::perMinute(Integration::REQUESTS_PER_MINUTE)->by('integration:'.$integration->getKey())
                 : Limit::perMinute(30)->by('ip:'.$request->ip());
         });
+
+        // «Confirmar lectura» (announcements.read): 30 a minute per account,
+        // in a bucket of its own. `throttle:N,1` keys every route by the
+        // account alone, so they would share one counter with it.
+        RateLimiter::for('announcement-read', fn (Request $request) => Limit::perMinute(30)
+            ->by('announcement-read:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
         // Idle timeout of Configuración, applied before the session starts.
         Event::listen(RouteMatched::class, ApplySessionLifetime::class);
