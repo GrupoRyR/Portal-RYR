@@ -58,6 +58,24 @@ class ProductAuditTest extends TestCase
         $this->assertSame('products/1/a.jpg', $changes['Foto']['new']);
     }
 
+    public function test_category_and_company_ids_are_shown_by_name(): void
+    {
+        $company = Company::factory()->create(['short_name' => 'Segurex']);
+        $smart = ProductCategory::factory()->for($company)->create(['name' => 'Línea smart']);
+        $comercial = ProductCategory::factory()->for($company)->create(['name' => 'Comercial']);
+        $product = Product::factory()->create(['company_id' => $company->id, 'product_category_id' => $smart->id]);
+
+        $created = collect($this->present($this->latest())->changes)->keyBy('label');
+        $this->assertSame('Segurex', $created['Empresa']['new']);
+        $this->assertSame('Línea smart', $created['Categoría']['new']);
+
+        $product->update(['product_category_id' => $comercial->id]);
+        $this->assertSame(
+            [['label' => 'Categoría', 'old' => 'Línea smart', 'new' => 'Comercial']],
+            $this->present($this->latest())->changes,
+        );
+    }
+
     public function test_a_deleted_product_keeps_its_name(): void
     {
         $product = Product::factory()->create(['name' => 'Cloro 5 %']);

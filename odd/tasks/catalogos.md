@@ -68,3 +68,18 @@ Las cinco tareas están hechas en la rama `feat/catalogos`. Decisiones adicional
 - GREEN: modelos 6/6, fotos y enlaces 30/30 (con las de enlaces), lectura 6/6, Administración 26/26, Auditoría 4/4.
 - Suite completa: 2343 pruebas, todas pasan. `vendor/bin/pint --test`: pasa.
 - Engram mirror: pending.
+
+## Revisión independiente
+
+Sin hallazgos altos. Hallazgos y correcciones (prueba primero):
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Medio. GD agota la memoria con fotos que pasan la validación (6000 × 6000 en 563 KB; 12 MP con EXIF 6 llegaba a unos 100 MB). | Tope de 16 megapíxeles en `problem()` (`MAX_PIXELS`, error de formulario). Se reduce primero y se gira la copia pequeña; cada paso reasigna `$image` y libera la imagen grande. La orientación EXIF se lee del segmento APP1 sin la extensión exif (que no está instalada aquí). |
+| 2 | Medio. La intercalación `utf8mb4_unicode_ci` ignora acentos: «Electronica» y «Electrónica», o dos administradores a la vez, lanzaban `QueryException`. | `createCategory` y `saveRename` atrapan `UniqueConstraintViolationException` y la vuelven el error «ya tiene una categoría con ese nombre». Las pruebas insertan la fila rival dentro del evento `creating`/`updating`, así que el índice único falla de verdad. |
+| 3 | Bajo. Una foto que pasa `getimagesize` pero GD no decodifica daba 500. | `saveProduct` vuelve la excepción un error en `photo`, antes de escribir nada. |
+| 4 | Bajo. `deleteCategory` contaba y borraba por separado: un producto nuevo en medio se borraba por cascada y dejaba su foto. | Contar y borrar van en una transacción con `lockForUpdate` sobre la categoría; la clave foránea del producto espera ese bloqueo. |
+| 5 | Bajo. Auditoría mostraba ids en `product_category_id` y `company_id`. | `AuditPresenter` muestra el nombre (empresa: nombre corto o nombre), con una búsqueda por id. `Product` ahora también audita `company_id`. |
+| 6 | Bajo. Faltaban pruebas. | `MAX_INPUT_SIDE`, tope de píxeles (y justo en el tope), EXIF 6, 8, 3 y 1, archivo sin decodificar (en el almacén y en la página), categoría duplicada (creación y renombrar), transacción de borrado, nombres en Auditoría. |
+
+Evidencia: RED con 7 pruebas nuevas en rojo (de 13 nuevas; las otras ya pasaban por el diseño). GREEN: 84/84 en `Products`. Suite completa: 2355 pruebas, todas pasan. `vendor/bin/pint --test`: pasa.

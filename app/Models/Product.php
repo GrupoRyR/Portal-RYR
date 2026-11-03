@@ -46,7 +46,7 @@ class Product extends Model
     {
         return LogOptions::defaults()
             ->useLogName(ProductCategory::AUDIT_LOG)
-            ->logOnly(['name', 'summary', 'photo_path', 'link_url', 'product_category_id', 'published', 'position'])
+            ->logOnly(['company_id', 'name', 'summary', 'photo_path', 'link_url', 'product_category_id', 'published', 'position'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

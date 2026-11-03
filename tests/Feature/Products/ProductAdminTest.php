@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -364,6 +365,76 @@ class ProductAdminTest extends TestCase
         $mine = $this->product($this->segurex);
 
         $this->manager($this->segurex)->call('editProduct', $mine->id)->set('companyId', $this->sdc->id)->assertSet('editingId', null);
+    }
+
+    public function test_a_photo_gd_cannot_decode_is_a_form_error_not_a_crash(): void
+    {
+        $category = ProductCategory::factory()->for($this->segurex)->create();
+        $ihdr = pack('NNCCCCC', 400, 400, 8, 2, 0, 0, 0);
+        $broken = "\x89PNG\r\n\x1a\n".pack('N', 13).'IHDR'.$ihdr.pack('N', crc32('IHDR'.$ihdr)).'garbage';
+
+        $this->manager()->call('newProduct')->set('productName', 'Alarma')->set('categoryId', $category->id)
+            ->set('photo', UploadedFile::fake()->createWithContent('rota.png', $broken))
+            ->call('saveProduct')->assertHasErrors('photo');
+
+        $this->assertSame(0, Product::count());
+        $this->assertSame([], Storage::disk('public')->allFiles('products'));
+    }
+
+    public function test_a_category_name_taken_in_the_meantime_is_a_form_error_on_create(): void
+    {
+        // MySQL's collation also ignores accents, and two admins can save at once:
+        // the row appears between the check and the insert, so the index decides.
+        $company = $this->segurex;
+        $raced = false;
+        ProductCategory::creating(function (ProductCategory $category) use (&$raced, $company) {
+            if (! $raced) {
+                $raced = true;
+                DB::table('product_categories')->insert([
+                    'company_id' => $company->id, 'name' => $category->name, 'position' => 9,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->manager()->set('newCategory', 'Electrónica')->call('createCategory')->assertHasErrors('newCategory');
+
+        $this->assertSame(1, ProductCategory::where('name', 'Electrónica')->count());
+    }
+
+    public function test_a_category_name_taken_in_the_meantime_is_a_form_error_on_rename(): void
+    {
+        $category = ProductCategory::factory()->for($this->segurex)->create(['name' => 'Comercial']);
+        $company = $this->segurex;
+        $raced = false;
+        ProductCategory::updating(function (ProductCategory $model) use (&$raced, $company) {
+            if (! $raced) {
+                $raced = true;
+                DB::table('product_categories')->insert([
+                    'company_id' => $company->id, 'name' => $model->name, 'position' => 9,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->manager()->call('startRename', $category->id)->set('renameValue', 'Oficinas')->call('saveRename')->assertHasErrors('renameValue');
+
+        $this->assertSame('Comercial', $category->fresh()->name);
+    }
+
+    public function test_deleting_a_category_checks_and_deletes_inside_one_transaction(): void
+    {
+        $category = ProductCategory::factory()->for($this->segurex)->create();
+        $outside = DB::transactionLevel();
+        $levels = [];
+        ProductCategory::deleting(function () use (&$levels) {
+            $levels[] = DB::transactionLevel();
+        });
+
+        $this->manager()->call('deleteCategory', $category->id)->assertHasNoErrors();
+
+        $this->assertNotEmpty($levels);
+        $this->assertGreaterThan($outside, $levels[0]);
     }
 
     // --- Helpers ----------------------------------------------------------

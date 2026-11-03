@@ -404,16 +404,53 @@ final class AuditPresenter
             ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
             : self::FIELD_LABELS;
 
+        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass()], true);
+
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
+            $before = $old[$field] ?? null;
+            $after = $new[$field] ?? null;
+
+            // Catalog rows store ids; show the company or category by name.
+            if ($catalog && in_array($field, ['company_id', 'product_category_id'], true)) {
+                $before = $this->catalogName($field, $before);
+                $after = $this->catalogName($field, $after);
+            }
+
             $rows[] = [
                 'label' => $labels[$field] ?? (string) $field,
-                'old' => self::value($old[$field] ?? null),
-                'new' => self::value($new[$field] ?? null),
+                'old' => self::value($before),
+                'new' => self::value($after),
             ];
         }
 
         return $rows;
+    }
+
+    /** @var array<string, string|null> Names already looked up, by «field:id». */
+    private array $catalogNames = [];
+
+    /**
+     * The name behind a company or product category id of a catalog entry,
+     * or the id itself when the row no longer exists. Looked up once per id.
+     */
+    private function catalogName(string $field, mixed $id): mixed
+    {
+        if (! is_numeric($id)) {
+            return $id;
+        }
+
+        $key = $field.':'.$id;
+
+        if (! array_key_exists($key, $this->catalogNames)) {
+            $company = $field === 'company_id' ? Company::query()->whereKey($id)->first(['name', 'short_name']) : null;
+
+            $this->catalogNames[$key] = $field === 'company_id'
+                ? ($company?->short_name ?: $company?->name)
+                : ProductCategory::query()->whereKey($id)->value('name');
+        }
+
+        return $this->catalogNames[$key] ?? $id;
     }
 
     public static function value(mixed $value): string

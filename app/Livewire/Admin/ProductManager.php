@@ -10,10 +10,12 @@ use App\Products\ProductPhotoStore;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -95,11 +97,15 @@ class ProductManager extends Component
         $company = $this->company();
         $name = $this->checkCategoryName('newCategory', $this->newCategory, $company);
 
-        ProductCategory::create([
-            'company_id' => $company->id,
-            'name' => $name,
-            'position' => (int) ProductCategory::query()->where('company_id', $company->id)->max('position') + 1,
-        ]);
+        try {
+            ProductCategory::create([
+                'company_id' => $company->id,
+                'name' => $name,
+                'position' => (int) ProductCategory::query()->where('company_id', $company->id)->max('position') + 1,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            throw self::nameTaken('newCategory');
+        }
 
         $this->newCategory = '';
         $this->notice = "Se agregó «{$name}» al final de las categorías.";
@@ -133,7 +139,11 @@ class ProductManager extends Component
 
         $name = $this->checkCategoryName('renameValue', $this->renameValue, $this->company(), $category->id);
 
-        $category->update(['name' => $name]);
+        try {
+            $category->update(['name' => $name]);
+        } catch (UniqueConstraintViolationException) {
+            throw self::nameTaken('renameValue');
+        }
 
         $this->cancelRename();
         $this->notice = "Se cambió el nombre a «{$name}».";
@@ -169,18 +179,29 @@ class ProductManager extends Component
         $category = $this->category($id);
         $this->authorize('delete', $category);
 
-        $count = Product::query()->where('product_category_id', $category->id)->count();
+        // Lock the category row while counting, so a product added at the
+        // same moment waits (its foreign key needs this row) and is never
+        // removed by the cascade with its photo left behind.
+        $count = DB::transaction(function () use ($category) {
+            ProductCategory::query()->whereKey($category->id)->lockForUpdate()->first();
+
+            $count = Product::query()->where('product_category_id', $category->id)->count();
+
+            if ($count === 0) {
+                $category->delete();
+            }
+
+            return $count;
+        });
 
         if ($count > 0) {
-            $count = $count === 1 ? '1 producto' : "{$count} productos";
-            $them = $count === '1 producto' ? 'muévelo' : 'muévelos';
+            $label = $count === 1 ? '1 producto' : "{$count} productos";
+            $them = $count === 1 ? 'muévelo' : 'muévelos';
 
             throw ValidationException::withMessages([
-                'categories' => "No se puede borrar «{$category->name}»: tiene {$count}. Primero {$them} a otra categoría o bórralos.",
+                'categories' => "No se puede borrar «{$category->name}»: tiene {$label}. Primero {$them} a otra categoría o bórralos.",
             ]);
         }
-
-        $category->delete();
 
         if ($this->renamingId === $id) {
             $this->cancelRename();
@@ -229,7 +250,12 @@ class ProductManager extends Component
         $data = $this->validate($this->rules(), $this->messages());
 
         $name = trim(preg_replace('/\s+/u', ' ', $data['productName']) ?? '');
-        $newPath = $this->photo instanceof TemporaryUploadedFile ? $photos->store($company->id, $this->photo) : null;
+        try {
+            $newPath = $this->photo instanceof TemporaryUploadedFile ? $photos->store($company->id, $this->photo) : null;
+        } catch (InvalidArgumentException) {
+            // Looked fine in its header, but GD cannot decode it (truncated, animated...).
+            throw ValidationException::withMessages(['photo' => 'No se pudo leer la foto. Expórtala de nuevo como JPG, PNG o WebP.']);
+        }
 
         try {
             $attributes = [
@@ -480,9 +506,19 @@ class ProductManager extends Component
             ->contains(fn (string $existing) => mb_strtolower($existing) === mb_strtolower($name));
 
         if ($taken) {
-            throw ValidationException::withMessages([$field => 'Esta empresa ya tiene una categoría con ese nombre.']);
+            throw self::nameTaken($field);
         }
 
         return $name;
+    }
+
+    /**
+     * MySQL's collation also ignores accents («Electronica» and
+     * «Electrónica» collide) and two admins can save at once, so the
+     * unique index has the last word: it ends here, as a form error.
+     */
+    private static function nameTaken(string $field): ValidationException
+    {
+        return ValidationException::withMessages([$field => 'Esta empresa ya tiene una categoría con ese nombre.']);
     }
 }
