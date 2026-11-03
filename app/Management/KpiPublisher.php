@@ -6,18 +6,24 @@ use App\Models\Company;
 use App\Models\CompanyKpi;
 use App\Models\Integration;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Replaces the whole set of management figures of one company with the one
  * a `kpis:write` integration sent (`PUT /api/v1/kpis`). The company is the
  * integration's own; the caller never chooses it.
  *
- * The replacement is atomic: inside one transaction the company row is
- * locked first (two robots, or two runs of one, never interleave), the old
- * rows are deleted and the new ones inserted, so a reader sees the old set
- * or the new one, never a mix. Then one `kpis.updated` entry is written to
- * the API log with the number of figures only, never their values.
+ * The replacement is atomic: inside one transaction the integration row is
+ * locked and checked again (a PUT authenticated just before the token was
+ * revoked, lost `kpis:write` or moved to another company is refused, since
+ * Integration::revoke() locks the same row first), then the company row
+ * (two robots, or two runs of one, never interleave), the old rows are
+ * deleted and the new ones inserted, so a reader sees the old set or the
+ * new one, never a mix. Then one `kpis.updated` entry is written to the
+ * API log with the number of figures only (`attributes.items`, «Cifras»
+ * in Auditoría), never their values.
  */
 final class KpiPublisher
 {
@@ -49,8 +55,16 @@ final class KpiPublisher
             'updated_at' => $now,
         ], $set['items'], array_keys($set['items']));
 
-        DB::transaction(function () use ($company, $rows) {
-            Company::query()->whereKey($company->id)->lockForUpdate()->first(['id']);
+        DB::transaction(function () use ($integration, $company, $rows) {
+            $current = self::integrationRow($integration->id)->first();
+
+            if ($current === null || $current->isRevoked()
+                || ! in_array(Integration::KPIS_WRITE, $current->abilities, true)
+                || $current->company_id !== $company->id) {
+                throw new AccessDeniedHttpException('This token may no longer publish these figures.');
+            }
+
+            self::companyRow($company->id)->first(['id']);
 
             CompanyKpi::query()->where('company_id', $company->id)->delete();
             CompanyKpi::query()->insert($rows);
@@ -60,10 +74,31 @@ final class KpiPublisher
             ->causedBy($integration)
             ->performedOn($company)
             ->event(self::AUDIT_EVENT)
-            ->withProperties(['items' => count($rows)])
+            ->withProperties(['attributes' => ['items' => count($rows)]])
             ->log(self::AUDIT_EVENT);
 
         return count($rows);
+    }
+
+    /**
+     * The integration row, locked until the transaction ends (also taken
+     * by Integration::revoke()).
+     *
+     * @return Builder<Integration>
+     */
+    public static function integrationRow(int $id): Builder
+    {
+        return Integration::query()->whereKey($id)->lockForUpdate();
+    }
+
+    /**
+     * The company row, locked until the transaction ends.
+     *
+     * @return Builder<Company>
+     */
+    public static function companyRow(int $id): Builder
+    {
+        return Company::query()->whereKey($id)->lockForUpdate();
     }
 
     /**

@@ -216,10 +216,14 @@ class Integration extends Model
      * Deletes the token for good, and the work items and management
      * figures it published, which leave the portal at once (contract §2.2,
      * odd/tasks/panel-gerencial.md). A revoked integration stays listed.
+     *
+     * The row is locked first, like App\Management\KpiPublisher does, so a
+     * PUT in flight either finishes before the revoke or is refused after.
      */
     public function revoke(): void
     {
         DB::transaction(function () {
+            static::query()->whereKey($this->getKey())->lockForUpdate()->first(['id']);
             $this->tokens()->delete();
             $this->workItems()->withTrashed()->forceDelete();
             $this->kpis()->delete();

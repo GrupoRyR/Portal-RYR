@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use App\Models\CompanyKpi;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -36,7 +37,7 @@ class PutKpisRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        abort_if(strlen($this->getContent()) > CompanyKpi::MAX_BODY_BYTES, 413, 'The request body must not be larger than 8 KB.');
+        abort_if(strlen($this->getContent()) > CompanyKpi::MAX_BODY_BYTES, 413, 'The request body must not be larger than 16 KB.');
     }
 
     /**
@@ -92,6 +93,15 @@ class PutKpisRequest extends FormRequest
     {
         if (! is_string($value) || ! self::isDateTimeWithZone($value)) {
             $fail("The {$attribute} field must be an ISO 8601 date and time with a time zone.");
+
+            return;
+        }
+
+        $instant = CarbonImmutable::parse($value);
+
+        if ($instant->lt(CarbonImmutable::parse(CompanyKpi::EARLIEST_AS_OF))
+            || $instant->gt(CarbonImmutable::now()->addHours(CompanyKpi::MAX_AS_OF_AHEAD_HOURS))) {
+            $fail("The {$attribute} field must be between 2000-01-01 and one day from now.");
         }
     }
 

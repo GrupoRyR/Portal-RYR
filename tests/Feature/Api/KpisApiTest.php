@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Management\KpiPublisher;
 use App\Models\Company;
 use App\Models\CompanyKpi;
 use App\Models\Integration;
@@ -10,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Query\Grammars\MySqlGrammar;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -18,6 +20,7 @@ use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tests\TestCase;
 
 /**
@@ -166,7 +169,10 @@ class KpisApiTest extends TestCase
         $this->assertSame(['ventas', 'cartera-vencida', 'pedidos'], $this->keysOf($this->segurex));
     }
 
-    public function test_every_replacement_first_locks_its_company(): void
+    /**
+     * @return list<string>
+     */
+    private function queriesOfLastTransaction(callable $callback): array
     {
         $log = [];
         Event::listen(TransactionBeginning::class, function () use (&$log) {
@@ -176,11 +182,79 @@ class KpisApiTest extends TestCase
             $log[] = $query->sql;
         });
 
-        $this->putKpis($this->body())->assertOk();
+        $callback();
+        Event::forget(TransactionBeginning::class);
+        Event::forget(QueryExecuted::class);
 
         $begins = array_keys($log, 'begin', true);
-        $first = $log[end($begins) + 1] ?? '';
-        $this->assertStringContainsString('from "companies" where "companies"."id" = ?', $first, $first);
+
+        return array_values(array_filter(array_slice($log, end($begins) + 1), fn (string $entry) => $entry !== 'begin'));
+    }
+
+    public function test_every_replacement_first_locks_its_integration_then_its_company(): void
+    {
+        $queries = $this->queriesOfLastTransaction(fn () => $this->putKpis($this->body())->assertOk());
+
+        $this->assertStringContainsString('from "integrations" where "integrations"."id" = ?', $queries[0] ?? '', implode("\n", $queries));
+        $this->assertStringContainsString('from "companies" where "companies"."id" = ?', $queries[1] ?? '', implode("\n", $queries));
+    }
+
+    /**
+     * SQLite has no row locks, so the clause is checked as MySQL compiles it.
+     */
+    public function test_the_locks_are_select_for_update_on_mysql(): void
+    {
+        foreach ([KpiPublisher::integrationRow($this->integration->id), KpiPublisher::companyRow($this->segurex->id)] as $query) {
+            $base = $query->toBase();
+            $base->grammar = new MySqlGrammar(DB::connection());
+
+            $this->assertStringEndsWith('for update', $base->toSql());
+        }
+    }
+
+    public function test_revoking_first_locks_the_integration(): void
+    {
+        $queries = $this->queriesOfLastTransaction(fn () => $this->integration->fresh()->revoke());
+
+        $this->assertStringContainsString('from "integrations" where "integrations"."id" = ?', $queries[0] ?? '', implode("\n", $queries));
+    }
+
+    /**
+     * A PUT authenticated just before the token was revoked, lost
+     * `kpis:write` or moved to another company must not write after it.
+     *
+     * @return array<string, array{callable(Integration): void}>
+     */
+    public static function changesWhileAPutIsInFlight(): array
+    {
+        return [
+            'revoked' => [fn (Integration $integration) => $integration->revoke()],
+            'ability removed' => [fn (Integration $integration) => $integration->changeAbilities([Integration::CATALOG_READ])],
+            'company changed' => [fn (Integration $integration) => $integration->forceFill(['company_id' => Company::query()->where('slug', 'derivados')->value('id')])->save()],
+        ];
+    }
+
+    #[DataProvider('changesWhileAPutIsInFlight')]
+    public function test_a_put_in_flight_never_writes_after_the_token_changed(callable $change): void
+    {
+        $this->putKpis($this->body(['items' => [['key' => 'vieja', 'label' => 'Vieja', 'value' => 1]]]))->assertOk();
+        $stale = $this->integration->fresh();
+        $change($this->integration->fresh());
+
+        try {
+            app(KpiPublisher::class)->replace($stale, $this->segurex, [
+                'period_label' => 'Octubre',
+                'as_of' => '2026-11-04T23:59:00-05:00',
+                'source_label' => 'SAP Business One',
+                'items' => [['key' => 'nueva', 'label' => 'Nueva', 'value' => 2]],
+            ]);
+            $this->fail('The stale integration wrote its figures.');
+        } catch (AccessDeniedHttpException) {
+            // Refused inside the transaction.
+        }
+
+        $this->assertNotContains('nueva', CompanyKpi::query()->pluck('key')->all());
+        $this->assertSame(1, Activity::query()->where('event', 'kpis.updated')->count());
     }
 
     // --- The company comes only from the token -------------------------------
@@ -269,7 +343,7 @@ class KpisApiTest extends TestCase
         $this->putKpis($this->body(['items' => [['key' => 'ventas', 'label' => 'Ventas del mes', 'value' => 'mucho']]]))->assertUnprocessable();
 
         $entry = Activity::query()->where('log_name', Integration::AUDIT_LOG)->where('event', 'kpis.updated')->sole();
-        $this->assertSame(['items' => 3], $entry->properties->all());
+        $this->assertSame(['attributes' => ['items' => 3]], $entry->properties->all());
         $this->assertTrue($entry->causer->is($this->integration));
         $this->assertTrue($entry->subject->is($this->segurex));
 
@@ -293,7 +367,7 @@ class KpisApiTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->actingAs($admin)->get(route('admin.audit.index', ['tipo' => 'api']))
-            ->assertSeeTextInOrder(['Robot de SAP segurex', 'API', 'Publicó las cifras del panel gerencial de la empresa Segurex Latam'])
+            ->assertSeeTextInOrder(['Robot de SAP segurex', 'API', 'Publicó las cifras del panel gerencial de la empresa Segurex Latam', 'Cifras', '3'])
             ->assertDontSeeText('1250000000');
     }
 
@@ -315,6 +389,10 @@ class KpisApiTest extends TestCase
             'as_of only a date' => [['as_of' => '2026-11-04'], 'as_of'],
             'as_of impossible date' => [['as_of' => '2026-02-30T10:00:00-05:00'], 'as_of'],
             'as_of a number' => [['as_of' => 1730764740], 'as_of'],
+            'as_of more than a day ahead' => [['as_of' => '2026-11-06T06:01:00-05:00'], 'as_of'],
+            'as_of far in the future' => [['as_of' => '9999-12-31T23:59:59Z'], 'as_of'],
+            'as_of before 2000' => [['as_of' => '1999-12-31T23:59:59Z'], 'as_of'],
+            'as_of in year 1' => [['as_of' => '0001-01-01T00:00:00Z'], 'as_of'],
             'no source' => [['source_label' => ''], 'source_label'],
             'long source' => [['source_label' => str_repeat('a', 81)], 'source_label'],
             'no items' => [['items' => []], 'items'],
@@ -381,7 +459,35 @@ class KpisApiTest extends TestCase
             ->assertOk();
     }
 
-    public function test_a_body_over_8_kb_answers_413(): void
+    public function test_as_of_accepts_its_edges(): void
+    {
+        $this->putKpis($this->body(['as_of' => '2026-11-06T06:00:00-05:00']))->assertOk();
+        $this->putKpis($this->body(['as_of' => '2000-01-01T00:00:00Z']))->assertOk();
+        $this->putKpis($this->body(['as_of' => '2000-01-01T00:00:00+05:00']))->assertUnprocessable()->assertJsonValidationErrors(['as_of']);
+    }
+
+    /**
+     * A client that escapes every non-ASCII character as \uXXXX (Python's
+     * json.dumps default) sends six bytes per «é»: the largest valid set
+     * must still fit.
+     */
+    public function test_the_largest_set_fits_even_with_escaped_unicode(): void
+    {
+        $items = array_map(fn (int $i) => [
+            'key' => str_pad("k{$i}", 40, 'x'),
+            'label' => str_repeat('é', 60),
+            'value' => -999999999999999,
+            'unit' => str_repeat('é', 16),
+            'goal' => 999999999999999,
+            'note' => str_repeat('é', 120),
+        ], range(1, 8));
+        $body = $this->body(['period_label' => str_repeat('é', 40), 'source_label' => str_repeat('é', 80), 'items' => $items]);
+
+        $this->assertGreaterThan(8192, strlen(json_encode($body)));
+        $this->putKpis($body)->assertOk()->assertJsonPath('data.items', 8);
+    }
+
+    public function test_a_body_over_16_kb_answers_413(): void
     {
         $this->putKpis($this->body(['source_label' => str_repeat('a', CompanyKpi::MAX_BODY_BYTES)]))->assertStatus(413);
 

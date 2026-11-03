@@ -54,8 +54,17 @@ class CompanyKpi extends Model
     /** Largest absolute value or goal: fits decimal(20, 4). */
     public const MAX_ABS_VALUE = 1e15;
 
-    /** A body of the PUT larger than this answers 413. */
-    public const MAX_BODY_BYTES = 8192;
+    /**
+     * A body of the PUT larger than this answers 413. The largest valid set
+     * is about 13 KB when every non-ASCII character is escaped as \uXXXX.
+     */
+    public const MAX_BODY_BYTES = 16384;
+
+    /** The earliest accepted `as_of`. */
+    public const EARLIEST_AS_OF = '2000-01-01T00:00:00Z';
+
+    /** How far ahead of now an `as_of` may be (clock skew, time zones). */
+    public const MAX_AS_OF_AHEAD_HOURS = 24;
 
     /** Lowercase slug: letters and digits, single `-` or `_` between them. */
     public const KEY_PATTERN = '/\A[a-z0-9]+(?:[-_][a-z0-9]+)*\z/';

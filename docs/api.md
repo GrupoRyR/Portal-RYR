@@ -207,7 +207,7 @@ Todas las respuestas de error son JSON, aunque la llamada no envíe `Accept: app
 | `401` | Falta el token, no existe, fue revocado o fue reemplazado al rotarlo. |
 | `403` | El token no tiene el permiso del endpoint, la llamada viene de una IP que no está en su lista, o un token con `kpis:write` no tiene empresa. |
 | `404` | No existe una app con ese `slug`, el `external_id` tiene caracteres no permitidos, o la dirección no existe. |
-| `413` | El cuerpo de un `PUT /work-items/...` o de un `PUT /kpis` pasa de 8 KB. |
+| `413` | El cuerpo de un `PUT /work-items/...` pasa de 8 KB, o el de un `PUT /kpis` pasa de 16 KB. |
 | `422` | Datos inválidos. `errors` dice qué campo falló, por ejemplo `{"message": "...", "errors": {"status": ["..."]}}`. |
 | `429` | Demasiadas llamadas (ver Límites). Espere los segundos que indica el encabezado `Retry-After`. |
 | `5xx` | Error del portal. Reintente más tarde, con espera creciente. |
@@ -296,7 +296,7 @@ Antes de usarlo, la integración necesita en **Administración → Integraciones
 | Campo | Obligatorio | Reglas |
 |---|---|---|
 | `period_label` | Sí | Texto de una línea, hasta 40 caracteres. Por ejemplo «Octubre». |
-| `as_of` | Sí | Fecha y hora ISO 8601 **con zona** (`Z`, `-05:00`…), segundos opcionales: el cierre de las cifras («al cierre de ayer»). Se guarda como el mismo instante. |
+| `as_of` | Sí | Fecha y hora ISO 8601 **con zona** (`Z`, `-05:00`…), segundos opcionales: el cierre de las cifras («al cierre de ayer»). Se guarda como el mismo instante. Debe estar entre el 2000-01-01 y un día después de la hora actual del portal; fuera de ese rango responde `422`. |
 | `source_label` | Sí | Texto de una línea, hasta 80 caracteres. Por ejemplo «SAP Business One». |
 | `items` | Sí | Lista de 1 a 8 cifras, en el orden en que se muestran. |
 | `items[].key` | Sí | Identificador en minúsculas, hasta 40 caracteres: letras, números y un solo `-` o `_` entre ellos (`cartera-vencida`). No se puede repetir en la misma llamada. |
@@ -307,6 +307,8 @@ Antes de usarlo, la integración necesita en **Administración → Integraciones
 | `items[].note` | No | Texto de una línea, hasta 120 caracteres. |
 
 «Texto de una línea» no admite caracteres de control, separadores de línea o párrafo de Unicode, marcas ni controles de dirección del texto, el espacio de ancho cero ni la marca de orden de bytes (las mismas reglas del `title` de la sección 7). Los espacios al principio y al final se quitan.
+
+El cuerpo admite hasta **16 KB**. Envíelo en UTF-8 sin escapar los acentos: `é` ocupa 6 bytes y «é» solo 2. En Python, `json.dumps(cuerpo, ensure_ascii=False).encode("utf-8")`; con `requests`, pase `data=` con ese texto y el encabezado `Content-Type: application/json; charset=utf-8` en lugar de `json=`, que escapa los acentos.
 
 ### 8.2 Respuesta
 
@@ -321,7 +323,8 @@ La respuesta solo cuenta las cifras: nunca las repite. Los mensajes de error de 
 - **Reemplazo completo y atómico.** Cada `PUT` reemplaza todo el juego de cifras de la empresa: una cifra que no viene en la llamada desaparece. Quien mira el inicio ve el juego anterior o el nuevo, nunca una mezcla. Si la llamada falla (`4xx` o `5xx`), las cifras anteriores siguen como estaban.
 - **Solo el juego vigente.** El portal no guarda historial: para el mes anterior, consulte SAP.
 - **Una llamada por noche basta.** Reintentar la misma llamada no hace daño: deja el mismo resultado.
-- **Auditoría.** Cada `PUT` aceptado deja en Auditoría › API «Publicó las cifras del panel gerencial de la empresa …» con el número de cifras, nunca con los valores. El portal no escribe los valores en sus registros.
+- **Auditoría.** Cada `PUT` aceptado deja en Auditoría › API «Publicó las cifras del panel gerencial de la empresa …» con el número de cifras («Cifras»), nunca con los valores.
+- **Revocar o cambiar el token durante una llamada.** Si el token se revoca, pierde `kpis:write` o cambia de empresa mientras un `PUT` está en curso, ese `PUT` responde `403` y no escribe nada. El portal no escribe los valores en sus registros.
 - **Revocar** el token borra las cifras que publicó. Quitar `kpis:write` o cambiar la empresa del token no las borra: siguen siendo las cifras de esa empresa hasta que otra llamada las reemplace.
 
 ### 8.4 Ejemplo

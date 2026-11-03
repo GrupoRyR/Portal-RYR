@@ -31,7 +31,8 @@ return new class extends Migration
             $table->decimal('goal', 20, 4)->nullable();
             $table->string('note', 120)->nullable();
             $table->string('period_label', 40);
-            $table->timestamp('as_of');
+            // dateTime, not timestamp: MySQL's TIMESTAMP ends in 2038.
+            $table->dateTime('as_of');
             $table->string('source_label', 80);
             $table->timestamps();
 

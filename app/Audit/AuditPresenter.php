@@ -186,6 +186,7 @@ final class AuditPresenter
         'allowed_ips' => 'IP permitidas',
         'app' => 'App del catálogo',
         'app_base_url' => 'URL base de la app',
+        'items' => 'Cifras',
         PortalSettings::SUPPORT_URL => 'Dirección de soporte TI',
         PortalSettings::IDLE_TIMEOUT => 'Cierre por inactividad (minutos)',
         PortalSettings::MICROSOFT_LOGOUT => 'Cerrar también Microsoft',
