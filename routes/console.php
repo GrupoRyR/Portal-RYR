@@ -127,3 +127,12 @@ Schedule::command('portal:send-weekly-digest')
     ->cron('0 7-12 * * 1')
     ->timezone('America/Bogota')
     ->withoutOverlapping(10);
+
+// «Noticias» (App\News\NewsUpdater): every hour, read the active RSS/Atom
+// sources of Admin › Noticias and keep their newest headlines. A source
+// that fails stores a short code and the others still run. Each request
+// times out after 10 seconds (config/news.php).
+Schedule::command('portal:fetch-news')
+    ->hourly()
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
