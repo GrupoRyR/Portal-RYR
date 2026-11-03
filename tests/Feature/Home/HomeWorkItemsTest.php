@@ -3,6 +3,7 @@
 namespace Tests\Feature\Home;
 
 use App\Models\App;
+use App\Models\AppAccessRule;
 use App\Models\Company;
 use App\Models\Integration;
 use App\Models\User;
@@ -196,6 +197,7 @@ class HomeWorkItemsTest extends TestCase
 
     public function test_each_group_shows_twenty_and_links_to_the_app_for_the_rest(): void
     {
+        $this->showInCatalog($this->integration->app);
         foreach (range(1, WorkList::LIMIT + 1) as $i) {
             $this->item(['title' => "Tarea {$i}"]);
         }
@@ -209,6 +211,34 @@ class HomeWorkItemsTest extends TestCase
         $this->assertStringContainsString('Ver todas', $more);
         $this->assertStringContainsString('href="https://tareas.segurex.com.co"', $more);
         $this->assertNoElement($response, 'data-work-more', 'approval');
+    }
+
+    public function test_ver_todas_lists_every_visible_app_of_the_group_even_past_the_first_twenty(): void
+    {
+        $this->showInCatalog($this->integration->app);
+        foreach (range(1, WorkList::LIMIT + 1) as $i) {
+            $this->item(['title' => "Tarea {$i}", 'due_at' => now()->addDays($i)]);
+        }
+        $compras = $this->openableApp(['name' => 'Compras', 'url' => 'https://compras.segurex.com.co']);
+        $other = Integration::factory()->create(['abilities' => [Integration::WORK_WRITE], 'app_id' => $compras->id]);
+        // Undated, so it sorts last: past the twenty the block lists.
+        $this->item(['title' => 'Tarea de compras', 'integration_id' => $other->id, 'due_at' => null]);
+
+        $links = $this->xpath($this->home())->query('//*[@data-work-more="task"]');
+
+        $this->assertSame(['https://compras.segurex.com.co', 'https://tareas.segurex.com.co'], array_map(fn ($link) => $link->getAttribute('href'), iterator_to_array($links)));
+    }
+
+    public function test_ver_todas_never_links_to_an_app_the_account_cannot_see(): void
+    {
+        foreach (range(1, WorkList::LIMIT + 1) as $i) {
+            $this->item(['title' => "Tarea {$i}"]);
+        }
+
+        $response = $this->home();
+
+        $this->assertSame(WorkList::LIMIT, $this->xpath($response)->query('//*[@data-work-kind="task"]//*[@data-work-item]')->length);
+        $this->assertNoElement($response, 'data-work-more', 'task');
     }
 
     public function test_the_completion_message_shows_in_the_task_block(): void
@@ -272,6 +302,15 @@ class HomeWorkItemsTest extends TestCase
 
         $this->assertStringContainsString('Vinculaste tu cuenta de Derivados.', $this->element($response, 'data-flash'));
         $this->assertStringNotContainsString('Vinculaste', $this->element($response, 'id', 'tareas'));
+    }
+
+    /**
+     * Makes an existing app one the user sees in the catalog.
+     */
+    private function showInCatalog(App $app): void
+    {
+        $app->companies()->attach($this->company->id);
+        AppAccessRule::forCompany($app, $this->company);
     }
 
     /**

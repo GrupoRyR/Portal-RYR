@@ -199,7 +199,7 @@ final class HomePageBuilder
             news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
             catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
-            work: WorkList::for($user, CarbonImmutable::instance($now)),
+            work: WorkList::for($user, CarbonImmutable::instance($now), $visible),
             itStatus: $itStatus->available ? $itStatus : null,
         );
     }
