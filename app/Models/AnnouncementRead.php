@@ -9,7 +9,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * One account's confirmation that it read a mandatory announcement
- * (Announcement::markReadBy()). One row per announcement and account.
+ * (Announcement::markReadBy()). One row per announcement and account; a
+ * person has read it when any of their linked accounts has a row
+ * (Announcement::isReadByPersonOf()).
  *
  * @property Carbon $read_at
  */

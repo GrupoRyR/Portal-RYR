@@ -128,18 +128,19 @@ Se muestran en el inicio entre su fecha de inicio y de fin: en el computador, en
 
 - **Contenido:** título, texto (solo texto, hasta 280 caracteres; los saltos de línea se respetan) e imagen opcional (PNG, JPG o WebP de hasta 2 MB; se recorta a 16:9).
 - **Publicación:** **Para quién** (todas las empresas o algunas), **Desde** y **Hasta** (sin fecha de fin, se muestra hasta que lo retire) y **Fijar arriba** (se muestra primero y destacado con el color de la empresa).
-- **Lectura obligatoria:** cada persona que ve el anuncio debe pulsar **Confirmar lectura** (en el inicio y en la página de anuncios); después ve «Leído el …». Se puede marcar al crear o al editar, y el cambio queda en Auditoría.
+- **Lectura obligatoria:** cada persona que ve el anuncio debe pulsar **Confirmar lectura** (en el inicio y en la página de anuncios); después ve «Leído el …». Quien tiene cuentas vinculadas confirma una sola vez, con cualquiera de ellas. Se puede marcar al crear o al editar, y el cambio queda en Auditoría.
 - **Vista previa:** cómo se verá en escritorio y en celular.
 - **Retirar** lo quita del inicio sin borrarlo; **Volver a publicar** lo devuelve.
 
 Un editor de anuncios solo publica para su propia empresa. Los anuncios no se borran.
 
-**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y cuentas lo leyeron» y, en **Cuentas que faltan**, las cuentas que no lo han confirmado, con el nombre y la empresa de cada una (hasta 200, en orden alfabético; si faltan más, «Y N más»). Solo la ve quien puede editar ese anuncio. Las cifras se cuentan al abrir la página y se actualizan cada minuto o al recargarla.
+**Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y personas lo leyeron» y, en **Personas que faltan**, las personas que no lo han confirmado, con el nombre y sus empresas (hasta 200, en orden alfabético; si faltan más, «Y N más»). Solo la ve quien puede editar ese anuncio. Las cifras se cuentan al abrir la página y se actualizan cada minuto o al recargarla.
 
-- **Se cuenta por cuenta, no por persona.** Quien tiene cuenta en dos empresas (cuentas vinculadas) confirma una vez con cada cuenta, y cada una aparece por separado.
-- **Y** cuenta las cuentas de las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
+- **Se cuenta por persona.** Quien tiene cuentas vinculadas en dos empresas es una sola persona: confirma una vez, con cualquiera de sus cuentas, y en todas ve «Leído el …» con la fecha de la primera confirmación. Una cuenta sin vincular es una persona aparte, aunque tenga el mismo nombre que otra. Si se desvinculan las cuentas, cada una vuelve a contar sola y solo queda leída la que confirmó.
+- **Ver el anuncio sigue siendo por cuenta.** Un anuncio solo para Segurex no se muestra en la cuenta de Derivados de la misma persona. En **Personas que faltan** solo aparecen las empresas del anuncio: el editor no ve en qué otras empresas tiene cuenta esa persona.
+- **Y** cuenta a las personas con cuentas en las empresas activas del anuncio que ya entraron al portal (las cuentas se crean al iniciar sesión), sin cuentas de emergencia ni invitados. Quien aún no ha entrado nunca al portal no aparece.
 - Una cuenta de la que todavía no se sabe si es invitada (no ha vuelto a iniciar sesión desde que el portal lo guarda) **sí se cuenta**: es mejor que sobre una cuenta pendiente que dejar por fuera a alguien que debía leerlo. En su siguiente inicio de sesión queda clara.
-- Se cuenta según la empresa actual de la cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando.
+- Se cuenta según la empresa actual de cada cuenta: si una cuenta pasa a otra empresa, sale de X y de Y de los anuncios de la empresa anterior (su lectura se guarda y vuelve a contar si regresa); en un anuncio para todas las empresas sigue contando. Una persona que confirmó con una cuenta vinculada cuenta como leída aunque esa cuenta ya no esté entre las empresas del anuncio, porque en sus otras cuentas también ve «Leído».
 - Si alguien pulsa **Confirmar lectura** en una página vieja de un anuncio que ya no la pide (retirado, vencido o ya no obligatorio), el portal lo devuelve con el aviso «Este anuncio ya no pide confirmación.» y no guarda nada.
 
 ### 2.5 Eventos

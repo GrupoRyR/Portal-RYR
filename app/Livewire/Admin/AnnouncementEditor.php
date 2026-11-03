@@ -27,7 +27,7 @@ use Throwable;
  * docs/diseno/AdminAnnouncementEdit.dc.html): content, audience, window,
  * pin, mandatory reading, and a live preview built from the same partials
  * as the home screen. A saved mandatory announcement also shows «X de Y
- * cuentas lo leyeron» and the accounts that are missing: counted once and
+ * personas lo leyeron» and the people who are missing: counted once and
  * kept for READ_REPORT_SECONDS (typing in the form does not recount), while
  * who may see it (`viewReads`) is re-checked on every render.
  *
@@ -259,12 +259,12 @@ class AnnouncementEditor extends Component
     }
 
     /**
-     * Which accounts read the saved announcement. Livewire keeps it per
+     * Which people read the saved announcement. Livewire keeps it per
      * open editor for READ_REPORT_SECONDS, so the round-trips of typing in
      * the form do not count again; reloading the page counts afresh.
      * Only read after {@see mayViewReads()}.
      *
-     * @return array{read: int, total: int, pending: list<array{name: string, company: string}>}
+     * @return array{read: int, total: int, pending: list<array{name: string, companies: list<string>}>}
      */
     #[Computed(persist: true, seconds: self::READ_REPORT_SECONDS)]
     public function readReport(): array

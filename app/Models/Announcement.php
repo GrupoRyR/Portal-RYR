@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Auth\LinkedAccounts;
 use App\Models\Concerns\AddressedToCompanies;
 use Database\Factories\AnnouncementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,12 +25,15 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * an optional 16:9 WebP image, for every company or for chosen ones, shown
  * from `starts_at` until `ends_at` (null = no end) unless withdrawn.
  *
- * A mandatory one (`requires_read`) asks each account that sees it to
- * confirm it was read ({@see markReadBy()}); editors see which accounts did
- * ({@see readCounts()}, {@see pendingReaders()}). Per account, never per
- * person: `users.person_id` decides nothing outside App\Auth\LinkedAccounts
- * (tests/Unit/Auth/PersonNeverAuthorizesTest.php), so someone with accounts
- * in two companies confirms once with each.
+ * A mandatory one (`requires_read`) asks each person who sees it to
+ * confirm it was read ({@see markReadBy()}); editors see which people did
+ * ({@see readCounts()}, {@see pendingReaders()}). Read per person: linked
+ * accounts (App\Auth\LinkedAccounts) confirm once, with any of them, and
+ * an account that is not linked is a person of its own. The person only
+ * groups the reads: seeing the announcement is still per account
+ * ({@see scopeVisibleTo()}, App\Policies\AnnouncementPolicy), and the
+ * person is read only through LinkedAccounts
+ * (tests/Unit/Auth/PersonNeverAuthorizesTest.php).
  *
  * @property-read string $status One of the STATUS_* values, at this moment.
  */
@@ -66,7 +70,7 @@ class Announcement extends Model
 
     public const BODY_MAX = 280;
 
-    /** Accounts in the «Cuentas que faltan» list of the admin editor. */
+    /** People in the «Personas que faltan» list of the admin editor. */
     public const PENDING_READERS_LIMIT = 200;
 
     /**
@@ -155,8 +159,10 @@ class Announcement extends Model
     }
 
     /**
-     * Records that the user read it, once: a second call keeps the first
-     * date. Whether the user may see it is the caller's job.
+     * Records that the account read it, once: a second call keeps the
+     * first date. Whether the user may see it is the caller's job; whether
+     * the person already read it with another account is
+     * {@see isReadByPersonOf()}.
      */
     public function markReadBy(User $user): AnnouncementRead
     {
@@ -164,6 +170,15 @@ class Announcement extends Model
             ['announcement_id' => $this->id, 'user_id' => $user->id],
             ['read_at' => now()],
         );
+    }
+
+    /**
+     * Whether the user's person read it, with any of their accounts (the
+     * user's own when it is not linked).
+     */
+    public function isReadByPersonOf(User $user): bool
+    {
+        return $this->reads()->whereIn('user_id', LinkedAccounts::idsOfSamePerson($user))->exists();
     }
 
     /**
@@ -199,41 +214,87 @@ class Announcement extends Model
     }
 
     /**
-     * «X de Y cuentas lo leyeron»: reads by accounts of the audience
-     * only, so a read left from an earlier audience does not count.
+     * «X de Y personas lo leyeron»: Y is the people behind the audience's
+     * accounts, X those of them who read it with any of their accounts
+     * (the same rule as the viewer's «Leído», {@see scopeWithReadAtFor()}),
+     * so a read left from an earlier audience counts only for a person who
+     * is still in it.
      *
      * @return array{read: int, total: int}
      */
     public function readCounts(): array
     {
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
         return [
-            'read' => $this->audience()->whereIn('id', $this->reads()->select('user_id'))->count(),
-            'total' => $this->audience()->count(),
+            'read' => $this->audience()->whereIn($key, $this->readersByPerson())->distinct()->count($key),
+            'total' => $this->audience()->distinct()->count($key),
         ];
     }
 
     /**
-     * Accounts of the audience that have not confirmed yet, alphabetical,
-     * at most PENDING_READERS_LIMIT: the name and the short name of the
-     * account's company (one person may have an account in each company).
+     * People of the audience who have not confirmed yet, alphabetical, at
+     * most PENDING_READERS_LIMIT: a name and the short names of the
+     * person's companies, only those of their accounts in the audience (an
+     * editor never learns that someone also works in a company the
+     * announcement does not address). Two queries: the people, then their
+     * accounts.
      *
-     * @return list<array{name: string, company: string}>
+     * @return list<array{name: string, companies: list<string>}>
      */
     public function pendingReaders(): array
     {
-        return $this->audience()
-            ->whereNotIn('id', $this->reads()->select('user_id'))
-            ->with('company:id,short_name')
-            ->orderBy('name')
-            ->orderBy('id')
+        $key = DB::raw(LinkedAccounts::PERSON_KEY);
+
+        $people = $this->audience()
+            ->whereNotIn($key, $this->readersByPerson())
+            ->toBase()
+            ->selectRaw(LinkedAccounts::PERSON_KEY.' as person_key, min(name) as person_name')
+            ->groupBy($key)
+            ->orderBy('person_name')
+            ->orderBy('person_key')
             ->limit(self::PENDING_READERS_LIMIT)
-            ->get(['id', 'name', 'company_id'])
-            ->map(fn (User $user) => [
-                'name' => (string) $user->name,
-                'company' => (string) $user->company?->short_name,
+            ->get();
+
+        if ($people->isEmpty()) {
+            return [];
+        }
+
+        $companies = $this->audience()
+            ->whereIn($key, $people->pluck('person_key'))
+            ->with('company:id,short_name')
+            ->select(['id', 'company_id'])
+            ->selectRaw(LinkedAccounts::PERSON_KEY.' as person_key')
+            ->get()
+            ->groupBy(fn (User $account) => (int) $account->getAttribute('person_key'))
+            ->map(fn ($accounts) => $accounts
+                ->map(fn (User $account) => (string) $account->company?->short_name)
+                ->filter(fn (string $name) => $name !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all());
+
+        return $people
+            ->map(fn (object $person) => [
+                'name' => (string) $person->person_name,
+                'companies' => $companies->get((int) $person->person_key, []),
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * The person keys ({@see LinkedAccounts::PERSON_KEY}) of every account
+     * that read it, as a subquery.
+     *
+     * @return Builder<User>
+     */
+    private function readersByPerson(): Builder
+    {
+        return User::query()
+            ->whereIn('id', $this->reads()->select('user_id'))
+            ->select(DB::raw(LinkedAccounts::PERSON_KEY));
     }
 
     public function imageUrl(): ?string
@@ -299,19 +360,19 @@ class Announcement extends Model
     }
 
     /**
-     * Adds `viewer_read_at`: when the user confirmed reading each
-     * announcement, or null. A subquery, so it costs no extra query.
-     * Select the announcement columns before calling it.
+     * Adds `viewer_read_at`: when the user's person first confirmed reading
+     * each announcement, with any of their accounts, or null. A subquery
+     * (the person is a bound value), so it costs no extra query. Select
+     * the announcement columns before calling it.
      *
      * @param  Builder<Announcement>  $query
      */
     public function scopeWithReadAtFor(Builder $query, User $user): void
     {
         $query->addSelect(['viewer_read_at' => AnnouncementRead::query()
-            ->select('read_at')
+            ->selectRaw('min(announcement_reads.read_at)')
             ->whereColumn('announcement_reads.announcement_id', 'announcements.id')
-            ->where('announcement_reads.user_id', $user->id)
-            ->limit(1),
+            ->whereIn('announcement_reads.user_id', LinkedAccounts::idsOfSamePerson($user)),
         ])->withCasts(['viewer_read_at' => 'datetime']);
     }
 

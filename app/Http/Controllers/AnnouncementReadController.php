@@ -9,11 +9,13 @@ use Illuminate\Support\Carbon;
 
 /**
  * «Confirmar lectura» (`POST /anuncios/{announcement}/leido`): records that
- * the account read a mandatory announcement, once. A plain form on
+ * the person read a mandatory announcement, once. A plain form on
  * /anuncios and on the home, so it works without JavaScript and from a
  * saved copy of the home.
  *
- * - Visible now and mandatory: recorded (again changes nothing).
+ * - Visible now and mandatory: recorded for the account, unless the person
+ *   already read it with this or another linked account (a stale button):
+ *   then nothing is written, and the answer is the same.
  * - Shown to the account's company once but no longer asking (withdrawn,
  *   expired or no longer mandatory; a stale button): back to where it came
  *   from with a short message, nothing recorded.
@@ -36,7 +38,9 @@ class AnnouncementReadController extends Controller
             ->first(['id']);
 
         if ($target !== null) {
-            $target->markReadBy($user);
+            if (! $target->isReadByPersonOf($user)) {
+                $target->markReadBy($user);
+            }
 
             return $this->back($request, redirect()->route('announcements.show', $target));
         }

@@ -50,7 +50,7 @@ Aplicar cinco decisiones de Jhon:
 - [x] T1. **API de tareas: `422` con la misma versión y otro tipo o persona** (#74). Ruta: delegada (escritor), pocas líneas pero código, prueba y contrato. Hecho: `633629f` y `b31b06c` en `feat/tareas-1-api`, empujados a #74; contrato v0.1.1. RED 3 de 97, GREEN 97/97; suite 1.359/1.359; Pint limpio. Revisión: el coordinador leyó el diff (pequeño) y repitió las 97 pruebas.
 - [x] T2. **«Puente festivo».** Ruta: delegada (escritor), código, vista y pruebas. Hecho: `ad00aa4` en `feat/inicio-6-puentes`, sin empujar. `HolidayDay::kind()` (con `isBridge()`) da la etiqueta en «Próximas fechas» y en el buscador; `/eventos` no lista festivos y el aviso de la línea de fecha no lleva tipo. RED 6 de 42, GREEN 159/159 en Home, Search y Unit/View; suite 1.639/1.639; Pint limpio; consultas de `/` sin cambio (≤ 12, `HomeScreenTest`); sin clases nuevas de Tailwind, así que sin `npm run build`. Manual §7.2 con una línea.
 - [x] T3. **Fechas que se repiten cada año.** Ruta: delegada (escritor), 2 o más archivos no triviales (migración, modelo, `.ics`, Admin, inicio, buscador, `/eventos`, Auditoría, manual y pruebas). Hecho: `f6246b5` y `a0f5117` en `feat/inicio-7-fechas-anuales`, sin empujar (ver el registro de T3).
-- [ ] T4. **Lectura obligatoria por persona.** Ruta: delegada (escritor).
+- [x] T4. **Lectura obligatoria por persona.** Ruta: delegada (escritor). Hecho: `0be536c` en `feat/inicio-8-lectura-por-persona`, sin empujar (ver el registro de T4).
 - [ ] T5. **Recordatorios.** Ruta: delegada (escritor).
 - [ ] Revisión independiente y arreglos de cada PR.
 
@@ -121,6 +121,30 @@ Arreglos de la revisión independiente del T3. Ruta: delegada (escritor), 2 o m�
   4. **Manual §2.5.** Una fecha anual dura menos de un año. Si se desmarca la opción en una fecha cuyo primer día ya pasó, deja de verse en el portal, pero los calendarios que la importaron la siguen repitiendo hasta que cada persona la borre.
 - **No hecho / seguimiento:** sin capturas (no hubo cambios visuales, salvo el mensaje de error del editor).
 
+
+- 2026-10-30: T4 hecho en `feat/inicio-8-lectura-por-persona` (`0be536c`), sin empujar.
+
+### Registro del T4
+
+Lectura obligatoria por persona. Ruta: delegada (escritor), 2 o más archivos no triviales (`LinkedAccounts`, `Announcement`, controlador, editor, vista, manual, prueba de guarda y pruebas).
+
+- Commit: `0be536c` `feat(announcements)` (código, pruebas y manual §2.4 juntos: la vista de quien lee y el reporte deben dar el mismo «leído»).
+- RED: 16 de 75 en `tests/Feature/Announcements` y `AnnouncementReadReportTest`:
+  - la otra cuenta vinculada seguía con «Confirmar lectura» (en `/anuncios` y en el inicio), sin la primera fecha y sin separarse tras desvincular;
+  - la segunda cuenta guardaba otra fila;
+  - el reporte contaba cuentas (4 en vez de 3), decía «cuentas» y la lista llevaba `company` y no `companies`;
+  - la lectura de la otra cuenta de la persona no contaba.
+- Las 2 en verde desde el principio son guardas: una cuenta sin vincular con el mismo nombre conserva su estado, y la cuenta de Derivados no ve ni confirma un anuncio solo para Segurex (404).
+- GREEN: 75/75. Suite 1.678/1.678 (1.665 + 13: 7 en `ReadPerPersonTest` y 6 en `AnnouncementReadReportTest`). Guarda `PersonNeverAuthorizesTest` 169/169. Pint limpio. Consultas de `/` sin cambio (`ReadPerPersonTest::test_a_read_by_another_account_of_the_person_costs_the_home_no_extra_query`, igual que sin lecturas y ≤ 12). Sin clases nuevas de Tailwind, así que sin `npm run build`.
+- Decisiones:
+  1. **Quien lee.** `scopeWithReadAtFor` toma `min(read_at)` de las filas de cualquier cuenta de la persona: `LinkedAccounts::idsOfSamePerson($user)` es una subconsulta con el `person_id` como valor (o solo el `id` si la cuenta no está vinculada), dentro de la misma consulta de los anuncios. Cero consultas nuevas en el inicio y en `/anuncios`.
+  2. **Confirmar.** Si la persona ya lo leyó con cualquier cuenta (`Announcement::isReadByPersonOf()`), la segunda cuenta no guarda nada y la respuesta es la misma (vuelve a `/anuncios/{id}` o a `/#anuncios`). Así, al desvincular, solo queda leída la cuenta que confirmó. Ver y poder confirmar siguen por cuenta (`visibleTo`): 404 para lo que la cuenta no ve, igual que antes.
+  3. **Reporte.** Una persona es `person_id`, o la cuenta sola. `LinkedAccounts::PERSON_KEY` da un número por persona en SQL (impar con persona, par sin ella; aritmética simple que vale en SQLite y MySQL y nunca es negativa). Y = personas distintas entre las cuentas del público (misma regla: empresas activas del anuncio, sin emergencia ni invitados, `is_guest` nulo cuenta). X = de ellas, las que leyeron con cualquier cuenta, también una fuera del público actual: es la misma regla que el «Leído» de quien lee, si no la persona aparecería como pendiente sin botón para confirmar.
+  4. **Lista.** «Personas que faltan (N)»: una fila por persona, con el primer nombre en orden alfabético de sus cuentas del público y solo las empresas de esas cuentas («Ana Pérez · Derivados, Segurex»). Nunca muestra una empresa a la que el anuncio no va. Dos consultas: hasta 200 personas (`GROUP BY` de la clave, `min(name)`), luego sus cuentas del público con la empresa. Sigue el tope de 200 («Y N más») y el recuento cada minuto.
+  5. **Guarda.** `tests/Unit/Auth/PersonNeverAuthorizesTest.php` permite `app/Models/Announcement.php` => `['LinkedAccounts']`, con el motivo escrito: la persona solo agrupa lecturas y `Announcement` nunca lee `person_id` (lo hace `LinkedAccounts`). El controlador, el editor y las vistas no mencionan a la persona.
+  6. **Textos.** «X de Y personas lo leyeron» («1 persona lo leyó»), «Personas que faltan», ayuda de la tarjeta («Quien tiene cuentas vinculadas en dos empresas cuenta como una persona y confirma una sola vez.») y manual §2.4.
+- **No hecho / seguimiento:** sin capturas (el escritor no levantó el servidor; el cambio visual es solo de texto y de la lista de empresas). Una carrera entre dos cuentas de la misma persona que confirman a la vez puede dejar dos filas; no cambia nada (se toma la primera fecha y se cuentan personas).
+
 ## Siguiente paso
 
-T4 en `feat/inicio-8-lectura-por-persona`, sobre T3.
+T5 en `feat/inicio-9-recordatorios`, sobre T4.
