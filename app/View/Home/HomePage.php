@@ -94,7 +94,7 @@ final readonly class HomePage
      * no menu, without apps: that page is short, and the menu would crowd
      * the company name off the logo row.
      *
-     * @return list<array{href: string, label: string}>
+     * @return list<array{href: string, label: string, offline?: false}>
      */
     public function sections(): array
     {
@@ -105,7 +105,8 @@ final readonly class HomePage
         $sections = [['href' => '#contenido', 'label' => 'Inicio']];
 
         if ($this->management !== null) {
-            $sections[] = ['href' => '#panel-gerencial', 'label' => 'Panel gerencial'];
+            // Left out of the saved offline copy, like the panel (resources/js/sw.js).
+            $sections[] = ['href' => '#panel-gerencial', 'label' => 'Panel gerencial', 'offline' => false];
         }
 
         // A search hides Favoritos without matches (home.blade.php).

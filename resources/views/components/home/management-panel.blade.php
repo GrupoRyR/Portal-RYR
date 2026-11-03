@@ -3,11 +3,12 @@
     the month's key figures of the user's own company, published each night
     by the SAP robot (App\View\Home\ManagementCard). HomePageBuilder only
     builds it for a «Gerencia» account of that company. The first figure
-    is the large one; a figure with a goal gets a meter.
+    is the large one; a figure with a goal gets a meter. data-offline-omit:
+    the service worker (resources/js/sw.js) never saves it for offline use.
 --}}
 @props(['card'])
 
-<section id="panel-gerencial" aria-labelledby="panel-gerencial-titulo" {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6']) }}>
+<section id="panel-gerencial" aria-labelledby="panel-gerencial-titulo" data-offline-omit {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6']) }}>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 id="panel-gerencial-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Panel gerencial</h2>
         <span class="text-sm text-fg-muted"><time datetime="{{ $card->asOfIso }}">{{ $card->closing }}</time></span>

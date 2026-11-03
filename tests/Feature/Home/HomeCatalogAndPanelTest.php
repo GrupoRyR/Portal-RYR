@@ -204,6 +204,31 @@ class HomeCatalogAndPanelTest extends TestCase
         $this->assertStringContainsString('Octubre, al cierre del 2 de noviembre', $panel);
     }
 
+    /**
+     * The service worker (resources/js/sw.js) saves the home page for
+     * offline use without the elements marked `data-offline-omit`
+     * (`OFFLINE_OMIT`): the panel and its «Secciones» entry. Figures never
+     * stay on the device, so losing «Gerencia» leaves none offline. This
+     * runs the worker's own pattern on the real page.
+     */
+    public function test_the_saved_offline_copy_leaves_the_panel_out(): void
+    {
+        $this->figures();
+        $worker = $this->get('/sw.js')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('~^const OFFLINE_OMIT = /(.+)/g;$~m', $worker, $match), 'The worker defines OFFLINE_OMIT.');
+        $this->assertStringContainsString(".replace(OFFLINE_OMIT, '')", $worker);
+
+        $html = $this->home(as: $this->manager())->getContent();
+        $saved = (string) preg_replace('/'.$match[1].'/', '', $html);
+
+        $this->assertStringContainsString('Ventas del mes', $html);
+        $this->assertStringNotContainsString('panel-gerencial', $saved);
+        $this->assertStringNotContainsString('Ventas del mes', $saved);
+        $this->assertStringNotContainsString('Solo Gerencia', $saved);
+        $this->assertStringContainsString('id="contenido"', $saved, 'Only the panel goes.');
+        $this->assertStringContainsString('id="mi-dia"', $saved);
+    }
+
     public function test_management_without_published_figures_sees_no_panel(): void
     {
         $this->assertNoElement($this->home(as: $this->manager()), 'id', 'panel-gerencial');

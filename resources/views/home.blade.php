@@ -53,7 +53,7 @@
                     <nav aria-label="Secciones de la página" class="absolute top-full left-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
                         <ul class="flex flex-col gap-0.5">
                             @foreach ($sections as $section)
-                                <li><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
+                                <li @if (($section['offline'] ?? true) === false) data-offline-omit @endif><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
                             @endforeach
                         </ul>
                     </nav>
