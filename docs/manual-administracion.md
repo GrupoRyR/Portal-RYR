@@ -748,3 +748,62 @@ En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y 
 | El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
 | El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
 
+
+## 13. Estado de TI
+
+**Administración › Estado de TI** registra los servicios de cada empresa que TI reporta a mano, por ejemplo el correo, internet, la VPN o la telefonía. Junto con las apps que están en mantenimiento o con fallas, forman el bloque «Estado de TI» del inicio: de un vistazo, cada persona sabe si algo está fallando para **su** empresa y tiene el enlace «Reportar un problema». Esta pantalla la usan el súper administrador y el administrador del portal, las mismas personas que administran las apps. El editor de anuncios y Gerencia no la ven. La instalación está en `docs/despliegue.md` §1.21.
+
+> El bloque «Estado de TI» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+
+### 13.1 De dónde sale el estado
+
+| Qué se muestra | De dónde sale |
+|---|---|
+| Apps **en mantenimiento** | El **Estado** de la app en **Aplicaciones** (con su mensaje y su hora de fin, si la tiene). |
+| Apps **con fallas** | Lo que reporta otro sistema por la API, mientras el reporte esté vigente (Configuración › **Quitar «Con fallas» después de (horas)**). |
+| **Servicios** con fallas o fuera de servicio | Esta pantalla. |
+
+Cada persona ve solo las apps que puede abrir y solo los servicios de la empresa de la cuenta con la que entró. Con cuentas vinculadas (§8), al cambiar de empresa cambia también el estado.
+
+El estado general del bloque es el peor de todos:
+
+- **Todo funciona con normalidad**: ninguna app en mantenimiento o con fallas y ningún servicio con problemas.
+- **Algunos servicios tienen fallas**: un servicio **Con fallas**, una app reportada con fallas parciales o una app en mantenimiento.
+- **Hay servicios fuera de servicio**: un servicio **Fuera de servicio** o una app reportada como caída.
+
+### 13.2 Elegir la empresa
+
+Arriba, en **Servicios de**, elija la empresa. Cada empresa tiene sus propios servicios; no se comparten. La dirección de la página recuerda la empresa elegida (`?empresa=`).
+
+### 13.3 Servicios
+
+Pulse **Nuevo servicio** (o el lápiz de un servicio para editarlo) y complete:
+
+| Campo | Qué poner |
+|---|---|
+| **Nombre** | Obligatorio, hasta 80 caracteres. No puede repetirse dentro de la misma empresa, sin importar mayúsculas ni tildes («Telefonía» y «telefonia» son el mismo). Sí puede repetirse en otra empresa. |
+| **Estado** | **Operativo**, **Con fallas** o **Fuera de servicio**. Un servicio nuevo empieza **Operativo**. |
+| **Mensaje** | Opcional, hasta 160 caracteres, sin formato. Por ejemplo «Lento en la sede norte» o «Microsoft 365 no responde». Solo se muestra cuando el servicio no está operativo. |
+
+- Un servicio **Operativo** no aparece en el inicio: el bloque muestra solo lo que tiene problemas. Los servicios **Fuera de servicio** van primero y luego los que tienen **Con fallas**; dentro de cada grupo, en el orden de esta pantalla.
+- Las flechas (**Subir** / **Bajar**) cambian ese orden.
+- Cuando el problema se resuelva, edite el servicio y póngalo **Operativo**. El estado no vence solo.
+- **Borrar** (papelera) elimina el servicio. No se puede deshacer.
+- El estado de las apps no se cambia aquí: use **Aplicaciones** (§2.2) para ponerlas en mantenimiento.
+
+### 13.4 «Reportar un problema»
+
+Lleva al mismo lugar que el botón **Soporte TI** (Gestor TI), con la empresa de la persona. Usa la **Dirección de soporte TI** de **Configuración**; si está vacía, el bloque no muestra el enlace.
+
+### 13.5 Auditoría
+
+Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó o borró un servicio de TI y qué campos cambiaron («Nombre», «Estado», «Mensaje», «Posición», «Empresa»), con los estados en español.
+
+### 13.6 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| «Esta empresa ya tiene un servicio con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas ni tildes. | Use otro nombre o edite el servicio existente. |
+| Un servicio arreglado sigue apareciendo con fallas. | El estado de un servicio no vence solo. | Edítelo y póngalo **Operativo**. |
+| Una app sigue «Con fallas» en el bloque. | El sistema que la reporta no ha enviado un reporte operativo y el reporte aún no vence. | Espere a que venza o, en **Aplicaciones**, limpie las fallas reportadas de la app. |
+| No aparece «Reportar un problema». | Falta la **Dirección de soporte TI** en Configuración. | Pida al súper administrador que la configure. |
