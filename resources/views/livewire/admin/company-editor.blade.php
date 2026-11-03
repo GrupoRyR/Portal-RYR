@@ -171,6 +171,17 @@
             </div>
             <p id="c-list-help" class="-mt-2 text-[0.8125rem] text-fg-muted">Opcional, los dos o ninguno. Los anuncios marcados «Enviar también por correo» llegan a esta lista desde el buzón remitente, con Microsoft Graph. Los dos deben ser de un dominio de la empresa, y el buzón necesita el permiso de envío de Exchange de su inquilino (docs/despliegue.md).</p>
 
+            {{-- «Gerencia» (App\Auth\ManagementGroup): the object ID of a security group of this company's tenant, never a name. --}}
+            <div class="flex flex-col gap-1.5">
+                <label for="c-management-group" class="{{ $label }}">Grupo de Gerencia <span class="font-normal text-fg-muted">(opcional)</span></label>
+                <input id="c-management-group" type="text" wire:model="managementGroupId" value="{{ $managementGroupId }}" spellcheck="false" autocapitalize="none" autocomplete="off"
+                       placeholder="00000000-0000-0000-0000-000000000000" class="{{ $field }} font-mono text-sm"
+                       aria-describedby="c-management-group-help{{ $errors->has('managementGroupId') ? ' c-management-group-error' : '' }}"
+                       @error('managementGroupId') aria-invalid="true" @enderror>
+                @error('managementGroupId') <p id="c-management-group-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                <p id="c-management-group-help" class="text-[0.8125rem] text-fg-muted">Object ID del grupo de seguridad <code>APP-PortalGerencia</code> del inquilino de esta empresa. Sus miembros reciben el rol Gerencia al iniciar sesión y ven el panel gerencial de esta empresa. Vacío: nadie tiene el rol.</p>
+            </div>
+
             {{-- The Monday digest to the list (App\Digest\WeeklyDigests): a switch and how the last one went. No resend. --}}
             <div class="flex flex-col gap-2">
                 <label class="flex min-h-touch cursor-pointer items-center gap-2.5 text-sm font-semibold">

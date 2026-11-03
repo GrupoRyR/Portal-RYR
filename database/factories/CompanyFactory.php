@@ -67,6 +67,15 @@ class CompanyFactory extends Factory
     }
 
     /**
+     * A company whose «Gerencia» security group (App\Auth\ManagementGroup)
+     * has the given object ID.
+     */
+    public function withManagementGroup(string $groupId): static
+    {
+        return $this->state(fn () => ['management_group_id' => $groupId]);
+    }
+
+    /**
      * A company sharing the given Microsoft tenant.
      *
      * @param  list<string>  $domains

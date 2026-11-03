@@ -11,7 +11,7 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class RoleSeeder extends Seeder
 {
-    public const ROLES = ['super_admin', 'portal_admin', 'announcements_editor'];
+    public const ROLES = ['super_admin', 'portal_admin', 'announcements_editor', 'management'];
 
     public function run(): void
     {

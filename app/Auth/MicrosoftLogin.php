@@ -34,6 +34,9 @@ class MicrosoftLogin
 
     public const PORTAL_ADMIN = 'portal_admin';
 
+    /** «Gerencia»: members of their company's management group. */
+    public const MANAGEMENT = 'management';
+
     public function __construct(
         private readonly TenantDirectory $tenants,
         private readonly GraphClient $graph,
@@ -73,7 +76,7 @@ class MicrosoftLogin
 
         $this->syncFromGraph($user, $identity->accessToken);
 
-        return ['user' => $user, 'roleChanges' => $this->syncRoles($user, $this->ownsItsEmail($identity))];
+        return ['user' => $user, 'roleChanges' => $this->syncRoles($user, $this->ownsItsEmail($identity), $company)];
     }
 
     /**
@@ -242,9 +245,13 @@ class MicrosoftLogin
      * `portal_admin` follows membership of the pinned group of the trusted
      * tenant (App\Auth\PortalAdminGroup), never a group name.
      *
+     * `management` follows membership of the security group stored on the
+     * account's company, within that company's tenant
+     * (App\Auth\ManagementGroup), never a group name.
+     *
      * @return array{added: list<string>, removed: list<string>}
      */
-    private function syncRoles(User $user, bool $verifiedOwnEmail): array
+    private function syncRoles(User $user, bool $verifiedOwnEmail, Company $company): array
     {
         $changes = ['added' => [], 'removed' => []];
         $listed = in_array($user->email, config('portal.super_admin_emails', []), true);
@@ -259,6 +266,13 @@ class MicrosoftLogin
             $user,
             self::PORTAL_ADMIN,
             PortalAdminGroup::contains($user),
+            $changes,
+        );
+
+        $this->toggleRole(
+            $user,
+            self::MANAGEMENT,
+            ManagementGroup::contains($user, $company),
             $changes,
         );
 

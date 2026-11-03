@@ -117,6 +117,7 @@ final class AuditPresenter
         'super_admin' => 'Súper administrador',
         'portal_admin' => 'Administrador',
         'announcements_editor' => 'Editor de anuncios',
+        'management' => 'Gerencia',
     ];
 
     /** Spanish labels of the audited attributes. */
@@ -125,6 +126,7 @@ final class AuditPresenter
         'short_name' => 'Nombre corto',
         'slug' => 'Identificador',
         'tenant_id' => 'Inquilino',
+        'management_group_id' => 'Grupo de Gerencia',
         'is_primary_for_tenant' => 'Principal del inquilino',
         'domains' => 'Dominios',
         'all_staff_email' => 'Lista de todo el personal',
