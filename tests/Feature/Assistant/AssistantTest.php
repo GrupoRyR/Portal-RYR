@@ -162,7 +162,7 @@ class AssistantTest extends TestCase
     {
         $this->model->answers('R1')->answers('R2', 'claude-sonnet-5-5');
         $this->ask('P1');
-        $this->assertSame('claude-haiku-5-5', $this->conversation()->model());
+        $this->assertSame('anthropic:claude-haiku-5-5', $this->conversation()->model());
 
         $editor = $this->editor();
         $this->assertTrue(app(Assistant::class)->sync($editor, $this->conversation($editor)));
@@ -205,7 +205,7 @@ class AssistantTest extends TestCase
         $this->assertStringNotContainsString('thinking', json_encode($fallback->messages));
 
         // The conversation keeps its model and only the answer's text.
-        $this->assertSame('claude-haiku-5-5', $this->conversation()->model());
+        $this->assertSame('anthropic:claude-haiku-5-5', $this->conversation()->model());
         $kept = $this->conversation()->transcript();
         $this->assertSame(['role' => 'assistant', 'content' => [['type' => 'text', 'text' => 'Respuesta del respaldo.']]], end($kept));
         $this->assertStringContainsString('· claude-opus-5-5 ·', $this->audit($this->lastLine()));
@@ -302,7 +302,7 @@ class AssistantTest extends TestCase
         $this->assertSame(SecurityLog::LOG, $line->log_name);
         $this->assertTrue($this->user->is($line->causer));
         $this->assertSame([
-            'model' => 'claude-haiku-5-5', 'feature' => 'chat', 'tools' => ['mis_apps'], 'tool_calls' => 1, 'model_calls' => 2,
+            'provider' => 'anthropic', 'model' => 'claude-haiku-5-5', 'feature' => 'chat', 'tools' => ['mis_apps'], 'tool_calls' => 1, 'model_calls' => 2,
             'input_tokens' => 2000, 'output_tokens' => 4000, 'cache_creation_input_tokens' => 8000, 'cache_read_input_tokens' => 100000,
             'cost_usd' => 0.0042, 'fallback' => false, 'refused' => false, 'truncated' => false, 'draft' => false, 'error' => null,
         ], $line->properties->all());

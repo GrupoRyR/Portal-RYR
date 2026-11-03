@@ -27,18 +27,50 @@ return [
     // The hard kill switch. Only true, 1, on or yes turn it on.
     'enabled' => filter_var(env('PORTAL_ASSISTANT_ENABLED', false), FILTER_VALIDATE_BOOL),
 
-    // Models (decided by Jhon), each fixed for the whole conversation:
-    // `model` for people who only ask questions, `editor_model` for the
-    // conversations of announcement editors (the ones with
-    // `borrador_de_anuncio`; empty: the same as `model`).
-    'model' => env('PORTAL_ASSISTANT_MODEL', 'claude-haiku-5-5'),
-    'editor_model' => env('PORTAL_ASSISTANT_EDITOR_MODEL', 'claude-sonnet-5-5'),
+    // Models (decided by Jhon) as «provider:model» of `providers` below
+    // (no provider means anthropic), each fixed for the whole
+    // conversation; a provider change starts a new one. `model` for people
+    // who only ask questions, `editor_model` for the conversations of
+    // announcement editors (the ones with `borrador_de_anuncio`; empty:
+    // the same as `model`). The PORTAL_ASSISTANT_* names still work.
+    'model' => env('ASSISTANT_MODEL', env('PORTAL_ASSISTANT_MODEL', 'anthropic:claude-haiku-5-5')),
+    'editor_model' => env('ASSISTANT_EDITOR_MODEL', env('PORTAL_ASSISTANT_EDITOR_MODEL', 'anthropic:claude-sonnet-5-5')),
 
-    // Only when the conversation's model ends with `refusal`: the question
-    // is asked again as a NEW request (the text of the conversation,
-    // without its thinking) to this model. Haiku 5.5 has no server-side
-    // fallback, so this one is the portal's own. Empty: no second try.
-    'fallback_model' => env('PORTAL_ASSISTANT_FALLBACK_MODEL', 'claude-opus-5-5'),
+    // Only when the conversation's model ends with `refusal` (or
+    // `content_filter` on an openai_compatible provider): the question is
+    // asked again as a NEW request (the text of the conversation, without
+    // its thinking) to this model. Haiku 5.5 has no server-side fallback,
+    // so this one is the portal's own. Empty: no second try.
+    'fallback_model' => env('ASSISTANT_FALLBACK_MODEL', env('PORTAL_ASSISTANT_FALLBACK_MODEL', 'anthropic:claude-opus-5-5')),
+
+    // The providers a model reference may name. Drivers: `anthropic` (the
+    // official SDK, with prompt caching, adaptive thinking, effort and
+    // preserved thinking) and `openai_compatible` (Chat Completions over
+    // HTTPS, none of those). `api_key_env` names the variable for the
+    // messages of Configuración; the key itself is read here, so config
+    // caching keeps working.
+    'providers' => [
+        'anthropic' => [
+            'driver' => 'anthropic',
+            // Empty: services.anthropic.key (the same ANTHROPIC_API_KEY).
+            'api_key' => null,
+            'api_key_env' => 'ANTHROPIC_API_KEY',
+        ],
+        // DeepSeek's first-party API. Placeholders to verify at
+        // api-docs.deepseek.com: the base URL, the model names
+        // (deepseek-chat, deepseek-reasoner) and the prices below. Its data
+        // is reported to be stored in China: legal review under Ley 1581
+        // before using it with employee data (docs/despliegue.md §1.23). A
+        // self-hosted or third-party host of the open-weight model works
+        // over the same driver with another base_url.
+        'deepseek' => [
+            'driver' => 'openai_compatible',
+            'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
+            'api_key' => env('DEEPSEEK_API_KEY'),
+            'api_key_env' => 'DEEPSEEK_API_KEY',
+            'models' => ['deepseek-chat', 'deepseek-reasoner'],
+        ],
+    ],
 
     // low, medium, high, xhigh or max (anything else is low).
     'effort' => env('PORTAL_ASSISTANT_EFFORT', 'low'),
@@ -83,16 +115,21 @@ return [
     // documented multipliers, not listed per model. A model not listed is
     // priced as `default` (the most expensive tier), so the cap stays safe.
     'prices' => [
-        'claude-haiku-5-5' => [
+        'anthropic:claude-haiku-5-5' => [
             // Prompts of 100K tokens or fewer; above, 0.50 / 2.50.
             'input' => 0.10, 'output' => 0.50,
             'cache_write' => 0.125, // verify: 1.25x input
             'cache_read' => 0.01, // verify: 0.1x input
             'long_context' => ['above' => 100000, 'input' => 0.50, 'output' => 2.50, 'cache_write' => 0.625, 'cache_read' => 0.05], // cache rates: verify
         ],
-        'claude-sonnet-5-5' => ['input' => 2.00, 'output' => 10.00, 'cache_write' => 2.50, 'cache_read' => 0.20], // cache_write: verify (1.25x)
-        'claude-opus-5-5' => ['input' => 4.00, 'output' => 20.00, 'cache_write' => 5.00, 'cache_read' => 0.20], // cache_write: verify (1.25x)
-        'claude-opus-4-8' => ['input' => 5.00, 'output' => 25.00, 'cache_write' => 6.25, 'cache_read' => 0.50], // cache rates: verify
+        'anthropic:claude-sonnet-5-5' => ['input' => 2.00, 'output' => 10.00, 'cache_write' => 2.50, 'cache_read' => 0.20], // cache_write: verify (1.25x)
+        'anthropic:claude-opus-5-5' => ['input' => 4.00, 'output' => 20.00, 'cache_write' => 5.00, 'cache_read' => 0.20], // cache_write: verify (1.25x)
+        'anthropic:claude-opus-4-8' => ['input' => 5.00, 'output' => 25.00, 'cache_write' => 6.25, 'cache_read' => 0.50], // cache rates: verify
+        // DeepSeek: PLACEHOLDERS, verify at api-docs.deepseek.com before
+        // relying on the budget. Cache hits are cache reads; it has no
+        // cache writes.
+        'deepseek:deepseek-chat' => ['input' => 0.27, 'output' => 1.10, 'cache_write' => 0.0, 'cache_read' => 0.07],
+        'deepseek:deepseek-reasoner' => ['input' => 0.55, 'output' => 2.19, 'cache_write' => 0.0, 'cache_read' => 0.14],
         'default' => ['input' => 10.00, 'output' => 50.00, 'cache_write' => 12.50, 'cache_read' => 1.00],
     ],
 

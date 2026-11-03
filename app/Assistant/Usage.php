@@ -23,6 +23,9 @@ final class Usage
 
     public float $costUsd = 0.0;
 
+    /**
+     * @param  string  $model  «provider:model», the key of the price table.
+     */
     public function add(ModelTurn $turn, string $model): void
     {
         $this->calls++;

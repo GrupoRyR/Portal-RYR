@@ -950,3 +950,11 @@ El respaldo repite la pregunta como una petición nueva, con la conversación en
 **Presupuesto del mes:** 20 dólares por defecto para todo el portal (`ASSISTANT_MONTHLY_BUDGET_USD`, en el servidor), contados desde el día 1 a la medianoche de Bogotá. Al 80 % y al 100 % los súper administradores reciben un correo, una vez por umbral y mes. Al 100 % el asistente deja de responder hasta el mes siguiente. La consola de Anthropic tiene además su propio límite de gasto, como segunda barrera (TI, `docs/despliegue.md` §1.23).
 
 **Reporte:** TI puede ver el consumo por día con `php artisan portal:assistant-usage --days=7` (tokens, aciertos de caché y costo por día, separados entre preguntas y borradores, y el gasto del mes).
+
+### 15.8 Otros proveedores (DeepSeek)
+
+TI puede hacer que un rol use otro proveedor en lugar de Anthropic, por ejemplo DeepSeek (`docs/despliegue.md` §1.23, punto 12). Las herramientas, los permisos y la regla del borrador son los mismos.
+
+- **Antes de activarlo:** se ha informado que la API propia de DeepSeek guarda los datos en China. Usarla con datos de empleados necesita una revisión legal de la transferencia internacional (Ley 1581 de 2012). Mientras algún rol use un proveedor que no es Anthropic, **Configuración › Asistente del portal** lo advierte en rojo: «Este proveedor procesa los datos fuera de Anthropic; revisa la Ley 1581 (transferencia internacional) antes de activarlo.»
+- **Lo que se pierde:** la caché del prompt de Anthropic, el razonamiento adaptativo con esfuerzo y el historial con razonamiento preservado solo existen con Anthropic.
+- La tarjeta de Configuración muestra el proveedor y el modelo de cada rol. El presupuesto del mes suma todos los proveedores.

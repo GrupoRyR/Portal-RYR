@@ -4,8 +4,8 @@ namespace App\Providers;
 
 use App\Assistant\AssistantSettings;
 use App\Assistant\Console\AssistantUsageCommand;
-use App\Assistant\Model\AnthropicModel;
 use App\Assistant\Model\AssistantModel;
+use App\Assistant\Model\ProviderRegistry;
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
 use App\Http\Controllers\Mcp\AuthorizeController;
@@ -66,13 +66,11 @@ class AppServiceProvider extends ServiceProvider
         // Holiday days are read in the portal's timezone.
         $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
 
-        // Portal assistant (/asistente): the official SDK in production (the
-        // tests bind a fake model), with config/assistant.php read on use.
+        // Portal assistant (/asistente): the providers of config/assistant.php
+        // in production (the tests bind a fake model), read on use.
         $this->app->bind(AssistantSettings::class, fn () => AssistantSettings::fromConfig());
-        $this->app->bind(AssistantModel::class, fn () => new AnthropicModel(
-            config('services.anthropic.key'),
-            max(1, (int) config('assistant.timeout')),
-        ));
+        // Every provider behind the one seam (App\Assistant\Model\ProviderRegistry).
+        $this->app->bind(AssistantModel::class, ProviderRegistry::class);
 
         // Claude connector: routes/ai.php declares only the Passport routes
         // it needs. The consent screen (a subclass of Passport's) signs in

@@ -2,6 +2,7 @@
 
 namespace App\Assistant;
 
+use App\Assistant\Model\ModelRef;
 use App\Assistant\Tools\BorradorDeAnuncio;
 use App\Models\User;
 
@@ -22,7 +23,7 @@ final readonly class ConversationPlan
      * @param  list<array{name: string, description: string, inputSchema: array<string, mixed>, strict?: bool}>  $tools
      */
     public function __construct(
-        public string $model,
+        public ModelRef $model,
         public string $effort,
         public int $maxTokens,
         public string $system,
@@ -48,7 +49,7 @@ final readonly class ConversationPlan
     public function fingerprint(): string
     {
         return hash('sha256', json_encode(
-            [$this->model, $this->effort, $this->system, $this->tools],
+            [$this->model->key(), $this->effort, $this->system, $this->tools],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         ));
     }

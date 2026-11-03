@@ -707,7 +707,7 @@ Está **apagado** hasta que se cumplan los tres puntos: `PORTAL_ASSISTANT_ENABLE
    |---|---|
    | `ANTHROPIC_API_KEY` | Llave de la API (`services.anthropic.key`). Sin ella, el asistente dice que no está disponible. |
    | `PORTAL_ASSISTANT_ENABLED` | Corte de fondo del servidor. Solo `true`, `1`, `on` o `yes` lo encienden. |
-   | `PORTAL_ASSISTANT_MODEL` | Modelo de las personas que solo preguntan. Por defecto Claude Haiku 5.5. |
+   | `PORTAL_ASSISTANT_MODEL` (o `ASSISTANT_MODEL`) | Modelo de las personas que solo preguntan, como «proveedor:modelo» (punto 12). Por defecto `anthropic:claude-haiku-5-5`. |
    | `PORTAL_ASSISTANT_EDITOR_MODEL` | Modelo de los editores de anuncios (quienes reciben borradores). Por defecto Claude Sonnet 5.5. Vacío: el mismo de `PORTAL_ASSISTANT_MODEL`. |
    | `PORTAL_ASSISTANT_FALLBACK_MODEL` | Solo cuando el modelo de la conversación termina con `refusal` (no quiso responder): la pregunta se repite como una **petición nueva** a este modelo, con la conversación en texto, sin el razonamiento anterior. Por defecto Claude Opus 5.5. Haiku 5.5 no tiene respaldo en el servidor de Anthropic, por eso lo hace el portal. Vacío: sin segundo intento. |
    | `PORTAL_ASSISTANT_EFFORT` | Esfuerzo del modelo: `low`, `medium`, `high`, `xhigh` o `max`. Más alto responde con más cuidado, tarda más y cuesta más. Cualquier otro valor cuenta como `low`. |
@@ -760,6 +760,26 @@ Está **apagado** hasta que se cumplan los tres puntos: `PORTAL_ASSISTANT_ENABLE
 
 11. **Privacidad.** El portal no guarda las conversaciones (solo en la sesión de la persona) y Auditoría nunca guarda la pregunta ni la respuesta. Lo que el modelo necesita para responder (la pregunta, la conversación de la sesión y lo que devuelven las herramientas) sí viaja a la API de Anthropic.
 
+12. **Proveedores de modelos (DeepSeek u otro).** Cada rol apunta a «proveedor:modelo» de `config/assistant.php` (`providers`). Hay dos tipos (*drivers*): `anthropic` (el SDK oficial, por defecto) y `openai_compatible` (Chat Completions por HTTPS, con el cliente HTTP de Laravel), con DeepSeek ya preparado:
+
+    ```dotenv
+    ASSISTANT_MODEL=anthropic:claude-haiku-5-5
+    ASSISTANT_EDITOR_MODEL=anthropic:claude-sonnet-5-5
+    ASSISTANT_FALLBACK_MODEL=anthropic:claude-opus-5-5
+
+    # Para usar DeepSeek en un rol, por ejemplo:
+    # ASSISTANT_MODEL=deepseek:deepseek-chat
+    DEEPSEEK_API_KEY=<llave de DeepSeek>
+    DEEPSEEK_BASE_URL=https://api.deepseek.com
+    ```
+
+    Los nombres `PORTAL_ASSISTANT_MODEL`, `PORTAL_ASSISTANT_EDITOR_MODEL` y `PORTAL_ASSISTANT_FALLBACK_MODEL` siguen funcionando; `ASSISTANT_*` tiene prioridad. Un modelo sin proveedor es de Anthropic. Después, `php artisan optimize`. Cambiar el proveedor o el modelo de un rol empieza una conversación nueva para cada persona en su siguiente pregunta: el modelo nunca cambia a mitad de conversación.
+
+    - **Por verificar.** La dirección, los nombres de modelo (`deepseek-chat`, `deepseek-reasoner`), los campos de uso (`prompt_cache_hit_tokens`, `prompt_cache_miss_tokens`) y los precios de DeepSeek en `config/assistant.php` son provisionales: confírmelos en https://api-docs.deepseek.com antes de usarlos; el presupuesto depende de esos precios.
+    - **Ley 1581.** Se ha informado que la API propia de DeepSeek guarda los datos en China. Antes de usarla con datos de empleados hace falta una revisión legal de la transferencia internacional de datos (Ley 1581 de 2012). Configuración lo advierte en rojo cuando algún rol usa un proveedor que no es Anthropic. Una alternativa es el modelo de pesos abiertos alojado por la empresa o por un tercero con otra dirección (`DEEPSEEK_BASE_URL` o un proveedor nuevo con el mismo *driver*), que también requiere revisar dónde quedan los datos.
+    - **Solo en Anthropic.** La caché del prompt, el razonamiento adaptativo, el esfuerzo (`PORTAL_ASSISTANT_EFFORT`) y el historial con razonamiento preservado existen solo con el *driver* `anthropic`. El *driver* `openai_compatible` nunca los envía; DeepSeek tiene su propia caché automática, que el portal cuenta como «caché leída».
+    - **Igual en todos.** Las mismas herramientas, las mismas reglas de visibilidad y el mismo borrador que solo propone. Un `finish_reason` `content_filter` cuenta como `refusal` (pasa al modelo de respaldo). El uso se guarda en los mismos campos (`prompt_tokens` → entrada, `completion_tokens` → salida) y el presupuesto mensual suma todos los proveedores.
+    - Solo direcciones `https://`; espera `PORTAL_ASSISTANT_TIMEOUT` segundos y reintenta una vez ante 429, 5xx o errores de conexión. Sin la llave del proveedor de un rol, la página dice que el asistente no está disponible.
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

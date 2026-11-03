@@ -2,6 +2,8 @@
 
 namespace App\Assistant;
 
+use App\Assistant\Model\ModelRef;
+
 /**
  * config/assistant.php read once, with safe values: a wrong effort is
  * `low`, numbers are at least 1, an empty editor model is the reader
@@ -12,12 +14,12 @@ final readonly class AssistantSettings
 {
     public const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
-    public const DEFAULT_MODEL = 'claude-haiku-5-5';
+    public const DEFAULT_MODEL = 'anthropic:claude-haiku-5-5';
 
     public function __construct(
-        public string $model,
-        public string $editorModel,
-        public ?string $fallbackModel,
+        public ModelRef $model,
+        public ModelRef $editorModel,
+        public ?ModelRef $fallbackModel,
         public string $effort,
         public int $maxTokensChat,
         public int $maxTokensDraft,
@@ -36,9 +38,9 @@ final readonly class AssistantSettings
         $fallback = trim((string) config('assistant.fallback_model'));
 
         return new self(
-            model: $model,
-            editorModel: trim((string) config('assistant.editor_model')) ?: $model,
-            fallbackModel: $fallback === '' ? null : $fallback,
+            model: ModelRef::parse($model),
+            editorModel: ModelRef::parse(trim((string) config('assistant.editor_model')) ?: $model),
+            fallbackModel: $fallback === '' ? null : ModelRef::parse($fallback),
             effort: in_array($effort, self::EFFORTS, true) ? $effort : 'low',
             // Thinking counts in max_tokens and cannot be turned off: never tiny.
             maxTokensChat: max(1024, (int) config('assistant.max_tokens.chat')),
@@ -55,8 +57,18 @@ final readonly class AssistantSettings
     /**
      * The fallback for a conversation on $model, or null.
      */
-    public function fallbackFor(string $model): ?string
+    public function fallbackFor(ModelRef $model): ?ModelRef
     {
-        return $this->fallbackModel === null || $this->fallbackModel === $model ? null : $this->fallbackModel;
+        return $this->fallbackModel === null || $this->fallbackModel->key() === $model->key() ? null : $this->fallbackModel;
+    }
+
+    /**
+     * The models of every role (readers, editors, fallback), by role.
+     *
+     * @return array<string, ModelRef>
+     */
+    public function roles(): array
+    {
+        return array_filter(['reader' => $this->model, 'editor' => $this->editorModel, 'fallback' => $this->fallbackModel]);
     }
 }

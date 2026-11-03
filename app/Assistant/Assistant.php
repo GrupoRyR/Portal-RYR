@@ -4,6 +4,7 @@ namespace App\Assistant;
 
 use App\Assistant\Budget\AssistantBudget;
 use App\Assistant\Model\AssistantModel;
+use App\Assistant\Model\ModelRef;
 use App\Assistant\Model\ModelRequest;
 use App\Assistant\Model\ModelTurn;
 use App\Assistant\Model\ModelUnavailable;
@@ -102,6 +103,7 @@ class Assistant
             text: $run->text,
             model: $run->model,
             usage: $usage,
+            provider: $run->provider,
             tools: array_values(array_unique($run->tools)),
             toolCalls: count($run->tools),
             fallback: $fallback,
@@ -129,19 +131,20 @@ class Assistant
      *
      * @param  list<array<string, mixed>>  $messages
      */
-    private function run(User $user, ConversationPlan $plan, string $model, array $messages, Usage $usage): Run
+    private function run(User $user, ConversationPlan $plan, ModelRef $model, array $messages, Usage $usage): Run
     {
-        $run = new Run($model);
+        $run = new Run($model->model, $model->provider);
         $rounds = 0;
 
         while (true) {
             try {
-                $turn = $this->model->send(new ModelRequest($model, $plan->effort, $plan->maxTokens, $plan->system, $plan->tools, $messages));
+                $turn = $this->model->send(new ModelRequest($model->model, $plan->effort, $plan->maxTokens, $plan->system, $plan->tools, $messages, $model->provider));
             } catch (ModelUnavailable $unavailable) {
                 return $run->ends(Run::FAILED, self::UNAVAILABLE, error: $unavailable->reason);
             }
 
-            $usage->add($turn, $model);
+            // Priced by the provider and model that served it.
+            $usage->add($turn, $model->key());
             $run->model = $turn->model;
 
             if ($turn->stopReason === ModelTurn::REFUSAL) {

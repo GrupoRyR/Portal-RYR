@@ -29,6 +29,8 @@ final class Pricing
     public static function prices(string $model, int $promptTokens = 0): array
     {
         $table = config('assistant.prices');
+        // Keyed «provider:model»; a bare model is Anthropic's.
+        $model = str_contains($model, ':') ? $model : 'anthropic:'.$model;
         $row = is_array($table[$model] ?? null) ? $table[$model] : ($table['default'] ?? []);
         $long = $row['long_context'] ?? null;
 

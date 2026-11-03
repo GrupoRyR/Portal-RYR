@@ -40,6 +40,7 @@ final class AssistantLog
             ->causedBy($user)
             ->performedOn($user)
             ->withProperties([
+                'provider' => $answer->provider,
                 'model' => $answer->model,
                 'feature' => $answer->feature(),
                 'tools' => $answer->tools,

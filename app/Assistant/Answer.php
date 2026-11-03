@@ -22,6 +22,7 @@ final readonly class Answer
         public string $text,
         public string $model,
         public Usage $usage = new Usage,
+        public string $provider = 'anthropic',
         public array $tools = [],
         public int $toolCalls = 0,
         public bool $fallback = false,

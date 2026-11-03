@@ -22,11 +22,11 @@
 
     <dl class="grid gap-x-4 gap-y-1 text-sm">
         <dt class="pt-1 font-semibold">Personas que preguntan</dt>
-        <dd class="break-all">{{ $settings->model }}</dd>
+        <dd class="break-all">{{ $settings->model->key() }}</dd>
         <dt class="pt-1 font-semibold">Editores de anuncios</dt>
-        <dd class="break-all">{{ $settings->editorModel }}</dd>
+        <dd class="break-all">{{ $settings->editorModel->key() }}</dd>
         <dt class="pt-1 font-semibold">Respaldo (solo si el modelo no quiere responder)</dt>
-        <dd class="break-all">{{ $settings->fallbackModel ?? 'Ninguno' }}</dd>
+        <dd class="break-all">{{ $settings->fallbackModel?->key() ?? 'Ninguno' }}</dd>
         <dt class="pt-1 font-semibold">Gasto de este mes</dt>
         <dd>US$ {{ number_format($spent, 2, ',', '.') }} de US$ {{ number_format($budget, 2, ',', '.') }} ({{ number_format($percent, 0, ',', '.') }} %)</dd>
     </dl>
@@ -43,7 +43,11 @@
         <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">PORTAL_ASSISTANT_ENABLED está apagado en el servidor: el asistente sigue apagado aunque este interruptor esté encendido.</p>
     @endunless
 
-    @unless ($configured)
-        <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Falta ANTHROPIC_API_KEY en el servidor: la página dirá que el asistente no está disponible.</p>
-    @endunless
+    @foreach ($missingKeys as $key)
+        <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Falta {{ $key }} en el servidor: la página dirá que el asistente no está disponible.</p>
+    @endforeach
+
+    @if ($outsideAnthropic)
+        <p role="alert" class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Este proveedor procesa los datos fuera de Anthropic; revisa la Ley 1581 (transferencia internacional) antes de activarlo.</p>
+    @endif
 </section>

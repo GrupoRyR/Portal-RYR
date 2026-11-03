@@ -26,5 +26,7 @@ final readonly class ModelRequest
         public string $system,
         public array $tools,
         public array $messages,
+        // The provider of `assistant.providers` that serves $model.
+        public string $provider = ModelRef::DEFAULT_PROVIDER,
     ) {}
 }

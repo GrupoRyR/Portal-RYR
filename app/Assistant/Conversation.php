@@ -74,7 +74,7 @@ final class Conversation
         $this->session->put(self::KEY, [
             'user_id' => $this->user->getKey(),
             'fingerprint' => $plan->fingerprint(),
-            'model' => $plan->model,
+            'model' => $plan->model->key(),
             'transcript' => [],
             'turns' => [],
         ]);

@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use App\Assistant\AssistantSettings;
 use App\Assistant\AssistantSwitch;
 use App\Assistant\Budget\AssistantBudget;
+use App\Assistant\Model\ModelRef;
+use App\Assistant\Model\ProviderRegistry;
 use App\Models\User;
 use App\Policies\AdminSections;
 use Illuminate\Contracts\View\View;
@@ -66,10 +68,13 @@ class AssistantToggle extends Component
     {
         $this->authorize(AdminSections::SETTINGS);
         $spent = $budget->spentThisMonth();
+        $registry = app(ProviderRegistry::class);
+        $providers = collect($settings->roles())->map(fn (ModelRef $ref) => $ref->provider)->unique();
 
         return view('livewire.admin.assistant-toggle', [
             'deployed' => $switch->deployed(),
-            'configured' => $switch->configured(),
+            'missingKeys' => $providers->reject(fn (string $provider) => $registry->configured($provider))->map(fn (string $provider) => ProviderRegistry::keyName($provider))->unique()->values()->all(),
+            'outsideAnthropic' => $providers->contains(fn (string $provider) => ProviderRegistry::outsideAnthropic($provider)),
             'settings' => $settings,
             'spent' => $spent,
             'budget' => $budget->limit(),

@@ -2,6 +2,7 @@
 
 namespace App\Assistant;
 
+use App\Assistant\Model\ProviderRegistry;
 use App\Audit\SecurityLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -50,11 +51,15 @@ class AssistantSwitch
     }
 
     /**
-     * The API key ANTHROPIC_API_KEY is set.
+     * The providers of the reader and editor models have their keys
+     * (ANTHROPIC_API_KEY by default; App\Assistant\Model\ProviderRegistry).
      */
     public function configured(): bool
     {
-        return trim((string) config('services.anthropic.key')) !== '';
+        $settings = AssistantSettings::fromConfig();
+        $registry = app(ProviderRegistry::class);
+
+        return $registry->configured($settings->model->provider) && $registry->configured($settings->editorModel->provider);
     }
 
     /**

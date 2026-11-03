@@ -35,7 +35,7 @@ final class Run
 
     public ?AnnouncementDraft $draft = null;
 
-    public function __construct(public string $model) {}
+    public function __construct(public string $model, public string $provider = 'anthropic') {}
 
     /**
      * @param  list<array<string, mixed>>  $last  Messages kept after the ones so far.
