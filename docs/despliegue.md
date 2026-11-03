@@ -443,6 +443,17 @@ Haga los pasos 1 a 4 **en cada inquilino** (primero Segurex, luego Derivados). N
 
 Referencias de Microsoft Learn: [RBAC para aplicaciones en Exchange Online](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac) (incluye por qué el permiso de Entra se suma al de Exchange), [user: sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [consentimiento de administrador](https://learn.microsoft.com/en-us/entra/identity-platform/v2-admin-consent), [Remove-MgServicePrincipalAppRoleAssignment](https://learn.microsoft.com/en-us/powershell/module/microsoft.graph.applications/remove-mgserviceprincipalapproleassignment?view=graph-powershell-1.0), [Set-DistributionGroup](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-distributiongroup?view=exchange-ps), [error de no entrega 5.7.124](https://learn.microsoft.com/en-us/troubleshoot/exchange/email-delivery/ndr/fix-error-code-5-7-124-in-exchange-online).
 
+### 1.14 Resumen de los lunes
+
+El **Resumen de los lunes** de una empresa (interruptor en **Administración › Empresas**, apagado por defecto) sale a su lista de todo el personal desde su buzón remitente, con la misma app y los mismos permisos de la sección 1.13: no hay claves nuevas en `.env` ni pasos nuevos en Exchange o Entra. Lo envía el cron del paso 1.9 (`portal:send-weekly-digest`) los lunes cada hora de 7:00 a 12:00, hora de Bogotá; cada empresa lo recibe una vez por semana y, si la semana no tiene nada que contar, no se envía.
+
+1. **Migración.** Crea la tabla `weekly_digests` y el campo del interruptor: el despliegue de rutina la aplica con `php artisan migrate --force` (sección 2.2).
+2. **Comprobar el horario.** `php artisan schedule:list` debe mostrar `0 7-12 * * 1  php artisan portal:send-weekly-digest` (en la zona America/Bogota).
+3. **Encender.** En la ficha de la empresa, con la lista y el buzón ya probados (sección 1.13), encienda **Resumen de los lunes** y guarde. Para la primera prueba, use una lista pequeña del mismo dominio, como en el paso 6.2 de la sección 1.13.
+4. **Revisar.** El lunes, debajo del interruptor, **Último resumen** dice «Enviado el …», «Sin contenido», «No se pudo enviar (código)» o «Interrumpido». Los códigos son los de la sección 1.13 (paso 6.4) y quedan también en `storage/logs` («Weekly digest could not be sent.», sin el token ni el contenido).
+
+- No hay reenvío manual: un resumen que falló no sale otra vez; el siguiente sale el lunes siguiente. Fuera del lunes de 7:00 a 12:59, el comando no envía nada aunque se ejecute a mano.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

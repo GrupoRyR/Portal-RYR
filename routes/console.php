@@ -65,3 +65,14 @@ Schedule::command('portal:send-announcement-reminders')
 Schedule::command('portal:send-announcement-list-emails')
     ->everyMinute()
     ->withoutOverlapping(10);
+
+// «Resumen de los lunes» (App\Digest\WeeklyDigests): on Mondays, every
+// hour from 07:00 to 12:00 in Bogotá. The first run sends each company's
+// digest once; the later ones only catch up the companies it did not
+// record (a missed run, a switch turned on in the morning). After the noon
+// run nothing goes out for that week. The overlap lock expires after 10
+// minutes.
+Schedule::command('portal:send-weekly-digest')
+    ->cron('0 7-12 * * 1')
+    ->timezone('America/Bogota')
+    ->withoutOverlapping(10);

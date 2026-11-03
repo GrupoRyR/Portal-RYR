@@ -420,9 +420,10 @@ class AnnouncementListEmails
     /**
      * A short code for the row and the log: Graph's error code, the first
      * AADSTS code of a refused token, the HTTP status, or «Unavailable»
-     * (Microsoft not reached, or the app's id or secret missing).
+     * (Microsoft not reached, or the app's id or secret missing). Also the
+     * Monday digest's (App\Digest\WeeklyDigests).
      */
-    private static function errorCode(Throwable $e): string
+    public static function errorCode(Throwable $e): string
     {
         if (! $e instanceof GraphAppException) {
             return 'Unexpected';
