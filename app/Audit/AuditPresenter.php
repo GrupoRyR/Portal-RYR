@@ -365,6 +365,8 @@ final class AuditPresenter
                 .($properties->get('configured') === false ? ' · falta ANTHROPIC_API_KEY en el servidor' : ''),
             AssistantLog::ASKED => $this->assistantQuestion($properties->all()),
             AssistantLog::DRAFT_PUBLISHED => 'Publicó un anuncio propuesto por el asistente · anuncio #'.$properties->get('announcement_id'),
+            AssistantLog::FAILOVER => 'El asistente pasó al proveedor secundario · de '.$properties->get('from').' a '.$properties->get('to').' · motivo: '.$properties->get('reason'),
+            AssistantLog::PRIMARY_DOWN_ALERT => 'Aviso a los súper administradores: el proveedor '.$properties->get('provider').' del asistente falló ('.$properties->get('reason').') y se usa el secundario',
             AssistantLog::BUDGET_BLOCKED => 'El asistente no respondió: se alcanzó el presupuesto del mes · '.self::usd($properties->get('spent_usd')).' de '.self::usd($properties->get('budget_usd')),
             AssistantLog::BUDGET_ALERT => 'Aviso a los súper administradores: el asistente usó el '.$properties->get('threshold').' % del presupuesto de '.$properties->get('month').' · '.self::usd($properties->get('spent_usd')).' de '.self::usd($properties->get('budget_usd')),
             default => (string) $activity->description,
@@ -394,6 +396,7 @@ final class AuditPresenter
             .$number($properties['output_tokens'] ?? 0).' de salida'
             .' · '.self::usd($properties['cost_usd'] ?? 0, 4)
             .(($properties['fallback'] ?? false) === true ? ' · respondió el modelo de respaldo' : '')
+            .(($properties['failover'] ?? false) === true ? ' · respondió el proveedor secundario' : '')
             .(($properties['refused'] ?? false) === true ? ' · el modelo no quiso responder' : '')
             .(($properties['truncated'] ?? false) === true ? ' · la respuesta se cortó' : '')
             .(($properties['draft'] ?? false) === true ? ' · propuso un borrador de anuncio' : '')

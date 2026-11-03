@@ -51,15 +51,19 @@ class AssistantSwitch
     }
 
     /**
-     * The providers of the reader and editor models have their keys
-     * (ANTHROPIC_API_KEY by default; App\Assistant\Model\ProviderRegistry).
+     * The readers' and the editors' conversations each have a provider
+     * with its key: the primary (ANTHROPIC_API_KEY by default) or, when
+     * set, the failover secondary (App\Assistant\Model\ProviderRegistry).
      */
     public function configured(): bool
     {
         $settings = AssistantSettings::fromConfig();
         $registry = app(ProviderRegistry::class);
 
-        return $registry->configured($settings->model->provider) && $registry->configured($settings->editorModel->provider);
+        $served = fn (bool $editor) => $registry->configured(($editor ? $settings->editorModel : $settings->model)->provider)
+            || (($secondary = $settings->secondaryFor($editor)) !== null && $registry->configured($secondary->provider));
+
+        return $served(false) && $served(true);
     }
 
     /**

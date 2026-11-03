@@ -220,6 +220,10 @@ class AnthropicModelTest extends TestCase
     {
         $cases = [
             'auth' => [new Response(401, ['Content-Type' => 'application/json'], '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}')],
+            // By the error TYPE, after the SDK's own retry (429 and 529 are retried once).
+            'billing' => [new Response(402, ['Content-Type' => 'application/json'], '{"type":"error","error":{"type":"billing_error","message":"credit balance is too low"}}')],
+            'rate_limited' => [new Response(429, ['Content-Type' => 'application/json', 'retry-after' => '0'], '{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}'), new Response(429, ['Content-Type' => 'application/json', 'retry-after' => '0'], '{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}')],
+            'overloaded' => [new Response(529, ['Content-Type' => 'application/json', 'retry-after' => '0'], '{"type":"error","error":{"type":"overloaded_error","message":"busy"}}'), new Response(529, ['Content-Type' => 'application/json', 'retry-after' => '0'], '{"type":"error","error":{"type":"overloaded_error","message":"busy"}}')],
             'http_400' => [new Response(400, ['Content-Type' => 'application/json'], '{"type":"error","error":{"type":"invalid_request_error","message":"bad"}}')],
             'connection' => [
                 new ConnectException('down', new Request('POST', 'https://api.anthropic.com/v1/messages')),

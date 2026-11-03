@@ -53,6 +53,10 @@
             <p role="status" class="rounded-control bg-status-active-bg px-4 py-3 text-sm font-semibold text-status-active">Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.</p>
         @endif
 
+        @if ($secondary && $available)
+            <p role="status" class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold text-fg-soft">Respondiendo con el proveedor secundario.</p>
+        @endif
+
         @unless ($available)
             <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">El asistente no está disponible en este momento. Vuelve a intentarlo más tarde.</p>
         @else

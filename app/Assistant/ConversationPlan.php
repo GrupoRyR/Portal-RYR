@@ -46,6 +46,14 @@ final readonly class ConversationPlan
         );
     }
 
+    /**
+     * The same plan on another model (the failover secondary).
+     */
+    public function on(ModelRef $model): self
+    {
+        return new self($model, $this->effort, $this->maxTokens, $this->system, $this->tools, $this->editor);
+    }
+
     public function fingerprint(): string
     {
         return hash('sha256', json_encode(

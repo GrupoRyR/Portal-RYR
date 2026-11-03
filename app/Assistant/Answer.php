@@ -26,6 +26,7 @@ final readonly class Answer
         public array $tools = [],
         public int $toolCalls = 0,
         public bool $fallback = false,
+        public bool $failover = false,
         public bool $refused = false,
         public bool $truncated = false,
         public ?string $error = null,

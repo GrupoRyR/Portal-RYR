@@ -304,7 +304,7 @@ class AssistantTest extends TestCase
         $this->assertSame([
             'provider' => 'anthropic', 'model' => 'claude-haiku-5-5', 'feature' => 'chat', 'tools' => ['mis_apps'], 'tool_calls' => 1, 'model_calls' => 2,
             'input_tokens' => 2000, 'output_tokens' => 4000, 'cache_creation_input_tokens' => 8000, 'cache_read_input_tokens' => 100000,
-            'cost_usd' => 0.0042, 'fallback' => false, 'refused' => false, 'truncated' => false, 'draft' => false, 'error' => null,
+            'cost_usd' => 0.0042, 'fallback' => false, 'failover' => false, 'refused' => false, 'truncated' => false, 'draft' => false, 'error' => null,
         ], $line->properties->all());
         $this->assertStringNotContainsString('secreto', json_encode($line->getAttributes()));
         $this->assertStringNotContainsString('Hola', json_encode($line->getAttributes()));

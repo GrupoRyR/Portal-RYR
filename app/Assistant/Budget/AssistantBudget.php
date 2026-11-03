@@ -4,9 +4,7 @@ namespace App\Assistant\Budget;
 
 use App\Assistant\AssistantLog;
 use App\Assistant\AssistantSettings;
-use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -99,7 +97,7 @@ class AssistantBudget
     private function send(int $threshold, string $month, float $spent): void
     {
         $budget = $this->limit();
-        $recipients = $this->recipients();
+        $recipients = AdminRecipients::superAdmins();
 
         AssistantLog::budgetAlert($threshold, $month, $spent, $budget, $recipients->count());
 
@@ -114,29 +112,5 @@ class AssistantBudget
                 }
             }
         });
-    }
-
-    /**
-     * Super admins, plus the configured super admin emails that are not users
-     * (as App\Notifications\CompanyAdminNotifier does).
-     *
-     * @return Collection<int, mixed>
-     */
-    private function recipients(): Collection
-    {
-        $users = User::query()
-            ->whereHas('roles', fn ($query) => $query->where('name', 'super_admin'))
-            ->whereNotNull('email')
-            ->get();
-
-        $known = $users->map(fn (User $user) => strtolower((string) $user->email));
-
-        $extra = collect(config('portal.super_admin_emails', []))
-            ->map(fn (string $email) => strtolower(trim($email)))
-            ->filter(fn (string $email) => $email !== '' && ! $known->contains($email))
-            ->unique()
-            ->map(fn (string $email) => Notification::route('mail', $email));
-
-        return $users->concat($extra)->values();
     }
 }

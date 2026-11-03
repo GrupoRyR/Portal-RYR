@@ -43,6 +43,20 @@ return [
     // so this one is the portal's own. Empty: no second try.
     'fallback_model' => env('ASSISTANT_FALLBACK_MODEL', env('PORTAL_ASSISTANT_FALLBACK_MODEL', 'anthropic:claude-opus-5-5')),
 
+    // Provider failover: when the primary model's provider fails (billing,
+    // credentials, a missing key, rate limits, overload, 5xx, timeouts or
+    // connection, after the driver's retries), the conversation moves to
+    // this model for the rest of its life, as a text-only transcript.
+    // Empty: no failover. The editors' one falls back to `secondary_model`.
+    // Not the refusal fallback above, which is for refusals only.
+    'secondary_model' => env('ASSISTANT_SECONDARY_MODEL', ''),
+    'secondary_editor_model' => env('ASSISTANT_SECONDARY_EDITOR_MODEL', ''),
+
+    // Minutes the primary is skipped after a billing or credentials
+    // failure, and after a rate limit, overload, 5xx or timeout.
+    'primary_cooldown_minutes' => (int) env('ASSISTANT_PRIMARY_COOLDOWN_MINUTES', 30),
+    'short_cooldown_minutes' => 2,
+
     // The providers a model reference may name. Drivers: `anthropic` (the
     // official SDK, with prompt caching, adaptive thinking, effort and
     // preserved thinking) and `openai_compatible` (Chat Completions over

@@ -780,6 +780,26 @@ Está **apagado** hasta que se cumplan los tres puntos: `PORTAL_ASSISTANT_ENABLE
     - **Solo en Anthropic.** La caché del prompt, el razonamiento adaptativo, el esfuerzo (`PORTAL_ASSISTANT_EFFORT`) y el historial con razonamiento preservado existen solo con el *driver* `anthropic`. El *driver* `openai_compatible` nunca los envía; DeepSeek tiene su propia caché automática, que el portal cuenta como «caché leída».
     - **Igual en todos.** Las mismas herramientas, las mismas reglas de visibilidad y el mismo borrador que solo propone. Un `finish_reason` `content_filter` cuenta como `refusal` (pasa al modelo de respaldo). El uso se guarda en los mismos campos (`prompt_tokens` → entrada, `completion_tokens` → salida) y el presupuesto mensual suma todos los proveedores.
     - Solo direcciones `https://`; espera `PORTAL_ASSISTANT_TIMEOUT` segundos y reintenta una vez ante 429, 5xx o errores de conexión. Sin la llave del proveedor de un rol, la página dice que el asistente no está disponible.
+13. **Proveedor secundario (respaldo por fallas).** Anthropic es el proveedor principal; DeepSeek puede ser el segundo. Es distinto del modelo de respaldo por `refusal` (`ASSISTANT_FALLBACK_MODEL`), que solo actúa cuando el modelo no quiere responder.
+
+    ```dotenv
+    ASSISTANT_SECONDARY_MODEL=deepseek:deepseek-chat
+    # Opcional, para los editores; vacío: el mismo de arriba.
+    ASSISTANT_SECONDARY_EDITOR_MODEL=
+    ASSISTANT_PRIMARY_COOLDOWN_MINUTES=30
+    ```
+
+    Vacío `ASSISTANT_SECONDARY_MODEL`: no hay respaldo y todo sigue como antes. Después, `php artisan optimize`.
+
+    - **Cuándo pasa al secundario.** Por el **tipo** de error (el `->type` del SDK de Anthropic, o el código HTTP del otro proveedor), nunca por el texto, y solo después de los reintentos del propio cliente: 402 `billing_error` (sin saldo), 401 `authentication_error` o falta la llave, 429 `rate_limit_error`, 529 `overloaded_error`, cualquier 5xx, y errores de conexión o de tiempo de espera. En DeepSeek: 402 (saldo insuficiente; verifique el código en https://api-docs.deepseek.com), 401, 429, 5xx, conexión y tiempo de espera.
+    - **Cuándo no.** Un 400 `invalid_request_error`, un 413 o un mensaje demasiado largo son errores del portal: no pasan al secundario, quedan en `storage/logs` («The assistant model rejected the request.», con el motivo) y la persona ve el error. El **presupuesto mensual** del portal es uno solo para todos los proveedores: al alcanzarlo el asistente se detiene, nunca pasa al secundario.
+    - **Límite de gasto de la consola de Anthropic.** Por confirmar: la guía de la API no documenta con qué error responde Anthropic cuando se alcanza el límite de gasto de un espacio de trabajo. Se espera un 402 `billing_error` o un 429; los dos pasan al secundario. Al configurarlo, compruebe en Auditoría el motivo con el que llegó.
+    - **Cómo pasa.** Un proveedor no puede leer el razonamiento ni las herramientas de otro, así que la conversación se reescribe como texto (preguntas y respuestas visibles) y sigue en el secundario el resto de su vida: nunca vuelve al principal a mitad de conversación. La página muestra «Respondiendo con el proveedor secundario.» La siguiente **Nueva conversación** prueba de nuevo el principal.
+    - **Espera (circuito).** Tras un error de saldo o de llave, el principal se marca como no disponible en la caché durante `ASSISTANT_PRIMARY_COOLDOWN_MINUTES` (30); tras un 429, 5xx o un tiempo de espera, 2 minutos. Mientras tanto, las conversaciones nuevas empiezan directo en el secundario, sin pagar primero una llamada fallida.
+    - **Aviso.** En el primer error de saldo o de llave, los súper administradores reciben un correo, una vez por cada espera: «Anthropic sin saldo o llave inválida; el asistente usa el proveedor secundario.» Cada cambio de proveedor queda en Auditoría con el de origen, el de destino y el tipo de error (nunca el mensaje).
+    - **Si los dos fallan**, la página dice «El asistente no está disponible en este momento.» y queda en Auditoría.
+    - El uso y el costo se guardan con el proveedor y el modelo que respondieron de verdad, y todos cuentan para el mismo presupuesto.
+    - **Ley 1581.** Con el secundario en DeepSeek, una falla de Anthropic envía a DeepSeek los datos del portal que la respuesta necesita (también datos de empleados). Aplica la misma revisión legal del punto 12 antes de configurarlo.
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

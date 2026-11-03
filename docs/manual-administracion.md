@@ -958,3 +958,15 @@ TI puede hacer que un rol use otro proveedor en lugar de Anthropic, por ejemplo 
 - **Antes de activarlo:** se ha informado que la API propia de DeepSeek guarda los datos en China. Usarla con datos de empleados necesita una revisión legal de la transferencia internacional (Ley 1581 de 2012). Mientras algún rol use un proveedor que no es Anthropic, **Configuración › Asistente del portal** lo advierte en rojo: «Este proveedor procesa los datos fuera de Anthropic; revisa la Ley 1581 (transferencia internacional) antes de activarlo.»
 - **Lo que se pierde:** la caché del prompt de Anthropic, el razonamiento adaptativo con esfuerzo y el historial con razonamiento preservado solo existen con Anthropic.
 - La tarjeta de Configuración muestra el proveedor y el modelo de cada rol. El presupuesto del mes suma todos los proveedores.
+
+### 15.9 Proveedor secundario
+
+Si Anthropic falla (sin saldo, llave inválida, límite de peticiones, sobrecarga o sin conexión) y TI configuró un proveedor secundario (por ejemplo DeepSeek, `docs/despliegue.md` §1.23, punto 13), la conversación sigue en el secundario:
+
+- La página muestra «Respondiendo con el proveedor secundario.» La conversación se queda allí hasta que la persona empiece una **Nueva conversación**.
+- El secundario recibe solo el texto de las preguntas y respuestas anteriores: no conoce el razonamiento del primer modelo.
+- Tras un error de saldo o de llave, el portal deja de probar Anthropic durante 30 minutos y avisa por correo a los súper administradores, una vez por espera: «Anthropic sin saldo o llave inválida; el asistente usa el proveedor secundario.»
+- Un error del propio portal (una petición mal formada) o el presupuesto del mes alcanzado nunca pasan al secundario.
+- Si los dos proveedores fallan, la página dice «El asistente no está disponible en este momento.»
+- En Auditoría › Seguridad: «El asistente pasó al proveedor secundario · de anthropic:claude-haiku-5-5 a deepseek:deepseek-chat · motivo: billing», y las preguntas respondidas allí terminan en «· respondió el proveedor secundario».
+- **Ley 1581:** con DeepSeek como secundario, una falla de Anthropic envía a DeepSeek los datos de empleados que la respuesta necesita. Necesita la misma revisión legal de §15.8 antes de configurarlo.

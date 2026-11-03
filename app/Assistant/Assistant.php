@@ -3,6 +3,7 @@
 namespace App\Assistant;
 
 use App\Assistant\Budget\AssistantBudget;
+use App\Assistant\Failover\ProviderFailover;
 use App\Assistant\Model\AssistantModel;
 use App\Assistant\Model\ModelRef;
 use App\Assistant\Model\ModelRequest;
@@ -11,6 +12,7 @@ use App\Assistant\Model\ModelUnavailable;
 use App\Assistant\Tools\AnnouncementDraft;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Answers one question of the signed-in account.
@@ -32,6 +34,10 @@ use Carbon\CarbonImmutable;
  *   context is lost); only the question and that answer's text are kept,
  *   so the conversation's model never changes;
  * - a model that cannot answer: nothing (the page keeps the question).
+ *   When the reason fails over (App\Assistant\Failover\ProviderFailover)
+ *   and a secondary is set, the conversation moves to the secondary for the
+ *   rest of its life, as a text-only transcript, and the question is asked
+ *   there; if that fails too, {@see BOTH_UNAVAILABLE}.
  *
  * Each question is audited (App\Assistant\AssistantLog) with its usage and
  * cost, never its text, and may trigger the monthly budget alerts.
@@ -48,11 +54,14 @@ class Assistant
 
     public const EMPTY = 'No tengo una respuesta para eso. Intenta preguntarlo de otra forma.';
 
+    public const BOTH_UNAVAILABLE = 'El asistente no está disponible en este momento.';
+
     public function __construct(
         private readonly AssistantModel $model,
         private readonly AssistantTools $tools,
         private readonly AssistantSettings $settings,
         private readonly AssistantBudget $budget,
+        private readonly ProviderFailover $failover,
     ) {}
 
     public function plan(User $user): ConversationPlan
@@ -63,7 +72,9 @@ class Assistant
     /**
      * Starts a conversation when there is none, or a new one when the
      * current one was frozen with another plan (role, model, effort or
-     * tools changed). True when an existing conversation was replaced.
+     * tools changed). While the primary provider is down and a secondary
+     * is set, a new conversation starts on the secondary. True when an
+     * existing conversation was replaced.
      */
     public function sync(User $user, Conversation $conversation): bool
     {
@@ -74,7 +85,8 @@ class Assistant
         }
 
         $replaced = $conversation->exists();
-        $conversation->begin($plan);
+        $secondary = $this->settings->secondaryFor($plan->editor);
+        $conversation->begin($plan, $secondary !== null && $this->failover->isDown($plan->model->provider) ? $secondary : null);
 
         return $replaced;
     }
@@ -83,6 +95,8 @@ class Assistant
     {
         $this->sync($user, $conversation);
         $plan = $this->plan($user);
+        $secondary = $this->settings->secondaryFor($plan->editor);
+        $serving = $conversation->moved() && $secondary !== null ? $plan->on($secondary) : $plan;
 
         $message = ['role' => 'user', 'content' => [
             ['type' => 'text', 'text' => SystemPrompt::context($user, $plan->editor, CarbonImmutable::now())],
@@ -90,13 +104,33 @@ class Assistant
         ]];
 
         $usage = new Usage;
-        $run = $this->run($user, $plan, $plan->model, [...$conversation->transcript(), $message], $usage);
+        $failover = $conversation->moved();
+        $run = $this->run($user, $serving, $serving->model, [...$conversation->transcript(), $message], $usage);
+
+        // The primary failed for a reason that fails over: the rest of the
+        // conversation goes to the secondary, as plain text.
+        if ($run->status === Run::FAILED && ! $failover && $secondary !== null && ProviderFailover::kind($run->error) !== null) {
+            $this->failover->markDown($plan->model->provider, (string) $run->error);
+            AssistantLog::failover($user, $plan->model->key(), $secondary->key(), (string) $run->error);
+            $conversation->moveTo($secondary);
+            $failover = true;
+            $serving = $plan->on($secondary);
+            $run = $this->run($user, $serving, $secondary, [...$conversation->transcript(), $message], $usage);
+
+            if ($run->status === Run::FAILED) {
+                $run->text = self::BOTH_UNAVAILABLE;
+            }
+        } elseif ($run->status === Run::FAILED && ProviderFailover::kind($run->error) === null) {
+            // A request the provider rejects (400, 404, 413...) is a bug: never a failover.
+            Log::error('The assistant model rejected the request.', ['model' => $serving->model->key(), 'reason' => $run->error, 'user_id' => $user->id]);
+        }
+
         $fallback = false;
 
-        if ($run->status === Run::REFUSED && ($fallbackModel = $this->settings->fallbackFor($plan->model)) !== null) {
+        if ($run->status === Run::REFUSED && ($fallbackModel = $this->settings->fallbackFor($serving->model)) !== null) {
             $fallback = true;
-            $fresh = [...self::plainHistory($conversation), $message];
-            $run = $this->run($user, $plan, $fallbackModel, $fresh, $usage)->asFallback($run);
+            $fresh = [...$conversation->plainTranscript(), $message];
+            $run = $this->run($user, $serving, $fallbackModel, $fresh, $usage)->asFallback($run);
         }
 
         $answer = new Answer(
@@ -107,6 +141,7 @@ class Assistant
             tools: array_values(array_unique($run->tools)),
             toolCalls: count($run->tools),
             fallback: $fallback,
+            failover: $failover,
             refused: $run->status === Run::REFUSED,
             truncated: $run->status === Run::TRUNCATED,
             error: $run->error,
@@ -181,23 +216,6 @@ class Assistant
             $run->kept = [...$run->kept, ...$step];
             $messages = [...$messages, ...$step];
         }
-    }
-
-    /**
-     * The conversation as plain text, for a fresh request on another model.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function plainHistory(Conversation $conversation): array
-    {
-        $messages = [];
-
-        foreach ($conversation->turns() as $turn) {
-            $messages[] = ['role' => 'user', 'content' => [['type' => 'text', 'text' => $turn['question']]]];
-            $messages[] = self::assistantText($turn['answer']);
-        }
-
-        return $messages;
     }
 
     /**

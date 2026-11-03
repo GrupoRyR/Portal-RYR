@@ -49,6 +49,7 @@ class AssistantController extends Controller
         return view('assistant.show', [
             'available' => $switch->configured(),
             'restarted' => $restarted,
+            'secondary' => $conversation->moved(),
             'turns' => $conversation->turns(),
             'draft' => $plan->editor ? $conversation->draft() : null,
             'full' => $conversation->isFull($settings->conversationTurns, $settings->conversationMaxBytes),

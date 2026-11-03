@@ -33,6 +33,10 @@ final class AssistantLog
 
     public const BUDGET_ALERT = 'assistant.budget_alert';
 
+    public const FAILOVER = 'assistant.failover';
+
+    public const PRIMARY_DOWN_ALERT = 'assistant.primary_down_alert';
+
     public static function asked(User $user, Answer $answer): void
     {
         activity(SecurityLog::LOG)
@@ -52,6 +56,7 @@ final class AssistantLog
                 'cache_read_input_tokens' => $answer->usage->cacheReadInputTokens,
                 'cost_usd' => round($answer->usage->costUsd, 6),
                 'fallback' => $answer->fallback,
+                'failover' => $answer->failover,
                 'refused' => $answer->refused,
                 'truncated' => $answer->truncated,
                 'draft' => $answer->draft !== null,
@@ -96,6 +101,29 @@ final class AssistantLog
                 'recipients' => $recipients,
             ])
             ->log(self::BUDGET_ALERT);
+    }
+
+    /**
+     * A conversation moved from one provider to another: from, to and the
+     * error type, never its message.
+     */
+    public static function failover(User $user, string $from, string $to, string $reason): void
+    {
+        activity(SecurityLog::LOG)
+            ->event(self::FAILOVER)
+            ->causedBy($user)
+            ->performedOn($user)
+            ->withProperties(['from' => $from, 'to' => $to, 'reason' => $reason])
+            ->log(self::FAILOVER);
+    }
+
+    public static function primaryDownAlert(string $provider, string $reason, int $recipients): void
+    {
+        activity(SecurityLog::LOG)
+            ->event(self::PRIMARY_DOWN_ALERT)
+            ->causedByAnonymous()
+            ->withProperties(['provider' => $provider, 'reason' => $reason, 'recipients' => $recipients])
+            ->log(self::PRIMARY_DOWN_ALERT);
     }
 
     /**

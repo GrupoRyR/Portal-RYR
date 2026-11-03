@@ -195,12 +195,17 @@ class AnthropicModel implements AssistantModel
      */
     private static function reason(AnthropicException $e): string
     {
+        // By the API's error TYPE (the SDK's ->type), then the status; never the text.
+        $type = $e instanceof APIStatusException ? $e->type?->value : null;
+
         return match (true) {
             $e instanceof APITimeoutException => 'timeout',
             $e instanceof APIConnectionException => 'connection',
-            $e instanceof RateLimitException => 'rate_limited',
-            $e instanceof AuthenticationException, $e instanceof PermissionDeniedException => 'auth',
-            $e instanceof APIStatusException && $e->status === 529 => 'overloaded',
+            $type === 'billing_error', $e instanceof APIStatusException && $e->status === 402 => 'billing',
+            $type === 'authentication_error', $type === 'permission_error', $e instanceof AuthenticationException, $e instanceof PermissionDeniedException => 'auth',
+            $type === 'rate_limit_error', $e instanceof RateLimitException => 'rate_limited',
+            $type === 'overloaded_error', $e instanceof APIStatusException && $e->status === 529 => 'overloaded',
+            $type === 'timeout_error' => 'timeout',
             $e instanceof APIStatusException && $e->status !== null => 'http_'.$e->status,
             default => 'unexpected',
         };

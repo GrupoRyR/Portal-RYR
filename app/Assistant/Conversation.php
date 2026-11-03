@@ -2,6 +2,7 @@
 
 namespace App\Assistant;
 
+use App\Assistant\Model\ModelRef;
 use App\Assistant\Tools\AnnouncementDraft;
 use App\Models\User;
 use Illuminate\Contracts\Session\Session;
@@ -66,15 +67,61 @@ final class Conversation
     }
 
     /**
+     * Moved to the secondary provider for the rest of its life.
+     */
+    public function moved(): bool
+    {
+        return ($this->state()['moved'] ?? false) === true;
+    }
+
+    /**
+     * Moves it to the secondary provider: a provider cannot read another
+     * one's thinking or tool blocks, so the transcript becomes the visible
+     * text of the turns, and it never moves back.
+     */
+    public function moveTo(ModelRef $model): void
+    {
+        $state = $this->state();
+
+        if ($state === null) {
+            return;
+        }
+
+        $state['model'] = $model->key();
+        $state['moved'] = true;
+        $state['transcript'] = $this->plainTranscript();
+
+        $this->session->put(self::KEY, $state);
+    }
+
+    /**
+     * The turns as plain text messages: no thinking, no tool blocks.
+     *
+     * @return list<array{role: string, content: list<array{type: string, text: string}>}>
+     */
+    public function plainTranscript(): array
+    {
+        $messages = [];
+
+        foreach ($this->turns() as $turn) {
+            $messages[] = ['role' => 'user', 'content' => [['type' => 'text', 'text' => $turn['question']]]];
+            $messages[] = ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => $turn['answer']]]];
+        }
+
+        return $messages;
+    }
+
+    /**
      * Starts an empty conversation frozen with this plan (the draft goes too).
      */
-    public function begin(ConversationPlan $plan): void
+    public function begin(ConversationPlan $plan, ?ModelRef $serving = null): void
     {
         $this->session->forget(self::DRAFT_KEY);
         $this->session->put(self::KEY, [
             'user_id' => $this->user->getKey(),
             'fingerprint' => $plan->fingerprint(),
-            'model' => $plan->model->key(),
+            'model' => ($serving ?? $plan->model)->key(),
+            'moved' => $serving !== null,
             'transcript' => [],
             'turns' => [],
         ]);
