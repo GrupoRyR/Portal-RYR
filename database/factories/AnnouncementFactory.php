@@ -50,6 +50,12 @@ class AnnouncementFactory extends Factory
         return $this->state(fn () => ['requires_read' => true]);
     }
 
+    /** Also emailed to the all-staff list of each company of its audience. */
+    public function emailLists(): static
+    {
+        return $this->state(fn () => ['email_lists' => true]);
+    }
+
     public function scheduled(): static
     {
         return $this->state(fn () => ['starts_at' => now()->addDay(), 'ends_at' => null]);

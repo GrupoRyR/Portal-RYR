@@ -137,7 +137,7 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 - **Revocar:** `McpConnection::revoke()` marca `revoked_at` y revoca los tokens de acceso y renovación del cliente para esa cuenta (lo usará C4 al desconectar).
 - **Servidor:** `PortalServer` («Portal RYR», instrucciones en español) con `quien_soy` (`#[IsReadOnly]`): nombre, correo y empresa de la cuenta que aprobó, nada más.
 - **Tokens:** acceso de 1 hora, renovación de 30 días, rotación activa (`$revokeRefreshTokenAfterUse`). `passport:purge` diario a las 4:00 (Bogotá).
-- **Despliegue:** `docs/despliegue.md` §1.13 (variables, llaves, permisos, `curl` de comprobación) y dos filas en «Problemas frecuentes».
+- **Despliegue:** `docs/despliegue.md` §1.15 (variables, llaves, permisos, `curl` de comprobación) y dos filas en «Problemas frecuentes».
 
 ### Pruebas
 
@@ -150,7 +150,7 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 ### No hecho o no verificado
 
 - C2b: confirmar las cuentas vinculadas con Microsoft durante el consentimiento.
-- No se probó contra claude.ai real ni en cPanel (`/.well-known/` con AutoSSL o ModSecurity, permisos de las llaves): queda para después del despliegue, con los `curl` del §1.13.
+- No se probó contra claude.ai real ni en cPanel (`/.well-known/` con AutoSSL o ModSecurity, permisos de las llaves): queda para después del despliegue, con los `curl` del §1.15.
 - `.env.example` no se tocó (los `.env*` están bloqueados para el agente): faltan `PORTAL_MCP_ENABLED`, `PASSPORT_PRIVATE_KEY` y `PASSPORT_PUBLIC_KEY`.
 - No se revisa el alcance `mcp:use` del token en cada llamada: Passport solo sirve al conector y el único alcance que existe es ese.
 - Tamaño: unas 910 líneas de código (incluidas vistas, rutas y la migración propia) y 895 de pruebas, sin contar `composer.lock` (779) ni los archivos publicados de los paquetes (migraciones de Passport y `config/mcp.php`, 283). Pasa de la cifra orientativa de 400 porque el servidor OAuth, el consentimiento y la conexión solo funcionan juntos.
@@ -168,7 +168,7 @@ Ruta: el mismo escritor delegado, después de una revisión independiente del C2
 - **L4, clientes sin conexión:** `portal:purge-mcp-clients` (`App\Mcp\StaleClients`, diario a las 4:15) borra los clientes del conector (sin dueño y con el regreso de claude.ai como única dirección) de más de 24 horas que no tienen ninguna fila en `mcp_connections`, con sus códigos y tokens. Un cliente con una conexión, aunque esté revocada, se conserva como historial.
 - **L5, tokens inválidos:** el middleware `mcp.failures` (`ThrottleFailedMcpCalls`) va antes de `auth:api` en `/mcp/portal`: más de 30 respuestas 401 por minuto desde una dirección dan 429 a todo lo de esa dirección. Laravel siempre ordena `throttle` después de la autenticación, por eso es un middleware propio. Las llamadas que se autentican no cuentan, así que las conexiones que comparten las direcciones de Claude no se afectan entre sí.
 - **L6, dos «Aprobar» a la vez:** la columna `active_key` («cliente|cuenta» mientras está activa, nula al revocar) tiene índice único, válido en MySQL y SQLite. Si el `INSERT` choca, `approved()` reutiliza la conexión que ganó (el `INSERT` va en un *savepoint*). Se editó la migración del C2a porque nada está desplegado.
-- **L7, textos:** `routes/console.php` y `docs/despliegue.md` §1.13 ya dicen bien qué borra `passport:purge` (revocados siempre; vencidos con más de 7 días). La línea de `curl -w` usa `\n`. El §1.13 suma la tarea nueva y los límites.
+- **L7, textos:** `routes/console.php` y `docs/despliegue.md` §1.15 ya dicen bien qué borra `passport:purge` (revocados siempre; vencidos con más de 7 días). La línea de `curl -w` usa `\n`. El §1.15 suma la tarea nueva y los límites.
 - **L8, interruptor:** `PORTAL_MCP_ENABLED` se lee con `filter_var(…, FILTER_VALIDATE_BOOL)`: `off`, `no`, `false`, `0`, vacío o cualquier otro texto lo dejan apagado.
 - **L9:** la reutilización de un token de renovación queda como riesgo aceptado en «Riesgos».
 
