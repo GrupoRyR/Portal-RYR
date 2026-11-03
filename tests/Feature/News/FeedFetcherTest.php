@@ -90,6 +90,67 @@ class FeedFetcherTest extends TestCase
             && str_contains($request->header('User-Agent')[0] ?? '', 'PortalRYR'));
     }
 
+    // --- Review fixes (odd/tasks/noticias.md, R1) ---------------------------
+
+    public function test_the_client_asks_for_an_uncompressed_body_and_never_decodes_it_itself(): void
+    {
+        $seen = [];
+        Http::fake(function (Request $request, array $options) use (&$seen) {
+            $seen = $options;
+
+            return Http::response('<rss/>');
+        });
+
+        $this->fetcher()->fetch('https://news.example.com/rss');
+
+        $this->assertFalse($seen['decode_content']);
+        Http::assertSent(fn (Request $request) => $request->header('Accept-Encoding') === ['identity']);
+    }
+
+    public function test_gzip_and_deflate_bodies_are_decoded_here(): void
+    {
+        Http::fake([
+            'https://news.example.com/gzip' => Http::response(gzencode('<rss>gzip</rss>'), 200, ['Content-Encoding' => 'gzip']),
+            'https://news.example.com/deflate' => Http::response(gzcompress('<rss>deflate</rss>'), 200, ['Content-Encoding' => 'deflate']),
+            'https://news.example.com/raw-deflate' => Http::response(gzdeflate('<rss>raw</rss>'), 200, ['Content-Encoding' => 'deflate']),
+            'https://news.example.com/identity' => Http::response('<rss>plain</rss>', 200, ['Content-Encoding' => 'identity']),
+        ]);
+
+        $this->assertSame('<rss>gzip</rss>', $this->fetcher()->fetch('https://news.example.com/gzip'));
+        $this->assertSame('<rss>deflate</rss>', $this->fetcher()->fetch('https://news.example.com/deflate'));
+        $this->assertSame('<rss>raw</rss>', $this->fetcher()->fetch('https://news.example.com/raw-deflate'));
+        $this->assertSame('<rss>plain</rss>', $this->fetcher()->fetch('https://news.example.com/identity'));
+    }
+
+    public function test_a_compressed_body_over_one_megabyte_once_decoded_is_refused(): void
+    {
+        $bomb = gzencode(str_repeat(' ', 20_000_000), 9);
+        $this->assertLessThan(1_048_576, strlen($bomb));
+
+        Http::fake([
+            'https://news.example.com/bomb' => Http::response($bomb, 200, ['Content-Encoding' => 'gzip']),
+            'https://news.example.com/limit' => Http::response(gzencode(str_repeat('a', 1_048_576)), 200, ['Content-Encoding' => 'gzip']),
+            'https://news.example.com/over' => Http::response(gzencode(str_repeat('a', 1_048_577)), 200, ['Content-Encoding' => 'gzip']),
+        ]);
+
+        $this->assertFails('https://news.example.com/bomb', 'too_large');
+        $this->assertFails('https://news.example.com/over', 'too_large');
+        $this->assertSame(1_048_576, strlen($this->fetcher()->fetch('https://news.example.com/limit')));
+    }
+
+    public function test_unknown_or_broken_encodings_are_refused(): void
+    {
+        Http::fake([
+            'https://news.example.com/br' => Http::response('brotli bytes', 200, ['Content-Encoding' => 'br']),
+            'https://news.example.com/broken' => Http::response('not gzip at all', 200, ['Content-Encoding' => 'gzip']),
+            'https://news.example.com/double' => Http::response(gzencode(gzencode('<rss/>')), 200, ['Content-Encoding' => 'gzip, gzip']),
+        ]);
+
+        $this->assertFails('https://news.example.com/br', 'unsupported_encoding');
+        $this->assertFails('https://news.example.com/broken', 'unsupported_encoding');
+        $this->assertFails('https://news.example.com/double', 'unsupported_encoding');
+    }
+
     public function test_ipv6_addresses_are_pinned_in_brackets(): void
     {
         $seen = [];

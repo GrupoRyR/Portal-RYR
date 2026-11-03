@@ -44,6 +44,8 @@ class AddressPolicyTest extends TestCase
             'discard' => ['100::1'],
             'teredo' => ['2001::1'],
             'ipv6 documentation' => ['2001:db8::1'],
+            'ipv6 documentation rfc 9637' => ['3fff::1'],
+            'ipv6 documentation rfc 9637 top' => ['3fff:fff:ffff::1'],
             '6to4' => ['2002:7f00:1::1'],
             'unique local' => ['fd00::1'],
             'unique local fc' => ['fc00::1'],
@@ -75,6 +77,7 @@ class AddressPolicyTest extends TestCase
             'just above cgnat' => ['100.128.0.1'],
             'ipv6 global' => ['2606:4700:4700::1111'],
             'ipv6 global 2' => ['2800:3f0:4005:40b::200e'],
+            'just above rfc 9637' => ['3fff:1000::1'],
         ];
     }
 

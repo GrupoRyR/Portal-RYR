@@ -526,8 +526,10 @@ Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cad
 - Antes de conectar, el portal resuelve el nombre y rechaza la fuente si alguna de sus IP es interna: local (`127.0.0.1`, `::1`), privada (`10.x`, `172.16–31.x`, `192.168.x`, `fc00::/7`), de enlace local (`169.254.x`, `fe80::/10`), CGNAT (`100.64.0.0/10`), multidifusión, reservada, de documentación o una IPv6 que contiene una IPv4. La conexión usa exactamente la IP comprobada, así que el nombre no puede cambiar de IP entre la comprobación y la conexión.
 - Sigue hasta 3 redirecciones y comprueba cada una con las mismas reglas.
 - Espera hasta 10 segundos por solicitud (cada redirección es una solicitud nueva) y deja de leer al pasar de 1 MB.
+- Pide la respuesta sin comprimir. Si el sitio la envía comprimida (gzip o deflate), el portal la descomprime y aplica el mismo límite de 1 MB a lo descomprimido.
 - Rechaza cualquier documento con `<!DOCTYPE` o `<!ENTITY`, no reemplaza entidades y no descarga nada más mientras lee el XML.
-- Del título quita las etiquetas HTML y los espacios de más. Descarta las noticias cuyo enlace no es `https`. No guarda descripciones ni HTML.
+- Del título quita las etiquetas HTML y los espacios de más. Completa los enlaces relativos con la dirección de la fuente (y `xml:base` en Atom) y descarta las noticias cuyo enlace no queda en `https`. No guarda descripciones ni HTML.
+- Una fecha sin zona horaria se lee en hora de Bogotá. Una noticia sin fecha, o con fecha futura, queda con la hora en que se vio por primera vez.
 - Guarda las 30 noticias más recientes de cada fuente y borra las de más de 60 días.
 
 **Códigos de error** (columna `last_error_code`; nunca guarda el mensaje ni la respuesta):
@@ -543,6 +545,8 @@ Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cad
 | `too_large` | La respuesta pasa de 1 MB. |
 | `doctype` | El documento trae `<!DOCTYPE` o `<!ENTITY`. |
 | `invalid_xml`, `unsupported_format` | No es XML válido, o no es RSS ni Atom. |
+| `no_entries` | Es RSS o Atom, pero ninguna noticia tiene título y enlace `https`. |
+| `unsupported_encoding` | La respuesta viene con una compresión distinta de gzip o deflate, o dañada. |
 | `unexpected` | Otro error. En `storage/logs` queda «News source could not be read.» con el número de la fuente y el tipo de error, sin el mensaje. |
 
 Si una fuente falla, las demás se leen igual y sus noticias anteriores se conservan.

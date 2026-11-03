@@ -42,6 +42,7 @@ final class AddressPolicy
         '2001::/23',          // IETF protocol assignments, includes Teredo
         '2001:db8::/32',      // documentation
         '2002::/16',          // 6to4
+        '3fff::/20',          // documentation (RFC 9637)
         'fc00::/7',           // unique local
         'fe80::/10',          // link-local
         'fec0::/10',          // site-local (deprecated)

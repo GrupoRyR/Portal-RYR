@@ -23,8 +23,9 @@ use Illuminate\Support\Facades\Http;
  *    against the host name; environment proxies are bypassed;
  * 4. redirects are not followed by the client: up to `news.max_redirects`
  *    are followed here, each one checked again from step 1;
- * 5. `news.timeout` seconds in total; a body over `news.max_bytes` aborts
- *    the transfer (declared or downloaded size) and is refused.
+ * 5. `news.timeout` seconds per request; a body over `news.max_bytes`
+ *    aborts the transfer (declared or downloaded size) and is refused, and
+ *    a gzip or deflate body is decoded here under the same cap.
  *
  * Failures are App\News\FeedFailure codes; the response body never leaves
  * this class on failure.
@@ -59,13 +60,70 @@ class FeedFetcher
             }
 
             $body = $response->body();
+            $maxBytes = (int) config('news.max_bytes');
 
-            if (strlen($body) > (int) config('news.max_bytes')) {
+            if (strlen($body) > $maxBytes) {
                 throw new FeedFailure(FeedFailure::TOO_LARGE);
             }
 
+            return self::decode($body, (string) $response->header('Content-Encoding'), $maxBytes);
+        }
+    }
+
+    /**
+     * The body as sent, or decompressed here with the same size cap: the
+     * client never decodes (`decode_content` off), so a small gzip body
+     * cannot expand past `news.max_bytes` (a "zip bomb"). Only gzip and
+     * deflate (zlib or raw) are accepted, in one layer.
+     */
+    private static function decode(string $body, string $encoding, int $maxBytes): string
+    {
+        $encoding = strtolower(trim($encoding));
+
+        if ($encoding === '' || $encoding === 'identity') {
             return $body;
         }
+
+        $mode = match ($encoding) {
+            'gzip', 'x-gzip' => ZLIB_ENCODING_GZIP,
+            // HTTP "deflate" is zlib-wrapped, but some servers send raw deflate.
+            'deflate' => strlen($body) >= 2 && (ord($body[0]) & 0x0F) === 8 && ((ord($body[0]) << 8) | ord($body[1])) % 31 === 0
+                ? ZLIB_ENCODING_DEFLATE
+                : ZLIB_ENCODING_RAW,
+            default => throw new FeedFailure(FeedFailure::UNSUPPORTED_ENCODING),
+        };
+
+        $context = @inflate_init($mode);
+
+        if ($context === false) {
+            throw new FeedFailure(FeedFailure::UNSUPPORTED_ENCODING);
+        }
+
+        $decoded = '';
+
+        // 1 KB of input inflates to about 1 MB at most, so memory stays bounded.
+        $chunks = str_split($body, 1024);
+        $last = count($chunks) - 1;
+
+        foreach ($chunks as $index => $chunk) {
+            $piece = @inflate_add($context, $chunk, $index === $last ? ZLIB_FINISH : ZLIB_SYNC_FLUSH);
+
+            if ($piece === false) {
+                throw new FeedFailure(FeedFailure::UNSUPPORTED_ENCODING);
+            }
+
+            $decoded .= $piece;
+
+            if (strlen($decoded) > $maxBytes) {
+                throw new FeedFailure(FeedFailure::TOO_LARGE);
+            }
+        }
+
+        if (inflate_get_status($context) !== ZLIB_STREAM_END) {
+            throw new FeedFailure(FeedFailure::UNSUPPORTED_ENCODING);
+        }
+
+        return $decoded;
     }
 
     /**
@@ -97,6 +155,8 @@ class FeedFetcher
         try {
             return Http::withOptions([
                 'allow_redirects' => false,
+                // Compressed bodies are decoded by decode(), under the size cap.
+                'decode_content' => false,
                 'proxy' => ['no' => ['*']],
                 'progress' => function ($expected, $downloaded) use ($maxBytes, &$aborted): bool {
                     return $aborted = $aborted || $expected > $maxBytes || $downloaded > $maxBytes;
@@ -110,6 +170,7 @@ class FeedFetcher
                 ->timeout((int) config('news.timeout'))
                 ->connectTimeout((int) config('news.connect_timeout'))
                 ->withUserAgent((string) config('news.user_agent'))
+                ->withHeaders(['Accept-Encoding' => 'identity'])
                 ->accept('application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.1')
                 ->get($url);
         } catch (ConnectionException|HttpClientException|TransferException $exception) {
