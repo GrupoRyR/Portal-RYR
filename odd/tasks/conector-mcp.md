@@ -119,7 +119,7 @@ Passport da un token a **una** cuenta: la que aprobó. Las demás cuentas se gua
   - [x] C2b. **Cuentas vinculadas en la conexión:** confirmar cada cuenta vinculada con Microsoft (`prompt=none` con `login_hint`) durante el consentimiento y guardarla en `mcp_connection_accounts`. Commit `c773266`.
 - [ ] C3. **Herramientas de solo lectura** con su visibilidad y pruebas.
   - [x] C3a. **Anuncios, fechas, cumpleaños, personas y apps:** `anuncios_pendientes`, `anuncio`, `proximas_fechas`, `cumpleanos_y_aniversarios`, `buscar_personas` y `mis_apps`. Commit `c6afd73` y, tras la revisión, `e6d30a0` (C3a-R).
-  - [ ] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items`. Espera a que #74 esté en la base.
+  - [x] C3b. **Tareas y aprobaciones:** `mis_tareas` y `mis_aprobaciones`, desde `work_items` (`WorkItem::visibleTo()` por cada cuenta usable, máximo 20, primero las que vencen antes). Commit `a3c2aa4` en `feat/tareas-3-completar` (`odd/tasks/tareas-3-completar.md`, R2).
 - [x] C4. **`/cuenta` y Admin:** «Conexiones con Claude», el interruptor general y Auditoría. Commit `5f4dde3` y, tras la revisión, `7af7495` (C4-R).
 - [x] C5. **Manual:** cómo conectar Claude (Customize › Connectors › Add custom connector con la URL del portal), cómo desconectar y la recomendación de privacidad. §10 de `docs/manual-administracion.md`.
 
@@ -296,7 +296,7 @@ Ruta: escritor delegado (más de dos archivos no triviales), en `feat/conector-m
 
 ### No hecho o no verificado
 
-- C3b (`mis_tareas`, `mis_aprobaciones`): espera a #74.
+- C3b (`mis_tareas`, `mis_aprobaciones`): hecho el 2026-11-03 (`a3c2aa4`), sin probar contra claude.ai real.
 - No se probó contra claude.ai real.
 - El inicio `/` no cambió: no se tocó su código (`HomeScreenTest` pasa en la suite completa).
 - Tamaño: unas 930 líneas de código (con comentarios) y 1.240 de pruebas. Pasa de la cifra orientativa de 400 porque las seis herramientas comparten la base, la regla de una sola vez y las pruebas de la conexión con dos cuentas.
@@ -465,6 +465,6 @@ Ruta: escritor delegado, solo documentos, en `docs/conector-mcp-5-manual` sobre 
    - Revisar Auditoría › Seguridad (`mcp.connected` y una línea por consulta) y, en Configuración, la conexión en **Conexiones activas**.
    - **Desconectar** en `/cuenta` y comprobar que Claude ya no lee; apagar y encender el interruptor de Administración.
    - Anotar los nombres reales del menú de Claude en español y corregir el manual si cambian.
-2. **C3b** (`mis_tareas` y `mis_aprobaciones`), cuando #74 (`work_items`) esté en la base. Al terminarla, quitar del manual §10.1 la frase de que las tareas llegarán después. Volver a poner «Tus tareas y aprobaciones.» en la pantalla de aprobación (`resources/views/mcp/authorize.blade.php`) y su `assertSee` en `ConsentTest`: se quitó el 2026-11-03 (`b48ee80`, decisión de Jhon) porque Claude aún no puede verlas.
+2. ~~**C3b**~~ hecho el 2026-11-03 (`a3c2aa4`): están las dos herramientas, la frase salió del manual §10.1 y la línea volvió a la pantalla de permiso. Lo que pedía: al terminarla, quitar del manual §10.1 la frase de que las tareas llegarán después. Volver a poner «Tus tareas y aprobaciones.» en la pantalla de aprobación (`resources/views/mcp/authorize.blade.php`) y su `assertSee` en `ConsentTest`: se quitó el 2026-11-03 (`b48ee80`, decisión de Jhon) porque Claude aún no puede verlas.
 
 Fuentes de la idea: https://claude.com/docs/connectors/custom

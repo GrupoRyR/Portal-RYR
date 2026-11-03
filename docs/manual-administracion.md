@@ -210,9 +210,9 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Lista:** sistema, permisos, token enmascarado (`ryr_…xxxx`), último uso y estado (**Activo** / **Revocado**).
 - **Nuevo token** (pide confirmar con Microsoft): nombre del sistema, permisos (leer el catálogo, reportar estados, publicar tareas y aprobaciones) e IP permitidas (opcional; vacío = cualquier IP). Con `work:write` también pide la **app del catálogo** y la **URL base de la app** (vea 4.7). Pulse **Crear token**.
 - **El token se muestra una sola vez.** Cópielo con **Copiar**, guárdelo en un lugar seguro, marque «Ya lo guardé en un lugar seguro» y pulse **Listo**. El portal no lo puede volver a mostrar.
-- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
+- **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**), **Secreto de firma** (solo con `work:write`, vea 4.7) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
-- **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
+- **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones y su secreto de firma se borran del portal.
 - **Panel gerencial:** con `kpis:write`, el robot de SAP publica las cifras de **una** empresa, la que elija en **Empresa de las cifras**. Vea §12.
 
 ### 2.8 Auditoría
@@ -361,6 +361,9 @@ Cuando alguien deja una empresa del grupo, no reconoce un vínculo o una de sus 
 1. En **Aplicaciones**, registre la app de tareas como app web con su dirección `https` (por ejemplo `https://tareas.segurexlatam.net`). Los enlaces «Ver tarea» solo pueden ir al host de esa dirección.
 2. En **Integraciones**, pulse **Nuevo token**, marque `work:write`, elija esa app en **App del catálogo** y escriba la **URL base de la app** (`https`, sin usuario, sin `?` ni `#`). Agregue la IP del servidor de la app.
 3. Copie el token y entréguelo por el gestor de secretos al equipo de la app.
+4. En el detalle del sistema, en **Secreto de firma**, pulse **Generar secreto** (pide confirmar con Microsoft). Cópielo y entréguelo también por el gestor de secretos: el portal lo usa para firmar «Completar» y no lo vuelve a mostrar. Sin secreto, nadie puede completar tareas desde el portal. **Rotar secreto** reemplaza el anterior de inmediato.
+
+La URL base debe estar en el mismo host (y puerto) que la dirección de la app del catálogo: **Guardar app** no acepta otra. Si después cambia la dirección de la app en el catálogo, «Completar» deja de aparecer hasta que corrija la URL base.
 
 Para dar `work:write` a un sistema que ya existe, primero elija la app y la URL base en su detalle y pulse **Guardar app**; después marque el permiso. Las dos cosas piden confirmar con Microsoft: si el portal lo lleva a Microsoft al pulsar **Guardar app**, al volver elija de nuevo la app y la URL base y pulse **Guardar app** otra vez (la confirmación vale 10 minutos). Mientras tenga `work:write`, la app y la URL base no se pueden dejar vacías.
 
@@ -581,7 +584,7 @@ Esta sección es para todas las personas, no solo para los administradores. Expl
 
 ### 10.1 Qué hace
 
-Claude consulta el portal con sus cuentas y responde con lo mismo que usted ve al entrar. Es **solo lectura**: Claude no puede confirmar lecturas, cambiar datos ni abrir apps por usted.
+Claude consulta el portal con sus cuentas y responde con lo mismo que usted ve al entrar. Es **solo lectura**: Claude no puede confirmar lecturas, completar tareas, aprobar, cambiar datos ni abrir apps por usted.
 
 Lo que puede consultar:
 
@@ -591,11 +594,11 @@ Lo que puede consultar:
 - **Cumpleaños y aniversarios:** de las personas de su empresa, como en **Mi día** (§9.6).
 - **Buscar personas:** en el directorio de su empresa, como en `/personas` (§9).
 - **Mis apps:** las aplicaciones que usted puede abrir, con el enlace del portal. El enlace abre la app con la cuenta que tenga la sesión del portal en su navegador.
+- **Mis tareas:** las tareas pendientes que la app de tareas y aprobaciones le asignó a cada una de sus cuentas, con su fecha límite, si están vencidas y el enlace para abrirlas en esa app. Primero las que vencen antes.
+- **Mis aprobaciones:** lo que tiene por aprobar en la app de tareas y aprobaciones, igual que las tareas. Se aprueba o se rechaza solo en esa app.
 - **Quién soy:** con qué cuentas del portal está conectado Claude.
 
 Cada respuesta dice de qué empresa es cada dato («Segurex», «Derivados»). Si incluye sus cuentas vinculadas (§8), Claude lee con todas ellas, y cada una ve solo lo de su empresa, con sus propias reglas.
-
-Sus tareas y aprobaciones llegarán después. La pantalla de permiso ya las nombra, pero por ahora Claude no puede consultarlas.
 
 ### 10.2 Cómo conectar
 

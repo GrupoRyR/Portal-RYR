@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
 use App\Http\Controllers\Mcp\AuthorizeController;
+use App\Http\Controllers\WorkItemCompletionController;
 use App\Mail\GraphAccessToken;
 use App\Mail\GraphTransport;
 use App\Management\ManagementPanel;
@@ -106,6 +107,11 @@ class AppServiceProvider extends ServiceProvider
         // account alone, so they would share one counter with it.
         RateLimiter::for('announcement-read', fn (Request $request) => Limit::perMinute(30)
             ->by('announcement-read:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        // «Completar» (work-items.complete): each press waits for the tasks
+        // app, so a bucket of its own, per account.
+        RateLimiter::for(WorkItemCompletionController::LIMITER, fn (Request $request) => Limit::perMinute(WorkItemCompletionController::PER_MINUTE)
+            ->by(WorkItemCompletionController::LIMITER.':'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
         $this->configureClaudeConnector();
 

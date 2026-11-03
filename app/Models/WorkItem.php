@@ -57,6 +57,16 @@ class WorkItem extends Model
 
     public const MAX_PENDING_PER_PERSON = 500;
 
+    /**
+     * The range of `due_at`. The column is a TIMESTAMP, which MariaDB keeps
+     * only from 1970 to 2038-01-19 UTC (strict mode answers an error
+     * otherwise); a day of margin on each side covers the session time
+     * zone of the connection.
+     */
+    public const EARLIEST_DUE_AT = '2000-01-01T00:00:00Z';
+
+    public const LATEST_DUE_AT = '2037-12-31T23:59:59Z';
+
     /** Days a deletion trace, a done or a cancelled item is kept. */
     public const RETENTION_DAYS = 30;
 
@@ -103,6 +113,23 @@ class WorkItem extends Model
                 ->whereNull('revoked_at')
                 ->whereNotNull('app_id')
                 ->whereJsonContains('abilities', Integration::WORK_WRITE));
+    }
+
+    /**
+     * Whether «Completar» may be offered and sent (contract §6): a pending
+     * task the app marked completable, of an integration the portal may
+     * call and sign for (Integration::completionUrl()). An approval never
+     * is (§7). Who may press it is WorkItem::scopeVisibleTo()'s question:
+     * the view lists only visible items, and the endpoint finds the item
+     * through it.
+     */
+    public function canBeCompletedFromPortal(): bool
+    {
+        return $this->kind === self::KIND_TASK
+            && $this->completable_from_portal
+            && $this->status === self::STATUS_PENDING
+            && ! $this->trashed()
+            && $this->integration?->completionUrl((string) $this->external_id) !== null;
     }
 
     /**

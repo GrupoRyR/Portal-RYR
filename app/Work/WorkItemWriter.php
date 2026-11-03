@@ -69,18 +69,71 @@ final class WorkItemWriter
                 ->lockForUpdate()
                 ->first();
 
-            $item?->forceFill([
-                'kind' => null,
-                'title' => null,
-                'status' => null,
-                'due_at' => null,
-                'url' => null,
-                'completable_from_portal' => false,
-                'assignee_tenant_id' => null,
-                'assignee_oid' => null,
-                'deleted_at' => now(),
-            ])->save();
+            if ($item !== null) {
+                $this->leaveTrace($item);
+            }
         });
+    }
+
+    /**
+     * «Completar» succeeded (contract §6.4): the item is done, with the
+     * same version (§3.3 point 5), so the app's next PUT with a higher
+     * version still wins. Only when it is still pending with the version
+     * seen when the person pressed; false when a PUT changed it meanwhile
+     * (then the app's copy stands).
+     */
+    public function markDone(WorkItem $item): bool
+    {
+        return DB::transaction(function () use ($item) {
+            $this->lockIntegration($item->integration);
+
+            return WorkItem::query()
+                ->whereKey($item->getKey())
+                ->where('version', $item->version)
+                ->where('status', WorkItem::STATUS_PENDING)
+                ->update(['status' => WorkItem::STATUS_DONE, 'updated_at' => now()]) === 1;
+        });
+    }
+
+    /**
+     * «Completar» answered `not_found` (§6.4): leaves only the version
+     * trace, like delete(), but only when the item still has the version
+     * seen when the person pressed; false when a PUT changed it meanwhile.
+     */
+    public function deleteIfUnchanged(WorkItem $item): bool
+    {
+        return DB::transaction(function () use ($item) {
+            $this->lockIntegration($item->integration);
+
+            $current = WorkItem::query()
+                ->whereKey($item->getKey())
+                ->where('version', $item->version)
+                ->lockForUpdate()
+                ->first();
+
+            if ($current === null) {
+                return false;
+            }
+
+            $this->leaveTrace($current);
+
+            return true;
+        });
+    }
+
+    private function leaveTrace(WorkItem $item): void
+    {
+        $item->forceFill([
+            'kind' => null,
+            'title' => null,
+            'status' => null,
+            'due_at' => null,
+            'url' => null,
+            'completable_from_portal' => false,
+            'assignee_tenant_id' => null,
+            'assignee_oid' => null,
+            'deleted_at' => now(),
+        ])->save();
     }
 
     /**

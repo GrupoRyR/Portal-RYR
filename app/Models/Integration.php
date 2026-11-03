@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Work\PortalSignature;
+use App\Work\WorkItemLink;
 use Database\Factories\IntegrationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -32,6 +34,11 @@ use Symfony\Component\HttpFoundation\IpUtils;
  * The plaintext token is returned once by issueToken()/rotate() and never
  * stored nor logged: only its SHA-256 hash (Sanctum) and its last four
  * characters (`token_hint`, to recognise it in the list).
+ *
+ * A `work:write` integration also has a signing secret (`ryrsig_…`,
+ * App\Work\PortalSignature) for «Completar»: the portal needs it to sign,
+ * so it is stored encrypted (never hashed), hidden from serialization and
+ * returned in clear once by issueSigningSecret().
  */
 #[Fillable(['name', 'abilities', 'allowed_ips', 'app_id', 'app_base_url', 'company_id', 'created_by'])]
 class Integration extends Model
@@ -76,10 +83,14 @@ class Integration extends Model
 
     public const MAX_APP_BASE_URL = 255;
 
+    /** Encrypted, but never serialized nor logged either. */
+    protected $hidden = ['signing_secret'];
+
     protected function casts(): array
     {
         return [
             'allowed_ips' => 'array',
+            'signing_secret' => 'encrypted',
             // Compared strictly (App\Management\KpiPublisher): an integer
             // whatever the database driver returns.
             'company_id' => 'integer',
@@ -216,8 +227,75 @@ class Integration extends Model
     }
 
     /**
-     * Deletes the token for good, and the work items and management
-     * figures it published, which leave the portal at once (contract §2.2,
+     * Replaces the signing secret of «Completar» and returns it in clear
+     * (shown once, never stored nor logged as is). The portal signs with
+     * the new one at once (contract §2.2).
+     */
+    public function issueSigningSecret(): string
+    {
+        if ($this->isRevoked()) {
+            throw new LogicException('A revoked integration cannot get a new signing secret.');
+        }
+
+        $secret = PortalSignature::newSecret();
+        $this->forceFill(['signing_secret' => $secret, 'signing_secret_hint' => substr($secret, -4)])->save();
+
+        return $secret;
+    }
+
+    /**
+     * Whether a signing secret is stored, without decrypting it: deciding
+     * whether to show «Completar» must never fail on a secret encrypted
+     * with another APP_KEY (App\Work\TaskCompleter decrypts it, and treats
+     * a failure as a failed attempt).
+     */
+    public function hasSigningSecret(): bool
+    {
+        return $this->signing_secret_hint !== null && ($this->getAttributes()['signing_secret'] ?? null) !== null;
+    }
+
+    /**
+     * Whether a base URL is on exactly the host (and port) of the catalog
+     * app URL, compared like the links of the work items
+     * (App\Work\WorkItemLink: no case, `:443` equals no port).
+     */
+    public static function isOnHostOf(string $baseUrl, ?string $appUrl): bool
+    {
+        return WorkItemLink::problem($baseUrl, WorkItemLink::authorityOf($appUrl)) === null;
+    }
+
+    /**
+     * «ryrsig_…9c2f», like maskedToken().
+     */
+    public function maskedSigningSecret(): ?string
+    {
+        return $this->signing_secret_hint === null ? null : PortalSignature::SECRET_PREFIX.'…'.$this->signing_secret_hint;
+    }
+
+    /**
+     * Where «Completar» of one of its tasks is sent (contract §6.1), or null
+     * when the portal must not call: a revoked integration, one without
+     * `work:write` or a signing secret, or a base URL that is not `https`
+     * on exactly the host (and port) of its catalog app (App\Work\WorkItemLink).
+     * The `external_id` goes percent-encoded (RFC 3986, `:` as `%3A`).
+     */
+    public function completionUrl(string $externalId): ?string
+    {
+        $baseUrl = (string) $this->app_base_url;
+
+        if ($this->isRevoked() || ! in_array(self::WORK_WRITE, $this->abilities, true)
+            || ! $this->hasSigningSecret()
+            || ! self::isValidAppBaseUrl($baseUrl)
+            || ! self::isOnHostOf($baseUrl, $this->app?->url)) {
+            return null;
+        }
+
+        return rtrim($baseUrl, '/').'/api/portal/v1/tasks/'.rawurlencode($externalId).'/complete';
+    }
+
+    /**
+     * Deletes the token and the signing secret for good, and the work items
+     * and management figures it published, which leave the portal at once (contract §2.2,
      * odd/tasks/panel-gerencial.md). A revoked integration stays listed.
      *
      * The row is locked first, like App\Management\KpiPublisher does, so a
@@ -230,7 +308,7 @@ class Integration extends Model
             $this->tokens()->delete();
             $this->workItems()->withTrashed()->forceDelete();
             $this->kpis()->delete();
-            $this->forceFill(['revoked_at' => now()])->save();
+            $this->forceFill(['revoked_at' => now(), 'signing_secret' => null, 'signing_secret_hint' => null])->save();
         });
     }
 
@@ -312,13 +390,15 @@ class Integration extends Model
 
     /**
      * A base URL the portal may call (contract §2.2): `https`, a host, no
-     * user info, no `?` nor `#`, printable ASCII only.
+     * user info, no `?` nor `#`, and a path of RFC 3986 path characters only
+     * (unreserved, sub-delims, `:`, `@`, `%` and `/`), so what is signed is
+     * what is sent.
      */
     public static function isValidAppBaseUrl(string $url): bool
     {
         if (strlen($url) > self::MAX_APP_BASE_URL || str_contains($url, '\\')
             || preg_match('~\A[\x21-\x7E]+\z~', $url) !== 1
-            || preg_match('~\Ahttps://[^/?#@]+(?:/[^?#]*)?\z~i', $url) !== 1) {
+            || preg_match("~\\Ahttps://[^/?#@]+(?:/[A-Za-z0-9._\\~!$&'()*+,;=:@%/-]*)?\\z~i", $url) !== 1) {
             return false;
         }
 

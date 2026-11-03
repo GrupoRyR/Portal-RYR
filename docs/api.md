@@ -254,7 +254,7 @@ Reglas que el portal ya aplica:
 - Un `external_id` fuera de `^[A-Za-z0-9][A-Za-z0-9._:-]{0,189}$` responde `404`.
 - Un cuerpo de más de 8 KB responde `413`. Los campos que no están en el contrato se ignoran.
 - `title` es una sola línea de texto: responde `422` con caracteres de control, separadores de línea o párrafo de Unicode, marcas y controles de dirección del texto (U+200E, U+200F, U+061C, U+202A a U+202E, U+2066 a U+2069), el espacio de ancho cero (U+200B) o la marca de orden de bytes (U+FEFF). Los espacios al principio y al final se quitan.
-- `due_at` se guarda como el mismo instante, venga en la zona que venga (`Z`, `+02:00`, `-05:00`).
+- `due_at` se guarda como el mismo instante, venga en la zona que venga (`Z`, `+02:00`, `-05:00`). Debe estar entre el 2000-01-01 y el 2037-12-31 (UTC), contando la zona; fuera de ese rango responde `422`.
 - La persona se identifica solo por `assignee.tenant_id` y `assignee.oid`. El inquilino debe ser el de una empresa del portal. La persona no tiene que haber entrado al portal.
 - Cada persona tiene como máximo 500 elementos pendientes por integración.
 - Con una `version` mayor, un `PUT` puede cambiar el `assignee`: el elemento pasa del portal de una persona al de la otra y cuenta en los 500 pendientes de la nueva. Con la misma `version`, otro `assignee` responde `422` y pide subir la versión. `kind` nunca cambia: otro `kind` responde `422` con cualquier `version` (contrato §3.3).
@@ -263,7 +263,7 @@ Reglas que el portal ya aplica:
 - Cada noche (3:00, hora de Bogotá) se borran los rastros de borrado y los elementos hechos o cancelados de más de 30 días.
 - Los `PUT` y `DELETE` no crean una entrada en Auditoría: quedan en el «Último uso» de la integración. Los cambios de la app del catálogo y de la URL base sí quedan en Auditoría.
 
-Todavía no existen en el portal: la lista en el inicio, el botón «Completar» (la llamada firmada a la app, contrato §6) y el secreto de firma.
+«Completar» (contrato §6) ya existe en el servidor: el portal firma con el **secreto de firma** de la integración (`ryrsig_…`, se genera en **Integraciones** y se muestra una sola vez) y llama a `POST {URL base}/api/portal/v1/tasks/{external_id}/complete`. Solo llama si la URL base es `https` en el mismo host (y puerto) que la app del catálogo. Cada intento queda en Auditoría (`work_item.completed` o `work_item.complete_failed`). Todavía no existe la lista del inicio con el botón.
 
 ---
 
