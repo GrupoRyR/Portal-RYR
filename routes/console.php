@@ -49,3 +49,10 @@ Schedule::command('portal:run-requested-backup')
     ->everyMinute()
     ->timezone('America/Bogota')
     ->withoutOverlapping();
+
+// «Enviar recordatorio» (Admin, mandatory announcements) only records the
+// request; this mails a batch of it every minute
+// (App\Announcements\AnnouncementReminders).
+Schedule::command('portal:send-announcement-reminders')
+    ->everyMinute()
+    ->withoutOverlapping();
