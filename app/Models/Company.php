@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
@@ -29,6 +30,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'domains',
     'all_staff_email',
     'mail_sender',
+    'weekly_digest_enabled',
     'logo_light_path',
     'logo_dark_path',
     'icon_path',
@@ -128,6 +130,7 @@ class Company extends Model
     protected $attributes = [
         'is_primary_for_tenant' => true,
         'is_active' => true,
+        'weekly_digest_enabled' => false,
     ];
 
     /**
@@ -142,6 +145,7 @@ class Company extends Model
             'quick_links' => 'array',
             'is_primary_for_tenant' => 'boolean',
             'is_active' => 'boolean',
+            'weekly_digest_enabled' => 'boolean',
             'consent_verified_at' => 'datetime',
         ];
     }
@@ -221,6 +225,17 @@ class Company extends Model
     public function apps(): BelongsToMany
     {
         return $this->belongsToMany(App::class, 'app_companies')->withTimestamps();
+    }
+
+    /**
+     * Its Monday digests (`weekly_digest_enabled`, App\Digest\WeeklyDigests),
+     * one per week.
+     *
+     * @return HasMany<WeeklyDigest, $this>
+     */
+    public function weeklyDigests(): HasMany
+    {
+        return $this->hasMany(WeeklyDigest::class);
     }
 
     /**

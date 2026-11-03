@@ -7,6 +7,7 @@ use App\Branding\BrandAssetStore;
 use App\Branding\BrandPalette;
 use App\Branding\Contrast;
 use App\Branding\SvgLogo;
+use App\Digest\WeeklyDigests;
 use App\Models\Company;
 use App\Models\User;
 use App\Notifications\CompanyAdminNotifier;
@@ -32,7 +33,9 @@ use Throwable;
  * Also the all-staff list and the sender mailbox that announcements may be
  * emailed with (App\Announcements\AnnouncementListEmails): both or
  * neither, and both at one of the domains in the form, so a company never
- * sends from or to another company's domain.
+ * sends from or to another company's domain. «Resumen de los lunes»
+ * turns on the Monday digest to that list (App\Digest\WeeklyDigests), with
+ * how the last one went; there is no manual resend.
  */
 class CompanyEditor extends Component
 {
@@ -65,6 +68,9 @@ class CompanyEditor extends Component
 
     /** The mailbox of the company's tenant the list emails go out from. */
     public string $mailSender = '';
+
+    /** «Resumen de los lunes»: the Monday digest to the list. */
+    public bool $weeklyDigest = false;
 
     /** @var list<array{label: string, url: string}> */
     public array $quickLinks = [];
@@ -113,6 +119,7 @@ class CompanyEditor extends Component
         $this->domains = array_values($company->domains ?? []);
         $this->allStaffEmail = (string) $company->all_staff_email;
         $this->mailSender = (string) $company->mail_sender;
+        $this->weeklyDigest = (bool) $company->weekly_digest_enabled;
         $this->quickLinks = array_values(array_map(
             fn (array $link) => ['label' => (string) ($link['label'] ?? ''), 'url' => (string) ($link['url'] ?? '')],
             $company->quick_links ?? [],
@@ -302,6 +309,7 @@ class CompanyEditor extends Component
             'colorAccent' => ['required', 'string', 'regex:'.self::HEX_PATTERN],
             'colorDark' => ['required', 'string', 'regex:'.self::HEX_PATTERN],
             'isActive' => ['boolean'],
+            'weeklyDigest' => ['boolean'],
             'logoLight' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
             'logoDark' => ['nullable', 'file', 'max:1024', 'extensions:png,webp,svg', $this->isLogo(...)],
             'icon' => ['nullable', 'file', 'max:1024', 'extensions:png', $this->isIcon(...)],
@@ -371,6 +379,7 @@ class CompanyEditor extends Component
             'primaryChanged' => strtoupper($this->colorPrimary) !== strtoupper((string) $company->color_primary),
             'primaryRatio' => $primaryIsValid ? Contrast::ratio('#FFFFFF', $this->colorPrimary) : null,
             'buttonRatio' => Contrast::ratio('#FFFFFF', $palette->button),
+            'digest' => WeeklyDigests::describe($company->weeklyDigests()->orderByDesc('week_start')->orderByDesc('id')->first()),
         ]);
     }
 
@@ -397,6 +406,7 @@ class CompanyEditor extends Component
                     'domains' => $this->domains,
                     'all_staff_email' => $this->allStaffEmail,
                     'mail_sender' => $this->mailSender,
+                    'weekly_digest_enabled' => $this->weeklyDigest,
                     'quick_links' => $this->quickLinks === [] ? null : array_map(
                         fn (array $link) => ['label' => trim($link['label']), 'url' => trim($link['url'])],
                         $this->quickLinks,

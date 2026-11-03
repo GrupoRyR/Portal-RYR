@@ -118,6 +118,7 @@ final class AuditPresenter
         'domains' => 'Dominios',
         'all_staff_email' => 'Lista de todo el personal',
         'mail_sender' => 'Buzón remitente',
+        'weekly_digest_enabled' => 'Resumen de los lunes',
         'logo_light_path' => 'Logo claro',
         'logo_dark_path' => 'Logo oscuro',
         'icon_path' => 'Ícono',

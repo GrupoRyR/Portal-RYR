@@ -58,6 +58,15 @@ class CompanyFactory extends Factory
     }
 
     /**
+     * A company with «Resumen de los lunes» on: its list gets the Monday
+     * digest (App\Digest\WeeklyDigests) when it has one.
+     */
+    public function weeklyDigest(): static
+    {
+        return $this->state(fn () => ['weekly_digest_enabled' => true]);
+    }
+
+    /**
      * A company sharing the given Microsoft tenant.
      *
      * @param  list<string>  $domains
