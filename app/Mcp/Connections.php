@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,6 +22,15 @@ class Connections
 {
     /** Activity log event of an approved connection (log `security`). */
     public const CONNECTED = 'mcp.connected';
+
+    /** An account of the connection ended it from /cuenta (log `security`). */
+    public const DISCONNECTED = 'mcp.disconnected';
+
+    /** A super admin ended it from Configuración (log `security`). */
+    public const REVOKED_BY_ADMIN = 'mcp.revoked_by_admin';
+
+    /** One line per tool call: the tool and the connection, never the content (log `security`). */
+    public const TOOL_CALLED = 'mcp.tool_called';
 
     public function __construct(private readonly ConnectionAccounts $accounts) {}
 
@@ -129,6 +139,131 @@ class Connections
             ->where('user_id', $user->getKey())
             ->with('user.company')
             ->first();
+    }
+
+    /**
+     * The active connections the account takes part in (as the approving
+     * account or an included one), newest first, with what /cuenta shows.
+     *
+     * @return Collection<int, McpConnection>
+     */
+    public function of(User $account): Collection
+    {
+        return McpConnection::query()
+            ->active()
+            ->withAccount($account)
+            ->with(['client', 'user.company', 'accounts.user.company'])
+            ->latest('id')
+            ->get();
+    }
+
+    /**
+     * The active connection with that id if the account takes part in it;
+     * null otherwise, whoever else's it is.
+     */
+    public function findFor(User $account, int $id): ?McpConnection
+    {
+        return McpConnection::query()->active()->withAccount($account)->whereKey($id)->first();
+    }
+
+    /**
+     * «Desconectar» on /cuenta: ends the whole connection (any account of
+     * it may, it is their data too) and audits `mcp.disconnected`.
+     */
+    public function disconnect(McpConnection $connection, User $by): bool
+    {
+        return $this->end($connection, $by, self::DISCONNECTED);
+    }
+
+    /**
+     * «Revocar» in Configuración: ends the whole connection and audits
+     * `mcp.revoked_by_admin`.
+     */
+    public function revokeByAdmin(McpConnection $connection, User $admin): bool
+    {
+        return $this->end($connection, $admin, self::REVOKED_BY_ADMIN);
+    }
+
+    /**
+     * Revokes the connection, its codes and tokens (McpConnection::revoke())
+     * and writes one audit line, unless it already ended meanwhile (then
+     * nothing is written and the answer is false). The approving account
+     * is the subject; the accounts are listed approving one first.
+     */
+    private function end(McpConnection $connection, User $by, string $event): bool
+    {
+        return DB::transaction(function () use ($connection, $by, $event) {
+            $locked = McpConnection::query()->active()->whereKey($connection->getKey())->lockForUpdate()->first();
+
+            if ($locked === null) {
+                return false;
+            }
+
+            $locked->load(['client', 'user.company', 'accounts.user.company']);
+            $locked->revoke();
+
+            $logger = activity(SecurityLog::LOG)
+                ->event($event)
+                ->causedBy($by)
+                ->withProperties([
+                    'client' => $locked->client?->name,
+                    'connection_id' => $locked->getKey(),
+                    'accounts' => self::accountsOf($locked)->map(fn (User $account) => [
+                        'user_id' => $account->getKey(),
+                        'company' => $account->company?->name,
+                        'email' => $account->email,
+                    ])->all(),
+                ]);
+
+            $locked->user === null ? $logger->performedOn($by) : $logger->performedOn($locked->user);
+            $logger->log($event);
+
+            return true;
+        });
+    }
+
+    /**
+     * The accounts of a connection (its relations loaded), the approving
+     * one first, then by id. Rows of a deleted account are left out.
+     *
+     * @return Collection<int, User>
+     */
+    public static function accountsOf(McpConnection $connection): Collection
+    {
+        return $connection->accounts
+            ->map(fn ($row) => $row->user)
+            ->filter()
+            ->concat($connection->user === null ? [] : [$connection->user])
+            ->unique(fn (User $account) => $account->getKey())
+            ->sortBy(fn (User $account) => [$account->getKey() === $connection->user_id ? 0 : 1, $account->getKey()])
+            ->values();
+    }
+
+    /**
+     * The audit line of one tool call (App\Mcp\AuditedCallTool): the
+     * tool name and the connection, by the approving account, at the time
+     * of the entry, and whether it ended in an error. A `refused` call
+     * named no tool or one that does not exist (`tool` is then the name
+     * asked for, already cut, or null). Never the arguments nor the
+     * result. One insert: the connection and its account are already
+     * loaded by `mcp.connection`.
+     */
+    public function toolCalled(McpConnection $connection, ?string $tool, bool $error = false, bool $refused = false): void
+    {
+        $properties = ['tool' => $tool, 'connection_id' => $connection->getKey(), 'error' => $error];
+
+        if ($refused) {
+            $properties['refused'] = true;
+        }
+
+        $logger = activity(SecurityLog::LOG)
+            ->event(self::TOOL_CALLED)
+            ->withProperties($properties);
+
+        $user = $connection->user;
+        $user === null ? $logger->causedByAnonymous() : $logger->causedBy($user)->performedOn($user);
+
+        $logger->log(self::TOOL_CALLED);
     }
 
     /**

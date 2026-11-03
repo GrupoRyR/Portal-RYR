@@ -112,7 +112,10 @@ return [
     | The portal as a custom MCP connector for Claude (routes/ai.php,
     | odd/tasks/conector-mcp.md). Off until PORTAL_MCP_ENABLED=true: while
     | off, the server, the OAuth routes and the metadata answer 404. Read
-    | only through App\Mcp\McpSwitch.
+    | only through App\Mcp\McpSwitch. This flag is the hard kill switch:
+    | with it on, the Admin toggle «Conector de Claude» (Configuración,
+    | stored in `portal_settings`) can still turn the connector off at
+    | runtime; with it off, the toggle changes nothing.
     |
     */
 

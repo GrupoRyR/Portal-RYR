@@ -23,8 +23,8 @@ use Laravel\Mcp\Server\Tool;
  * that is not among them is never read.
  *
  * Dates go out in the app timezone (America/Bogota) as ISO 8601, with a
- * Spanish label beside them. Nothing a tool returns is logged here (the
- * per-call audit line is C4's, without the content).
+ * Spanish label beside them. Nothing a tool returns is logged: the
+ * per-call audit line (App\Mcp\AuditedCallTool) has only the tool name.
  */
 abstract class PortalTool extends Tool
 {
