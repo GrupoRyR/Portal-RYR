@@ -39,7 +39,7 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - [x] T1. **Suscripciones.** Ruta: escritor único (delegado por el coordinador): paquete, migración, modelo, fábrica, controlador, petición, rutas, vista, comando y pruebas.
 - [x] T2. **Envío desde el cron.** Ruta: el mismo escritor: migraciones, `Announcement`, editor y vista de Admin, servicio de envío, emisor, comando, horario, Auditoría y pruebas.
 - [x] T3. **Service worker.** Ruta: el mismo escritor: `resources/js/sw.js` y sus pruebas.
-- [ ] T4. **Documentos.** Ruta: el mismo escritor: despliegue §1.22 y manual §14.
+- [x] T4. **Documentos.** Ruta: el mismo escritor: despliegue §1.22 y manual §14.
 
 ## Criterios de aceptación
 
@@ -61,7 +61,9 @@ Que los anuncios más importantes lleguen al celular como notificación, y que l
 - 2026-11-03: T2 hecho. RED observado (19 pruebas nuevas, 0 en verde) y luego GREEN (19/19, más los editores de anuncios y Auditoría: 75/75). El emisor real se prueba contra un cliente HTTP simulado (sin red); en Windows esas pruebas necesitan `OPENSSL_CONF` y, sin él, se saltan.
   - Decisiones: quién recibe es la misma regla de `Announcement::scopeVisibleTo` (por cuenta; invitados y empresas inactivas incluidos, como en el inicio); al no quedar nadie, el anuncio queda terminado (`push_finished_at`) y un dispositivo nuevo no recibe avisos viejos, salvo que alguien desmarque y vuelva a marcar la casilla; una entrega fallida o que murió a medias no se reintenta (nunca dos veces).
 - 2026-11-03: T2 en el commit `1312efd`. T3 hecho: RED observado (2 de 3 pruebas nuevas en rojo; la tercera vigila que el caché no cambie) y luego GREEN; `tests/Feature/Pwa` 32/32. Prueba de humo manual con node (fuera del repositorio): muestra la notificación, ignora ícono y enlace de otro origen, tolera una carga útil rota, enfoca la ventana abierta o abre una nueva.
+- 2026-11-03: T3 en el commit `b608b8a`. T4 hecho (documentación pasiva: revisión estructural, sin RED): `docs/despliegue.md` §1.22 y `docs/manual-administracion.md` §14. Verificación final: Pint en verde; suite completa 2,773/2,773 en verde con `OPENSSL_CONF`; sin él, las 3 pruebas del emisor real y de `portal:push-keys` se saltan y el resto pasa.
+  - Pendiente, no verificado aquí: las migraciones en MariaDB 10.11 (las pruebas usan SQLite) y un envío real a un celular (necesita las llaves en el servidor).
 
 ## Siguiente paso
 
-T4.
+Revisión independiente y PR de `feat/avisos` (decisión del coordinador). Después del despliegue: llaves VAPID en el servidor (§1.22) y prueba en un Android y un iPhone instalado.

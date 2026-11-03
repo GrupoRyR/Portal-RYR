@@ -748,3 +748,37 @@ En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y 
 | El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
 | El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
 
+## 14. Avisos en el celular
+
+Los anuncios más importantes pueden llegar al celular como notificación. Lo decide quien publica: solo los anuncios guardados con la casilla **Enviar al celular** envían un aviso. Nada más del portal envía avisos (ni tareas ni estado de TI). La instalación está en `docs/despliegue.md` §1.22: mientras TI no configure las llaves, la casilla y el control de la cuenta no aparecen.
+
+### 14.1 Activarlos en un dispositivo (cada persona)
+
+1. En el portal, abra **Cuentas vinculadas** (`/cuenta`) desde el inicio y busque **Avisos en el celular**.
+2. Toque **Activar en este dispositivo** y acepte el permiso de notificaciones del navegador.
+3. Se activa por dispositivo: hágalo en cada celular o computador donde quiera recibirlos. **Desactivar en este dispositivo** los quita solo de ese equipo.
+
+- **iPhone y iPad:** solo con iOS 16.4 o posterior y con el portal instalado en la pantalla de inicio (Safari › Compartir › «Agregar a inicio»). Abra el portal desde ese ícono y actívelos ahí.
+- Si el navegador dice que las notificaciones están bloqueadas, hay que permitirlas para el portal en los ajustes del navegador.
+- El dispositivo recibe los avisos de la cuenta con la que se activó o se abrió `/cuenta` por última vez. Con cuentas vinculadas (§8), cada aviso llega solo a los dispositivos de la cuenta que ve el anuncio.
+- **Cerrar sesión** borra lo que el navegador guardó del portal y, en la mayoría de los navegadores, también la suscripción: al volver a entrar hay que activarlos de nuevo.
+
+### 14.2 Enviar un anuncio al celular (quien publica)
+
+En **Administración › Anuncios**, al crear o editar un anuncio, marque **Enviar al celular** y guarde. Pueden hacerlo las mismas personas que pueden publicar ese anuncio (administradores, y editores de anuncios para su empresa). El cambio queda en Auditoría como «Enviar al celular».
+
+- **Cuándo sale:** cuando el anuncio está publicado. Uno programado sale al llegar su fecha «Desde»; uno retirado o vencido no sale.
+- **A quién:** a los dispositivos de las personas que ven el anuncio en el inicio (las de sus empresas) y activaron los avisos. Nunca a la cuenta de emergencia.
+- **Qué dice:** el título, el comienzo del texto (unos 140 caracteres) y el ícono de la empresa. Al tocarlo se abre el anuncio en el portal. No lleva datos de la persona.
+- **Una sola vez por dispositivo.** Guardar otros cambios no lo envía de nuevo. Un dispositivo que se activa después de que el aviso ya salió no lo recibe. Si desmarca, guarda, vuelve a marcar y guarda, solo lo reciben los dispositivos que aún no lo tenían.
+- Úselo solo para lo importante: si llegan muchos avisos, la gente los desactiva.
+
+### 14.3 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| No aparece **Enviar al celular** ni **Avisos en el celular**. | Faltan las llaves VAPID en el servidor. | TI sigue `docs/despliegue.md` §1.22. |
+| En un iPhone dice que el navegador no puede recibir avisos. | Se abrió en Safari sin instalar, o el iOS es anterior a 16.4. | Instale el portal en la pantalla de inicio y actívelos desde ese ícono. |
+| Una persona no recibió el aviso. | No activó los avisos en ese dispositivo, su cuenta no ve el anuncio, el anuncio todavía no está publicado, o el dispositivo estuvo apagado o sin conexión más de 12 horas. | Revise que el anuncio esté publicado para su empresa y pídale que active los avisos en `/cuenta`. |
+| Dejaron de llegar avisos a todos. | TI cambió las llaves VAPID: las suscripciones anteriores dejan de servir. | Cada persona vuelve a activar los avisos en `/cuenta`. |
+
