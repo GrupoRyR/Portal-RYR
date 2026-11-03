@@ -44,6 +44,8 @@ class NewsManager extends Component
         FeedFailure::DOCTYPE => 'El documento no es seguro',
         FeedFailure::INVALID_XML => 'No es un XML válido',
         FeedFailure::UNSUPPORTED_FORMAT => 'No es RSS ni Atom',
+        FeedFailure::NO_ENTRIES => 'La fuente no trae noticias con título y enlace https',
+        FeedFailure::UNSUPPORTED_ENCODING => 'La respuesta usa una compresión no válida',
         FeedFailure::UNEXPECTED => 'Error inesperado',
     ];
 
@@ -91,6 +93,13 @@ class NewsManager extends Component
         $this->normalizeSelection();
         $this->notice = '';
         $this->formTab = $this->tab;
+
+        // No company yet (the form is hidden, but a crafted call can still arrive).
+        if ($this->companyId === null) {
+            $this->addError('companyId', 'Primero registra una empresa.');
+
+            return;
+        }
 
         $this->validateForm($this->tab, null);
 

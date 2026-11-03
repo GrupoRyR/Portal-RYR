@@ -317,6 +317,31 @@ class NewsAdminTest extends TestCase
         $this->assertContains(['label' => 'Empresa', 'old' => 'Segurex', 'new' => '—'], $entry->changes);
     }
 
+    // --- Review fixes (odd/tasks/noticias.md, R1) ---------------------------
+
+    public function test_adding_without_any_company_is_refused(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super_admin');
+        Company::query()->delete();
+
+        Livewire::actingAs($admin)->test(NewsManager::class)
+            ->assertSet('companyId', null)
+            ->assertSeeText('Primero registra una empresa.')
+            ->set('name', 'Fuente')
+            ->set('url', 'https://www.eltiempo.com/rss.xml')
+            ->call('create')
+            ->assertHasErrors(['companyId']);
+
+        $this->assertSame(0, NewsSource::query()->count());
+    }
+
+    public function test_the_new_error_codes_have_spanish_labels(): void
+    {
+        $this->assertSame('La fuente no trae noticias con título y enlace https (no_entries)', NewsManager::errorLabel('no_entries'));
+        $this->assertSame('La respuesta usa una compresión no válida (unsupported_encoding)', NewsManager::errorLabel('unsupported_encoding'));
+    }
+
     public function test_the_fetch_bookkeeping_is_not_audited(): void
     {
         $source = $this->source();
