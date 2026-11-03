@@ -3,7 +3,11 @@
 namespace App\Livewire\Admin;
 
 use App\Announcements\AnnouncementImageStore;
+use App\Announcements\AnnouncementListEmails;
 use App\Announcements\AnnouncementPublisher;
+use App\Announcements\AnnouncementReminders;
+use App\Announcements\ListEmailRetryRefused;
+use App\Announcements\ReminderNotAllowed;
 use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\User;
@@ -11,9 +15,12 @@ use App\Policies\AnnouncementPolicy;
 use App\View\Home\AnnouncementCard;
 use Closure;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -29,7 +36,14 @@ use Throwable;
  * as the home screen. A saved mandatory announcement also shows «X de Y
  * personas lo leyeron» and the people who are missing: counted once and
  * kept for READ_REPORT_SECONDS (typing in the form does not recount), while
- * who may see it (`viewReads`) is re-checked on every render.
+ * who may see it (`viewReads`) is re-checked on every render. From there,
+ * «Enviar recordatorio» asks the cron to email the people who are missing
+ * (App\Announcements\AnnouncementReminders, at most once a day).
+ *
+ * «Enviar también por correo a la lista de cada empresa» shows up when a
+ * company of the audience has an all-staff list (Admin › Empresas); the
+ * cron sends it once (App\Announcements\AnnouncementListEmails), and the
+ * editor shows how it went per company, with «Reintentar» for a failure.
  *
  * Announcements editors only get their own company as audience; the
  * policy (`publishTo`) is checked on every save, whatever the form sent.
@@ -65,6 +79,9 @@ class AnnouncementEditor extends Component
     /** «Lectura obligatoria»: each person who sees it confirms reading it. */
     public bool $requiresRead = false;
 
+    /** «Enviar también por correo a la lista de cada empresa». */
+    public bool $emailLists = false;
+
     public ?TemporaryUploadedFile $image = null;
 
     /** The stored image goes away on save. */
@@ -95,6 +112,7 @@ class AnnouncementEditor extends Component
         $this->endsAt = (string) $announcement->ends_at?->format(self::DATETIME_FORMAT);
         $this->isPinned = $announcement->is_pinned;
         $this->requiresRead = $announcement->requires_read;
+        $this->emailLists = $announcement->email_lists;
     }
 
     public function updatedImage(): void
@@ -136,6 +154,8 @@ class AnnouncementEditor extends Component
             'ends_at' => $this->endsAt === '' ? null : self::parse($this->endsAt),
             'is_pinned' => $this->isPinned,
             'requires_read' => $this->requiresRead,
+            // Only kept while a company of the audience can get it.
+            'email_lists' => $this->emailLists && $this->listRecipients()->isNotEmpty(),
         ];
 
         if ($creating) {
@@ -149,6 +169,10 @@ class AnnouncementEditor extends Component
             $this->image,
             $this->removeImage,
         );
+
+        // Sending is explicit: only the companies that can get it now and
+        // have no email of it yet (App\Announcements\AnnouncementListEmails::queue()).
+        app(AnnouncementListEmails::class)->queue($announcement);
 
         session()->flash('status', $creating ? 'Anuncio creado.' : 'Cambios guardados.');
 
@@ -172,6 +196,59 @@ class AnnouncementEditor extends Component
 
         $this->announcement->republish();
         session()->flash('status', 'Anuncio publicado de nuevo.');
+    }
+
+    /**
+     * «Enviar recordatorio»: records a reminder for the cron to mail. The
+     * once-a-day limit and whether it may be sent at all are checked on the
+     * server ({@see AnnouncementReminders::request()}), whatever the page
+     * showed; a refusal is shown in the read report, and so is a database
+     * failure (e.g. a lock wait timeout on the announcement row), logged
+     * instead of a server error.
+     */
+    public function sendReminder(AnnouncementReminders $reminders): void
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('update', $this->announcement);
+        $this->resetErrorBag('reminder');
+
+        try {
+            $reminders->request($this->announcement, $this->user());
+            session()->flash('status', 'Recordatorio en camino: el portal lo envía por correo en los próximos minutos.');
+        } catch (ReminderNotAllowed $refused) {
+            $this->addError('reminder', $refused->getMessage());
+        } catch (QueryException $e) {
+            Log::warning('Announcement reminder could not be requested.', [
+                'announcement_id' => $this->announcement->id,
+                'user_id' => $this->user()->id,
+                'exception' => $e::class,
+            ]);
+            $this->addError('reminder', 'No se pudo pedir el recordatorio. Inténtalo de nuevo.');
+        } finally {
+            // Count again, with the reminder just requested (or the one that blocked it).
+            unset($this->readReport);
+        }
+    }
+
+    /**
+     * «Reintentar» on a failed email to a list: the cron sends it again in
+     * its next run. The limit (once every few minutes per email) and
+     * whether the email may be retried at all are checked on the server
+     * ({@see AnnouncementListEmails::retry()}).
+     */
+    public function retryListEmail(int $rowId, AnnouncementListEmails $emails): void
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('update', $this->announcement);
+        $this->resetErrorBag('listEmail');
+
+        try {
+            $row = $emails->retry($this->announcement, $rowId, $this->user());
+            $company = $row->company === null ? 'la empresa' : AnnouncementListEmails::label($row->company);
+            session()->flash('status', "El correo a la lista de {$company} sale de nuevo en los próximos minutos.");
+        } catch (ListEmailRetryRefused $refused) {
+            $this->addError('listEmail', $refused->getMessage());
+        }
     }
 
     /**
@@ -199,7 +276,8 @@ class AnnouncementEditor extends Component
         $specific = $this->audience === Announcement::AUDIENCE_COMPANIES;
 
         return [
-            'title' => ['required', 'string', 'max:'.Announcement::TITLE_MAX],
+            // One line: the title also goes in an email read as Markdown.
+            'title' => ['required', 'string', 'max:'.Announcement::TITLE_MAX, 'not_regex:/[\r\n]/'],
             'body' => ['required', 'string', 'max:'.Announcement::BODY_MAX],
             'audience' => ['required', Rule::in(Announcement::AUDIENCES)],
             'companyIds' => $specific ? ['required', 'array'] : ['array'],
@@ -208,6 +286,7 @@ class AnnouncementEditor extends Component
             'endsAt' => ['nullable', 'date_format:'.self::DATETIME_FORMAT, 'after:startsAt'],
             'isPinned' => ['boolean'],
             'requiresRead' => ['boolean'],
+            'emailLists' => ['boolean'],
             'image' => [
                 'nullable', 'file',
                 'max:'.AnnouncementImageStore::MAX_KILOBYTES,
@@ -226,6 +305,7 @@ class AnnouncementEditor extends Component
             'required' => 'Este campo es obligatorio.',
             'title.required' => 'Escribe el título.',
             'title.max' => 'Usa como máximo '.Announcement::TITLE_MAX.' caracteres.',
+            'title.not_regex' => 'El título va en una sola línea.',
             'body.required' => 'Escribe el texto del anuncio.',
             'body.max' => 'Usa como máximo '.Announcement::BODY_MAX.' caracteres.',
             'audience.in' => 'Elige para quién es el anuncio.',
@@ -255,7 +335,24 @@ class AnnouncementEditor extends Component
             'currentImageUrl' => $this->removeImage ? null : $this->announcement?->imageUrl(),
             'newImageUrl' => $this->newImageUrl(),
             'reads' => $this->mayViewReads() ? $this->readReport : null,
+            'listRecipients' => $this->listRecipients(),
+            'listReport' => $this->announcement !== null && $this->user()->can('update', $this->announcement)
+                ? app(AnnouncementListEmails::class)->report($this->announcement)
+                : [],
         ]);
+    }
+
+    /**
+     * The companies whose lists the announcement would reach as the form
+     * stands: an announcements editor only ever addresses their company.
+     *
+     * @return Collection<int, Company>
+     */
+    private function listRecipients(): Collection
+    {
+        return $this->restricted()
+            ? app(AnnouncementListEmails::class)->recipients(Announcement::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
+            : app(AnnouncementListEmails::class)->recipients($this->audience, $this->companyIds);
     }
 
     /**
@@ -264,12 +361,16 @@ class AnnouncementEditor extends Component
      * the form do not count again; reloading the page counts afresh.
      * Only read after {@see mayViewReads()}.
      *
-     * @return array{read: int, total: int, pending: list<array{name: string, companies: list<string>}>}
+     * @return array{read: int, total: int, pending: list<array{name: string, companies: list<string>}>, reminder: array<string, mixed>|null}
      */
     #[Computed(persist: true, seconds: self::READ_REPORT_SECONDS)]
     public function readReport(): array
     {
-        return [...$this->announcement->readCounts(), 'pending' => $this->announcement->pendingReaders()];
+        return [
+            ...$this->announcement->readCounts(),
+            'pending' => $this->announcement->pendingReaders(),
+            'reminder' => app(AnnouncementReminders::class)->lastFor($this->announcement),
+        ];
     }
 
     /**

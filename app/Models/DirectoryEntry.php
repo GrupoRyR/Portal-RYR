@@ -133,6 +133,31 @@ class DirectoryEntry extends Model
     }
 
     /**
+     * One company's directory with the birthday of each entry's own
+     * account, only when it chose to show it: `shown_birthday_month` and
+     * `shown_birthday_day`, null otherwise (App\View\Home\Celebration).
+     * The account is the one with the entry's tenant, object ID and
+     * company; never one found another way, never through `person_id`.
+     * Shared by the home screen and the Claude connector (through
+     * {@see homeDirectory()}) and the Monday digest
+     * (App\Digest\WeeklyDigestBuilder). Select the entry's columns
+     * (qualified) before calling it.
+     *
+     * @param  Builder<DirectoryEntry>  $query
+     */
+    public function scopeCelebrationsOf(Builder $query, int $companyId): void
+    {
+        $query->addSelect(['users.birthday_month as shown_birthday_month', 'users.birthday_day as shown_birthday_day'])
+            ->leftJoin('users', function (JoinClause $join) {
+                $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
+                    ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
+                    ->on('users.company_id', '=', 'directory_entries.company_id')
+                    ->where('users.show_birthday', true);
+            })
+            ->where('directory_entries.company_id', $companyId);
+    }
+
+    /**
      * Entries holding every word of the search, ignoring accents and case
      * (App\Catalog\AppSearch), like the home search.
      *
@@ -148,35 +173,14 @@ class DirectoryEntry extends Model
     }
 
     /**
-     * Adds `shown_birthday_month` and `shown_birthday_day`: the birthday of
-     * the entry's own account (the one with its tenant, object ID and
-     * company), only when that account chose to show it; null otherwise.
-     * Never through `person_id`. Part of {@see homeDirectory()}. Select
-     * the entry's columns with the table name before calling it.
-     *
-     * @param  Builder<DirectoryEntry>  $query
-     */
-    public function scopeWithShownBirthday(Builder $query): void
-    {
-        $query->addSelect([
-            'users.birthday_month as shown_birthday_month',
-            'users.birthday_day as shown_birthday_day',
-        ])->leftJoin('users', function (JoinClause $join) {
-            $join->on('users.tenant_id', '=', 'directory_entries.tenant_id')
-                ->on('users.azure_oid', '=', 'directory_entries.azure_oid')
-                ->on('users.company_id', '=', 'directory_entries.company_id')
-                ->where('users.show_birthday', true);
-        });
-    }
-
-    /**
      * The company directory as the home screen reads it, in one query: the
      * «Ctrl K» search index and «Cumpleaños y aniversarios» of «Mi día»
      * (App\View\Home\HomePageBuilder), and `cumpleanos_y_aniversarios` of
      * the Claude connector, so both list the same people. By name, at most
      * HomeSearchIndex::PEOPLE_LIMIT, only the columns those need, with the
-     * shown birthday ({@see scopeWithShownBirthday()}). Whether the viewer
-     * may see this directory is the caller's job ({@see companyIdFor()}).
+     * shown birthday ({@see scopeCelebrationsOf()}, which the Monday digest
+     * reads without a limit). Whether the viewer may see this directory is
+     * the caller's job ({@see companyIdFor()}).
      *
      * @return Collection<int, DirectoryEntry>
      */
@@ -194,8 +198,7 @@ class DirectoryEntry extends Model
                 'directory_entries.hire_date',
                 'directory_entries.search_text',
             ])
-            ->withShownBirthday()
-            ->where('directory_entries.company_id', $companyId)
+            ->celebrationsOf($companyId)
             // Only directory_entries has display_name.
             ->orderBy('display_name')
             ->orderBy('directory_entries.id')
