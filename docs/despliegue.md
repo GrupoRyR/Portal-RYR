@@ -525,7 +525,7 @@ Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cad
 - Solo direcciones `https` en el puerto 443, sin usuario ni contraseña en la dirección y con un nombre de dominio (nunca una IP escrita).
 - Antes de conectar, el portal resuelve el nombre y rechaza la fuente si alguna de sus IP es interna: local (`127.0.0.1`, `::1`), privada (`10.x`, `172.16–31.x`, `192.168.x`, `fc00::/7`), de enlace local (`169.254.x`, `fe80::/10`), CGNAT (`100.64.0.0/10`), multidifusión, reservada, de documentación o una IPv6 que contiene una IPv4. La conexión usa exactamente la IP comprobada, así que el nombre no puede cambiar de IP entre la comprobación y la conexión.
 - Sigue hasta 3 redirecciones y comprueba cada una con las mismas reglas.
-- Espera hasta 10 segundos por fuente y deja de leer al pasar de 1 MB.
+- Espera hasta 10 segundos por solicitud (cada redirección es una solicitud nueva) y deja de leer al pasar de 1 MB.
 - Rechaza cualquier documento con `<!DOCTYPE` o `<!ENTITY`, no reemplaza entidades y no descarga nada más mientras lee el XML.
 - Del título quita las etiquetas HTML y los espacios de más. Descarta las noticias cuyo enlace no es `https`. No guarda descripciones ni HTML.
 - Guarda las 30 noticias más recientes de cada fuente y borra las de más de 60 días.
