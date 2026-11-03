@@ -133,7 +133,7 @@ class HomeEventsTest extends TestCase
         $this->assertSame(1, $xpath->query('.//a[@href="'.route('events.index').'#e-'.$today->id.'"]', $first)->length);
 
         $holiday = $rows->item(1);
-        $this->assertStringContainsString('Lunes · Festivo', $this->squish($holiday->textContent));
+        $this->assertStringContainsString('Lunes · Puente festivo', $this->squish($holiday->textContent));
 
         $third = $rows->item(2);
         $this->assertSame('2026-11-05T00:00:00-05:00', $third->getAttribute('data-event-end'));

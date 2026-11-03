@@ -99,8 +99,8 @@ final readonly class HomeSearchIndex
 
             $dates[] = [[$day->date->getTimestamp(), 0, 0], [
                 'title' => $day->label(),
-                'detail' => "Festivo · {$date}",
-                'search' => AppSearch::normalize("{$day->label()} festivo {$date}"),
+                'detail' => "{$day->kind()} · {$date}",
+                'search' => AppSearch::normalize("{$day->label()} {$day->kind()} {$date}"),
                 'date' => $day->isoDate(),
             ]];
         }

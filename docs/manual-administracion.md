@@ -378,6 +378,7 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - Apps en mantenimiento: logo gris y quieto. Apps con fallas: un punto rojo que late en la esquina del logo.
 - Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
 - **Mi día › Próximas fechas:** hasta 5 fechas de los próximos 60 días, festivos y eventos juntos y en orden («Festivo» o «Evento»). **Ver eventos** lleva a la página de eventos, con **Agregar a mi calendario**.
+  - Un festivo en lunes o viernes dice «Puente festivo», en el inicio y en el buscador (Ctrl K). De martes a jueves, o en fin de semana, dice «Festivo».
 
 ---
 

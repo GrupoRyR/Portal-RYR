@@ -58,6 +58,26 @@ final readonly class HolidayDay
     }
 
     /**
+     * A holiday on Monday or Friday makes a three-day weekend, a «puente» in
+     * Colombia. The weekday is the one of $date, midnight in the calendar
+     * timezone (config('app.timezone')), like dayName().
+     */
+    public function isBridge(): bool
+    {
+        return $this->date->isMonday() || $this->date->isFriday();
+    }
+
+    /**
+     * «Puente festivo» or «Festivo»: the kind of the day wherever a holiday
+     * is listed (home.blade.php, App\Search\HomeSearchIndex). Static text tied
+     * to the date, so the saved copy of the page stays right.
+     */
+    public function kind(): string
+    {
+        return $this->isBridge() ? 'Puente festivo' : 'Festivo';
+    }
+
+    /**
      * «lunes 2 de noviembre», for the middle of a sentence.
      */
     public function longDate(): string

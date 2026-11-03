@@ -268,7 +268,7 @@
                                     @foreach ($holiday->names as $name)
                                         <p class="text-sm leading-snug font-bold break-words">{{ $name }}</p>
                                     @endforeach
-                                    <p class="text-xs text-fg-muted" aria-hidden="true"><span data-holiday-weekday="{{ $holiday->dayName() }}">{{ $holiday->weekday() }}</span> · Festivo</p>
+                                    <p class="text-xs text-fg-muted" aria-hidden="true"><span data-holiday-weekday="{{ $holiday->dayName() }}">{{ $holiday->weekday() }}</span> · {{ $holiday->kind() }}</p>
                                 </div>
                             </li>
                         @endforeach
