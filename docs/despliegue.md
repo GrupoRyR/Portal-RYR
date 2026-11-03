@@ -505,6 +505,38 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
 
 Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
 
+### 1.16 Mercados
+
+El portal guarda la **TRM** y el **euro en pesos** para la banda de mercados del inicio (la banda se conecta en una entrega posterior; esta guarda los datos). No hay claves ni cuentas: las dos fuentes son públicas. El diseño está en `odd/tasks/mercados.md`.
+
+- **TRM:** conjunto de datos oficial de datos.gov.co (`www.datos.gov.co`), las últimas 10 vigencias.
+- **Euro:** TRM vigente hoy (hora de Bogotá) multiplicada por los dólares por euro del tipo de cambio de referencia del Banco Central Europeo (`www.ecb.europa.eu`). El BCE no publica el peso colombiano.
+
+**Qué hace el cron.** El cron del paso 1.9 ejecuta `portal:sync-markets` dos veces al día, a las 7:10 y a las 13:10 (hora de Bogotá). Repetirlo el mismo día actualiza las filas, no las duplica.
+
+1. **Migración.** Crea la tabla `market_rates`: el despliegue de rutina la aplica con `php artisan migrate --force` (sección 2.2).
+2. **Salida a internet.** Desde el servidor, ambas direcciones deben responder `200`; un error de conexión o de certificado significa que el servidor no tiene salida a ese sitio:
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" "https://www.datos.gov.co/resource/32sa-8pi3.json?\$limit=1"
+   curl -sS -o /dev/null -w "%{http_code}\n" "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+   ```
+
+   Si alguna falla, pida a GoDaddy que permita la salida HTTPS a ese servidor. Las direcciones están en `config/markets.php`.
+3. **Primera carga.** No espere al cron:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   php artisan portal:sync-markets
+   ```
+
+   Debe responder `TRM: 10 valores guardados.` y `Euro: 1 valor guardado.`
+4. **Comprobar el horario.** `php artisan schedule:list` debe mostrar `10 7,13 * * *  php artisan portal:sync-markets`.
+
+- **Si una fuente falla**, el comando termina con error, esa cifra conserva su último valor y la otra fuente se actualiza igual. El motivo es un código corto en `storage/logs` («Market rates could not be updated…», con `source` `trm` o `eur`), nunca el contenido de la respuesta: `connection` (sin conexión o sin respuesta en 10 segundos), `http_503` (u otro código HTTP; `http_302` es una redirección, que no se sigue), `too_large` (más de 1 MB), `invalid_json`, `invalid_xml`, `doctype` (el XML trae una declaración DOCTYPE, que se rechaza), `invalid_data` (el formato cambió), `no_trm` (no hay ninguna TRM guardada para calcular el euro).
+- Mientras la TRM no se pueda leer, el euro sigue calculándose con la última TRM guardada y la nueva tasa del BCE.
+- El euro lleva la fecha de referencia del BCE y la TRM su vigencia; un valor con vigencia posterior a hoy se guarda, pero no se muestra hasta que llegue su fecha.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

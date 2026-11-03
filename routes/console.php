@@ -46,6 +46,14 @@ Schedule::command('portal:sync-directory')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
 
+// The TRM and the euro in pesos for the home band (App\Markets\MarketSync),
+// twice a day at :10 so the morning one lands after Banco de la República
+// and the ECB have published. A source that fails keeps its last value.
+Schedule::command('portal:sync-markets')
+    ->twiceDailyAt(7, 13, 10)
+    ->timezone('America/Bogota')
+    ->withoutOverlapping();
+
 // «Respaldar ahora» (Configuración) only leaves a request; this runs it.
 Schedule::command('portal:run-requested-backup')
     ->everyMinute()
