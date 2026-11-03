@@ -674,7 +674,7 @@ Pulse **Nuevo producto** (o el lápiz de un producto para editarlo) y complete:
 | **Categoría** | Obligatoria. Solo aparecen las de la empresa elegida. |
 | **Resumen** | Opcional. Texto corto y sin formato, hasta 280 caracteres. |
 | **Enlace** | Opcional, por ejemplo la ficha técnica. Debe empezar por `https://`; no se aceptan `http://`, enlaces con usuario ni con puerto. |
-| **Foto** | Opcional. JPG, PNG o WebP de 200 px o más por lado y de hasta 2 MB. Se vuelve a codificar y las fotos mayores de 1200 px se reducen. |
+| **Foto** | Opcional. JPG, PNG o WebP de 200 px o más por lado, de hasta 2 MB y de hasta 16 megapíxeles (las fotos de celular de 12 megapíxeles caben). Se vuelve a codificar y las fotos mayores de 1200 px se reducen. |
 
 - Un producto nuevo queda **Oculto**. Pulse **Publicar** cuando esté listo y **Ocultar** para retirarlo sin borrarlo. Solo los productos publicados se muestran a las personas.
 - Con **Reemplazar** sube otra foto y la anterior se borra del servidor. **Quitar la foto** también la borra.

@@ -5,6 +5,7 @@ namespace Tests\Feature\Products;
 use App\Products\ProductPhotoStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ProductPhotoStoreTest extends TestCase
@@ -116,6 +117,93 @@ class ProductPhotoStoreTest extends TestCase
 
         Storage::disk('public')->assertExists('brand/segurex/logo.png');
         Storage::disk('public')->assertExists('products-evil/a.jpg');
+    }
+
+    public function test_a_photo_with_too_many_pixels_is_refused_before_it_is_decoded(): void
+    {
+        // Only the header is real: problem() must answer from it, without decoding.
+        $heavy = UploadedFile::fake()->createWithContent('heavy.png', $this->pngHeader(5000, 4000));
+
+        $this->assertStringContainsString('megapíxeles', (string) $this->store->problem($heavy));
+    }
+
+    public function test_a_photo_exactly_at_the_pixel_cap_is_accepted(): void
+    {
+        $edge = UploadedFile::fake()->createWithContent('edge.png', $this->pngHeader(4000, 4000));
+
+        $this->assertNull($this->store->problem($edge));
+    }
+
+    public function test_a_photo_with_a_side_over_the_limit_is_refused(): void
+    {
+        $long = UploadedFile::fake()->createWithContent('long.png', $this->pngHeader(7000, 300));
+
+        $this->assertStringContainsString('por lado', (string) $this->store->problem($long));
+    }
+
+    public function test_a_file_gd_cannot_decode_is_refused_when_stored(): void
+    {
+        $broken = UploadedFile::fake()->createWithContent('broken.png', $this->pngHeader(400, 400).'not really image data');
+
+        $this->assertNull($this->store->problem($broken), 'The header alone looks fine.');
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->store->store(1, $broken);
+    }
+
+    public function test_exif_orientations_6_and_8_turn_a_landscape_photo_upright(): void
+    {
+        foreach ([6, 8] as $orientation) {
+            $path = $this->store->store(1, $this->jpegWithOrientation(400, 200, $orientation));
+            $size = getimagesizefromstring(Storage::disk('public')->get($path));
+
+            $this->assertSame([200, 400], [$size[0], $size[1]], "Orientation {$orientation}");
+        }
+    }
+
+    public function test_orientation_1_and_a_photo_without_exif_keep_their_shape(): void
+    {
+        $upright = $this->store->store(1, $this->jpegWithOrientation(400, 200, 1));
+        $plain = $this->store->store(1, $this->image('plain.jpg', 400, 200));
+
+        foreach ([$upright, $plain] as $path) {
+            $size = getimagesizefromstring(Storage::disk('public')->get($path));
+            $this->assertSame([400, 200], [$size[0], $size[1]]);
+        }
+    }
+
+    public function test_orientation_3_turns_the_photo_around_without_changing_its_shape(): void
+    {
+        $path = $this->store->store(1, $this->jpegWithOrientation(400, 200, 3));
+        $size = getimagesizefromstring(Storage::disk('public')->get($path));
+
+        $this->assertSame([400, 200], [$size[0], $size[1]]);
+    }
+
+    /**
+     * A PNG signature and IHDR chunk claiming the given size: enough for
+     * getimagesize(), far too little to decode.
+     */
+    private function pngHeader(int $width, int $height): string
+    {
+        $ihdr = pack('NNCCCCC', $width, $height, 8, 2, 0, 0, 0);
+
+        return "\x89PNG\r\n\x1a\n".pack('N', 13).'IHDR'.$ihdr.pack('N', crc32('IHDR'.$ihdr));
+    }
+
+    /**
+     * A real JPEG with an EXIF APP1 segment that only says its orientation.
+     */
+    private function jpegWithOrientation(int $width, int $height, int $orientation): UploadedFile
+    {
+        $source = $this->image('source.jpg', $width, $height);
+        $bytes = (string) file_get_contents($source->getRealPath());
+
+        $exif = "Exif\0\0"."MM\x00\x2a\x00\x00\x00\x08".pack('n', 1).pack('nnNnn', 0x0112, 3, 1, $orientation, 0).pack('N', 0);
+        $segment = "\xFF\xE1".pack('n', strlen($exif) + 2).$exif;
+
+        return UploadedFile::fake()->createWithContent('photo.jpg', substr($bytes, 0, 2).$segment.substr($bytes, 2));
     }
 
     private function image(string $name, int $width, int $height): UploadedFile
