@@ -613,6 +613,19 @@ El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa l
 5. **Crear el token del robot.** **Administración › Integraciones › Nuevo token**: nombre (por ejemplo «Robot de SAP · Segurex»), permiso `kpis:write`, **Empresa de las cifras** y, de preferencia, la IP del equipo del robot en **IP permitidas**. Pide confirmar con Microsoft. Se necesita un token por empresa: cada token solo puede reemplazar las cifras de su empresa. Entregue el token al responsable del robot por el gestor de secretos, nunca por correo ni chat.
 6. **Comprobar.** Después de la primera noche, en **Auditoría** con el filtro **API** debe aparecer «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras (nunca los valores). Revocar el token en Integraciones borra las cifras que publicó.
 
+### 1.21 Estado de TI
+
+El bloque «Estado de TI» del inicio responde de un vistazo si algo está fallando para la empresa de la persona. Junta dos fuentes: el estado que ya tiene cada app (en mantenimiento, o con fallas reportadas por la API, `docs/api.md`) y los **servicios** que TI registra a mano en **Administración › Estado de TI** (correo, internet, VPN, telefonía...). «Reportar un problema» usa el mismo enlace de **Soporte TI** (`/soporte`, hacia Gestor TI). No hay claves nuevas en `.env` ni tareas programadas. El diseño está en `odd/tasks/estado-ti.md`.
+
+1. **Migración.** El despliegue de rutina (paso 2.2) crea la tabla `it_services` con `php artisan migrate --force`. Los nombres de índices y claves son cortos a propósito (MariaDB admite 64 caracteres como máximo): `it_svc_company_fk`, `it_svc_company_name_uq` y `it_svc_company_pos_ix`. Borrar una empresa borra sus servicios.
+2. **Quién lo administra.** El súper administrador y el administrador del portal, todas las empresas; el editor de anuncios, solo su propia empresa (como sus anuncios). No hay rol nuevo.
+3. **«Reportar un problema».** Necesita la **Dirección de soporte TI** de **Administración › Configuración** (la misma del botón «Soporte TI»). Sin ella, el bloque no muestra el enlace.
+4. **Cuándo vence un reporte de una app.** Igual que «Con fallas» en las tarjetas: según **Quitar «Con fallas» después de (horas)** de Configuración. Un servicio manual no vence: queda como está hasta que alguien lo cambie.
+5. **Sin caché.** El estado se calcula en cada carga del inicio, con una sola consulta a `it_services` por el índice de la empresa. Un cambio en Administración se ve en la siguiente carga; no hace falta limpiar nada.
+6. **Comprobar.** Después de desplegar, entre a **Administración › Estado de TI**, elija una empresa y cree un servicio de prueba con estado **Con fallas**. En **Auditoría** debe aparecer «Creó el servicio de TI «…»». Bórrelo al terminar.
+
+> El bloque del inicio se conecta en una entrega posterior (línea del inicio). Mientras tanto, lo que se cargue en Administración queda guardado y listo.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

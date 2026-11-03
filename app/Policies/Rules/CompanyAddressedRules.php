@@ -32,6 +32,17 @@ final class CompanyAddressedRules
         return $user->company_id !== null && $user->hasRole(self::EDITOR);
     }
 
+    /**
+     * Whether the user may change what belongs to this one company (the
+     * services of Estado de TI, App\Policies\ItServicePolicy): admins any
+     * company, announcements editors only their own.
+     */
+    public static function managesCompany(User $user, int $companyId): bool
+    {
+        return self::manages($user)
+            || (self::isCompanyEditor($user) && (int) $user->company_id === $companyId);
+    }
+
     public static function mayList(User $user): bool
     {
         return $user->hasAnyRole([...self::MANAGERS, self::EDITOR]);

@@ -3,6 +3,7 @@
 namespace App\View\Components\Layouts;
 
 use App\Models\Company;
+use App\Models\ItService;
 use App\Models\NewsSource;
 use App\Models\User;
 use App\Policies\AdminSections;
@@ -49,17 +50,25 @@ class Admin extends Component
     {
         $announcements = ['label' => 'Anuncios', 'icon' => 'megaphone', 'route' => 'admin.announcements.index', 'active' => 'admin.announcements.*'];
         $events = ['label' => 'Eventos', 'icon' => 'calendar', 'route' => 'admin.events.index', 'active' => 'admin.events.*'];
+        $itServices = ['label' => 'Estado de TI', 'icon' => 'pulse', 'route' => 'admin.it-services.index', 'active' => 'admin.it-services.*'];
 
-        // Announcements editors reach nothing else (events are theirs too,
-        // App\Policies\EventPolicy): the other sections are left out, not
-        // merely disabled.
+        // Announcements editors reach nothing else (events and their own
+        // company's Estado de TI are theirs too, App\Policies\EventPolicy and
+        // ItServicePolicy): the other sections are left out, not merely
+        // disabled. An editor without a company gets no Estado de TI.
         if ($this->user === null || ! AnnouncementPolicy::manages($this->user)) {
-            return [['label' => null, 'items' => [$announcements, $events]]];
+            return [['label' => null, 'items' => array_values(array_filter([
+                $announcements,
+                $events,
+                $this->user?->can('create', ItService::class) ? $itServices : null,
+            ]))]];
         }
 
         return array_values(array_filter([
             ['label' => 'Catálogo', 'items' => array_values(array_filter([
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
+                // Every company for admins (App\Policies\ItServicePolicy).
+                $itServices,
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
                 ['label' => 'Catálogos', 'icon' => 'box', 'route' => 'admin.products.index', 'active' => 'admin.products.*'],
                 $announcements,
