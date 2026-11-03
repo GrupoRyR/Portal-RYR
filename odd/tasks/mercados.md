@@ -40,10 +40,10 @@ Guardar la TRM y el euro en pesos colombianos (COP), actualizados dos veces al d
 
 ## Tareas
 
-- [ ] M1. Migración, modelo `MarketRate`, fábrica y `config/markets.php`. Ruta: delegada (escritor único de esta línea), 2 o más archivos no triviales.
-- [ ] M2. Sincronización: lectores de la TRM y del BCE, `MarketSync`, comando `portal:sync-markets`, horario y pruebas (RED primero).
-- [ ] M3. Modelo de lectura `MarketBoard` con prueba de conteo de consultas.
-- [ ] M4. Documentación `docs/despliegue.md` §1.16.
+- [x] M1. Migración, modelo `MarketRate`, fábrica y `config/markets.php`. Commit `6cf704e`. Ruta: delegada (escritor único de esta línea), 2 o más archivos no triviales.
+- [x] M2. Sincronización: lectores de la TRM y del BCE, `MarketSync`, comando `portal:sync-markets`, horario y pruebas (RED primero). Commit `65aa5c9`.
+- [x] M3. Modelo de lectura `MarketBoard` con prueba de conteo de consultas. Commit `d5fbce9`.
+- [x] M4. Documentación `docs/despliegue.md` §1.16. Va en el commit de M2 (`65aa5c9`), junto al comportamiento que explica.
 
 ## Criterios de aceptación
 
@@ -63,8 +63,21 @@ Un solo escritor delegado para toda la línea (varias carpetas, más de 2 archiv
 
 ## Progreso
 
-- 2026-11-03: documento creado antes de la primera escritura de código. Engram mirror: pending.
+- 2026-11-03: documento creado antes de la primera escritura de código (`e5e3ff6`).
+- 2026-11-03: M1 a M4 hechos en tres commits de trabajo (`6cf704e`, `65aa5c9`, `d5fbce9`). Sin push ni PR.
+- Engram mirror: guardado (proyecto `portal_ryr`, tema `odd/mercados/tasks`, observación 267), con un resumen del documento al cierre.
+
+## Decisiones
+
+- **Fecha del euro.** Se guarda con la fecha de referencia del BCE (`Cube time`), sin `valid_until`. Así «frente al valor anterior» compara contra el día de referencia anterior del BCE.
+- **TRM para el euro.** La que está en vigor hoy en Bogotá (la de mayor `valid_from` menor o igual a hoy), la de esta corrida o una anterior. La TRM publicada por adelantado se guarda, pero no se usa hasta su fecha.
+- **«Último valor» del tablero.** `MarketBoard` toma el valor más reciente con `valid_from` menor o igual a hoy (Bogotá), con `ROW_NUMBER() OVER (PARTITION BY code …)` en una sola consulta (MySQL 8 y SQLite lo soportan).
+- **Tope de 1 MB.** La respuesta se lee por partes (`stream`) y se corta al pasar el tope; también se rechaza por `Content-Length`. Se comprobó con un servidor local (cuerpo de 3 MB con y sin `Content-Length`, redirección, respuesta lenta y puerto cerrado): `too_large`, `too_large`, `http_302`, `connection`, `connection`.
+- **Fechas.** `valid_from` y `valid_until` se escriben como `Y-m-d` (cast `date:Y-m-d`): en SQLite una fecha con hora no compara bien como texto.
+- **Códigos de log.** `connection`, `http_<estado>`, `too_large`, `invalid_json`, `invalid_xml`, `doctype`, `invalid_data`, `no_trm`, `unexpected` (con la clase de la excepción).
 
 ## Evidencia de verificación
 
-(pendiente)
+- RED (antes de implementar): `php artisan test --compact tests/Unit/Markets tests/Feature/Markets`: 39 pruebas, 0 pasan (2 fallos, 37 errores por clases y comando inexistentes).
+- GREEN: `tests/Unit/Markets` 12/12; `tests/Feature/Markets` 27/27 (tabla 5, comando 16, tablero 6).
+- Completa: `php artisan test --compact` 2311/2311 (base 2272 + 39). `vendor/bin/pint --test` pasa.
