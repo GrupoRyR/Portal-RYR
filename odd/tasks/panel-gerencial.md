@@ -38,7 +38,7 @@ Que cada empresa tenga su propio juego de cifras gerenciales, publicado por un s
 - [x] T1. **Rol Gerencia.** Ruta: delegada (escritor único de la línea; 2 o más archivos no triviales). Migración `management_group_id`, `App\Auth\ManagementGroup`, `MicrosoftLogin`, `RoleSeeder`, `RoleMatrix`, `AuditPresenter`, Administración › Empresas. Pruebas: `tests/Feature/Auth/ManagementRoleTest.php`, `tests/Feature/Admin/CompanyManagementGroupTest.php`, `RoleMatrixTest`.
 - [x] T2. **Permiso `kpis:write` con empresa.** Ruta: delegada (mismo escritor). Migración `integrations.company_id`, `Integration`, `IntegrationManager` y su vista. Pruebas en `IntegrationsPageTest`.
 - [x] T3. **`PUT /api/v1/kpis` y tabla `company_kpis`.** Ruta: delegada (mismo escritor). Migración, `CompanyKpi`, fábrica, `PutKpisRequest`, `KpiController`, `routes/api.php`, Auditoría, revocar borra las cifras. `docs/api.md` §8. Pruebas: `tests/Feature/Api/KpisApiTest.php`.
-- [x] T4. **Modelo de lectura y permiso.** Ruta: delegada (mismo escritor). `ManagementPanel`, `ManagementSnapshot`, `ManagementKpi`, `ManagementPanelPolicy`, `AppServiceProvider`. `docs/despliegue.md` §1.19 y `docs/manual-administracion.md` §11. Pruebas: `tests/Feature/Management/ManagementPanelTest.php`.
+- [x] T4. **Modelo de lectura y permiso.** Ruta: delegada (mismo escritor). `ManagementPanel`, `ManagementSnapshot`, `ManagementKpi`, `ManagementPanelPolicy`, `AppServiceProvider`. `docs/despliegue.md` §1.19 y `docs/manual-administracion.md` §12 (era §11; Catálogos la tomó al fusionar). Pruebas: `tests/Feature/Management/ManagementPanelTest.php`.
 
 ## Decisiones
 

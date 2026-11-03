@@ -269,7 +269,7 @@ Todavía no existen en el portal: la lista en el inicio, el botón «Completar»
 
 ## 8. Panel gerencial
 
-El robot nocturno de SAP publica las cifras clave del mes de **una** empresa: ventas contra la meta, cartera vencida, pedidos y pedidos atrasados, días de inventario. El portal las muestra en el bloque «Panel gerencial» del inicio, solo a las personas con el rol Gerencia de esa misma empresa (`docs/manual-administracion.md` §11).
+El robot nocturno de SAP publica las cifras clave del mes de **una** empresa: ventas contra la meta, cartera vencida, pedidos y pedidos atrasados, días de inventario. El portal las muestra en el bloque «Panel gerencial» del inicio, solo a las personas con el rol Gerencia de esa misma empresa (`docs/manual-administracion.md` §12).
 
 | Endpoint | Permiso | Qué hace |
 |---|---|---|

@@ -60,6 +60,7 @@ class Admin extends Component
             ['label' => 'Catálogo', 'items' => [
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
+                ['label' => 'Catálogos', 'icon' => 'box', 'route' => 'admin.products.index', 'active' => 'admin.products.*'],
                 $announcements,
                 $events,
             ]],

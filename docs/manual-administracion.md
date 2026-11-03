@@ -213,7 +213,7 @@ Tokens para que otros sistemas (monitores, herramientas de TI) lean el catálogo
 - **Detalle de un sistema:** permisos (se pueden cambiar), IP permitidas (**+ Agregar IP**, **Quitar**), **App de tareas y aprobaciones** (app del catálogo y URL base, **Guardar app**) y últimos cambios de estado que hizo. Dar `work:write` y cambiar la app o la URL base piden confirmar con Microsoft; quitar un permiso no.
 - **Rotar** (pide confirmar con Microsoft): crea un token nuevo; el anterior deja de funcionar de inmediato y hay que poner el nuevo en el sistema.
 - **Revocar:** el token deja de funcionar de inmediato y no se puede deshacer. No pide confirmar con Microsoft, para poder cortar rápido un token filtrado. Si tenía `work:write`, sus tareas y aprobaciones se borran del portal.
-- **Panel gerencial:** con `kpis:write`, el robot de SAP publica las cifras de **una** empresa, la que elija en **Empresa de las cifras**. Vea §11.
+- **Panel gerencial:** con `kpis:write`, el robot de SAP publica las cifras de **una** empresa, la que elija en **Empresa de las cifras**. Vea §12.
 
 ### 2.8 Auditoría
 
@@ -646,17 +646,68 @@ Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de A
 | Claude pide conectar otra vez después de un tiempo sin usarlo. | La conexión vence tras 30 días sin uso. | En Claude, **Customize › Connectors** › **Connect**. Pasa de nuevo por Microsoft y por la pantalla de permiso; incluya otra vez sus cuentas vinculadas. |
 | En `/cuenta` aparece una conexión que ya no usa. | Por ejemplo, quitó el conector en Claude y lo agregó otra vez. | Pulse **Desconectar** en la que no usa. |
 
-## 11. Panel gerencial
+---
+
+## 11. Catálogos de productos
+
+**Administración › Catálogos** reúne las categorías y los productos de cada empresa, con su foto. Por ejemplo, Segurex puede tener «Línea smart», «Residencial», «Comercial» y «Control de acceso», y SDC «Hipoclorito», «Aseo hogar», «Institucional» y «Fichas técnicas y FDS». Esta pantalla solo la usan el súper administrador y el administrador del portal: el editor de anuncios no la ve.
+
+> La sección «Catálogos y categorías» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+
+### 11.1 Elegir la empresa
+
+Arriba, en **Catálogo de**, elija la empresa. Cada empresa tiene sus propias categorías y productos; no se comparten. La dirección de la página recuerda la empresa elegida (`?empresa=`).
+
+### 11.2 Categorías
+
+- **Nueva categoría** + **Agregar** la pone al final. El nombre no puede repetirse dentro de la misma empresa (sí en otra) y admite hasta 60 caracteres.
+- Suba o baje una categoría con las flechas (**Subir** / **Bajar**); ese es el orden de los botones de categoría en el inicio.
+- El lápiz (**Renombrar**) cambia el nombre; pulse **Guardar**.
+- **Borrar** (papelera) solo funciona con una categoría sin productos. Si tiene productos, muévalos antes a otra categoría o bórrelos.
+
+### 11.3 Productos
+
+Pulse **Nuevo producto** (o el lápiz de un producto para editarlo) y complete:
+
+| Campo | Qué poner |
+|---|---|
+| **Nombre** | Obligatorio, hasta 120 caracteres. |
+| **Categoría** | Obligatoria. Solo aparecen las de la empresa elegida. |
+| **Resumen** | Opcional. Texto corto y sin formato, hasta 280 caracteres. |
+| **Enlace** | Opcional, por ejemplo la ficha técnica. Debe empezar por `https://`; no se aceptan `http://`, enlaces con usuario ni con puerto. |
+| **Foto** | Opcional. JPG, PNG o WebP de 200 px o más por lado, de hasta 2 MB y de hasta 16 megapíxeles (las fotos de celular de 12 megapíxeles caben). Se vuelve a codificar y las fotos mayores de 1200 px se reducen. |
+
+- Un producto nuevo queda **Oculto**. Pulse **Publicar** cuando esté listo y **Ocultar** para retirarlo sin borrarlo. Solo los productos publicados se muestran a las personas.
+- Con **Reemplazar** sube otra foto y la anterior se borra del servidor. **Quitar la foto** también la borra.
+- Las flechas ordenan los productos dentro de su categoría. Si cambia un producto de categoría, queda al final de la nueva.
+- **Borrar** (papelera) elimina el producto y su foto. No se puede deshacer.
+- Una categoría sin productos publicados no aparece en el inicio.
+
+### 11.4 Auditoría
+
+Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó, publicó o borró una categoría o un producto, y qué campos cambiaron («Nombre», «Resumen», «Foto», «Enlace», «Categoría», «Publicado», «Posición»).
+
+### 11.5 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| «El archivo no es una imagen JPG, PNG o WebP válida.» | El archivo es de otro tipo (SVG, PDF) o su extensión no coincide con su contenido. | Exporte la foto de nuevo como JPG, PNG o WebP. |
+| «La foto pesa más de 2 MB.» | Supera el límite. | Reduzca su tamaño o su calidad antes de subirla. |
+| «Escribe un enlace completo que empiece por https://…» | El enlace no es `https://` o está incompleto. | Copie la dirección completa desde el navegador. |
+| «Esta empresa ya tiene una categoría con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas. | Use otro nombre o edite la categoría existente. |
+| Una foto subida no se ve. | Falta el enlace `public/storage` en el servidor. | Pida a TI revisar `docs/despliegue.md` §1.18. |
+
+## 12. Panel gerencial
 
 El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» («Solo Gerencia»): las cifras clave del mes de su empresa al cierre de ayer, por ejemplo las ventas contra la meta, la cartera vencida, los pedidos y los pedidos atrasados, con la fuente («SAP Business One»). La instalación está en `docs/despliegue.md` §1.19; el formato de las cifras, en `docs/api.md` §8.
 
-### 11.1 Quién lo ve
+### 12.1 Quién lo ve
 
 - Solo las cuentas con el rol **Gerencia** de esa misma empresa. Ningún otro rol lo abre, tampoco súper administrador ni administrador.
 - El rol sale del grupo de seguridad `APP-PortalGerencia` del inquilino de la empresa. No se asigna a mano: en **Administración › Roles** la columna **Gerencia** no tiene acceso a ninguna sección de Administración.
 - Una persona con cuentas vinculadas (§8) ve el panel solo cuando la cuenta activa es de una empresa en cuyo grupo está.
 
-### 11.2 Configurar una empresa (solo súper administrador)
+### 12.2 Configurar una empresa (solo súper administrador)
 
 1. Pida a TI de la empresa que cree el grupo de seguridad `APP-PortalGerencia` en su inquilino y agregue a la gerencia.
 2. En **Administración › Empresas** › la empresa › **Microsoft 365**, pegue el **Object ID** del grupo en **Grupo de Gerencia** y pulse **Guardar**. El portal acepta solo un Object ID (GUID), nunca el nombre del grupo. Cambiarlo pide confirmar con Microsoft, como cambiar el inquilino, y la cuenta de emergencia no puede hacerlo. El cambio queda en Auditoría.
@@ -664,14 +715,14 @@ El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» (
 
 Para quitar el panel a toda la empresa, borre el **Grupo de Gerencia** y guarde: se cierra de inmediato.
 
-### 11.3 El token del robot (solo súper administrador)
+### 12.3 El token del robot (solo súper administrador)
 
 En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y elija la **Empresa de las cifras**. Ese token solo puede reemplazar las cifras de esa empresa; para otra empresa, cree otro token. En la ficha de un sistema, **Panel gerencial › Empresa de las cifras** permite cambiarla. Dar `kpis:write` o cambiar la empresa pide confirmar con Microsoft; quitar el permiso es un clic.
 
 - **Revocar** el token borra las cifras que publicó: el panel de esa empresa queda vacío hasta que otro token las publique.
 - Cada publicación queda en **Auditoría** (filtro **API**) como «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras. Los valores nunca quedan en Auditoría.
 
-### 11.4 Problemas frecuentes
+### 12.4 Problemas frecuentes
 
 | Qué pasa | Por qué | Qué hacer |
 |---|---|---|
