@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\MarketRateFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -42,10 +43,30 @@ class MarketRate extends Model
     {
         return [
             'value' => 'decimal:4',
-            // `Y-m-d` also when written: a date column compares as text in SQLite.
+            // The format only shapes serialization (toArray, JSON); what is
+            // written is decided by the mutators below.
             'valid_from' => 'date:Y-m-d',
             'valid_until' => 'date:Y-m-d',
             'fetched_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Written as `Y-m-d` whatever is assigned (a Carbon, «2026-11-03 00:00:00»):
+     * a date column compares as text in SQLite, where a time breaks `<=`.
+     */
+    protected function validFrom(): Attribute
+    {
+        return Attribute::set(fn (mixed $value) => self::day($value));
+    }
+
+    protected function validUntil(): Attribute
+    {
+        return Attribute::set(fn (mixed $value) => self::day($value));
+    }
+
+    private static function day(mixed $value): ?string
+    {
+        return $value === null ? null : Carbon::parse($value)->toDateString();
     }
 }

@@ -5,6 +5,8 @@ namespace Tests\Feature\Markets;
 use App\Models\MarketRate;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -54,6 +56,17 @@ class MarketRateTableTest extends TestCase
         $this->assertSame('2026-10-31', $rate->valid_from->toDateString());
         $this->assertSame('2026-11-03', $rate->valid_until->toDateString());
         $this->assertNotNull($rate->fetched_at);
+    }
+
+    public function test_dates_are_stored_without_a_time_whatever_is_assigned(): void
+    {
+        MarketRate::factory()->trm()->create([
+            'valid_from' => Carbon::parse('2026-11-03 15:30:00'),
+            'valid_until' => '2026-11-04 00:00:00',
+        ]);
+
+        $this->assertSame('2026-11-03', DB::table('market_rates')->value('valid_from'));
+        $this->assertSame('2026-11-04', DB::table('market_rates')->value('valid_until'));
     }
 
     public function test_the_end_date_is_optional(): void
