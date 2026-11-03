@@ -23,6 +23,8 @@
         '¿Está fallando algo de TI?',
     ];
     $last = array_key_last($turns);
+    // No question can be sent: the day's cap, a full conversation or the month's budget.
+    $closed = $remaining === 0 || $full || $budgetReached;
 @endphp
 <x-layouts.app title="Asistente" brand-band>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
@@ -47,6 +49,10 @@
             </p>
         @endif
 
+        @if ($restarted)
+            <p role="status" class="rounded-control bg-status-active-bg px-4 py-3 text-sm font-semibold text-status-active">Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.</p>
+        @endif
+
         @unless ($available)
             <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">El asistente no está disponible en este momento. Vuelve a intentarlo más tarde.</p>
         @else
@@ -59,7 +65,7 @@
                                 <form method="POST" action="{{ route('assistant.ask') }}">
                                     @csrf
                                     <input type="hidden" name="pregunta" value="{{ $suggestion }}">
-                                    <button type="submit" @disabled($remaining === 0) class="inline-flex min-h-touch cursor-pointer items-center rounded-full border border-line-strong bg-surface px-4 text-left text-sm font-semibold hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-60">{{ $suggestion }}</button>
+                                    <button type="submit" @disabled($closed) class="inline-flex min-h-touch cursor-pointer items-center rounded-full border border-line-strong bg-surface px-4 text-left text-sm font-semibold hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-60">{{ $suggestion }}</button>
                                 </form>
                             </li>
                         @endforeach
@@ -123,10 +129,16 @@
                 </section>
             @endif
 
+            @if ($budgetReached)
+                <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.</p>
+            @elseif ($full)
+                <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Esta conversación llegó a su límite de {{ $conversationTurns }} preguntas. Empieza una «Nueva conversación» para seguir preguntando.</p>
+            @endif
+
             <form method="POST" action="{{ route('assistant.ask') }}" class="flex flex-col gap-2">
                 @csrf
                 <label for="pregunta" class="text-sm font-semibold">Tu pregunta</label>
-                <textarea id="pregunta" name="pregunta" rows="3" required maxlength="{{ $maxLength }}" @disabled($remaining === 0)
+                <textarea id="pregunta" name="pregunta" rows="3" required maxlength="{{ $maxLength }}" @disabled($closed)
                           aria-describedby="pregunta-ayuda @error('pregunta') pregunta-error @enderror" @error('pregunta') aria-invalid="true" @enderror
                           class="{{ $field }}">{{ old('pregunta') }}</textarea>
                 @error('pregunta') <p id="pregunta-error" role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
@@ -134,7 +146,7 @@
                     {{ $remaining === 1 ? 'Te queda 1 pregunta' : "Te quedan {$remaining} preguntas" }} de {{ $dailyQuestions }} por hoy. La respuesta puede tardar unos segundos.
                 </p>
                 <div class="flex flex-wrap gap-2">
-                    <button type="submit" @disabled($remaining === 0) class="{{ $button }} disabled:cursor-not-allowed disabled:opacity-60">Enviar</button>
+                    <button type="submit" @disabled($closed) class="{{ $button }} disabled:cursor-not-allowed disabled:opacity-60">Enviar</button>
                 </div>
             </form>
 

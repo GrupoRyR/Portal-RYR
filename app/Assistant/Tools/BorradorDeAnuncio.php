@@ -40,17 +40,28 @@ final class BorradorDeAnuncio implements AssistantTool
             .'Úsala solo cuando la persona pida redactar un anuncio.';
     }
 
+    /**
+     * Strict JSON (`strict: true`): every field required, no others. Strict
+     * schemas take no string lengths, so the limits are in the
+     * descriptions and checked in run().
+     */
     public function inputSchema(): array
     {
         return [
             'type' => 'object',
             'properties' => [
-                'titulo' => ['type' => 'string', 'description' => 'Título del anuncio, en una sola línea.', 'maxLength' => Announcement::TITLE_MAX],
-                'texto' => ['type' => 'string', 'description' => 'Texto del anuncio, en texto plano.', 'maxLength' => Announcement::BODY_MAX],
+                'titulo' => ['type' => 'string', 'description' => 'Título del anuncio, en una sola línea, de hasta '.Announcement::TITLE_MAX.' caracteres.'],
+                'texto' => ['type' => 'string', 'description' => 'Texto del anuncio, en texto plano, de hasta '.Announcement::BODY_MAX.' caracteres.'],
                 'lectura_obligatoria' => ['type' => 'boolean', 'description' => 'Si cada persona debe confirmar que lo leyó.'],
             ],
-            'required' => ['titulo', 'texto'],
+            'required' => ['titulo', 'texto', 'lectura_obligatoria'],
+            'additionalProperties' => false,
         ];
+    }
+
+    public function strict(): bool
+    {
+        return true;
     }
 
     public function availableTo(User $user): bool

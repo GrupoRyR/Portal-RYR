@@ -14,12 +14,26 @@ use Anthropic\Messages\Message;
 use Anthropic\Messages\ToolUseBlock;
 use GuzzleHttp\Client as GuzzleClient;
 use Psr\Http\Client\ClientInterface;
+use stdClass;
 
 /**
  * The assistant's model through the official PHP SDK (`anthropic-ai/sdk`,
- * Messages API, non-streaming): adaptive thinking with the configured
- * effort, the stable system block cached, the portal's tools, and every
- * turn of the question sent back verbatim (thinking blocks included).
+ * Messages API, non-streaming), the same request shape on every model the
+ * portal uses (Haiku 5.5, Sonnet 5.5, Opus 5.5, the fallback): adaptive
+ * thinking with the configured effort, never `budget_tokens`, a disabled
+ * thinking, sampling parameters, a forced `tool_choice` or an assistant
+ * prefill (each a 400 on some of them).
+ *
+ * Prompt caching: the render order is tools, then system, then messages.
+ * The single, static system block carries a breakpoint (so tools + system
+ * are cached), and the last block of the latest user message carries a
+ * moving one (so the earlier history is read from the cache). Moving a
+ * breakpoint does not count as editing the history.
+ *
+ * The messages are the transcript's wire-shaped blocks, sent back as they
+ * came (thinking signatures included); only the PHP SDK's key names and
+ * the `{}` of an empty tool input, which the session's JSON turns into
+ * `[]`, are restored here.
  *
  * The SDK leaves the timeout to the HTTP client, so the client is a Guzzle
  * one with `assistant.timeout` seconds; one retry on the errors the SDK
@@ -31,6 +45,13 @@ class AnthropicModel implements AssistantModel
     public const CONNECT_TIMEOUT = 10;
 
     public const MAX_RETRIES = 1;
+
+    /** Wire keys of message blocks the PHP SDK spells differently. */
+    private const PARAM_KEYS = [
+        'tool_use_id' => 'toolUseID',
+        'is_error' => 'isError',
+        'cache_control' => 'cacheControl',
+    ];
 
     public function __construct(
         private readonly ?string $apiKey,
@@ -47,16 +68,17 @@ class AnthropicModel implements AssistantModel
         try {
             $message = $this->client()->messages->create(
                 maxTokens: $request->maxTokens,
-                messages: array_map(self::message(...), $request->messages),
+                messages: self::messages($request->messages),
                 model: $request->model,
                 outputConfig: ['effort' => $request->effort],
-                system: self::system($request->system),
-                // On Opus 5.5 omitting it is the same; the fallback model may need it said.
+                system: [['type' => 'text', 'text' => $request->system, 'cacheControl' => ['type' => 'ephemeral']]],
+                // Omitting it is the same on the 5.5 models; the fallback may need it said.
                 thinking: ['type' => 'adaptive'],
                 tools: $request->tools === [] ? null : array_map(fn (array $tool) => [
                     'name' => $tool['name'],
                     'description' => $tool['description'],
                     'inputSchema' => $tool['inputSchema'],
+                    ...(($tool['strict'] ?? false) === true ? ['strict' => true] : []),
                 ], $request->tools),
             );
         } catch (AnthropicException $e) {
@@ -81,55 +103,66 @@ class AnthropicModel implements AssistantModel
     }
 
     /**
-     * @param  list<string>  $blocks
+     * The transcript in the SDK's shape, with the moving cache breakpoint
+     * on the last block of the latest user message.
+     *
+     * @param  list<array{role: string, content: list<array<string, mixed>>}>  $messages
      * @return list<array<string, mixed>>
      */
-    private static function system(array $blocks): array
+    private static function messages(array $messages): array
     {
-        $system = [];
+        $latestUser = null;
 
-        foreach (array_values($blocks) as $index => $text) {
-            $block = ['type' => 'text', 'text' => $text];
-
-            // The stable instructions: the prefix (tools + this block) is cached.
-            if ($index === 0) {
-                $block['cacheControl'] = ['type' => 'ephemeral'];
+        foreach ($messages as $index => $message) {
+            if ($message['role'] === 'user' && $message['content'] !== []) {
+                $latestUser = $index;
             }
-
-            $system[] = $block;
         }
 
-        return $system;
+        $params = [];
+
+        foreach ($messages as $index => $message) {
+            $blocks = array_map(self::block(...), $message['content']);
+
+            if ($index === $latestUser) {
+                $blocks[array_key_last($blocks)]['cacheControl'] = ['type' => 'ephemeral'];
+            }
+
+            $params[] = ['role' => $message['role'], 'content' => $blocks];
+        }
+
+        return $params;
     }
 
     /**
-     * App\Assistant\Model\ModelRequest's messages in the SDK's shape.
-     *
-     * @param  array<string, mixed>  $message
+     * @param  array<string, mixed>  $block
      * @return array<string, mixed>
      */
-    private static function message(array $message): array
+    private static function block(array $block): array
     {
-        if (isset($message['turn']) && $message['turn'] instanceof ModelTurn) {
-            return ['role' => 'assistant', 'content' => $message['turn']->content];
+        $param = [];
+
+        foreach ($block as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $param[self::PARAM_KEYS[$key] ?? $key] = $value;
         }
 
-        if (isset($message['toolResults'])) {
-            return ['role' => 'user', 'content' => array_map(fn (array $result) => [
-                'type' => 'tool_result',
-                'toolUseID' => $result['id'],
-                'content' => $result['content'],
-                'isError' => $result['isError'],
-            ], $message['toolResults'])];
+        // The session's JSON keeps {} as []: the API wants an object.
+        if (($param['type'] ?? null) === 'tool_use' && ($param['input'] ?? null) === []) {
+            $param['input'] = new stdClass;
         }
 
-        return ['role' => $message['role'], 'content' => (string) $message['content']];
+        return $param;
     }
 
     private static function turn(Message $message, string $requested): ModelTurn
     {
         $text = [];
         $calls = [];
+        $content = [];
 
         foreach ($message->content as $block) {
             if ($block instanceof ToolUseBlock) {
@@ -137,6 +170,9 @@ class AnthropicModel implements AssistantModel
             } elseif ($block->type === 'text') {
                 $text[] = $block->text;
             }
+
+            // The wire shape, lossless (an empty thinking text and its signature too).
+            $content[] = json_decode(json_encode($block, JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
         }
 
         $usage = $message->usage;
@@ -145,10 +181,12 @@ class AnthropicModel implements AssistantModel
             stopReason: (string) ($message->stopReason ?? 'end_turn'),
             text: trim(implode("\n\n", $text)),
             toolCalls: $calls,
-            inputTokens: $usage->inputTokens + ($usage->cacheReadInputTokens ?? 0) + ($usage->cacheCreationInputTokens ?? 0),
+            inputTokens: $usage->inputTokens,
             outputTokens: $usage->outputTokens,
             model: $message->model ?: $requested,
-            content: $message->content,
+            content: $content,
+            cacheCreationInputTokens: (int) ($usage->cacheCreationInputTokens ?? 0),
+            cacheReadInputTokens: (int) ($usage->cacheReadInputTokens ?? 0),
         );
     }
 

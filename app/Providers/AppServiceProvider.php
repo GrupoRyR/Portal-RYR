@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Assistant\AssistantSettings;
+use App\Assistant\Console\AssistantUsageCommand;
 use App\Assistant\Model\AnthropicModel;
 use App\Assistant\Model\AssistantModel;
 use App\Backups\RecordBackupOutcome;
@@ -87,6 +88,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // `portal:assistant-usage` (App\Assistant\Console): the assistant's consumption report.
+        if ($this->app->runningInConsole()) {
+            $this->commands([AssistantUsageCommand::class]);
+        }
+
         // HTTPS is mandatory in production: generated URLs, redirects and
         // asset links must never fall back to plain http.
         if ($this->app->environment('production')) {

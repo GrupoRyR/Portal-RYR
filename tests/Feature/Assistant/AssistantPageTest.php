@@ -126,7 +126,8 @@ class AssistantPageTest extends TestCase
 
         $this->ask('  ¿Qué tengo pendiente?  ')->assertRedirect(route('assistant.show').'#respuesta');
 
-        $this->assertSame([['role' => 'user', 'content' => '¿Qué tengo pendiente?']], $this->model->requests[0]->messages);
+        $this->assertCount(1, $this->model->requests[0]->messages);
+        $this->assertSame(['type' => 'text', 'text' => '¿Qué tengo pendiente?'], $this->model->requests[0]->messages[0]['content'][1]);
         $this->actingAs($this->user)->get(route('assistant.show'))
             ->assertOk()
             ->assertSeeText('¿Qué tengo pendiente?')
@@ -184,7 +185,7 @@ class AssistantPageTest extends TestCase
             ->assertSessionHasErrors(['pregunta' => Assistant::UNAVAILABLE])
             ->assertSessionHasInput('pregunta', '¿Qué tengo?');
 
-        $this->assertSame([], (new Conversation(session()->driver(), $this->user, 10))->turns());
+        $this->assertSame([], (new Conversation(session()->driver(), $this->user))->turns());
         $this->assertSame('timeout', Activity::query()->where('event', AssistantLog::ASKED)->sole()->properties['error']);
     }
 
@@ -194,11 +195,11 @@ class AssistantPageTest extends TestCase
         $this->ask('P1');
         $this->ask('P2');
 
-        $this->assertSame([
-            ['role' => 'user', 'content' => 'P1'],
-            ['role' => 'assistant', 'content' => 'R1'],
-            ['role' => 'user', 'content' => 'P2'],
-        ], $this->model->requests[1]->messages);
+        $messages = $this->model->requests[1]->messages;
+        $this->assertSame(['user', 'assistant', 'user'], array_column($messages, 'role'));
+        $this->assertSame('P1', $messages[0]['content'][1]['text']);
+        $this->assertSame('R1', $messages[1]['content'][1]['text']);
+        $this->assertSame('P2', $messages[2]['content'][1]['text']);
 
         $this->actingAs($this->user)->post(route('assistant.clear'))->assertRedirect(route('assistant.show'));
         $this->actingAs($this->user)->get(route('assistant.show'))
@@ -217,6 +218,32 @@ class AssistantPageTest extends TestCase
             ->assertOk()
             ->assertDontSeeText('Pregunta de Jhon')
             ->assertDontSeeText('Respuesta para Jhon');
+    }
+
+    public function test_a_full_conversation_offers_a_new_one_and_never_calls_the_model(): void
+    {
+        config(['assistant.conversation_turns' => 1]);
+        $this->model->answers('R1');
+        $this->ask('P1');
+
+        $this->ask('P2')->assertSessionHasErrors(['pregunta' => 'Esta conversación está llena. Empieza una «Nueva conversación» para seguir preguntando.']);
+
+        $this->assertCount(1, $this->model->requests);
+        $this->actingAs($this->user)->get(route('assistant.show'))
+            ->assertSeeText('Esta conversación llegó a su límite de 1 preguntas.')
+            ->assertSeeText('Nueva conversación');
+    }
+
+    public function test_a_role_change_starts_a_new_conversation_with_a_notice(): void
+    {
+        $this->model->answers('R1');
+        $this->ask('P1');
+        $this->user->assignRole('announcements_editor');
+        $this->user = $this->user->fresh();
+
+        $this->actingAs($this->user)->get(route('assistant.show'))
+            ->assertSeeText('Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.')
+            ->assertDontSeeText('R1');
     }
 
     public function test_signing_out_ends_the_conversation(): void

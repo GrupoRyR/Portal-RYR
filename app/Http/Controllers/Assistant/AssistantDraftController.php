@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Assistant;
 use App\Announcements\AnnouncementListEmails;
 use App\Announcements\AnnouncementPublisher;
 use App\Assistant\AssistantLog;
-use App\Assistant\AssistantSettings;
 use App\Assistant\AssistantSwitch;
 use App\Assistant\Conversation;
 use App\Http\Controllers\Controller;
@@ -35,7 +34,6 @@ class AssistantDraftController extends Controller
     public function publish(
         Request $request,
         AssistantSwitch $switch,
-        AssistantSettings $settings,
         AnnouncementPublisher $publisher,
         AnnouncementListEmails $listEmails,
     ): RedirectResponse {
@@ -43,7 +41,7 @@ class AssistantDraftController extends Controller
 
         /** @var User $user */
         $user = $request->user();
-        $conversation = new Conversation($request->session(), $user, $settings->historyTurns);
+        $conversation = new Conversation($request->session(), $user);
 
         abort_if($conversation->draft() === null, 404);
         Gate::authorize('create', Announcement::class);
@@ -97,13 +95,13 @@ class AssistantDraftController extends Controller
             ->with('published', $announcement->id);
     }
 
-    public function discard(Request $request, AssistantSwitch $switch, AssistantSettings $settings): RedirectResponse
+    public function discard(Request $request, AssistantSwitch $switch): RedirectResponse
     {
         abort_unless($switch->enabled(), 404);
 
         /** @var User $user */
         $user = $request->user();
-        (new Conversation($request->session(), $user, $settings->historyTurns))->forgetDraft();
+        (new Conversation($request->session(), $user))->forgetDraft();
 
         return redirect()->route('assistant.show')->with('status', 'Descartaste el borrador.');
     }

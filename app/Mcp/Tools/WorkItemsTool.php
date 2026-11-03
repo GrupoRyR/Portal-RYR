@@ -43,7 +43,7 @@ abstract class WorkItemsTool extends PortalTool
         $entries = [];
 
         foreach ($accounts as $account) {
-            foreach ($this->soonestFirst(WorkItem::query()->visibleTo($account))->where('kind', $this->kind())->limit(self::LIMIT)->get(['id', 'title', 'due_at', 'url']) as $item) {
+            foreach ($this->soonestFirst(WorkItem::query()->visibleTo($account))->where('kind', $this->kind())->limit($this->rows(self::LIMIT))->get(['id', 'title', 'due_at', 'url']) as $item) {
                 $entries[] = ['item' => $item, 'account' => $account];
             }
         }
@@ -53,8 +53,8 @@ abstract class WorkItemsTool extends PortalTool
             <=> [$b['item']->due_at === null, $b['item']->due_at, $b['item']->id]);
 
         return Response::structured([
-            $this->key() => array_map(fn (array $entry) => self::present($entry['item'], $entry['account']), array_slice($entries, 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            $this->key() => array_map(fn (array $entry) => self::present($entry['item'], $entry['account']), array_slice($entries, 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

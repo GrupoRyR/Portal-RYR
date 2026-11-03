@@ -46,7 +46,7 @@ class AnunciosPendientes extends PortalTool
                 ->unreadByPersonOf($account)
                 ->orderByDesc('starts_at')
                 ->orderByDesc('id')
-                ->limit(self::LIMIT)
+                ->limit($this->rows(self::LIMIT))
                 ->get();
 
             foreach ($pending as $announcement) {
@@ -65,8 +65,8 @@ class AnunciosPendientes extends PortalTool
                 'publicado' => self::iso($entry['item']->starts_at),
                 'publicado_texto' => self::momentLabel($entry['item']->starts_at),
                 'url' => route('announcements.show', $entry['item']->id),
-            ], array_slice($entries, 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            ], array_slice($entries, 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

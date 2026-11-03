@@ -8,13 +8,19 @@ use Illuminate\Contracts\Session\Session;
 
 /**
  * The conversation of one account, kept in its session only (never in the
- * database): the questions and the answers' text, the newest
- * {@see AssistantSettings::$historyTurns} of them, and the last proposed
- * announcement draft.
+ * database):
  *
- * Signing out and switching accounts invalidate the session
- * (LogoutController, MicrosoftLoginController), so it goes with it. It is
- * also stored with the account's id and ignored for any other account.
+ * - the transcript sent to the model, APPEND-ONLY: every user message and
+ *   every model turn exactly as the API returned it (thinking blocks and
+ *   their signatures included), never trimmed, summarized or rewritten;
+ * - the plan's fingerprint and model it started with (App\Assistant\ConversationPlan);
+ * - the questions and answers' text, for the page;
+ * - the last proposed announcement draft.
+ *
+ * When it is full (turns or size), the page offers «Nueva conversación»
+ * instead of cutting old messages. Signing out and switching accounts
+ * invalidate the session (LogoutController, MicrosoftLoginController); it
+ * is also stored with the account's id and ignored for any other account.
  */
 final class Conversation
 {
@@ -25,52 +31,103 @@ final class Conversation
     public function __construct(
         private readonly Session $session,
         private readonly User $user,
-        private readonly int $maxTurns,
     ) {}
+
+    /**
+     * @return array{user_id: mixed, fingerprint: string, model: string, transcript: list<array<string, mixed>>, turns: list<array{question: string, answer: string}>}|null
+     */
+    private function state(): ?array
+    {
+        $stored = $this->session->get(self::KEY);
+
+        return is_array($stored)
+            && ($stored['user_id'] ?? null) === $this->user->getKey()
+            && is_string($stored['fingerprint'] ?? null)
+            && is_string($stored['model'] ?? null)
+            && is_array($stored['transcript'] ?? null)
+            && is_array($stored['turns'] ?? null)
+            ? $stored
+            : null;
+    }
+
+    public function exists(): bool
+    {
+        return $this->state() !== null;
+    }
+
+    public function fingerprint(): ?string
+    {
+        return $this->state()['fingerprint'] ?? null;
+    }
+
+    public function model(): ?string
+    {
+        return $this->state()['model'] ?? null;
+    }
+
+    /**
+     * Starts an empty conversation frozen with this plan (the draft goes too).
+     */
+    public function begin(ConversationPlan $plan): void
+    {
+        $this->session->forget(self::DRAFT_KEY);
+        $this->session->put(self::KEY, [
+            'user_id' => $this->user->getKey(),
+            'fingerprint' => $plan->fingerprint(),
+            'model' => $plan->model,
+            'transcript' => [],
+            'turns' => [],
+        ]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function transcript(): array
+    {
+        return array_values($this->state()['transcript'] ?? []);
+    }
 
     /**
      * @return list<array{question: string, answer: string}>
      */
     public function turns(): array
     {
-        $stored = $this->session->get(self::KEY);
-
-        if (! is_array($stored) || ($stored['user_id'] ?? null) !== $this->user->getKey() || ! is_array($stored['turns'] ?? null)) {
-            return [];
-        }
-
         return array_values(array_filter(
-            $stored['turns'],
+            $this->state()['turns'] ?? [],
             fn (mixed $turn) => is_array($turn) && is_string($turn['question'] ?? null) && is_string($turn['answer'] ?? null),
         ));
     }
 
     /**
-     * The past turns as model messages: plain text only (no tool results,
-     * no thinking), so nothing of an earlier question is replayed.
+     * Appends one question: its messages go at the end of the transcript,
+     * nothing before them changes.
      *
-     * @return list<array{role: string, content: string}>
+     * @param  list<array<string, mixed>>  $messages
      */
-    public function messages(): array
+    public function append(string $question, string $answer, array $messages): void
     {
-        $messages = [];
+        $state = $this->state();
 
-        foreach ($this->turns() as $turn) {
-            $messages[] = ['role' => 'user', 'content' => $turn['question']];
-            $messages[] = ['role' => 'assistant', 'content' => $turn['answer']];
+        if ($state === null) {
+            return;
         }
 
-        return $messages;
+        $state['transcript'] = [...array_values($state['transcript']), ...$messages];
+        $state['turns'] = [...array_values($state['turns']), ['question' => $question, 'answer' => $answer]];
+
+        $this->session->put(self::KEY, $state);
     }
 
-    public function add(string $question, string $answer): void
+    /**
+     * No room for another question: the history is never cut.
+     */
+    public function isFull(int $maxTurns, int $maxBytes): bool
     {
-        $turns = [...$this->turns(), ['question' => $question, 'answer' => $answer]];
+        $state = $this->state();
 
-        $this->session->put(self::KEY, [
-            'user_id' => $this->user->getKey(),
-            'turns' => array_slice($turns, -$this->maxTurns),
-        ]);
+        return $state !== null
+            && (count($state['turns']) >= $maxTurns || strlen((string) json_encode($state['transcript'])) >= $maxBytes);
     }
 
     public function draft(): ?AnnouncementDraft

@@ -20,9 +20,24 @@
                class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
     </label>
 
+    <dl class="grid gap-x-4 gap-y-1 text-sm">
+        <dt class="pt-1 font-semibold">Personas que preguntan</dt>
+        <dd class="break-all">{{ $settings->model }}</dd>
+        <dt class="pt-1 font-semibold">Editores de anuncios</dt>
+        <dd class="break-all">{{ $settings->editorModel }}</dd>
+        <dt class="pt-1 font-semibold">Respaldo (solo si el modelo no quiere responder)</dt>
+        <dd class="break-all">{{ $settings->fallbackModel ?? 'Ninguno' }}</dd>
+        <dt class="pt-1 font-semibold">Gasto de este mes</dt>
+        <dd>US$ {{ number_format($spent, 2, ',', '.') }} de US$ {{ number_format($budget, 2, ',', '.') }} ({{ number_format($percent, 0, ',', '.') }} %)</dd>
+    </dl>
+
     <p class="{{ $hint }}">
-        Modelo: {{ $model }} · hasta {{ $dailyQuestions }} preguntas por persona al día. Solo lee lo que cada cuenta ya ve; cada pregunta queda en Auditoría, sin su texto.
+        Hasta {{ $settings->dailyQuestions }} preguntas por persona al día y {{ $settings->conversationTurns }} por conversación. Solo lee lo que cada cuenta ya ve; cada pregunta queda en Auditoría con sus tokens y su costo, sin su texto. El presupuesto se cambia en el servidor (ASSISTANT_MONTHLY_BUDGET_USD).
     </p>
+
+    @if ($percent >= 100)
+        <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">Se alcanzó el presupuesto del mes: el asistente no responde hasta el 1.º del próximo mes.</p>
+    @endif
 
     @unless ($deployed)
         <p class="rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">PORTAL_ASSISTANT_ENABLED está apagado en el servidor: el asistente sigue apagado aunque este interruptor esté encendido.</p>

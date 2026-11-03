@@ -39,26 +39,41 @@ abstract class PortalTool extends Tool
      */
     private ?Collection $readingFor = null;
 
+    /** The row cap {@see readFor()} reads with, below the tool's own limit. */
+    private ?int $rowCap = null;
+
     abstract public function handle(Request $request): Response|ResponseFactory;
 
     /**
      * Runs the tool, outside the connector, for exactly these accounts
      * (the portal assistant passes the signed-in account alone): the same
-     * handle(), so the same visibility rules, limits and input rules.
+     * handle(), so the same visibility rules and input rules. `$rows` caps
+     * the rows it reads and returns (never above the tool's own limit), in
+     * the queries themselves: nothing is cut afterwards.
      * Bad input throws the ValidationException of the input rules.
      *
      * @param  Collection<int, User>  $accounts
      * @param  array<string, mixed>  $arguments
      */
-    public function readFor(Collection $accounts, array $arguments = []): Response|ResponseFactory
+    public function readFor(Collection $accounts, array $arguments = [], ?int $rows = null): Response|ResponseFactory
     {
         $this->readingFor = $accounts->values();
+        $this->rowCap = $rows;
 
         try {
             return $this->handle(new Request($arguments));
         } finally {
             $this->readingFor = null;
+            $this->rowCap = null;
         }
+    }
+
+    /**
+     * The tool's row limit, or the lower cap of {@see readFor()}.
+     */
+    protected function rows(int $limit): int
+    {
+        return $this->rowCap === null ? $limit : max(1, min($limit, $this->rowCap));
     }
 
     /**

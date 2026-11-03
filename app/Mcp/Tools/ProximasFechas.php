@@ -71,7 +71,7 @@ class ProximasFechas extends PortalTool
         }
 
         foreach ($accounts as $account) {
-            $events = Event::visibleSoonest($account, self::LIMIT, ['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'repeats_yearly']);
+            $events = Event::visibleSoonest($account, $this->rows(self::LIMIT), ['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'repeats_yearly']);
 
             foreach (EventDate::soonestFirst($events, $today) as $event) {
                 if ($event->start < $last->addDay()) {
@@ -86,9 +86,9 @@ class ProximasFechas extends PortalTool
         return Response::structured([
             'fechas' => array_map(
                 fn (array $entry) => self::describe($entry['item'], $entry['companies'], $today),
-                array_slice($entries, 0, self::LIMIT),
+                array_slice($entries, 0, $this->rows(self::LIMIT)),
             ),
-            'limite' => self::LIMIT,
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

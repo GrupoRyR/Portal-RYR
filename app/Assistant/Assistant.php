@@ -2,6 +2,7 @@
 
 namespace App\Assistant;
 
+use App\Assistant\Budget\AssistantBudget;
 use App\Assistant\Model\AssistantModel;
 use App\Assistant\Model\ModelRequest;
 use App\Assistant\Model\ModelTurn;
@@ -11,20 +12,28 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 
 /**
- * Answers one question of the signed-in account:
+ * Answers one question of the signed-in account.
  *
- * 1. sends the session's past turns (text only) and the question, with the
- *    tools that account gets (App\Assistant\AssistantTools);
- * 2. while the model asks for tools, runs them for that account and sends
- *    the results back, at most {@see AssistantSettings::$maxToolRounds}
- *    rounds;
- * 3. when the main model ends with `refusal`, sends the same request to
- *    the fallback model once and goes on with it for the rest of the
- *    question; a second refusal is the answer {@see REFUSED};
- * 4. audits the question (App\Assistant\AssistantLog), never its text.
+ * The conversation is frozen with its plan (App\Assistant\ConversationPlan:
+ * model, effort, static system prompt, tools) and its transcript is
+ * append-only: the question goes at the end, with the context block in
+ * the user turn, and every model turn is kept exactly as returned. While
+ * the model asks for tools, they run for that account and their results go
+ * back, at most {@see AssistantSettings::$maxToolRounds} rounds.
  *
- * A model that cannot answer (ModelUnavailable) gives {@see UNAVAILABLE},
- * audited with its reason. The session is the caller's.
+ * What is kept when a question ends:
+ * - an answer: the question and all its turns;
+ * - an answer cut by max_tokens, or a tool loop that does not stop: the
+ *   complete turns, then the message for the page as a plain assistant
+ *   turn (an unfinished tool call is never kept: it would need a result);
+ * - `refusal`: the question is asked again as a NEW request to the
+ *   fallback model, with the conversation as plain text (its thinking
+ *   context is lost); only the question and that answer's text are kept,
+ *   so the conversation's model never changes;
+ * - a model that cannot answer: nothing (the page keeps the question).
+ *
+ * Each question is audited (App\Assistant\AssistantLog) with its usage and
+ * cost, never its text, and may trigger the monthly budget alerts.
  */
 class Assistant
 {
@@ -34,81 +43,125 @@ class Assistant
 
     public const TOO_MANY_ROUNDS = 'No alcancé a terminar de buscar. Intenta con una pregunta más concreta.';
 
+    public const TRUNCATED = 'La respuesta era demasiado larga y se cortó. Intenta con una pregunta más concreta.';
+
     public const EMPTY = 'No tengo una respuesta para eso. Intenta preguntarlo de otra forma.';
 
     public function __construct(
         private readonly AssistantModel $model,
         private readonly AssistantTools $tools,
         private readonly AssistantSettings $settings,
+        private readonly AssistantBudget $budget,
     ) {}
+
+    public function plan(User $user): ConversationPlan
+    {
+        return ConversationPlan::for($user, $this->settings, $this->tools);
+    }
+
+    /**
+     * Starts a conversation when there is none, or a new one when the
+     * current one was frozen with another plan (role, model, effort or
+     * tools changed). True when an existing conversation was replaced.
+     */
+    public function sync(User $user, Conversation $conversation): bool
+    {
+        $plan = $this->plan($user);
+
+        if ($conversation->fingerprint() === $plan->fingerprint()) {
+            return false;
+        }
+
+        $replaced = $conversation->exists();
+        $conversation->begin($plan);
+
+        return $replaced;
+    }
 
     public function ask(User $user, Conversation $conversation, string $question): Answer
     {
-        $answer = $this->answer($user, $conversation, $question);
+        $this->sync($user, $conversation);
+        $plan = $this->plan($user);
+
+        $message = ['role' => 'user', 'content' => [
+            ['type' => 'text', 'text' => SystemPrompt::context($user, $plan->editor, CarbonImmutable::now())],
+            ['type' => 'text', 'text' => $question],
+        ]];
+
+        $usage = new Usage;
+        $run = $this->run($user, $plan, $plan->model, [...$conversation->transcript(), $message], $usage);
+        $fallback = false;
+
+        if ($run->status === Run::REFUSED && ($fallbackModel = $this->settings->fallbackFor($plan->model)) !== null) {
+            $fallback = true;
+            $fresh = [...self::plainHistory($conversation), $message];
+            $run = $this->run($user, $plan, $fallbackModel, $fresh, $usage)->asFallback($run);
+        }
+
+        $answer = new Answer(
+            text: $run->text,
+            model: $run->model,
+            usage: $usage,
+            tools: array_values(array_unique($run->tools)),
+            toolCalls: count($run->tools),
+            fallback: $fallback,
+            refused: $run->status === Run::REFUSED,
+            truncated: $run->status === Run::TRUNCATED,
+            error: $run->error,
+            draft: $run->draft,
+        );
+
+        if (! $answer->failed()) {
+            $kept = $fallback || $run->status === Run::REFUSED
+                ? [$message, self::assistantText($run->text)]
+                : [$message, ...$run->kept];
+            $conversation->append($question, $answer->text, $kept);
+        }
 
         AssistantLog::asked($user, $answer);
+        $this->budget->alertIfNeeded();
 
         return $answer;
     }
 
-    private function answer(User $user, Conversation $conversation, string $question): Answer
+    /**
+     * One model's tool loop over $messages.
+     *
+     * @param  list<array<string, mixed>>  $messages
+     */
+    private function run(User $user, ConversationPlan $plan, string $model, array $messages, Usage $usage): Run
     {
-        $model = $this->settings->model;
-        $system = SystemPrompt::for($user, CarbonImmutable::now());
-        $tools = $this->tools->definitions($user);
-        $messages = [...$conversation->messages(), ['role' => 'user', 'content' => $question]];
-
-        $used = [];
-        $calls = 0;
+        $run = new Run($model);
         $rounds = 0;
-        $input = 0;
-        $output = 0;
-        $fallback = false;
-        $draft = null;
-
-        // By reference: the counters as they are when the question ends.
-        $finish = function (string $text, string $answeredBy, bool $refused = false, ?string $error = null) use (&$used, &$calls, &$input, &$output, &$fallback, &$draft): Answer {
-            return new Answer(
-                text: $text,
-                model: $answeredBy,
-                tools: array_values(array_unique($used)),
-                toolCalls: $calls,
-                inputTokens: $input,
-                outputTokens: $output,
-                fallback: $fallback,
-                refused: $refused,
-                error: $error,
-                draft: $draft,
-            );
-        };
 
         while (true) {
             try {
-                $turn = $this->model->send(new ModelRequest($model, $this->settings->effort, $this->settings->maxTokens, $system, $tools, $messages));
+                $turn = $this->model->send(new ModelRequest($model, $plan->effort, $plan->maxTokens, $plan->system, $plan->tools, $messages));
             } catch (ModelUnavailable $unavailable) {
-                return $finish(self::UNAVAILABLE, $model, error: $unavailable->reason);
+                return $run->ends(Run::FAILED, self::UNAVAILABLE, error: $unavailable->reason);
             }
 
-            $input += $turn->inputTokens;
-            $output += $turn->outputTokens;
+            $usage->add($turn, $model);
+            $run->model = $turn->model;
 
             if ($turn->stopReason === ModelTurn::REFUSAL) {
-                if (! $fallback && $this->settings->fallbackModel !== null) {
-                    $fallback = true;
-                    $model = $this->settings->fallbackModel;
+                return $run->ends(Run::REFUSED, self::REFUSED);
+            }
 
-                    continue;
-                }
+            if ($turn->stopReason === ModelTurn::MAX_TOKENS) {
+                $text = ($turn->text !== '' ? $turn->text."\n\n" : '').self::TRUNCATED;
 
-                return $finish(self::REFUSED, $turn->model, refused: true);
+                return $turn->toolCalls === []
+                    ? $run->ends(Run::TRUNCATED, $text, [$turn->message()])
+                    : $run->ends(Run::TRUNCATED, $text, [self::assistantText($text)]);
             }
 
             if ($turn->stopReason !== ModelTurn::TOOL_USE || $turn->toolCalls === []) {
-                return $finish($turn->text !== '' ? $turn->text : self::EMPTY, $turn->model);
+                return $run->ends(Run::ANSWERED, $turn->text !== '' ? $turn->text : self::EMPTY, [$turn->message()]);
             }
 
             if ($rounds >= $this->settings->maxToolRounds) {
-                return $finish(self::TOO_MANY_ROUNDS, $turn->model);
+                return $run->ends(Run::TOO_MANY, self::TOO_MANY_ROUNDS, [self::assistantText(self::TOO_MANY_ROUNDS)]);
             }
 
             $rounds++;
@@ -116,14 +169,39 @@ class Assistant
 
             foreach ($turn->toolCalls as $call) {
                 $outcome = $this->tools->run($user, $call->name, $call->input);
-                $used[] = $call->name;
-                $calls++;
-                $draft = $outcome->draft instanceof AnnouncementDraft ? $outcome->draft : $draft;
-                $results[] = ['id' => $call->id, 'content' => $outcome->content, 'isError' => $outcome->isError];
+                $run->tools[] = $call->name;
+                $run->draft = $outcome->draft instanceof AnnouncementDraft ? $outcome->draft : $run->draft;
+                $results[] = ['type' => 'tool_result', 'tool_use_id' => $call->id, 'content' => $outcome->content, 'is_error' => $outcome->isError];
             }
 
-            $messages[] = ['role' => 'assistant', 'turn' => $turn];
-            $messages[] = ['role' => 'user', 'toolResults' => $results];
+            $step = [$turn->message(), ['role' => 'user', 'content' => $results]];
+            $run->kept = [...$run->kept, ...$step];
+            $messages = [...$messages, ...$step];
         }
+    }
+
+    /**
+     * The conversation as plain text, for a fresh request on another model.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function plainHistory(Conversation $conversation): array
+    {
+        $messages = [];
+
+        foreach ($conversation->turns() as $turn) {
+            $messages[] = ['role' => 'user', 'content' => [['type' => 'text', 'text' => $turn['question']]]];
+            $messages[] = self::assistantText($turn['answer']);
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @return array{role: string, content: list<array{type: string, text: string}>}
+     */
+    private static function assistantText(string $text): array
+    {
+        return ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => $text]]];
     }
 }

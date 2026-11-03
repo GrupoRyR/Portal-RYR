@@ -47,7 +47,7 @@ class AnunciosRecientes extends PortalTool
                 ->withReadAtFor($account)
                 ->visibleTo($account)
                 ->ordered()
-                ->limit(self::LIMIT)
+                ->limit($this->rows(self::LIMIT))
                 ->get();
 
             foreach ($announcements as $announcement) {
@@ -73,8 +73,8 @@ class AnunciosRecientes extends PortalTool
                 // The portal keeps a read state only for mandatory ones.
                 'leido' => $entry['item']->requires_read ? $entry['item']->viewer_read_at !== null : null,
                 'url' => route('announcements.show', $entry['item']->id),
-            ], array_slice($entries, 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            ], array_slice($entries, 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

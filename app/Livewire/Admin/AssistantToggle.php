@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Admin;
 
+use App\Assistant\AssistantSettings;
 use App\Assistant\AssistantSwitch;
+use App\Assistant\Budget\AssistantBudget;
 use App\Models\User;
 use App\Policies\AdminSections;
 use Illuminate\Contracts\View\View;
@@ -60,15 +62,18 @@ class AssistantToggle extends Component
         };
     }
 
-    public function render(AssistantSwitch $switch): View
+    public function render(AssistantSwitch $switch, AssistantSettings $settings, AssistantBudget $budget): View
     {
         $this->authorize(AdminSections::SETTINGS);
+        $spent = $budget->spentThisMonth();
 
         return view('livewire.admin.assistant-toggle', [
             'deployed' => $switch->deployed(),
             'configured' => $switch->configured(),
-            'model' => (string) config('assistant.model'),
-            'dailyQuestions' => (int) config('assistant.daily_questions'),
+            'settings' => $settings,
+            'spent' => $spent,
+            'budget' => $budget->limit(),
+            'percent' => $budget->percent($spent),
         ]);
     }
 }

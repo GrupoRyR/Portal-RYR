@@ -13,13 +13,15 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 
 /**
  * The SDK implementation of the assistant's model, against a mocked HTTP
- * client (Guzzle's MockHandler): what goes on the wire and how the answer
- * is read back. No request ever leaves the machine.
+ * client (Guzzle's MockHandler): what goes on the wire (cache breakpoints,
+ * thinking, effort, the transcript sent back byte for byte) and how the
+ * answer is read back. No request ever leaves the machine.
  */
 class AnthropicModelTest extends TestCase
 {
@@ -40,32 +42,40 @@ class AnthropicModelTest extends TestCase
     /**
      * @param  list<array<string, mixed>>  $messages
      */
-    private function request(array $messages = [['role' => 'user', 'content' => '¿Qué tareas tengo?']]): ModelRequest
+    private function request(array $messages = [], string $model = 'claude-haiku-5-5'): ModelRequest
     {
         return new ModelRequest(
-            model: 'claude-opus-5-5',
+            model: $model,
             effort: 'low',
-            maxTokens: 16000,
-            system: ['Instrucciones estables.', 'Hoy es martes.'],
-            tools: [[
-                'name' => 'mis_tareas',
-                'description' => 'Las tareas pendientes.',
-                'inputSchema' => ['type' => 'object', 'properties' => (object) []],
-            ]],
-            messages: $messages,
+            maxTokens: 2000,
+            system: 'Instrucciones estables.',
+            tools: [
+                ['name' => 'mis_tareas', 'description' => 'Las tareas pendientes.', 'inputSchema' => ['type' => 'object', 'properties' => (object) []]],
+                ['name' => 'borrador_de_anuncio', 'description' => 'Propone.', 'inputSchema' => ['type' => 'object', 'properties' => ['titulo' => ['type' => 'string']], 'required' => ['titulo'], 'additionalProperties' => false], 'strict' => true],
+            ],
+            messages: $messages ?: [self::question('¿Qué tareas tengo?')],
         );
     }
 
     /**
-     * @param  list<array<string, mixed>>  $content
+     * @return array{role: string, content: list<array<string, mixed>>}
      */
-    private static function answer(array $content, string $stopReason, array $usage = ['input_tokens' => 100, 'output_tokens' => 20]): Response
+    private static function question(string $text): array
+    {
+        return ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Contexto: hoy.'], ['type' => 'text', 'text' => $text]]];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $content
+     * @param  array<string, int>  $usage
+     */
+    private static function answer(array $content, string $stopReason, array $usage = ['input_tokens' => 100, 'output_tokens' => 20], string $model = 'claude-haiku-5-5'): Response
     {
         return new Response(200, ['Content-Type' => 'application/json', 'request-id' => 'req_1'], json_encode([
             'id' => 'msg_1',
             'type' => 'message',
             'role' => 'assistant',
-            'model' => 'claude-opus-5-5',
+            'model' => $model,
             'content' => $content,
             'stop_reason' => $stopReason,
             'stop_sequence' => null,
@@ -81,22 +91,29 @@ class AnthropicModelTest extends TestCase
         return json_decode((string) $this->sent[$index]['request']->getBody(), true, flags: JSON_THROW_ON_ERROR);
     }
 
-    public function test_it_sends_the_configured_request_and_reads_tool_calls_and_usage(): void
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function toolTurn(): array
     {
-        $turn = $this->model([self::answer([
+        return [
             ['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-1'],
             ['type' => 'text', 'text' => 'Voy a mirar.'],
             ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'mis_tareas', 'input' => (object) [], 'caller' => ['type' => 'direct']],
-        ], 'tool_use', ['input_tokens' => 100, 'output_tokens' => 20, 'cache_read_input_tokens' => 50, 'cache_creation_input_tokens' => 5])])
-            ->send($this->request());
+        ];
+    }
+
+    public function test_it_sends_a_cached_static_prefix_and_reads_tool_calls_and_usage(): void
+    {
+        $turn = $this->model([self::answer(self::toolTurn(), 'tool_use', [
+            'input_tokens' => 12, 'output_tokens' => 20, 'cache_read_input_tokens' => 900, 'cache_creation_input_tokens' => 50,
+        ])])->send($this->request());
 
         $this->assertSame(ModelTurn::TOOL_USE, $turn->stopReason);
         $this->assertSame('Voy a mirar.', $turn->text);
-        $this->assertCount(1, $turn->toolCalls);
         $this->assertSame(['toolu_1', 'mis_tareas', []], [$turn->toolCalls[0]->id, $turn->toolCalls[0]->name, $turn->toolCalls[0]->input]);
-        $this->assertSame(155, $turn->inputTokens);
-        $this->assertSame(20, $turn->outputTokens);
-        $this->assertSame('claude-opus-5-5', $turn->model);
+        $this->assertSame([12, 20, 50, 900], [$turn->inputTokens, $turn->outputTokens, $turn->cacheCreationInputTokens, $turn->cacheReadInputTokens]);
+        $this->assertSame('claude-haiku-5-5', $turn->model);
 
         $request = $this->sent[0]['request'];
         $this->assertSame('https://api.anthropic.com/v1/messages', (string) $request->getUri());
@@ -104,59 +121,87 @@ class AnthropicModelTest extends TestCase
         $this->assertSame('Bearer sk-ant-test', $request->getHeaderLine('Authorization'));
 
         $body = $this->body(0);
-        $this->assertSame('claude-opus-5-5', $body['model']);
-        $this->assertSame(16000, $body['max_tokens']);
+        $this->assertSame('claude-haiku-5-5', $body['model']);
+        $this->assertSame(2000, $body['max_tokens']);
         $this->assertSame(['effort' => 'low'], $body['output_config']);
         $this->assertSame(['type' => 'adaptive'], $body['thinking']);
+        $this->assertSame([['type' => 'text', 'text' => 'Instrucciones estables.', 'cache_control' => ['type' => 'ephemeral']]], $body['system']);
+        // The moving breakpoint: the last block of the latest user message.
         $this->assertSame([
-            ['type' => 'text', 'text' => 'Instrucciones estables.', 'cache_control' => ['type' => 'ephemeral']],
-            ['type' => 'text', 'text' => 'Hoy es martes.'],
-        ], $body['system']);
-        $this->assertSame([['role' => 'user', 'content' => '¿Qué tareas tengo?']], $body['messages']);
-        $this->assertSame('mis_tareas', $body['tools'][0]['name']);
-        $this->assertArrayNotHasKey('temperature', $body);
-        // An empty schema must stay a JSON object, not a list.
+            ['type' => 'text', 'text' => 'Contexto: hoy.'],
+            ['type' => 'text', 'text' => '¿Qué tareas tengo?', 'cache_control' => ['type' => 'ephemeral']],
+        ], $body['messages'][0]['content']);
+        $this->assertSame(['mis_tareas', 'borrador_de_anuncio'], array_column($body['tools'], 'name'));
+        $this->assertArrayNotHasKey('strict', $body['tools'][0]);
+        $this->assertTrue($body['tools'][1]['strict']);
+        // Each of these is a 400 on Haiku 5.5, Sonnet 5.5 or Opus 5.5.
+        foreach (['temperature', 'top_p', 'top_k', 'tool_choice'] as $forbidden) {
+            $this->assertArrayNotHasKey($forbidden, $body);
+        }
+        $this->assertArrayNotHasKey('budget_tokens', $body['thinking']);
         $this->assertStringContainsString('"properties":{}', (string) $request->getBody());
     }
 
-    public function test_the_next_call_sends_the_turn_back_verbatim_with_the_tool_results(): void
+    public function test_the_kept_turn_goes_back_byte_for_byte_after_a_json_session(): void
     {
         $model = $this->model([
-            self::answer([
-                ['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-1'],
-                ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'mis_tareas', 'input' => (object) [], 'caller' => ['type' => 'direct']],
-            ], 'tool_use'),
+            self::answer(self::toolTurn(), 'tool_use'),
             self::answer([['type' => 'text', 'text' => 'Tienes una tarea.']], 'end_turn'),
         ]);
 
         $first = $model->send($this->request());
+        // The session stores JSON: the turn must survive it.
+        $kept = json_decode(json_encode($first->message()), true);
+
         $second = $model->send($this->request([
-            ['role' => 'user', 'content' => '¿Qué tareas tengo?'],
-            ['role' => 'assistant', 'turn' => $first],
-            ['role' => 'user', 'toolResults' => [['id' => 'toolu_1', 'content' => '{"tareas":[]}', 'isError' => false]]],
+            self::question('¿Qué tareas tengo?'),
+            $kept,
+            ['role' => 'user', 'content' => [['type' => 'tool_result', 'tool_use_id' => 'toolu_1', 'content' => '{"tareas":[]}', 'is_error' => false]]],
         ]));
 
         $this->assertSame('end_turn', $second->stopReason);
         $this->assertSame('Tienes una tarea.', $second->text);
-        $this->assertSame([], $second->toolCalls);
 
-        $messages = $this->body(1)['messages'];
-        $this->assertSame('assistant', $messages[1]['role']);
-        $this->assertEquals(['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-1'], $messages[1]['content'][0]);
-        $this->assertSame('tool_use', $messages[1]['content'][1]['type']);
-        $this->assertSame('toolu_1', $messages[1]['content'][1]['id']);
+        $sentBack = $this->body(1)['messages'];
+        $original = json_decode(json_encode(self::toolTurn()), true);
+        $this->assertEquals($original, $sentBack[1]['content']);
+        $this->assertStringContainsString('"input":{}', (string) $this->sent[1]['request']->getBody());
+        // The earlier question lost its breakpoint; the tool results carry it now.
+        $this->assertArrayNotHasKey('cache_control', $sentBack[0]['content'][1]);
         $this->assertSame([
             'role' => 'user',
-            'content' => [['type' => 'tool_result', 'tool_use_id' => 'toolu_1', 'content' => '{"tareas":[]}', 'is_error' => false]],
-        ], $messages[2]);
+            'content' => [['type' => 'tool_result', 'tool_use_id' => 'toolu_1', 'content' => '{"tareas":[]}', 'is_error' => false, 'cache_control' => ['type' => 'ephemeral']]],
+        ], $sentBack[2]);
     }
 
-    public function test_a_refusal_comes_back_as_its_stop_reason(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function models(): array
     {
-        $turn = $this->model([self::answer([], 'refusal')])->send($this->request());
+        return ['reader' => ['claude-haiku-5-5'], 'editor' => ['claude-sonnet-5-5'], 'fallback' => ['claude-opus-5-5']];
+    }
 
-        $this->assertSame(ModelTurn::REFUSAL, $turn->stopReason);
-        $this->assertSame('', $turn->text);
+    #[DataProvider('models')]
+    public function test_every_model_gets_the_same_safe_request_shape(string $name): void
+    {
+        $this->model([self::answer([['type' => 'text', 'text' => 'Hola.']], 'end_turn', model: $name)])->send($this->request(model: $name));
+
+        $body = $this->body(0);
+        $this->assertSame($name, $body['model']);
+        $this->assertSame(['type' => 'adaptive'], $body['thinking']);
+        $this->assertSame(['effort' => 'low'], $body['output_config']);
+        $this->assertSame('user', end($body['messages'])['role'], 'No assistant prefill.');
+    }
+
+    public function test_a_refusal_and_a_cut_answer_come_back_as_their_stop_reason(): void
+    {
+        $model = $this->model([self::answer([], 'refusal'), self::answer([['type' => 'text', 'text' => 'A medias']], 'max_tokens')]);
+
+        $this->assertSame(ModelTurn::REFUSAL, $model->send($this->request())->stopReason);
+        $cut = $model->send($this->request());
+        $this->assertSame(ModelTurn::MAX_TOKENS, $cut->stopReason);
+        $this->assertSame('A medias', $cut->text);
     }
 
     public function test_without_a_key_nothing_is_sent(): void

@@ -36,6 +36,11 @@ final class ConnectorTool implements AssistantTool
         return $this->tool()->toArray()['inputSchema'];
     }
 
+    public function strict(): bool
+    {
+        return false;
+    }
+
     public function availableTo(User $user): bool
     {
         return true;
@@ -44,7 +49,7 @@ final class ConnectorTool implements AssistantTool
     public function run(User $user, array $input): ToolOutcome
     {
         try {
-            $response = $this->tool()->readFor(collect([$user]), $input);
+            $response = $this->tool()->readFor(collect([$user]), $input, $this->rows());
         } catch (ValidationException $invalid) {
             return ToolOutcome::error(collect($invalid->errors())->flatten()->first() ?? 'Datos de entrada no válidos.');
         }
@@ -60,6 +65,16 @@ final class ConnectorTool implements AssistantTool
         return $structured === null
             ? ToolOutcome::text($response->responses()->map(fn (Response $part) => (string) $part->content())->implode("\n"))
             : ToolOutcome::data($structured);
+    }
+
+    /**
+     * The assistant's row cap of this tool (`assistant.tool_limits`), if any.
+     */
+    private function rows(): ?int
+    {
+        $rows = config('assistant.tool_limits.'.$this->name());
+
+        return is_numeric($rows) ? (int) $rows : null;
     }
 
     private function tool(): PortalTool

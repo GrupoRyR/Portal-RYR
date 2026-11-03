@@ -3,27 +3,27 @@
 namespace App\Assistant\Model;
 
 /**
- * What one model call sends, independent of the SDK.
+ * What one model call sends, independent of the SDK. The prompt prefix
+ * (tools, then the system prompt) is the same for the whole conversation
+ * (App\Assistant\ConversationPlan), so it is cached.
  *
- * Messages are one of:
- * - `['role' => 'user'|'assistant', 'content' => string]`: plain text
- *   (the question, or a past turn from the session);
- * - `['role' => 'assistant', 'turn' => ModelTurn]`: a turn of this
- *   question, sent back verbatim (its tool calls, its thinking);
- * - `['role' => 'user', 'toolResults' => list<array{id: string, content: string, isError: bool}>]`.
+ * Messages are in the API's own (wire) shape, so they can be kept in the
+ * session and sent back byte for byte: `['role' => 'user'|'assistant',
+ * 'content' => list<block>]`, with `text`, `tool_result`
+ * (`tool_use_id`, `content`, `is_error`) and, from the model, its own
+ * blocks (`thinking` with its `signature`, `tool_use`, `text`...).
  */
 final readonly class ModelRequest
 {
     /**
-     * @param  list<string>  $system  Blocks of the system prompt: the first is stable (cached), the rest change per person or day.
-     * @param  list<array{name: string, description: string, inputSchema: array<string, mixed>}>  $tools
-     * @param  list<array<string, mixed>>  $messages
+     * @param  list<array{name: string, description: string, inputSchema: array<string, mixed>, strict?: bool}>  $tools
+     * @param  list<array{role: string, content: list<array<string, mixed>>}>  $messages
      */
     public function __construct(
         public string $model,
         public string $effort,
         public int $maxTokens,
-        public array $system,
+        public string $system,
         public array $tools,
         public array $messages,
     ) {}

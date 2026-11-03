@@ -25,6 +25,9 @@ interface AssistantTool
      */
     public function inputSchema(): array;
 
+    /** Whether the API must keep its input exactly to the schema (`strict: true`). */
+    public function strict(): bool;
+
     /** Whether this account gets the tool at all. */
     public function availableTo(User $user): bool;
 

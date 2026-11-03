@@ -123,7 +123,7 @@ class AssistantDraftTest extends TestCase
         $this->assertSame(1, Activity::query()->where('log_name', Announcement::AUDIT_LOG)->where('event', 'created')->count());
 
         // The draft is gone after publishing.
-        $this->assertNull((new Conversation(session()->driver(), $this->editor, 10))->draft());
+        $this->assertNull((new Conversation(session()->driver(), $this->editor))->draft());
         $this->actingAs($this->editor)->get(route('assistant.show'))->assertDontSeeText('Borrador de anuncio');
     }
 
@@ -194,7 +194,7 @@ class AssistantDraftTest extends TestCase
         $this->actingAs($reader)->post(route('assistant.ask'), ['pregunta' => 'Publica algo']);
 
         $this->assertNotContains(BorradorDeAnuncio::NAME, array_column($this->model->requests[0]->tools, 'name'));
-        $this->assertSame(AssistantTools::UNKNOWN, $this->model->requests[1]->messages[2]['toolResults'][0]['content']);
+        $this->assertSame(AssistantTools::UNKNOWN, $this->model->requests[1]->messages[2]['content'][0]['content']);
         $this->actingAs($reader)->get(route('assistant.show'))->assertDontSeeText('Borrador de anuncio');
         $this->assertSame(0, Announcement::query()->count());
     }

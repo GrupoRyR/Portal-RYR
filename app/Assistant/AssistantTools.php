@@ -65,9 +65,11 @@ class AssistantTools
     }
 
     /**
-     * Definitions for the model: name, description and input schema.
+     * Definitions for the model: name, description, input schema and, for
+     * strict tools, `strict`. Deterministic (same order, same bytes) for the
+     * same account and role, so the cached prefix holds.
      *
-     * @return list<array{name: string, description: string, inputSchema: array<string, mixed>}>
+     * @return list<array{name: string, description: string, inputSchema: array<string, mixed>, strict?: bool}>
      */
     public function definitions(User $user): array
     {
@@ -75,6 +77,7 @@ class AssistantTools
             'name' => $tool->name(),
             'description' => $tool->description(),
             'inputSchema' => $tool->inputSchema(),
+            ...($tool->strict() ? ['strict' => true] : []),
         ], $this->for($user));
     }
 
