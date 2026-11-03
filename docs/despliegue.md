@@ -505,6 +505,48 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
 
 Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp/auth_callback`). Claude Code y Claude Desktop con `localhost` no pueden conectarse en esta versión.
 
+### 1.17 Noticias
+
+Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cada empresa) salen de fuentes RSS o Atom que el súper administrador registra en **Administración › Noticias** (`docs/manual-administracion.md` §2.11). El servidor las lee cada hora y guarda solo el título, el enlace y la fecha de cada noticia. No hay claves nuevas en `.env`: los límites están en `config/news.php`.
+
+1. **Migración.** Crea las tablas `news_sources` y `news_items`. El despliegue de rutina la aplica con `php artisan migrate --force` (paso 2.2).
+2. **Comprobar el horario.** `php artisan schedule:list` debe mostrar `0 * * * *  php artisan portal:fetch-news` en la zona America/Bogota. Lo ejecuta el cron del paso 1.9.
+3. **Salida a internet.** El servidor debe poder abrir conexiones `https` (puerto 443) hacia los sitios de las fuentes y resolver sus nombres (DNS). En cPanel compartido suele estar permitido. Si todas las fuentes quedan con `connection_failed` o `dns_failed`, pida a GoDaddy que permita las conexiones salientes por el puerto 443.
+4. **Probar a mano.** Con al menos una fuente activa:
+
+   ```bash
+   php artisan portal:fetch-news
+   ```
+
+   Responde, por ejemplo, «Noticias: 3 fuentes leídas, 0 con error.». En Administración › Noticias, cada fuente muestra su última lectura y, si falló, el código.
+
+**Protecciones.** Cada lectura sale del servidor de producción, por eso el portal la limita así:
+
+- Solo direcciones `https` en el puerto 443, sin usuario ni contraseña en la dirección y con un nombre de dominio (nunca una IP escrita).
+- Antes de conectar, el portal resuelve el nombre y rechaza la fuente si alguna de sus IP es interna: local (`127.0.0.1`, `::1`), privada (`10.x`, `172.16–31.x`, `192.168.x`, `fc00::/7`), de enlace local (`169.254.x`, `fe80::/10`), CGNAT (`100.64.0.0/10`), multidifusión, reservada, de documentación o una IPv6 que contiene una IPv4. La conexión usa exactamente la IP comprobada, así que el nombre no puede cambiar de IP entre la comprobación y la conexión.
+- Sigue hasta 3 redirecciones y comprueba cada una con las mismas reglas.
+- Espera hasta 10 segundos por fuente y deja de leer al pasar de 1 MB.
+- Rechaza cualquier documento con `<!DOCTYPE` o `<!ENTITY`, no reemplaza entidades y no descarga nada más mientras lee el XML.
+- Del título quita las etiquetas HTML y los espacios de más. Descarta las noticias cuyo enlace no es `https`. No guarda descripciones ni HTML.
+- Guarda las 30 noticias más recientes de cada fuente y borra las de más de 60 días.
+
+**Códigos de error** (columna `last_error_code`; nunca guarda el mensaje ni la respuesta):
+
+| Código | Qué significa |
+|---|---|
+| `invalid_url` | La dirección o una redirección no es `https` en el puerto 443, tiene usuario o es una IP. |
+| `dns_failed` | El nombre no resuelve. |
+| `blocked_address` | El nombre resuelve a una IP interna. |
+| `too_many_redirects` | Más de 3 redirecciones. |
+| `timeout`, `connection_failed` | No respondió en 10 segundos o no se pudo conectar. |
+| `http_404`, `http_503`, … | El sitio respondió con ese estado. |
+| `too_large` | La respuesta pasa de 1 MB. |
+| `doctype` | El documento trae `<!DOCTYPE` o `<!ENTITY`. |
+| `invalid_xml`, `unsupported_format` | No es XML válido, o no es RSS ni Atom. |
+| `unexpected` | Otro error. En `storage/logs` queda «News source could not be read.» con el número de la fuente y el tipo de error, sin el mensaje. |
+
+Si una fuente falla, las demás se leen igual y sus noticias anteriores se conservan.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)
