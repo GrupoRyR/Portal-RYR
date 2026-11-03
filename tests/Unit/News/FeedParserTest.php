@@ -197,4 +197,117 @@ class FeedParserTest extends TestCase
         $this->assertRefused('<html><body>Not a feed</body></html>', 'unsupported_format');
         $this->assertRefused('{"items": []}', 'invalid_xml');
     }
+
+    // --- Review fixes (odd/tasks/noticias.md, R1) ---------------------------
+
+    private function dateOf(string $date): ?string
+    {
+        $entries = $this->parse('<rss version="2.0"><channel><item><title>A</title><link>https://www.example.com/a</link><pubDate>'.$date.'</pubDate></item></channel></rss>');
+
+        return $entries[0]->publishedAt?->utc()->toIso8601String();
+    }
+
+    public function test_a_wrong_weekday_never_moves_the_date(): void
+    {
+        // 2 Nov 2026 is a Monday; PHP would read «Fri» as the next Friday.
+        $this->assertSame('2026-11-02T19:30:00+00:00', $this->dateOf('Fri, 02 Nov 2026 14:30:00 -0500'));
+        $this->assertSame('2026-11-02T19:30:00+00:00', $this->dateOf('Mon, 02 Nov 2026 14:30:00 -0500'));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function zoneSpellings(): array
+    {
+        return [
+            'UT' => ['Mon, 02 Nov 2026 14:30:00 UT', '2026-11-02T14:30:00+00:00'],
+            'GMT' => ['Mon, 02 Nov 2026 14:30:00 GMT', '2026-11-02T14:30:00+00:00'],
+            'Z' => ['Mon, 02 Nov 2026 14:30:00 Z', '2026-11-02T14:30:00+00:00'],
+            'COT' => ['Mon, 02 Nov 2026 14:30:00 COT', '2026-11-02T19:30:00+00:00'],
+            'EST' => ['Mon, 02 Nov 2026 14:30:00 EST', '2026-11-02T19:30:00+00:00'],
+            'short negative offset' => ['Mon, 02 Nov 2026 14:30:00 -05', '2026-11-02T19:30:00+00:00'],
+            'short positive offset' => ['Mon, 02 Nov 2026 14:30:00 +01', '2026-11-02T13:30:00+00:00'],
+            'offset with colon' => ['Mon, 02 Nov 2026 14:30:00 -05:00', '2026-11-02T19:30:00+00:00'],
+            'two-digit year' => ['02 Nov 26 14:30 +0000', '2026-11-02T14:30:00+00:00'],
+            'iso short offset' => ['2026-11-02T14:30:00-05', '2026-11-02T19:30:00+00:00'],
+            'iso z' => ['2026-11-02T14:30:00.123Z', '2026-11-02T14:30:00+00:00'],
+        ];
+    }
+
+    #[DataProvider('zoneSpellings')]
+    public function test_time_zone_spellings_are_understood(string $date, string $expected): void
+    {
+        $this->assertSame($expected, $this->dateOf($date));
+    }
+
+    public function test_dates_without_an_offset_are_bogota_time(): void
+    {
+        $this->assertSame('2026-11-02T19:30:00+00:00', $this->dateOf('2026-11-02T14:30:00'));
+        $this->assertSame('2026-11-02T19:30:00+00:00', $this->dateOf('02 Nov 2026 14:30'));
+        $this->assertSame('2026-11-02T05:00:00+00:00', $this->dateOf('2026-11-02'));
+    }
+
+    public function test_unknown_zones_and_impossible_dates_give_no_date(): void
+    {
+        $this->assertNull($this->dateOf('Mon, 02 Nov 2026 14:30:00 XYZ'));
+        $this->assertNull($this->dateOf('31 Feb 2026 10:00 +0000'));
+        $this->assertNull($this->dateOf('2026-13-01'));
+        $this->assertNull($this->dateOf('2026-11-02T25:00:00Z'));
+    }
+
+    public function test_a_less_than_sign_in_a_title_is_kept(): void
+    {
+        $entries = $this->parse('<rss version="2.0"><channel>'
+            .'<item><title>Tasa &lt;5% en 2027</title><link>https://www.example.com/a</link></item>'
+            .'<item><title>Tasa &amp;lt;5% &amp;amp; IPC &lt;b&gt;alto&lt;/b&gt;</title><link>https://www.example.com/b</link></item>'
+            .'</channel></rss>');
+
+        $this->assertSame('Tasa <5% en 2027', $entries[0]->title);
+        $this->assertSame('Tasa <5% & IPC alto', $entries[1]->title);
+    }
+
+    public function test_relative_links_resolve_against_the_feed_url(): void
+    {
+        $entries = (new FeedParser)->parse(<<<'XML'
+            <rss version="2.0"><channel>
+              <item><title>Raíz</title><link>/noticia/1</link></item>
+              <item><title>Hermana</title><link>otra?x=1</link></item>
+              <item><title>Arriba</title><link>../arriba</link></item>
+              <item><title>Sin esquema</title><link>//cdn.example.com/a</link></item>
+              <item><title>Absoluta</title><link>https://www.example.org/b</link></item>
+            </channel></rss>
+            XML, 100, 'https://news.example.com/feeds/rss.xml?page=1');
+
+        $this->assertSame([
+            'https://news.example.com/noticia/1',
+            'https://news.example.com/feeds/otra?x=1',
+            'https://news.example.com/arriba',
+            'https://cdn.example.com/a',
+            'https://www.example.org/b',
+        ], array_map(fn ($entry) => $entry->link, $entries));
+    }
+
+    public function test_atom_xml_base_is_applied_and_must_stay_https(): void
+    {
+        $entries = (new FeedParser)->parse(<<<'XML'
+            <feed xmlns="http://www.w3.org/2005/Atom" xml:base="https://www.example.com/blog/">
+              <entry><title>Uno</title><link href="post/1"/><id>1</id></entry>
+              <entry xml:base="sector/"><title>Dos</title><link href="post/2"/><id>2</id></entry>
+              <entry xml:base="http://insecure.example.com/"><title>Insegura</title><link href="post/3"/><id>3</id></entry>
+            </feed>
+            XML, 100, 'https://news.example.com/atom.xml');
+
+        $this->assertSame(
+            ['https://www.example.com/blog/post/1', 'https://www.example.com/blog/sector/post/2'],
+            array_map(fn ($entry) => $entry->link, $entries),
+        );
+    }
+
+    public function test_a_feed_without_usable_entries_is_refused(): void
+    {
+        $this->assertRefused('<rss version="2.0"><channel><item><title>Http</title><link>http://www.example.com/a</link></item><item><title></title><link>https://www.example.com/b</link></item></channel></rss>', 'no_entries');
+        $this->assertRefused('<rss version="2.0"><channel><item><title>Relativa</title><link>/a</link></item></channel></rss>', 'no_entries');
+        $this->assertRefused('<rss version="2.0"><channel/></rss>', 'no_entries');
+        $this->assertRefused('<feed xmlns="http://www.w3.org/2005/Atom"/>', 'no_entries');
+    }
 }

@@ -31,6 +31,12 @@ final class FeedFailure extends RuntimeException
 
     public const UNSUPPORTED_FORMAT = 'unsupported_format';
 
+    /** The feed parses but has no item with a title and a safe https link. */
+    public const NO_ENTRIES = 'no_entries';
+
+    /** A Content-Encoding other than gzip or deflate, or a broken one. */
+    public const UNSUPPORTED_ENCODING = 'unsupported_encoding';
+
     public const UNEXPECTED = 'unexpected';
 
     public function __construct(public readonly string $errorCode)
