@@ -46,6 +46,19 @@ Schedule::command('portal:sync-directory')
     ->timezone('America/Bogota')
     ->withoutOverlapping();
 
+// The TRM and the euro in pesos for the home band (App\Markets\MarketSync),
+// at 07:10 and 13:10 in Bogotá. The morning run picks up the TRM of the day
+// (published ahead); the ECB publishes about 16:00 CET (09:00–10:00 in
+// Bogotá), so its file is still the previous business day's until the
+// 13:10 run. Each euro row is TRM × ECB of the ECB's own date, so a run
+// that sees an old file rewrites nothing. A source that fails keeps its
+// last value. The overlap lock expires after 10 minutes, so a killed run
+// does not block it for a day.
+Schedule::command('portal:sync-markets')
+    ->twiceDailyAt(7, 13, 10)
+    ->timezone('America/Bogota')
+    ->withoutOverlapping(10);
+
 // «Respaldar ahora» (Configuración) only leaves a request; this runs it.
 Schedule::command('portal:run-requested-backup')
     ->everyMinute()

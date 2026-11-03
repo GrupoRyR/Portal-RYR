@@ -16,6 +16,8 @@ use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
 use App\Models\NewsSource;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\User;
 use App\Settings\PortalSettings;
 use Carbon\CarbonImmutable;
@@ -67,6 +69,8 @@ final class AuditPresenter
         'integration.ips_changed' => 'Cambió las IP permitidas de',
         'integration.work_app_changed' => 'Cambió la app de tareas de',
         'backup.requested' => 'Pidió',
+        'product.moved' => 'Movió',
+        'product_category.moved' => 'Movió',
     ];
 
     private const REJECTION_REASONS = [
@@ -191,6 +195,12 @@ final class AuditPresenter
         // News sources (App\Models\NewsSource); name, url and company use the labels above.
         'tab' => 'Pestaña',
         'active' => 'Activa',
+        'summary' => 'Resumen',
+        'photo_path' => 'Foto',
+        'link_url' => 'Enlace',
+        'product_category_id' => 'Categoría',
+        'published' => 'Publicado',
+        'company_id' => 'Empresa',
     ];
 
     /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
@@ -273,6 +283,8 @@ final class AuditPresenter
             (new User)->getMorphClass() => $name('name') ?? '(persona eliminada)',
             (new Integration)->getMorphClass() => $name('name') ?? '(sistema eliminado)',
             (new NewsSource)->getMorphClass() => 'la fuente de noticias «'.($name('name') ?? '(eliminada)').'»',
+            (new ProductCategory)->getMorphClass() => 'la categoría de productos «'.($name('name') ?? '(eliminada)').'»',
+            (new Product)->getMorphClass() => 'el producto «'.($name('name') ?? '(eliminado)').'»',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
         };
     }
@@ -397,16 +409,53 @@ final class AuditPresenter
             ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
             : self::FIELD_LABELS;
 
+        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass()], true);
+
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
+            $before = $old[$field] ?? null;
+            $after = $new[$field] ?? null;
+
+            // Catalog rows store ids; show the company or category by name.
+            if ($catalog && in_array($field, ['company_id', 'product_category_id'], true)) {
+                $before = $this->catalogName($field, $before);
+                $after = $this->catalogName($field, $after);
+            }
+
             $rows[] = [
                 'label' => $labels[$field] ?? (string) $field,
-                'old' => self::value($old[$field] ?? null),
-                'new' => self::value($new[$field] ?? null),
+                'old' => self::value($before),
+                'new' => self::value($after),
             ];
         }
 
         return $rows;
+    }
+
+    /** @var array<string, string|null> Names already looked up, by «field:id». */
+    private array $catalogNames = [];
+
+    /**
+     * The name behind a company or product category id of a catalog entry,
+     * or the id itself when the row no longer exists. Looked up once per id.
+     */
+    private function catalogName(string $field, mixed $id): mixed
+    {
+        if (! is_numeric($id)) {
+            return $id;
+        }
+
+        $key = $field.':'.$id;
+
+        if (! array_key_exists($key, $this->catalogNames)) {
+            $company = $field === 'company_id' ? Company::query()->whereKey($id)->first(['name', 'short_name']) : null;
+
+            $this->catalogNames[$key] = $field === 'company_id'
+                ? ($company?->short_name ?: $company?->name)
+                : ProductCategory::query()->whereKey($id)->value('name');
+        }
+
+        return $this->catalogNames[$key] ?? $id;
     }
 
     public static function value(mixed $value): string

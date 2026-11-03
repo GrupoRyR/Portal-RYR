@@ -38,6 +38,9 @@
         @case('menu')
             <path d="M4 7h16M4 12h16M4 17h16"/>
             @break
+        @case('box')
+            <path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"/>
+            @break
         @case('close')
             <path d="M6 6l12 12M18 6L6 18"/>
             @break

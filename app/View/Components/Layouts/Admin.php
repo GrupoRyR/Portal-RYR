@@ -61,6 +61,7 @@ class Admin extends Component
             ['label' => 'Catálogo', 'items' => array_values(array_filter([
                 ['label' => 'Aplicaciones', 'icon' => 'apps', 'route' => 'admin.apps.index', 'active' => 'admin.apps.*'],
                 ['label' => 'Categorías', 'icon' => 'tag', 'route' => 'admin.categories.index', 'active' => 'admin.categories.*'],
+                ['label' => 'Catálogos', 'icon' => 'box', 'route' => 'admin.products.index', 'active' => 'admin.products.*'],
                 $announcements,
                 $events,
                 // News sources: super admins only (App\Policies\NewsSourcePolicy).
