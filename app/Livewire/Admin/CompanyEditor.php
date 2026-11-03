@@ -28,6 +28,11 @@ use Throwable;
  * Edits one company (brief 5.1): names, email domains, quick links, brand
  * colors with a live contrast check and preview, logos and the active
  * switch. Slug and tenant are read-only here (tenant changes are T6c).
+ *
+ * Also the all-staff list and the sender mailbox that announcements may be
+ * emailed with (App\Announcements\AnnouncementListEmails): both or
+ * neither, and both at one of the domains in the form, so a company never
+ * sends from or to another company's domain.
  */
 class CompanyEditor extends Component
 {
@@ -54,6 +59,12 @@ class CompanyEditor extends Component
     public array $domains = [];
 
     public string $newDomain = '';
+
+    /** The list everybody of the company is in, e.g. todos@segurex.com. */
+    public string $allStaffEmail = '';
+
+    /** The mailbox of the company's tenant the list emails go out from. */
+    public string $mailSender = '';
 
     /** @var list<array{label: string, url: string}> */
     public array $quickLinks = [];
@@ -100,6 +111,8 @@ class CompanyEditor extends Component
         $this->name = $company->name;
         $this->shortName = $company->short_name;
         $this->domains = array_values($company->domains ?? []);
+        $this->allStaffEmail = (string) $company->all_staff_email;
+        $this->mailSender = (string) $company->mail_sender;
         $this->quickLinks = array_values(array_map(
             fn (array $link) => ['label' => (string) ($link['label'] ?? ''), 'url' => (string) ($link['url'] ?? '')],
             $company->quick_links ?? [],
@@ -157,6 +170,9 @@ class CompanyEditor extends Component
     public function save(BrandAssetStore $assets): mixed
     {
         $this->authorize('update', $this->company);
+
+        $this->allStaffEmail = strtolower(trim($this->allStaffEmail));
+        $this->mailSender = strtolower(trim($this->mailSender));
 
         $this->validate();
         $this->guardOwnCompany();
@@ -277,6 +293,8 @@ class CompanyEditor extends Component
             'shortName' => ['required', 'string', 'max:40'],
             'domains' => ['required', 'array', 'min:1', 'max:20'],
             'domains.*' => ['required', 'string', 'distinct', 'regex:'.self::DOMAIN_PATTERN, $this->domainIsFree(...)],
+            'allStaffEmail' => ['nullable', 'string', 'max:254', 'email:rfc', 'required_with:mailSender', $this->isCompanyAddress(...)],
+            'mailSender' => ['nullable', 'string', 'max:254', 'email:rfc', 'required_with:allStaffEmail', 'different:allStaffEmail', $this->isCompanyAddress(...)],
             'quickLinks' => ['array', 'max:'.self::MAX_QUICK_LINKS],
             'quickLinks.*.label' => ['required', 'string', 'max:40'],
             'quickLinks.*.url' => ['required', 'string', 'max:2048', 'url:https', 'starts_with:https://'],
@@ -307,6 +325,11 @@ class CompanyEditor extends Component
             'domains.*.regex' => 'Escribe un dominio válido en minúsculas, por ejemplo segurex.com.',
             'newDomain.required' => 'Escribe un dominio.',
             'newDomain.regex' => 'Escribe un dominio válido, por ejemplo segurex.com (sin https:// ni @).',
+            'allStaffEmail.email' => 'Escribe un correo válido, por ejemplo todos@segurex.com.',
+            'mailSender.email' => 'Escribe un correo válido, por ejemplo segurex.info@segurex.com.',
+            'allStaffEmail.required_with' => 'Escribe también la lista, o deja los dos vacíos.',
+            'mailSender.required_with' => 'Escribe también el buzón remitente, o deja los dos vacíos.',
+            'mailSender.different' => 'El buzón remitente no puede ser la misma lista.',
             'quickLinks.max' => 'Puedes tener hasta 8 enlaces rápidos.',
             'quickLinks.*.label.required' => 'Escribe el nombre del enlace.',
             'quickLinks.*.label.max' => 'Usa como máximo 40 caracteres.',
@@ -372,6 +395,8 @@ class CompanyEditor extends Component
                     'name' => trim($this->name),
                     'short_name' => trim($this->shortName),
                     'domains' => $this->domains,
+                    'all_staff_email' => $this->allStaffEmail,
+                    'mail_sender' => $this->mailSender,
                     'quick_links' => $this->quickLinks === [] ? null : array_map(
                         fn (array $link) => ['label' => trim($link['label']), 'url' => trim($link['url'])],
                         $this->quickLinks,
@@ -476,6 +501,24 @@ class CompanyEditor extends Component
 
         if ($owner !== null) {
             $fail("Este dominio ya pertenece a {$owner->name}.");
+        }
+    }
+
+    /**
+     * The list and the sender must be at one of the domains in the form
+     * (exact match after the last «@»: no subdomains).
+     */
+    private function isCompanyAddress(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (! is_string($value) || $value === '') {
+            return;
+        }
+
+        $at = strrpos($value, '@');
+        $domain = $at === false ? '' : substr($value, $at + 1);
+
+        if (! in_array($domain, $this->domains, true)) {
+            $fail('Usa una dirección de uno de los dominios de la empresa: '.implode(', ', $this->domains).'.');
         }
     }
 

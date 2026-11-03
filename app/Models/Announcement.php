@@ -47,6 +47,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'ends_at',
     'is_pinned',
     'requires_read',
+    'email_lists',
     'author_id',
 ])]
 class Announcement extends Model
@@ -109,6 +110,7 @@ class Announcement extends Model
         'audience' => self::AUDIENCE_ALL,
         'is_pinned' => false,
         'requires_read' => false,
+        'email_lists' => false,
     ];
 
     protected function casts(): array
@@ -119,6 +121,7 @@ class Announcement extends Model
             'withdrawn_at' => 'datetime',
             'is_pinned' => 'boolean',
             'requires_read' => 'boolean',
+            'email_lists' => 'boolean',
         ];
     }
 
@@ -167,6 +170,30 @@ class Announcement extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(AnnouncementReminder::class);
+    }
+
+    /**
+     * Its emails to the companies' all-staff lists, when it asks for them
+     * (`email_lists`, App\Announcements\AnnouncementListEmails).
+     *
+     * @return HasMany<AnnouncementListEmail, $this>
+     */
+    public function listEmails(): HasMany
+    {
+        return $this->hasMany(AnnouncementListEmail::class);
+    }
+
+    /**
+     * The companies it is addressed to now: every active company when it
+     * is for all, its chosen ones otherwise (active or not).
+     *
+     * @return Builder<Company>
+     */
+    public function addressedCompanies(): Builder
+    {
+        return $this->isForAllCompanies()
+            ? Company::query()->where('companies.is_active', true)
+            : Company::query()->whereIn('companies.id', DB::table('announcement_company')->where('announcement_id', $this->id)->select('company_id'));
     }
 
     /**
@@ -388,17 +415,19 @@ class Announcement extends Model
     public function scopeInStatus(Builder $query, string $status): void
     {
         $now = Carbon::now();
+        // Qualified: other tables may be joined (App\Announcements\AnnouncementListEmails).
+        [$withdrawnAt, $startsAt, $endsAt] = [$query->qualifyColumn('withdrawn_at'), $query->qualifyColumn('starts_at'), $query->qualifyColumn('ends_at')];
 
         match ($status) {
-            self::STATUS_WITHDRAWN => $query->whereNotNull('withdrawn_at'),
-            self::STATUS_SCHEDULED => $query->whereNull('withdrawn_at')->where('starts_at', '>', $now),
-            self::STATUS_EXPIRED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->whereNotNull('ends_at')
-                ->where('ends_at', '<=', $now),
-            self::STATUS_PUBLISHED => $query->whereNull('withdrawn_at')
-                ->where('starts_at', '<=', $now)
-                ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $now)),
+            self::STATUS_WITHDRAWN => $query->whereNotNull($withdrawnAt),
+            self::STATUS_SCHEDULED => $query->whereNull($withdrawnAt)->where($startsAt, '>', $now),
+            self::STATUS_EXPIRED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->whereNotNull($endsAt)
+                ->where($endsAt, '<=', $now),
+            self::STATUS_PUBLISHED => $query->whereNull($withdrawnAt)
+                ->where($startsAt, '<=', $now)
+                ->where(fn (Builder $query) => $query->whereNull($endsAt)->orWhere($endsAt, '>', $now)),
             default => throw new InvalidArgumentException("Unknown announcement status [{$status}]."),
         };
     }
