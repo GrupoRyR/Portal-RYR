@@ -170,7 +170,8 @@ Route::middleware('auth')->group(function () {
     // tasks app (docs/contrato-tareas-aprobaciones.md §6). Its own limiter
     // (AppServiceProvider), like «Confirmar lectura».
     Route::post('/tareas/{workItem}/completar', [WorkItemCompletionController::class, 'store'])
-        ->whereNumber('workItem')
+        // At most 18 digits: a larger id is not found, never an overflow.
+        ->where('workItem', '[0-9]{1,18}')
         ->middleware('throttle:'.WorkItemCompletionController::LIMITER)
         ->name('work-items.complete');
 

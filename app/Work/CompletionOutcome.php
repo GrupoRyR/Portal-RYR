@@ -8,13 +8,13 @@ namespace App\Work;
  */
 enum CompletionOutcome: string
 {
-    /** `2xx`, or `409` with `already_done`: done in the portal too. */
+    /** `200` with `completed`, or `409` with `already_done`: done in the portal too. */
     case Completed = 'completed';
 
-    /** `403`: still pending. */
+    /** `403` with `not_assignee` or `not_completable`: still pending. */
     case Forbidden = 'forbidden';
 
-    /** `404`: removed from the portal. */
+    /** `404` with `not_found`: removed from the portal. */
     case NotFound = 'not_found';
 
     /** Any other answer, or none within the timeout: still pending. */
@@ -22,6 +22,13 @@ enum CompletionOutcome: string
 
     /** Another press on the same item is still waiting for the app. */
     case Busy = 'busy';
+
+    /**
+     * The item changed while the press waited: it is no longer one the
+     * account may complete, or the app's own PUT with a higher version
+     * landed during the call. The portal's copy is left as it is.
+     */
+    case Stale = 'stale';
 
     public function message(): string
     {
@@ -31,6 +38,7 @@ enum CompletionOutcome: string
             self::NotFound => 'Esta tarea ya no existe en la app.',
             self::Failed => 'No se pudo completar. Inténtalo de nuevo o ábrela en la app.',
             self::Busy => 'Ya estamos completando esta tarea. Espera un momento.',
+            self::Stale => 'Esta tarea cambió mientras tanto. Revisa tu lista de tareas.',
         };
     }
 }

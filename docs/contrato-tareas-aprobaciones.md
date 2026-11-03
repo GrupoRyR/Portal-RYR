@@ -430,12 +430,12 @@ Cuerpo de las respuestas de la app (el portal lee solo `code`):
 
 | Respuesta de la app | Qué hace el portal | Mensaje a la persona |
 |---|---|---|
-| `200` | Marca el elemento como hecho y lo quita del inicio. | «Tarea completada.» |
+| `200` (`completed`) | Marca el elemento como hecho y lo quita del inicio. | «Tarea completada.» |
 | `409` (`already_done`) | Igual que `200`: lo da por hecho. | «Tarea completada.» |
-| `403` | El elemento sigue pendiente. | «No puedes completar esta tarea desde el portal. Ábrela en la app.» |
-| `404` | Borra el elemento del portal. | «Esta tarea ya no existe en la app.» |
+| `403` (`not_assignee` o `not_completable`) | El elemento sigue pendiente. | «No puedes completar esta tarea desde el portal. Ábrela en la app.» |
+| `404` (`not_found`) | Borra el elemento del portal. | «Esta tarea ya no existe en la app.» |
 | `5xx` o sin respuesta en 5 s | El elemento sigue pendiente. | «No se pudo completar. Inténtalo de nuevo o ábrela en la app.» |
-| Cualquier otra (`3xx`, `400`, `401`, `422`, `409` sin `already_done`...) | El elemento sigue pendiente. Indica un error de configuración (secreto, URL base). | «No se pudo completar. Inténtalo de nuevo o ábrela en la app.» |
+| Cualquier otra (`201`, `204`, `3xx`, `400`, `401`, `422`, un `200`, `403`, `404` o `409` sin su `code`...) | El elemento sigue pendiente. Indica un error de configuración (secreto, URL base). | «No se pudo completar. Inténtalo de nuevo o ábrela en la app.» |
 
 El portal muestra siempre sus propios mensajes, nunca el texto que devuelve la app.
 
@@ -567,6 +567,6 @@ Portal → App:
 | 0.1 | 2026-10-29 | La firma de «Completar» cubre también el método y la ruta: `timestamp` + `"\n"` + `"POST"` + `"\n"` + ruta + `"\n"` + cuerpo. Nuevo dato de prueba. Se quita la regla que ligaba `request_id` a `external_id`, porque ya no hace falta. Se cierra la pregunta abierta sobre la ruta sin firmar. |
 | 0.1.1 | 2026-10-30 | Decisión de Jhon: un `PUT` con la misma `version` pero otro `kind` u otro `assignee` responde `422`, como con una versión mayor (3.3, punto 3). |
 | 0.2 | 2026-10-30 | Decisión de Jhon: la app puede equivocarse, así que un `PUT` con una `version` mayor puede cambiar el `assignee`: el elemento pasa del portal de una persona al de la otra. Con la misma `version`, otro `assignee` responde `422` pidiendo subir la versión. El límite de 500 pendientes se comprueba también para la persona nueva al reasignar un elemento pendiente. `kind` sigue sin poder cambiar, con ninguna `version`. |
-| 0.2.1 | 2026-11-03 | `due_at` debe estar entre el 2000-01-01 y el 2037-12-31 (UTC); fuera de ese rango, `422`. La URL base de la app debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama a «Completar» (2.2). |
+| 0.2.1 | 2026-11-03 | `due_at` debe estar entre el 2000-01-01 y el 2037-12-31 (UTC); fuera de ese rango, `422`. La URL base de la app debe estar en el mismo host (y puerto) que la app del catálogo, o el portal no llama a «Completar» (2.2). En 6.4 el `code` de la respuesta es obligatorio: un `200`, `403` o `404` sin el `code` de 6.3 cuenta como respuesta inesperada y el elemento no cambia. |
 
 Los cambios a este contrato los decide Jhon, con un PR en el repositorio del portal (GrupoRyR/Portal-RYR).

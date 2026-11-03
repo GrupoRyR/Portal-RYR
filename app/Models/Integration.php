@@ -244,6 +244,27 @@ class Integration extends Model
     }
 
     /**
+     * Whether a signing secret is stored, without decrypting it: deciding
+     * whether to show «Completar» must never fail on a secret encrypted
+     * with another APP_KEY (App\Work\TaskCompleter decrypts it, and treats
+     * a failure as a failed attempt).
+     */
+    public function hasSigningSecret(): bool
+    {
+        return $this->signing_secret_hint !== null && ($this->getAttributes()['signing_secret'] ?? null) !== null;
+    }
+
+    /**
+     * Whether a base URL is on exactly the host (and port) of the catalog
+     * app URL, compared like the links of the work items
+     * (App\Work\WorkItemLink: no case, `:443` equals no port).
+     */
+    public static function isOnHostOf(string $baseUrl, ?string $appUrl): bool
+    {
+        return WorkItemLink::problem($baseUrl, WorkItemLink::authorityOf($appUrl)) === null;
+    }
+
+    /**
      * «ryrsig_…9c2f», like maskedToken().
      */
     public function maskedSigningSecret(): ?string
@@ -263,9 +284,9 @@ class Integration extends Model
         $baseUrl = (string) $this->app_base_url;
 
         if ($this->isRevoked() || ! in_array(self::WORK_WRITE, $this->abilities, true)
-            || $this->signing_secret_hint === null || $this->signing_secret === null
+            || ! $this->hasSigningSecret()
             || ! self::isValidAppBaseUrl($baseUrl)
-            || WorkItemLink::problem($baseUrl, WorkItemLink::authorityOf($this->app?->url)) !== null) {
+            || ! self::isOnHostOf($baseUrl, $this->app?->url)) {
             return null;
         }
 
@@ -369,13 +390,15 @@ class Integration extends Model
 
     /**
      * A base URL the portal may call (contract §2.2): `https`, a host, no
-     * user info, no `?` nor `#`, printable ASCII only.
+     * user info, no `?` nor `#`, and a path of RFC 3986 path characters only
+     * (unreserved, sub-delims, `:`, `@`, `%` and `/`), so what is signed is
+     * what is sent.
      */
     public static function isValidAppBaseUrl(string $url): bool
     {
         if (strlen($url) > self::MAX_APP_BASE_URL || str_contains($url, '\\')
             || preg_match('~\A[\x21-\x7E]+\z~', $url) !== 1
-            || preg_match('~\Ahttps://[^/?#@]+(?:/[^?#]*)?\z~i', $url) !== 1) {
+            || preg_match("~\\Ahttps://[^/?#@]+(?:/[A-Za-z0-9._\\~!$&'()*+,;=:@%/-]*)?\\z~i", $url) !== 1) {
             return false;
         }
 

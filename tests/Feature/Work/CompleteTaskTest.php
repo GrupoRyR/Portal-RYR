@@ -9,12 +9,14 @@ use App\Models\Integration;
 use App\Models\Person;
 use App\Models\User;
 use App\Models\WorkItem;
+use App\Work\CompletionOutcome;
 use App\Work\TaskCompleter;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -207,6 +209,15 @@ class CompleteTaskTest extends TestCase
             'invalid' => [fn () => Http::response('', 422), 422, 'unexpected_response'],
             '409 without already_done' => [fn () => Http::response(['code' => 'conflict'], 409), 409, 'unexpected_response'],
             '409 without a body' => [fn () => Http::response('', 409), 409, 'unexpected_response'],
+            // §6.4 as written: only the codes of §6.3 count.
+            '200 without a code' => [fn () => Http::response('', 200), 200, 'unexpected_response'],
+            '200 with another code' => [fn () => Http::response(['code' => 'done']), 200, 'unexpected_response'],
+            '201' => [fn () => Http::response(['code' => 'completed'], 201), 201, 'unexpected_response'],
+            '202' => [fn () => Http::response(['code' => 'completed'], 202), 202, 'unexpected_response'],
+            '204' => [fn () => Http::response('', 204), 204, 'unexpected_response'],
+            '404 without a body' => [fn () => Http::response('', 404), 404, 'unexpected_response'],
+            '404 from a web server' => [fn () => Http::response('<html><body>Not Found</body></html>', 404, ['Content-Type' => 'text/html']), 404, 'unexpected_response'],
+            '403 without a code' => [fn () => Http::response('<html>Forbidden</html>', 403), 403, 'unexpected_response'],
         ];
     }
 
@@ -220,8 +231,9 @@ class CompleteTaskTest extends TestCase
             ->assertRedirect(route('home').'#tareas')
             ->assertSessionHas('status', 'No se pudo completar. Inténtalo de nuevo o ábrela en la app.');
 
-        // Never retried, never redirected.
+        // Never retried, never redirected, never removed.
         Http::assertSentCount(1);
+        $this->assertFalse($item->fresh()->trashed());
         $this->assertSame(WorkItem::STATUS_PENDING, $item->fresh()->status);
         $this->assertSame(3, $item->fresh()->version);
 
@@ -450,5 +462,107 @@ class CompleteTaskTest extends TestCase
             ->assertSeeTextInOrder(['Jhon Castro', 'API', 'Completó una tarea de App de tareas y aprobaciones', 'Elemento', self::EXTERNAL_ID, 'Respuesta HTTP', '200'])
             ->assertSeeTextInOrder(['Jhon Castro', 'API', 'No pudo completar una tarea de App de tareas y aprobaciones', 'Elemento', self::EXTERNAL_ID, 'Respuesta HTTP', '500', 'Motivo', 'server_error'])
             ->assertDontSeeText('Enviar el acta');
+    }
+
+    // --- Review fixes -------------------------------------------------------------
+
+    public function test_a_second_press_already_past_the_controller_check_is_not_sent(): void
+    {
+        $item = $this->task();
+        $item->load('integration.app');
+        $this->appAnswers(Http::response(['code' => 'completed']));
+        $completer = app(TaskCompleter::class);
+
+        $this->assertSame(CompletionOutcome::Completed, $completer->complete($this->user, $item));
+        // The same stale copy, as a second request that passed the controller
+        // before the first one finished.
+        $this->assertSame(CompletionOutcome::Stale, $completer->complete($this->user, $item));
+
+        Http::assertSentCount(1);
+        $this->assertCount(1, Activity::query()->where('log_name', Integration::AUDIT_LOG)->get());
+    }
+
+    public function test_an_item_that_stopped_being_completable_inside_the_lock_is_not_sent(): void
+    {
+        $item = $this->task();
+        $item->load('integration.app');
+        WorkItem::query()->whereKey($item->id)->update(['completable_from_portal' => false]);
+
+        $this->assertSame(CompletionOutcome::Stale, app(TaskCompleter::class)->complete($this->user, $item));
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_higher_version_put_during_the_call_wins_over_completed(): void
+    {
+        $item = $this->task();
+        Http::fake(function () use ($item) {
+            // The app's own PUT lands while the portal waits.
+            WorkItem::query()->whereKey($item->id)->update(['version' => 4, 'title' => 'Otra versión']);
+
+            return Http::response(['code' => 'completed']);
+        });
+
+        $this->complete($item)->assertSessionHas('status', CompletionOutcome::Stale->message());
+
+        $item->refresh();
+        $this->assertSame(WorkItem::STATUS_PENDING, $item->status);
+        $this->assertSame(4, $item->version);
+        $this->assertSame(200, $this->entry('work_item.completed')->properties['attributes']['http_status']);
+    }
+
+    public function test_a_higher_version_put_during_the_call_wins_over_not_found(): void
+    {
+        $item = $this->task();
+        Http::fake(function () use ($item) {
+            WorkItem::query()->whereKey($item->id)->update(['version' => 4]);
+
+            return Http::response(['code' => 'not_found'], 404);
+        });
+
+        $this->complete($item)->assertSessionHas('status', CompletionOutcome::Stale->message());
+
+        $item->refresh();
+        $this->assertFalse($item->trashed());
+        $this->assertSame(4, $item->version);
+        $this->assertSame('Enviar el acta de la reunión de HSE', $item->title);
+    }
+
+    public function test_an_id_too_long_for_the_column_is_not_found(): void
+    {
+        $this->actingAs($this->user)->post('/tareas/'.str_repeat('9', 19).'/completar')->assertNotFound();
+        $this->actingAs($this->user)->post('/tareas/'.str_repeat('9', 40).'/completar')->assertNotFound();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_the_same_object_id_under_another_tenant_is_not_found(): void
+    {
+        $derivados = Company::factory()->create();
+        $item = $this->task(['assignee_tenant_id' => strtolower($derivados->tenant_id)]);
+
+        $this->complete($item)->assertNotFound();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_secret_that_cannot_be_decrypted_fails_without_calling(): void
+    {
+        $item = $this->task();
+        // Another APP_KEY, or a damaged value.
+        DB::table('integrations')->where('id', $this->integration->id)->update(['signing_secret' => 'eyJub3QiOiJ2YWxpZCJ9']);
+
+        // Deciding whether to show the button never decrypts.
+        $this->assertTrue($item->fresh()->canBeCompletedFromPortal());
+
+        $this->complete($item)
+            ->assertRedirect(route('home').'#tareas')
+            ->assertSessionHas('status', CompletionOutcome::Failed->message());
+
+        Http::assertNothingSent();
+        $this->assertSame(WorkItem::STATUS_PENDING, $item->fresh()->status);
+        $failed = $this->entry('work_item.complete_failed')->properties['attributes'];
+        $this->assertNull($failed['http_status']);
+        $this->assertSame('secret_unavailable', $failed['reason']);
     }
 }
