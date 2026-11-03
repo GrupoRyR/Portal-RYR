@@ -4,8 +4,9 @@
     accounts and the `status` message of the last account action. The «Mi día»
     column (prototype of the new home, odd/tasks/inicio-fase-1.md WU3) holds the
     upcoming holidays, the announcements card (beside the apps only; phones and
-    tablets get a banner with the top one), the link to the company directory
-    (/personas) and the Microsoft 365 links. Phones
+    tablets get a banner with the top one), birthdays and work anniversaries of
+    the week, the link to the company directory (/personas) and the Microsoft
+    365 links. Phones
     also get a «Secciones» menu. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search, the
     «Ctrl K» search dialog (x-home.search-dialog, not on a server search), the
@@ -101,6 +102,11 @@
                         @if ($page->accountsHref)
                             <a href="{{ $page->accountsHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
                                 <x-home.icon name="link" class="size-[18px] text-fg-muted" />Cuentas vinculadas
+                            </a>
+                        @endif
+                        @if ($page->birthdayHref)
+                            <a href="{{ $page->birthdayHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
+                                <x-home.icon name="gift" class="size-[18px] text-fg-muted" />Mi cumpleaños
                             </a>
                         @endif
                         @if ($page->canAdminister)
@@ -264,6 +270,36 @@
                                     @endforeach
                                     <p class="text-xs text-fg-muted" aria-hidden="true"><span data-holiday-weekday="{{ $holiday->dayName() }}">{{ $holiday->weekday() }}</span> · Festivo</p>
                                 </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
+            {{-- Birthdays people chose to show and work anniversaries, today and the next seven days (App\View\Home\Celebration). --}}
+            @if ($page->celebrations !== [])
+                <section id="celebraciones" aria-labelledby="celebraciones-titulo" class="flex scroll-mt-6 flex-col gap-3.5 p-5">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="celebraciones-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Cumpleaños y aniversarios</h2>
+                        @if ($page->moreCelebrationsHref)
+                            <a href="{{ $page->moreCelebrationsHref }}" class="-my-3 inline-flex min-h-touch shrink-0 items-center text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Ver directorio</a>
+                        @endif
+                    </div>
+                    {{-- data-celebration-*: home.js corrects the saved copy replayed later. --}}
+                    <ul class="flex flex-col gap-3">
+                        @foreach ($page->celebrations as $celebration)
+                            <li class="flex items-center gap-3" data-celebration-date="{{ $celebration->isoDate() }}">
+                                <time datetime="{{ $celebration->isoDate() }}" aria-hidden="true" class="flex w-12 shrink-0 flex-col items-center rounded-[10px] bg-brand-tint py-1.5 leading-tight text-brand-ink">
+                                    <span class="text-lg font-bold">{{ $celebration->dayNumber() }}</span>
+                                    <span class="text-xs">{{ $celebration->shortMonth() }}</span>
+                                </time>
+                                <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                    <p class="text-sm leading-snug font-bold break-words" data-celebration-name>{{ $celebration->name }}</p>
+                                    <p class="text-xs text-fg-muted"><span data-celebration-day="{{ $celebration->dayName() }}">{{ $celebration->dayLabel() }}</span><span class="sr-only">, {{ $celebration->longDate() }}</span> · <span data-celebration-kind>{{ $celebration->label }}</span></p>
+                                </div>
+                                @if ($celebration->greetHref)
+                                    <a href="{{ $celebration->greetHref }}" target="_blank" rel="noopener" class="-my-2 inline-flex min-h-touch shrink-0 items-center text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Felicitar<span class="sr-only"> a {{ $celebration->name }} por Teams</span></a>
+                                @endif
                             </li>
                         @endforeach
                     </ul>

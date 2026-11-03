@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Microsoft\UserGroup;
+use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -33,6 +34,11 @@ use Spatie\Permission\Traits\HasRoles;
  * App\Auth\LinkedAccounts writes it, so it is not fillable either, and it
  * never authorizes anything: roles, groups, favorites and app access stay
  * per account.
+ *
+ * `birthday_month`, `birthday_day` and `show_birthday` («Mi cumpleaños» on
+ * /cuenta) are written only by App\Http\Controllers\Account\BirthdayController,
+ * so they are not fillable: the day and month only, never the year, shown
+ * to the account's company in «Mi día» only while `show_birthday` is on.
  *
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
@@ -71,6 +77,9 @@ class User extends Authenticatable
             'two_factor_secret' => 'encrypted',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_timestep' => 'integer',
+            'birthday_month' => 'integer',
+            'birthday_day' => 'integer',
+            'show_birthday' => 'boolean',
         ];
     }
 
@@ -163,6 +172,19 @@ class User extends Authenticatable
         });
 
         $this->unsetRelation('groups');
+    }
+
+    /**
+     * «5 de marzo», or null without a birthday.
+     */
+    public function birthdayLabel(): ?string
+    {
+        if ($this->birthday_month === null || $this->birthday_day === null) {
+            return null;
+        }
+
+        // A leap year, so 29 February has a name too.
+        return CarbonImmutable::create(2024, $this->birthday_month, $this->birthday_day)->locale('es')->isoFormat('D [de] MMMM');
     }
 
     /**

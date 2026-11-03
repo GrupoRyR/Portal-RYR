@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Account;
 use App\Auth\LinkedAccounts;
 use App\Auth\RecentMicrosoftLogin;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Account\BirthdayRequest;
 use App\Models\Company;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * «Cuentas vinculadas» (GET /cuenta): the accounts of the signed-in
@@ -21,6 +24,9 @@ use Illuminate\Http\Request;
  * person's own accounts is a 404 (never a 403), so the answer does not
  * reveal which accounts are linked. Emergency accounts are never linked:
  * a 404 everywhere here.
+ *
+ * The page also holds «Mi cumpleaños» (BirthdayController) for accounts
+ * with a company directory.
  */
 class AccountController extends Controller
 {
@@ -33,7 +39,24 @@ class AccountController extends Controller
         return view('account.show', [
             'current' => $user,
             'accounts' => $linkedAccounts->accountsOf($user),
+            // «Mi cumpleaños» (BirthdayController): only with a company directory.
+            'birthdayMonths' => BirthdayRequest::allows($user) ? self::months() : null,
         ]);
+    }
+
+    /**
+     * The months of the «Mi cumpleaños» select: number => «Enero».
+     *
+     * @return array<int, string>
+     */
+    private static function months(): array
+    {
+        $months = [];
+        foreach (range(1, 12) as $month) {
+            $months[$month] = Str::ucfirst(CarbonImmutable::create(2024, $month, 1)->locale('es')->isoFormat('MMMM'));
+        }
+
+        return $months;
     }
 
     /**

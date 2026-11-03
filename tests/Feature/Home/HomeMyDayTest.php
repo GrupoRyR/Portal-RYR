@@ -7,6 +7,7 @@ use App\Models\App;
 use App\Models\AppAccessRule;
 use App\Models\AppLaunch;
 use App\Models\Company;
+use App\Models\DirectoryEntry;
 use App\Models\User;
 use App\View\Home\QuickLinks;
 use Carbon\CarbonImmutable;
@@ -167,6 +168,14 @@ class HomeMyDayTest extends TestCase
         ]);
 
         $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#recientes', '#aplicaciones', '#fechas', '#m365']);
+    }
+
+    public function test_the_sections_menu_lists_birthdays_and_anniversaries_when_there_are_some(): void
+    {
+        $this->openableApp();
+        DirectoryEntry::factory()->forCompany($this->company)->create(['hire_date' => now('America/Bogota')->subYears(3)->toDateString()]);
+
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#celebraciones', '#m365']);
     }
 
     /**

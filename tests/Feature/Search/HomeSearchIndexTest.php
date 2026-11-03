@@ -297,7 +297,10 @@ class HomeSearchIndexTest extends TestCase
         $this->assertCount(1, $directory);
         $this->assertStringContainsString('limit '.HomeSearchIndex::PEOPLE_LIMIT, $directory[0]);
         $this->assertStringContainsString('order by "display_name" asc', $directory[0]);
-        foreach (['business_phone', 'hire_date', '"email"', '*'] as $column) {
+        // Phone and office never. Email and hire date feed «Felicitar» and the
+        // anniversaries of «Mi día» (odd/tasks/personas.md WU2), not the index
+        // (HomeCelebrationsTest::test_the_search_index_carries_no_birthday_or_hire_date).
+        foreach (['business_phone', 'office_location', '*'] as $column) {
             $this->assertStringNotContainsString($column, Str::before($directory[0], ' from '));
         }
         $this->assertSame(1000, HomeSearchIndex::PEOPLE_LIMIT);

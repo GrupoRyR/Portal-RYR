@@ -452,7 +452,7 @@ No se escriben en el portal: se copian de Microsoft Entra. Para corregir un dato
 | Oficina | Oficina |
 | Teléfono | Teléfono de la oficina (el primero) |
 | Correo | Correo electrónico; si no tiene, el nombre principal de usuario |
-| Fecha de contratación | Fecha de contratación del empleado (se guarda para los aniversarios; todavía no se muestra) |
+| Fecha de contratación | Fecha de contratación del empleado (para los aniversarios de **Mi día**, sección 9.6; no se muestra la fecha) |
 
 ### 9.2 Cada cuánto se actualiza
 
@@ -470,3 +470,25 @@ Todas las noches a las 03:30 (hora de Bogotá), con `php artisan portal:sync-dir
 Cada persona ve solo el directorio de su propia empresa, la de la cuenta con la que entró: con una cuenta vinculada de otra empresa, ve el de esa otra. Las personas de la empresa se reparten como al iniciar sesión (la empresa dueña del dominio del correo, o la principal del inquilino). La cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no ven ningún directorio.
 
 El buscador del inicio guarda el directorio en el equipo hasta 24 horas, junto con la copia del inicio para usarlo sin conexión, igual que la libreta de direcciones de Outlook. En un equipo compartido, cierre la sesión al terminar (sección 6.5).
+
+### 9.5 Cumpleaños
+
+El cumpleaños no sale de Microsoft: cada persona lo escribe, si quiere, en **Mi cumpleaños** (menú de la cuenta › **Mi cumpleaños**, en la página `/cuenta`).
+
+- Solo se guardan el día y el mes, nunca el año. El 29 de febrero se acepta.
+- Nadie más lo ve hasta que la persona marca **Mostrar mi cumpleaños a las personas de mi empresa** (desmarcada al empezar, Ley 1581). Puede desmarcarla, cambiar la fecha o tocar **Quitar mi cumpleaños** cuando quiera; quitarlo borra el día, el mes y la casilla.
+- Quitarlo o desmarcar la casilla vale de inmediato en el servidor, pero el celular o el computador de un compañero puede seguir mostrándolo hasta 24 horas en la copia del inicio que guardó para usar sin conexión.
+- Es por cuenta: con cuentas vinculadas en dos empresas, cada cuenta tiene el suyo.
+- Solo aparece para las cuentas que ven un directorio (sección 9.4): la cuenta de emergencia, las cuentas de invitado y las cuentas sin empresa no lo tienen. Si una cuenta deja de ver el directorio (pasa a invitado, queda sin empresa o la empresa se desactiva) con un cumpleaños guardado, en `/cuenta` solo le queda **Quitar mi cumpleaños**, para que siempre pueda borrarlo.
+- Ninguna pantalla de Administración muestra ni cambia el cumpleaños.
+
+### 9.6 Cumpleaños y aniversarios en «Mi día»
+
+El inicio muestra, en **Mi día**, el bloque **Cumpleaños y aniversarios** con lo de hoy y los próximos 7 días (hora de Bogotá), solo de la empresa de la cuenta con la que se entró:
+
+- **Cumpleaños**: solo de quien lo escribió en **Mi cumpleaños** y marcó la casilla (sección 9.5), y solo si está en el directorio de esa empresa (la misma cuenta de Microsoft y la misma empresa). Quien nació el 29 de febrero aparece el 28 de febrero en los años que no son bisiestos.
+- **Aniversarios**: salen de la **Fecha de contratación** de Entra (sección 9.1), desde el primer año cumplido: «1 año en Segurex», «5 años en Segurex» (con el nombre corto de la empresa). Si la fecha está vacía en Entra, la persona no tiene aniversario; para corregirla, cámbiela en Entra y aparece después de la siguiente copia.
+- Cada fila dice **Hoy**, **Mañana** o el día de la semana, y **Felicitar** abre un chat de Teams con la persona y un saludo escrito, sin enviarlo. La fila propia no tiene **Felicitar**.
+- Van por fecha y luego por nombre, hasta 8; si hay más, **Ver directorio** lleva a `/personas`. Sin nada en esos días, el bloque no aparece.
+- Salen de las mismas 1.000 personas que lleva el buscador del inicio (sección 9). En una búsqueda sin JavaScript (`/?q=`) el bloque no aparece.
+- La copia del inicio guardada en el equipo (hasta 24 horas) quita las filas de días pasados y corrige **Hoy** y **Mañana**; los días nuevos aparecen con la siguiente conexión.
