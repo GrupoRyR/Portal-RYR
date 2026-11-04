@@ -49,7 +49,8 @@ class SecondaryPagesBrandTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('apps.open', $app))->assertOk();
 
         $this->assertHeader($response);
-        $response->assertSee('bg-brand-button text-[0.8125rem] font-bold text-white', false)
+        // The step numbers: white on the brand button (--g-button, glass-pages.css).
+        $response->assertSee('class="g-page__step"', false)
             ->assertDontSee('text-on-fg', false);
     }
 

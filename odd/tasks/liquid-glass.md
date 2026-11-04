@@ -48,7 +48,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [x] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`. Hecho en `1ceb56f` (ruta: escritor delegado, 2+ archivos no triviales).
   - Rama `feat/glass-7-assistant`: G3 con `feat/assistant-json` (G2) fusionada.
 - [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en la rama `feat/glass-8-login` (PR #106).
-- [ ] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*`, `errors/*` y `mcp/*`.
+- [x] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*` y `mcp/*` (`errors/*` quedó en G8). Hecho en `93bc248`, `3bb479a`, `62f797f` y `3644641` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-9-pages`, sobre G6.
 - [x] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR). Hecho en la rama `feat/glass-10-admin` (PR #108).
 
 ## Comprobaciones
@@ -189,3 +189,10 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Fuera por falta de datos: resumen semanal, «Instalar en tu celular», clima, «Agregar a mi calendario».
   - Revisión independiente de código y seguridad: nada grave; 8 hallazgos menores corregidos en `bbca5c6`.
   - Evidencia: `php artisan test` 3344 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien; `node --test` 48 pasan. RED observado en 11 + 2 pruebas nuevas. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 1280 px y 375 px sin desborde.
+- G9 hecho en `93bc248`, `3bb479a` y `62f797f` (`feat/glass-9-pages`), más `3644641` (correcciones de la revisión) y la fusión de G6 (`b2fb22e`).
+  - Sin `.g-sheet`: `<main class="g-page">`, columna de 760 px con márgenes de 16 px; `g-banner` con enlace de vuelta y h1, y `g-card` con cabecera y cuerpo. Las listas van como filas dentro de una sola tarjeta (hasta 100 eventos), sin brillo al pasar el cursor.
+  - CSS en `resources/css/glass-pages.css`, importado desde `app.css`; dentro de `.g-page` los tokens de Tailwind apuntan a los `--g-*` medidos. `.g-btn--danger` queda ahí hasta moverlo a `glass.css`.
+  - Rutas, formularios, CSRF, campos, anclas y ganchos sin cambios. La página de autorización de Claude usa su propia barra solo con el logo, sin menús ni asistente.
+  - «empresa del grupo» → «otra empresa» en `/cuenta`; «de las empresas del grupo» → «de las empresas con acceso al portal» en `mcp/refused`. No queda «grupo» en esas vistas.
+  - Revisión independiente de código y seguridad: nada grave; 7 hallazgos menores corregidos en `3644641`, más un solo enlace al inicio en `apps/local` y sin doble punto después de «p. m.».
+  - Evidencia: `php artisan test` 3345 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien; `node --test` 48 pasan. RED observado en las pruebas nuevas. Revisión visual en Chrome sin interfaz: 10 páginas, dos marcas, claro y oscuro, 375 px sin desborde.
