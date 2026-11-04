@@ -12,6 +12,8 @@ use DOMElement;
  * Reads the headlines of an RSS 2.0, RSS 1.0 (RDF) or Atom feed.
  *
  * Safety comes before parsing:
+ * - a web page (HTML, {@see looksLikeHtml()}) is refused as `html_page`, so
+ *   Admin can say it is a page and not a feed; it is never parsed;
  * - any `<!DOCTYPE` or `<!ENTITY` is refused before libxml sees the bytes,
  *   so neither external entities (XXE) nor entity expansion can happen;
  *   the parser also runs without entity substitution (no LIBXML_NOENT),
@@ -64,7 +66,7 @@ final class FeedParser
      *
      * @return non-empty-list<FeedEntry> In feed order, at most $limit.
      *
-     * @throws FeedFailure doctype, invalid_xml, unsupported_format or no_entries
+     * @throws FeedFailure html_page, doctype, invalid_xml, unsupported_format or no_entries
      */
     public function parse(string $xml, int $limit = 100, ?string $baseUrl = null): array
     {
@@ -100,10 +102,33 @@ final class FeedParser
         return $result;
     }
 
+    /**
+     * Whether the body is a web page and not a feed: after a UTF-8 BOM,
+     * whitespace and comments it starts with `<!doctype html` or `<html`.
+     * Only the first bytes are looked at. A document that starts with an
+     * XML declaration is XML, so a DOCTYPE in it is still refused as unsafe.
+     */
+    public static function looksLikeHtml(string $body): bool
+    {
+        $start = substr($body, 0, 4096);
+
+        if (str_starts_with($start, "\xEF\xBB\xBF")) {
+            $start = substr($start, 3);
+        }
+
+        $start = (string) preg_replace('/\A(?:\s+|<!--.*?-->)*/s', '', $start);
+
+        return preg_match('/\A<(?:!doctype\s+html|html)\b/i', $start) === 1;
+    }
+
     private function load(string $xml): DOMDocument
     {
         if (str_starts_with($xml, "\xFE\xFF") || str_starts_with($xml, "\xFF\xFE") || str_contains($xml, "\0")) {
             throw new FeedFailure(FeedFailure::INVALID_XML);
+        }
+
+        if (self::looksLikeHtml($xml)) {
+            throw new FeedFailure(FeedFailure::HTML_PAGE);
         }
 
         if (stripos($xml, '<!DOCTYPE') !== false || stripos($xml, '<!ENTITY') !== false) {

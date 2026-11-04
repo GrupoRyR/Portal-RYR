@@ -6,16 +6,20 @@ use App\Models\Company;
 use App\Models\NewsSource;
 use App\Models\User;
 use App\News\FeedFailure;
+use App\News\FeedReader;
 use App\News\FeedUrlPolicy;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Admin › Noticias: the RSS/Atom sources of each company and tab of the
@@ -23,10 +27,13 @@ use Livewire\Component;
  * Integraciones: the sources make the server request third-party URLs),
  * checked on mount, on every action and on every render.
  *
- * Saving never requests the URL: `portal:fetch-news` reads the sources
- * every hour with the SSRF rules of App\News\FeedFetcher, and this page
- * only checks the shape of the URL (App\News\FeedUrlPolicy). Every change
- * is audited by App\Models\NewsSource (log `news`).
+ * Saving a new or changed URL checks its shape (App\News\FeedUrlPolicy) and
+ * then requests it once through App\News\FeedReader, with the SSRF rules of
+ * App\News\FeedFetcher (odd/tasks/observaciones.md O3): a web page that
+ * announces its feed is saved with the feed's address (and says so), a
+ * page without one is refused, and any other failure is left to
+ * `portal:fetch-news`, which reads the sources every hour and shows the
+ * error. Every change is audited by App\Models\NewsSource (log `news`).
  */
 class NewsManager extends Component
 {
@@ -42,6 +49,7 @@ class NewsManager extends Component
         FeedFailure::TIMEOUT => 'No respondió en 10 segundos',
         FeedFailure::TOO_LARGE => 'La respuesta pasa de 1 MB',
         FeedFailure::DOCTYPE => 'El documento no es seguro',
+        FeedFailure::HTML_PAGE => 'Esta dirección es una página web, no un canal RSS',
         FeedFailure::INVALID_XML => 'No es un XML válido',
         FeedFailure::UNSUPPORTED_FORMAT => 'No es RSS ni Atom',
         FeedFailure::NO_ENTRIES => 'La fuente no trae noticias con título y enlace https',
@@ -102,17 +110,18 @@ class NewsManager extends Component
         }
 
         $this->validateForm($this->tab, null);
+        $found = $this->discoveredFeed($this->companyId, $this->tab, null);
 
         $source = NewsSource::create([
             'company_id' => $this->companyId,
             'tab' => $this->tab,
             'name' => $this->name,
-            'url' => $this->url,
+            'url' => $found ?? $this->url,
             'active' => true,
         ]);
 
         $this->resetForm();
-        $this->notice = "Se agregó la fuente «{$source->name}».";
+        $this->notice = "Se agregó la fuente «{$source->name}».".self::foundNotice($found);
     }
 
     public function startEditing(int $id): void
@@ -151,8 +160,9 @@ class NewsManager extends Component
         $this->notice = '';
 
         $this->validateForm($this->formTab, $source);
+        $found = $this->url === $source->url ? null : $this->discoveredFeed($source->company_id, $this->formTab, $source);
 
-        $source->fill(['name' => $this->name, 'url' => $this->url, 'tab' => $this->formTab]);
+        $source->fill(['name' => $this->name, 'url' => $found ?? $this->url, 'tab' => $this->formTab]);
 
         // A new address starts over: the error of the old one no longer applies.
         if ($source->isDirty('url')) {
@@ -163,7 +173,7 @@ class NewsManager extends Component
 
         $this->tab = $source->tab;
         $this->resetForm();
-        $this->notice = "Se guardó la fuente «{$source->name}».";
+        $this->notice = "Se guardó la fuente «{$source->name}».".self::foundNotice($found);
     }
 
     public function toggleActive(int $id): void
@@ -231,6 +241,59 @@ class NewsManager extends Component
             : (self::ERROR_LABELS[$code] ?? 'Error');
 
         return "{$label} ({$code})";
+    }
+
+    /**
+     * Requests the typed URL once: the feed a web page announces (null when
+     * the URL is a feed itself, or could not be read now: the hourly fetch
+     * will show why). A page without a usable feed, or whose feed is
+     * already a source of this tab, is a validation error.
+     *
+     * @throws ValidationException
+     */
+    private function discoveredFeed(int $companyId, string $tab, ?NewsSource $source): ?string
+    {
+        try {
+            $read = app(FeedReader::class)->read($this->url, (int) config('news.max_entries'));
+        } catch (FeedFailure $failure) {
+            if ($failure->errorCode === FeedFailure::HTML_PAGE) {
+                throw ValidationException::withMessages([
+                    'url' => self::ERROR_LABELS[FeedFailure::HTML_PAGE].'. Busca en el sitio el enlace «RSS» y pega esa dirección.',
+                ]);
+            }
+
+            return null;
+        } catch (Throwable $exception) {
+            // Only the class: a message could carry part of a response.
+            Log::warning('News source could not be checked when saved.', ['exception' => $exception::class]);
+
+            return null;
+        }
+
+        if (! $read->discovered) {
+            return null;
+        }
+
+        $taken = NewsSource::query()
+            ->where('company_id', $companyId)
+            ->where('tab', $tab)
+            ->when($source !== null, fn ($query) => $query->whereKeyNot($source->id))
+            ->whereRaw('LOWER(url) = ?', [mb_strtolower($read->url)])
+            ->exists();
+
+        if ($taken) {
+            throw ValidationException::withMessages(['url' => "Esa página anuncia el canal {$read->url}, que ya está en esta pestaña."]);
+        }
+
+        return $read->url;
+    }
+
+    /**
+     * « Se encontró el canal RSS: …» after a page was replaced by its feed.
+     */
+    private static function foundNotice(?string $found): string
+    {
+        return $found === null ? '' : " Se encontró el canal RSS: {$found}";
     }
 
     private function validateForm(string $tab, ?NewsSource $source): void

@@ -26,9 +26,13 @@ Corregir lo que Jhon encontró al probar el portal desplegado y completar lo que
 - [x] O2. **Eliminar anuncios y eventos.** Hoy solo se pueden retirar. Eliminar pide confirmación, borra lo que cuelga del anuncio o evento (lecturas, confirmaciones y avisos al celular) y deja una línea en Auditoría con el título y quién lo eliminó.
   - Cambio: «Eliminar» en el editor de anuncios y de eventos, con `wire:confirm`; la política `delete` es la misma que `update`. `erase()` (rasgo `AddressedToCompanies`) borra en una transacción lecturas, recordatorios y sus entregas, correos a las listas, avisos al celular, empresas y el registro, y escribe una sola línea `*.deleted` con el título; la imagen se borra después del commit. «Retirar» sigue igual. Sin migraciones.
   - Ruta: escritor delegado. Pruebas: `DeleteAnnouncementsAndEventsTest`, `AnnouncementPolicyTest`.
-- [ ] O3. **Noticias.**
+- [x] O3. **Noticias.**
   - Una dirección que es una página web y no un canal RSS da el mensaje «El documento no es seguro (doctype)». Debe decir que es una página web.
   - Si la página anuncia su canal RSS (`<link rel="alternate">`), el portal lo encuentra.
+  - Causa: `FeedParser::load()` rechaza todo `<!DOCTYPE` (protección XXE, se mantiene), así que una página HTML salía como `doctype`.
+  - Cambio: código nuevo `html_page` («Esta dirección es una página web, no un canal RSS») para un cuerpo que empieza por `<!doctype html` o `<html`, o servido como `text/html` sin ser un canal; `FeedDiscovery` lee los `<link rel="alternate">` del `<head>` (expresión regular acotada a 256 KB, sin cargar el documento), exige https y dominio público, y `FeedReader` pide el canal con el mismo `FeedFetcher`. Admin › Noticias guarda el canal encontrado y lo dice, o rechaza la página sin canal; `portal:fetch-news` cambia la dirección de las fuentes ya guardadas y lo audita como «Sistema».
+  - Ruta: escritor delegado. Pruebas: `HtmlPageTest`, `NewsAutodiscoveryTest`, `NewsAdminTest`, `FeedParserTest` (`Http::fake` y resolvedor DNS falso).
+  - Pendiente (sin cambio de código): fuentes de Colombia, internacionales y de mercado por empresa; las carga Jhon en Admin › Noticias.
   - Hay que dejar fuentes de Colombia, internacionales y de mercado para cada empresa (Segurex: cerraduras, seguridad y control de acceso; SDC: químicos, hipoclorito y aseo).
 - [ ] O4. **Catálogo.** Una cerradura agregada en Admin no sale en el inicio.
 - [ ] O5. **Mercados.** Hay que sumar el Brent desde una fuente oficial por confirmar, y los insumos de cada empresa ingresados por un administrador con fecha. La flecha y la cifra en verde, y la banda en movimiento, van con el front end.

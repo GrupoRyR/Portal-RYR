@@ -194,7 +194,9 @@ class FeedParserTest extends TestCase
     {
         $this->assertRefused('<rss version="2.0"><channel><item>', 'invalid_xml');
         $this->assertRefused('', 'invalid_xml');
-        $this->assertRefused('<html><body>Not a feed</body></html>', 'unsupported_format');
+        // A web page has its own code (odd/tasks/observaciones.md O3).
+        $this->assertRefused('<html><body>Not a feed</body></html>', 'html_page');
+        $this->assertRefused('<feed><entry/></feed>', 'unsupported_format');
         $this->assertRefused('{"items": []}', 'invalid_xml');
     }
 

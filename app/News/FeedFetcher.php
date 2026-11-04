@@ -39,6 +39,17 @@ class FeedFetcher
      */
     public function fetch(string $url): string
     {
+        return $this->download($url)->body;
+    }
+
+    /**
+     * The body with its declared Content-Type and the address it came
+     * from after the redirects, under the same rules as fetch().
+     *
+     * @throws FeedFailure
+     */
+    public function download(string $url): FetchedPage
+    {
         $maxRedirects = (int) config('news.max_redirects');
 
         for ($hop = 0; ; $hop++) {
@@ -66,7 +77,11 @@ class FeedFetcher
                 throw new FeedFailure(FeedFailure::TOO_LARGE);
             }
 
-            return self::decode($body, (string) $response->header('Content-Encoding'), $maxBytes);
+            return new FetchedPage(
+                self::decode($body, (string) $response->header('Content-Encoding'), $maxBytes),
+                (string) $response->header('Content-Type'),
+                $url,
+            );
         }
     }
 
