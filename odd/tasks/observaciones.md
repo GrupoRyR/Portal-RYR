@@ -23,7 +23,9 @@ Corregir lo que Jhon encontró al probar el portal desplegado y completar lo que
   - Cambio: casilla marcada por defecto en anuncios y eventos nuevos; los eventos van a la lista con el mismo cron (`portal:send-announcement-list-emails`, `App\Calendar\EventListEmails`, migración `2026_11_06_100001`); aviso en el editor y línea en Auditoría (`*.list_email_skipped`) cuando una empresa no tiene lista o buzón.
   - Pendiente (decisión de Jhon): los borradores del asistente siguen sin correo; no se tocó el asistente.
   - Ruta: escritor delegado (más de dos archivos no triviales). Pruebas: `ListEmailsByDefaultTest`, `SendEventListEmailsTest` (Segurex y SDC, `Http::fake`).
-- [ ] O2. **Eliminar anuncios y eventos.** Hoy solo se pueden retirar. Eliminar pide confirmación, borra lo que cuelga del anuncio o evento (lecturas, confirmaciones y avisos al celular) y deja una línea en Auditoría con el título y quién lo eliminó.
+- [x] O2. **Eliminar anuncios y eventos.** Hoy solo se pueden retirar. Eliminar pide confirmación, borra lo que cuelga del anuncio o evento (lecturas, confirmaciones y avisos al celular) y deja una línea en Auditoría con el título y quién lo eliminó.
+  - Cambio: «Eliminar» en el editor de anuncios y de eventos, con `wire:confirm`; la política `delete` es la misma que `update`. `erase()` (rasgo `AddressedToCompanies`) borra en una transacción lecturas, recordatorios y sus entregas, correos a las listas, avisos al celular, empresas y el registro, y escribe una sola línea `*.deleted` con el título; la imagen se borra después del commit. «Retirar» sigue igual. Sin migraciones.
+  - Ruta: escritor delegado. Pruebas: `DeleteAnnouncementsAndEventsTest`, `AnnouncementPolicyTest`.
 - [ ] O3. **Noticias.**
   - Una dirección que es una página web y no un canal RSS da el mensaje «El documento no es seguro (doctype)». Debe decir que es una página web.
   - Si la página anuncia su canal RSS (`<link rel="alternate">`), el portal lo encuentra.

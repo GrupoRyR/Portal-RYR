@@ -211,6 +211,31 @@ class AnnouncementEditor extends Component
         session()->flash('status', 'Anuncio retirado. Ya no se muestra en el inicio.');
     }
 
+    /**
+     * «Eliminar» (odd/tasks/observaciones.md O2): gone for good with its
+     * reads, reminders, list emails, phone notices and image, after the
+     * button asks first; one line in Auditoría (Announcement::erase()).
+     */
+    public function delete(AnnouncementImageStore $images): mixed
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('delete', $this->announcement);
+
+        $id = (int) $this->announcement->id;
+        $title = $this->announcement->title;
+        $path = $this->announcement->image_path;
+
+        $this->announcement->erase();
+
+        // After the commit: a failed delete keeps its image.
+        $images->delete($path);
+        $images->deleteFolderOf($id);
+
+        session()->flash('status', "Se eliminó el anuncio «{$title}».");
+
+        return $this->redirectRoute('admin.announcements.index');
+    }
+
     public function republish(): void
     {
         $this->authorize('update', $this->announcement);

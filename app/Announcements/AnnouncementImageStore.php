@@ -103,6 +103,17 @@ class AnnouncementImageStore
     }
 
     /**
+     * Deletes the whole image folder of an announcement ({IMAGE_DIR}/{id}),
+     * after it is deleted for good («Eliminar»).
+     */
+    public function deleteFolderOf(int $announcementId): void
+    {
+        if ($announcementId > 0) {
+            Storage::disk('public')->deleteDirectory(Announcement::IMAGE_DIR.'/'.$announcementId);
+        }
+    }
+
+    /**
      * Center crop to 16:9, then scale down (never up) to fit 1280 × 720.
      */
     private function encode(GdImage $source): string

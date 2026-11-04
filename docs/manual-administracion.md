@@ -139,8 +139,9 @@ Se muestran en el inicio entre su fecha de inicio y de fin: en el computador, en
 - **Lectura obligatoria:** cada persona que ve el anuncio debe pulsar **Confirmar lectura** (en el inicio y en la página de anuncios); después ve «Leído el …». Quien tiene cuentas vinculadas confirma una sola vez, con cualquiera de ellas. Se puede marcar al crear o al editar, y el cambio queda en Auditoría.
 - **Vista previa:** cómo se verá en escritorio y en celular.
 - **Retirar** lo quita del inicio sin borrarlo; **Volver a publicar** lo devuelve.
+- **Eliminar** lo borra para siempre, junto con sus lecturas confirmadas, recordatorios, correos a las listas, avisos al celular y su imagen. El portal pide confirmar antes («¿Eliminar este anuncio? Se borra para siempre…») y no se puede deshacer: para solo ocultarlo, use **Retirar**. Queda una línea en Auditoría con quién lo eliminó y el título («Eliminó el anuncio «…»»). Un correo o aviso que ya salió no se puede recoger.
 
-Un editor de anuncios solo publica para su propia empresa. Los anuncios no se borran.
+Un editor de anuncios solo publica, retira y elimina anuncios de su propia empresa.
 
 **Quién lo leyó.** Al editar un anuncio con lectura obligatoria aparece la tarjeta **Lectura**, debajo del formulario: «X de Y personas lo leyeron» y, en **Personas que faltan**, las personas que no lo han confirmado, con el nombre y sus empresas (hasta 200, en orden alfabético; si faltan más, «Y N más»). Solo la ve quien puede editar ese anuncio. Las cifras se cuentan al abrir la página y se actualizan cada minuto o al recargarla.
 
@@ -196,7 +197,8 @@ Fechas de la empresa (reuniones, capacitaciones, jornadas) con **Agregar a mi ca
   - **Se repite cada año** (solo con **Todo el día**): para fechas que vuelven cada año, como el aniversario de la empresa, el cierre contable o la entrega de dotación. Las fechas que escriba son la primera vez. El portal muestra la próxima: la de este año hasta que termina y luego la del año siguiente (un 29 de febrero cae el 28 en los años que no son bisiestos). Nunca pasa a **Pasados** y en el inicio y en **Eventos** dice «Cada año» en lugar de «Evento». Su `.ics` lo repite cada año en el calendario de cada persona. Si quita **Todo el día**, la opción se desmarca: un evento con hora no puede repetirse. Debe durar menos de un año (el último día, antes de que vuelva el primero). Si desmarca la opción en una fecha cuyo primer día ya pasó, deja de verse en el portal, pero los calendarios que ya la importaron la siguen repitiendo hasta que cada persona la borre.
 - **Publicación:** **Para quién** (todas las empresas o algunas) y **Se muestra desde** (antes de esa fecha queda programado y nadie lo ve).
 - **Enviar también por correo a la lista de cada empresa:** igual que en los anuncios (sección 2.4), y **marcada en un evento nuevo**. El correo lleva el título, la fecha y la hora, el lugar, la descripción y el botón **Ver en el portal**, que abre **Eventos**. Sale una sola vez por empresa cuando el evento se muestra (uno programado, al llegar **Se muestra desde**; uno retirado o pasado no sale). Si una empresa del evento no tiene lista ni buzón remitente, el editor lo avisa («Segurex no tiene lista de correo configurada; el evento no se enviará por correo a esa empresa.») y Auditoría lo anota. La tarjeta **Correo a las listas** muestra cómo fue en cada empresa, con **Reintentar** si falló.
-- **Retirar** lo quita del portal de inmediato sin borrarlo; **Volver a publicar** lo devuelve. Los eventos no se borran.
+- **Retirar** lo quita del portal de inmediato sin borrarlo; **Volver a publicar** lo devuelve.
+- **Eliminar** lo borra para siempre, con sus correos a las listas, después de confirmar. No se puede deshacer y queda en Auditoría («Eliminó el evento «…»», con quién lo hizo). Quien ya lo agregó a su calendario lo conserva allí: avísele si el evento se cancela.
 
 Todo cambio queda en **Auditoría**. Quien ya agregó un evento a su calendario no recibe los cambios: si cambia la fecha, avísele para que lo descargue de nuevo.
 

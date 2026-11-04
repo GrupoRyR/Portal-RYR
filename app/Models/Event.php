@@ -183,6 +183,14 @@ class Event extends Model
     }
 
     /**
+     * Its emails to the lists go with it ({@see erase()}).
+     */
+    protected function deleteDependents(): void
+    {
+        $this->listEmails()->delete();
+    }
+
+    /**
      * Saves the event and its companies in one transaction; a change of
      * companies gets its own audit entry. Authorization is the caller's job.
      *

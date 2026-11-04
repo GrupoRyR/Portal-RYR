@@ -38,6 +38,12 @@
                             Retirar
                         </button>
                     @endif
+                    @can('delete', $announcement)
+                        <button type="button" wire:click="delete" wire:confirm="¿Eliminar este anuncio? Se borra para siempre, con sus lecturas, recordatorios, correos a las listas, avisos al celular y su imagen. Esta acción no se puede deshacer; para solo ocultarlo, usa Retirar."
+                                class="inline-flex h-11 items-center rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold text-status-failure hover:bg-subtle">
+                            Eliminar
+                        </button>
+                    @endcan
                 @endunless
                 <button type="submit" form="announcement-form" wire:loading.attr="disabled" wire:target="save,image"
                         class="inline-flex h-11 items-center rounded-control bg-brand-button px-5 text-[0.9375rem] font-semibold text-white disabled:opacity-60">
@@ -93,7 +99,7 @@
                                     <input id="n-image" type="file" wire:model="image" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="sr-only">
                                 </label>
                                 @if ($imageUrl || $image)
-                                    <button type="button" wire:click="clearImage" class="inline-flex h-10 items-center rounded-[10px] px-3.5 text-sm font-semibold text-status-failure hover:bg-status-failure-bg">Quitar</button>
+                                    <button type="button" wire:click="clearImage" class="inline-flex h-10 items-center rounded-[10px] px-3.5 text-sm font-semibold text-status-failure hover:bg-subtle">Quitar</button>
                                 @endif
                             </div>
                             <span class="{{ $hint }}">PNG, JPG o WebP de hasta 2 MB. Se convierte a WebP en proporción 16:9.</span>

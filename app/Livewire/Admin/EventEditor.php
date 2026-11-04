@@ -199,6 +199,24 @@ class EventEditor extends Component
         session()->flash('status', 'Evento retirado. Ya no se muestra en el portal.');
     }
 
+    /**
+     * «Eliminar» (odd/tasks/observaciones.md O2): gone for good with its
+     * list emails, after the button asks first; one line in Auditoría
+     * (Event::erase()).
+     */
+    public function delete(): mixed
+    {
+        abort_if($this->event === null, 404);
+        $this->authorize('delete', $this->event);
+
+        $title = $this->event->title;
+        $this->event->erase();
+
+        session()->flash('status', "Se eliminó el evento «{$title}».");
+
+        return $this->redirectRoute('admin.events.index');
+    }
+
     public function republish(): void
     {
         $this->authorize('update', $this->event);

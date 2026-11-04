@@ -6,16 +6,19 @@ use App\Models\Company;
 use App\Models\User;
 use App\Policies\Rules\CompanyAddressedRules;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Content addressed to every company or to chosen ones, withdrawn instead of
- * deleted, and audited: announcements and events. What differs stays in the
+ * Content addressed to every company or to chosen ones, withdrawn or
+ * deleted for good («Eliminar», {@see erase()}), and audited: announcements
+ * and events. What differs stays in the
  * model: its pivot table (`companies()`), what «published» means
  * (`scopeInStatus()`; an event is also not over yet) and its audit names.
  *
  * The model defines AUDIT_LOG (activity log name), AUDIT_EVENT_PREFIX
  * («announcement», «event»: «{prefix}.withdrawn»), AUDIENCE_ALL,
- * AUDIENCE_COMPANIES, STATUS_PUBLISHED, `companies()` and `scopeInStatus()`.
+ * AUDIENCE_COMPANIES, STATUS_PUBLISHED, `companies()`, `scopeInStatus()`
+ * and `deleteDependents()`.
  */
 trait AddressedToCompanies
 {
@@ -46,6 +49,42 @@ trait AddressedToCompanies
         $this->forceFill(['withdrawn_at' => now()])->save();
         $this->audit(self::AUDIT_EVENT_PREFIX.'.withdrawn');
     }
+
+    /**
+     * «Eliminar» (odd/tasks/observaciones.md O2): deletes it for good with
+     * everything that hangs from it, in one transaction: the rows the model
+     * lists in deleteDependents() and its companies, then itself. Auditoría
+     * keeps one entry, «{prefix}.deleted», with the title (the causer is the
+     * signed-in user); the generic «deleted» entry is not written. Files
+     * (an announcement's image) are the caller's, after the commit.
+     * Authorization is the caller's job.
+     */
+    public function erase(): void
+    {
+        DB::transaction(function () {
+            $title = $this->title;
+
+            // Explicitly, whatever the foreign keys cascade.
+            $this->deleteDependents();
+            $this->companies()->detach();
+
+            $this->disableLogging();
+
+            try {
+                $this->delete();
+            } finally {
+                $this->enableLogging();
+            }
+
+            $this->audit(self::AUDIT_EVENT_PREFIX.'.deleted', ['old' => ['title' => $title]]);
+        });
+    }
+
+    /**
+     * Deletes the rows that hang from it besides its companies, before it
+     * is deleted ({@see erase()}).
+     */
+    abstract protected function deleteDependents(): void;
 
     public function republish(): void
     {

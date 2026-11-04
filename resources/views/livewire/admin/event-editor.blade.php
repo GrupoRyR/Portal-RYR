@@ -38,6 +38,12 @@
                             Retirar
                         </button>
                     @endif
+                    @can('delete', $event)
+                        <button type="button" wire:click="delete" wire:confirm="¿Eliminar este evento? Se borra para siempre, con sus correos a las listas. Esta acción no se puede deshacer; para solo ocultarlo, usa Retirar."
+                                class="inline-flex h-11 items-center rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold text-status-failure hover:bg-subtle">
+                            Eliminar
+                        </button>
+                    @endcan
                 @endunless
                 <button type="submit" form="event-form" wire:loading.attr="disabled" wire:target="save"
                         class="inline-flex h-11 items-center rounded-control bg-brand-button px-5 text-[0.9375rem] font-semibold text-white disabled:opacity-60">
