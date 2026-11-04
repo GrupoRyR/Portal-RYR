@@ -325,194 +325,123 @@
 }
 
 /*
- * Sign-in stage (docs/diseno/LoginOpcionB.html): the apps cross a neutral
- * stage like comets, behind a glass card with the sign-in. The page is shown
- * before the company is known, so everything here is neutral grey; brand
- * color lives only inside each company's logo chip.
+ * Sign-in «Vitrina» (approved sketch, 2026-11-04): company photos fade one
+ * into the next under a neutral veil, behind the glass card. CSS only. The
+ * first photo is the still ground; the other three fade in over it in turn
+ * (7 s each, 28 s cycle). With reduced motion they are display: none, so
+ * they are never even downloaded. Phones get the small photos. Text never
+ * sits on the photos: the card and the footer are glass (glass.css).
  */
 @layer components {
-    .signin-stage {
-        --stage: #e8e8e3;
-        --stage-glow: rgb(255 255 255 / 0.9);
-        --stage-dots: rgb(23 25 28 / 0.07);
-        --trail: rgb(23 25 28 / 0.12);
-        --trail-head: rgb(23 25 28 / 0.24);
-        --glass: rgb(255 255 255 / 0.94);
-        --glass-edge: rgb(255 255 255 / 0.5);
-        --glass-shadow: rgb(23 25 28 / 0.18);
+    .vitrina {
+        --vitrina-veil: linear-gradient(135deg, rgb(23 25 28 / 0.55) 0%, rgb(23 25 28 / 0.25) 40%, rgb(23 25 28 / 0.18) 70%, rgb(23 25 28 / 0.5) 100%);
+        --vitrina-ground: url('/images/glass/derivados-planta-1-large.webp');
+        --vitrina-1: url('/images/glass/segurex-stand-large.webp');
+        --vitrina-2: url('/images/glass/derivados-planta-2-large.webp');
+        --vitrina-3: url('/images/glass/derivados-planta-3-large.webp');
 
-        background:
-            radial-gradient(50% 55% at 50% 50%, var(--stage-glow), transparent 75%),
-            radial-gradient(var(--stage-dots) 1px, transparent 1.6px) 0 0 / 28px 28px,
-            var(--stage);
-    }
-
-    .signin-stage {
-        @variant dark {
-            --stage: #0c0d0f;
-            --stage-glow: rgb(255 255 255 / 0.07);
-            --stage-dots: rgb(255 255 255 / 0.06);
-            --trail: rgb(255 255 255 / 0.1);
-            --trail-head: rgb(255 255 255 / 0.22);
-            --glass: rgb(28 29 32 / 0.94);
-            --glass-edge: rgb(255 255 255 / 0.08);
-            --glass-shadow: rgb(0 0 0 / 0.6);
-        }
-    }
-
-    /* An app tile, shared by the comets and the still layout. */
-    .signin-tile {
-        display: grid;
-        place-items: center;
-        width: var(--s);
-        height: var(--s);
-        border-radius: calc(var(--s) * 0.28);
-        background: var(--color-surface);
-        color: var(--color-fg);
-        box-shadow:
-            0 1px 2px rgb(0 0 0 / 0.06),
-            0 18px 40px rgb(23 25 28 / 0.14);
-    }
-
-    .signin-tile svg {
-        width: 44%;
-        height: 44%;
-    }
-
-    .signin-tile-dark {
-        background: var(--color-fg);
-        color: var(--color-surface);
-    }
-
-    /* Comets: each starts just off the left edge at its height (--y) and
-       crosses along a shallow diagonal (--angle), head first with a tapered
-       trail. Shown only when motion is welcome (see below). Only transform
-       moves and nothing that moves is blurred, so the browser composites the
-       comets without repainting them; depth comes from size and opacity. */
-    .signin-comets {
-        --angle: 16deg;
-        --scale: 1;
-        display: none;
-    }
-
-    .signin-comet {
-        --s: calc(var(--size) * var(--scale));
-        position: absolute;
-        top: var(--y);
-        left: 0;
         display: flex;
-        align-items: center;
-        transform-origin: 0 50%;
-        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
+        flex-direction: column;
+        isolation: isolate;
+        background-color: var(--g-ground);
     }
 
-    .signin-comet-tail {
-        width: calc(var(--tail) * var(--scale));
-        height: calc(var(--s) * 0.7);
-        margin-right: calc(var(--s) * -0.4);
-        background: linear-gradient(90deg, transparent, var(--trail) 70%, var(--trail-head));
-        clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
-    }
-
-    .signin-comet .signin-tile {
-        position: relative;
-        rotate: calc(var(--r) - var(--angle));
-    }
-
-    .signin-comet-far {
-        opacity: 0.4;
-    }
-
-    /* Still layout: tiles placed around the card (reduced motion). */
-    .signin-float {
-        position: absolute;
-        top: var(--y);
-        left: var(--x);
-        rotate: var(--r);
-    }
-
-    .signin-float-far {
-        filter: blur(2px);
-        opacity: 0.55;
-    }
-
-    .signin-phone {
-        display: none;
-    }
-
-    /* Nearly opaque, without a backdrop blur: a blur behind moving comets
-       would be redone on every frame. The still layout keeps the glass. */
-    .signin-card {
-        background: var(--glass);
-        box-shadow:
-            inset 0 0 0 1px var(--glass-edge),
-            0 40px 90px var(--glass-shadow);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .signin-card {
-            -webkit-backdrop-filter: blur(22px) saturate(1.15);
-            backdrop-filter: blur(22px) saturate(1.15);
+    /* The Kit's dark veil without its warm end: no company color. */
+    .vitrina {
+        @variant dark {
+            --vitrina-veil: linear-gradient(135deg, rgb(10 11 13 / 0.88) 0%, rgb(18 19 21 / 0.78) 45%, rgb(18 19 21 / 0.74) 80%, rgb(10 11 13 / 0.72) 100%);
         }
+    }
+
+    @media (max-width: 767px) {
+        .vitrina {
+            --vitrina-ground: url('/images/glass/derivados-planta-1-small.webp');
+            --vitrina-1: url('/images/glass/segurex-stand-small.webp');
+            --vitrina-2: url('/images/glass/derivados-planta-2-small.webp');
+            --vitrina-3: url('/images/glass/derivados-planta-3-small.webp');
+        }
+    }
+
+    .vitrina-slides,
+    .vitrina-veil {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .vitrina-slides {
+        z-index: -2;
+        overflow: hidden;
+        background: var(--vitrina-ground) center / cover no-repeat;
+    }
+
+    .vitrina-veil {
+        z-index: -1;
+        background: var(--vitrina-veil);
+    }
+
+    .vitrina-slide {
+        display: none;
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        background: center / cover no-repeat;
+    }
+
+    .vitrina-slide:nth-child(1) {
+        background-image: var(--vitrina-1);
+        animation-delay: 7s;
+    }
+
+    .vitrina-slide:nth-child(2) {
+        background-image: var(--vitrina-2);
+        animation-delay: 14s;
+    }
+
+    .vitrina-slide:nth-child(3) {
+        background-image: var(--vitrina-3);
+        animation-delay: 21s;
     }
 
     @media (prefers-reduced-motion: no-preference) {
-        .signin-comets {
+        .vitrina-slide {
             display: block;
-        }
-
-        .signin-floats {
-            display: none;
-        }
-
-        .signin-comet {
-            animation: signin-comet var(--d) linear var(--delay) infinite;
-        }
-
-        .signin-card {
-            animation: signin-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+            animation-name: vitrina-fade;
+            animation-duration: 28s;
+            animation-iteration-count: infinite;
         }
     }
 
-    /* Phone: fewer, smaller and steeper comets, and with reduced motion
-       only three still tiles, above the card. */
-    @media (max-width: 767px) {
-        .signin-comets {
-            --angle: 24deg;
-            --scale: 0.62;
-        }
+    /* Ink button for pages without a company (sign-in, emergency access):
+       the glass ink as its background, AA in both themes (neutral light
+       17.6:1, dark 15.7:1; company inks 13.2:1 or more). */
+    .g-btn--ink {
+        color: #fff;
+        background: var(--g-ink);
+    }
 
-        .signin-desk {
-            display: none;
-        }
-
-        .signin-phone {
-            display: grid;
-        }
-
-        .signin-float {
-            --s: var(--phone-s) !important;
-            top: var(--phone-y);
-            left: var(--phone-x);
+    .g-btn--ink {
+        @variant dark {
+            color: #17191c;
         }
     }
 }
 
-/* From just off the left edge (its own length back) to just past the right
-   one. The crossing takes 65% of the period; the rest is the wait. */
-@keyframes signin-comet {
+/* In for a second, held, then out while the next one comes in. */
+@keyframes vitrina-fade {
     0% {
-        transform: rotate(var(--angle)) translateX(calc(-100% - 40px));
-    }
-    65%,
-    100% {
-        transform: rotate(var(--angle)) translateX(112vw);
-    }
-}
-
-@keyframes signin-rise {
-    from {
         opacity: 0;
-        transform: translateY(16px) scale(0.98);
+        transform: scale(1.04);
+    }
+    4%,
+    25% {
+        opacity: 1;
+    }
+    30% {
+        opacity: 0;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
     }
 }
