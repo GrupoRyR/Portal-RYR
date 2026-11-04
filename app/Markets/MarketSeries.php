@@ -15,6 +15,9 @@ namespace App\Markets;
  * - `sourceKey` is the id of the series at its source: the SDMX dataflow
  *   of the Banco de la República or the FRED series id.
  * - A monthly series is stored on the first day of its month.
+ * - `movesByDecision`: the value only changes when someone decides it (the
+ *   policy rate). Its change is against the last DIFFERENT value, so the
+ *   band shows the last decision instead of «no change since yesterday».
  */
 final readonly class MarketSeries
 {
@@ -68,6 +71,7 @@ final readonly class MarketSeries
         public string $frequency,
         public string $scope,
         public ?string $sourceKey = null,
+        public bool $movesByDecision = false,
     ) {}
 
     /**
@@ -101,7 +105,7 @@ final readonly class MarketSeries
             new self(self::EUR, 'Euro', MarketUnit::Pesos, self::SOURCE_ECB, self::DAILY, self::SCOPE_ALL),
             // Daily, published about a week late.
             new self(self::BRENT, 'Petróleo Brent', MarketUnit::UsdPerBarrel, self::SOURCE_FRED, self::DAILY, self::SCOPE_ALL, 'DCOILBRENTEU'),
-            new self(self::TPM, 'Tasa de política (BanRep)', MarketUnit::Percent, self::SOURCE_BANREP, self::DAILY, self::SCOPE_ALL, 'DF_CBR_DAILY_LATEST'),
+            new self(self::TPM, 'Tasa de política (BanRep)', MarketUnit::Percent, self::SOURCE_BANREP, self::DAILY, self::SCOPE_ALL, 'DF_CBR_DAILY_LATEST', movesByDecision: true),
             new self(self::COLCAP, 'COLCAP', MarketUnit::Points, self::SOURCE_BANREP, self::MONTHLY, self::SCOPE_ALL, 'DF_COLCAP_MONTHLY_LATEST'),
             // IMF primary commodity prices, monthly, about two months late.
             new self(self::ZINC, 'Zinc (US$/t)', MarketUnit::UsdPerTonne, self::SOURCE_FRED, self::MONTHLY, self::SCOPE_INPUT, 'PZINCUSDM'),

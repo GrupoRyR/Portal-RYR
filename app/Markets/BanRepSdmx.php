@@ -13,8 +13,14 @@ use DOMXPath;
  *       <message:DataSet>
  *         <generic:Series>
  *           <generic:Obs>
- *             <generic:ObsDimension value="2026-11-03"/>   (or «2026-10» for a month)
- *             <generic:ObsValue value="9.25"/>
+ *             <generic:ObsDimension value="20261104"/>   (or «2026-10» for a month)
+ *             <generic:ObsValue value="12.25"/>
+ *             <generic:Attributes>…</generic:Attributes>
+ *
+ * The `_LATEST` dataflows answer only the newest observation (checked
+ * against the live answers of 2026-11-04, tests/Fixtures/markets): the
+ * history the band compares with is what `market_rates` kept from earlier
+ * runs.
  *
  * The XML is parsed with SafeXml (no DOCTYPE, no entities, no network).
  * Each dataflow carries one series; a message with more is refused

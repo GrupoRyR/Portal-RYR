@@ -7,8 +7,10 @@ use App\Markets\MarketSourceException;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The observations of a Banco de la República SDMX-ML 2.1 generic message
- * (tests/Fixtures/markets are hand-made in that shape).
+ * The observations of a Banco de la República SDMX-ML 2.1 generic message.
+ * `banrep-*-live.xml` are copies of the live answers of 2026-11-04: the
+ * `_LATEST` dataflows carry one series with ONE observation, a daily date
+ * spelled `20261104` and attributes inside the series and the observation.
  */
 class BanRepSdmxTest extends TestCase
 {
@@ -18,54 +20,61 @@ class BanRepSdmxTest extends TestCase
     }
 
     /**
-     * A message with the given series (each an XML fragment of <generic:Obs>).
+     * A one-series message with the given <generic:Obs> fragments.
      */
-    private function message(string ...$series): string
+    private function message(string $observations): string
     {
-        $body = implode('', array_map(fn (string $obs) => "<generic:Series><generic:SeriesKey><generic:Value id=\"FREQ\" value=\"D\"/></generic:SeriesKey>{$obs}</generic:Series>", $series));
-
-        return '<?xml version="1.0" encoding="UTF-8"?>'
+        return "<?xml version='1.0' encoding='UTF-8'?>"
             .'<message:GenericData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic">'
-            ."<message:Header><message:ID>X</message:ID></message:Header><message:DataSet>{$body}</message:DataSet></message:GenericData>";
+            ."<message:Header><message:ID>X</message:ID></message:Header><message:DataSet><generic:Series>{$observations}</generic:Series></message:DataSet></message:GenericData>";
     }
 
     private function obs(string $period, string $value): string
     {
-        return "<generic:Obs><generic:ObsDimension value=\"{$period}\"/><generic:ObsValue value=\"{$value}\"/></generic:Obs>";
+        return "<generic:Obs><generic:ObsDimension value=\"{$period}\"/><generic:ObsValue value=\"{$value}\"/>"
+            .'<generic:Attributes><generic:Value id="OBS_STATUS" value="A"/></generic:Attributes></generic:Obs>';
     }
 
-    public function test_it_reads_the_daily_observations_newest_first(): void
+    public function test_it_reads_the_live_policy_rate_with_its_compact_daily_date(): void
     {
-        $this->assertSame([
-            ['date' => '2026-11-03', 'value' => '9.0000'],
-            ['date' => '2026-11-02', 'value' => '9.2500'],
-            ['date' => '2026-11-01', 'value' => '9.2500'],
-            ['date' => '2026-10-31', 'value' => '9.2500'],
-            ['date' => '2026-10-30', 'value' => '9.2500'],
-        ], BanRepSdmx::observations($this->fixture('banrep-tpm-daily.xml')));
+        $this->assertSame(
+            [['date' => '2026-11-04', 'value' => '12.2500']],
+            BanRepSdmx::observations($this->fixture('banrep-cbr-live.xml')),
+        );
     }
 
-    public function test_a_monthly_period_is_the_first_day_of_its_month(): void
+    public function test_it_reads_the_live_monthly_colcap_on_the_first_day_of_its_month(): void
     {
-        $this->assertSame([
-            ['date' => '2026-10-01', 'value' => '1512.3000'],
-            ['date' => '2026-09-01', 'value' => '1499.9000'],
-            ['date' => '2026-08-01', 'value' => '1478.2100'],
-        ], BanRepSdmx::observations($this->fixture('banrep-colcap-monthly.xml')));
+        $this->assertSame(
+            [['date' => '2026-10-01', 'value' => '2536.5100']],
+            BanRepSdmx::observations($this->fixture('banrep-colcap-live.xml')),
+        );
+    }
 
-        // The SDMX «2026-M09» spelling too.
-        $this->assertSame([['date' => '2026-09-01', 'value' => '1499.9000']], BanRepSdmx::observations($this->message($this->obs('2026-M09', '1499.9'))));
+    public function test_the_other_date_spellings_are_read_too(): void
+    {
+        $xml = $this->message($this->obs('2026-11-03', '12.5').$this->obs('2026-M09', '2500').$this->obs('20261102', '12.5'));
+
+        $this->assertSame([
+            ['date' => '2026-11-03', 'value' => '12.5000'],
+            ['date' => '2026-11-02', 'value' => '12.5000'],
+            ['date' => '2026-09-01', 'value' => '2500.0000'],
+        ], BanRepSdmx::observations($xml));
     }
 
     public function test_observations_that_are_not_a_number_on_a_real_date_are_skipped(): void
     {
         $xml = $this->message(
-            $this->obs('2026-11-03', 'NaN')
-            .$this->obs('2026-02-30', '9.25')
-            .$this->obs('2026-11-02', '-1')
-            .$this->obs('2026-11-01', '9,25')
-            .$this->obs('2026-10-31', '1e3')
-            .$this->obs('2026-10-30', '9.5'),
+            $this->obs('20261103', 'NaN')
+            .$this->obs('20260230', '9.25')
+            .$this->obs('2026113', '9.25')
+            .$this->obs('202611030', '9.25')
+            .$this->obs('2026-13', '9.25')
+            .$this->obs('2026-1104', '9.25')
+            .$this->obs('20261102', '-1')
+            .$this->obs('20261101', '9,25')
+            .$this->obs('20261031', '1e3')
+            .$this->obs('20261030', '9.5'),
         );
 
         $this->assertSame([['date' => '2026-10-30', 'value' => '9.5000']], BanRepSdmx::observations($xml));
@@ -75,7 +84,7 @@ class BanRepSdmxTest extends TestCase
     {
         $this->expectExceptionObject(new MarketSourceException('invalid_data'));
 
-        BanRepSdmx::observations($this->message($this->obs('2026-11-03', 'NaN')));
+        BanRepSdmx::observations($this->message($this->obs('20261103', 'NaN')));
     }
 
     public function test_an_error_message_without_series_is_invalid(): void
@@ -89,16 +98,14 @@ class BanRepSdmxTest extends TestCase
     {
         $this->expectExceptionObject(new MarketSourceException('many_series'));
 
-        BanRepSdmx::observations($this->message($this->obs('2026-11-03', '9.0'), $this->obs('2026-11-03', '4.1')));
+        BanRepSdmx::observations($this->fixture('banrep-two-series.xml'));
     }
 
     public function test_a_doctype_is_refused(): void
     {
-        $xml = str_replace('<?xml version="1.0" encoding="UTF-8"?>', '<?xml version="1.0"?><!DOCTYPE m [<!ENTITY x SYSTEM "file:///etc/passwd">]>', $this->fixture('banrep-tpm-daily.xml'));
-
         $this->expectExceptionObject(new MarketSourceException('doctype'));
 
-        BanRepSdmx::observations($xml);
+        BanRepSdmx::observations($this->fixture('banrep-doctype.xml'));
     }
 
     public function test_a_body_that_is_not_xml_is_invalid(): void

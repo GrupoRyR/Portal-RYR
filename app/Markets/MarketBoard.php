@@ -16,6 +16,11 @@ use Illuminate\Support\Carbon;
  * dataset publishes the TRM ahead of its validity, and a figure must not
  * show before its day. A code that has no value yet is left out.
  *
+ * A series that moves by decision (the policy rate, MarketSeries) is
+ * compared with its last DIFFERENT stored value, in the same query: the
+ * band shows the last decision with the current value's date. One that
+ * never changed shows no move.
+ *
  * A company sees the series for everyone, then the inputs it chose
  * (`companies.market_codes`, read from the company already loaded: no query
  * of its own). Without a company, or without a choice, only the series for
@@ -32,19 +37,35 @@ final class MarketBoard
     {
         $codes = MarketSeries::codesFor($company?->marketCodes() ?? []);
 
-        // The two newest values of each code that already started. Window
-        // function: MariaDB 10.2+ / MySQL 8 (production) and SQLite have it.
+        $byDecision = array_values(array_filter($codes, fn (string $code) => MarketSeries::find($code)?->movesByDecision === true));
+
+        // Window functions: MariaDB 10.2+ / MySQL 8 (production) and SQLite
+        // have them. Every value that already started, ranked newest first,
+        // with the newest value of its code beside it.
         $ranked = MarketRate::query()
             ->select('*')
             ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS position')
+            ->selectRaw('FIRST_VALUE(value) OVER (PARTITION BY code ORDER BY valid_from DESC) AS latest_value')
             ->whereIn('code', $codes)
             ->where('valid_from', '<=', Carbon::now(self::TZ)->toDateString());
 
-        $byCode = MarketRate::query()
+        // The newest value, then the ones a change may be measured against:
+        // any for most codes, only a different one for a decided rate.
+        $kept = MarketRate::query()
             ->fromSub($ranked, 'ranked')
-            ->where('position', '<=', 2)
+            ->select('ranked.*')
+            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS kept_position')
+            ->when($byDecision !== [], fn ($query) => $query->where(fn ($query) => $query
+                ->where('position', 1)
+                ->orWhereNotIn('code', $byDecision)
+                ->orWhereColumn('value', '<>', 'latest_value')));
+
+        // The two first of each code: the newest and the one it moved from.
+        $byCode = MarketRate::query()
+            ->fromSub($kept, 'kept')
+            ->where('kept_position', '<=', 2)
             ->orderBy('code')
-            ->orderBy('position')
+            ->orderBy('kept_position')
             ->get()
             ->groupBy('code');
 
@@ -64,6 +85,8 @@ final class MarketBoard
     private function quote(string $code, MarketRate $latest, ?MarketRate $previous): MarketQuote
     {
         $value = (float) $latest->value;
+        // A decided rate that never changed: no move, rather than no comparison.
+        $previous ??= MarketSeries::find($code)?->movesByDecision === true ? $latest : null;
         $before = $previous === null ? null : (float) $previous->value;
         $change = $before === null ? null : round($value - $before, 4);
 

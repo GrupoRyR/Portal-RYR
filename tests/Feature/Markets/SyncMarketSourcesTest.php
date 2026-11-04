@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Markets;
 
+use App\Markets\MarketBoard;
 use App\Models\MarketRate;
+use App\View\Home\MarketFigure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -44,7 +46,7 @@ class SyncMarketSourcesTest extends TestCase
         config(['app.timezone' => 'UTC', 'services.fred.key' => null]);
         date_default_timezone_set('UTC');
 
-        Carbon::setTestNow(Carbon::parse('2026-11-03 07:10:00', 'America/Bogota'));
+        Carbon::setTestNow(Carbon::parse('2026-11-04 07:10:00', 'America/Bogota'));
         Http::preventStrayRequests();
     }
 
@@ -83,13 +85,12 @@ class SyncMarketSourcesTest extends TestCase
         $this->fakeSources();
 
         $this->artisan('portal:sync-markets')
-            ->expectsOutputToContain('Tasa de política (BanRep): 5 valores guardados.')
-            ->expectsOutputToContain('COLCAP: 3 valores guardados.');
+            ->expectsOutputToContain('Tasa de política (BanRep): 1 valor guardado.')
+            ->expectsOutputToContain('COLCAP: 1 valor guardado.');
 
-        $this->assertSame('9.0000', $this->value('tpm', '2026-11-03'));
-        $this->assertSame('9.2500', $this->value('tpm', '2026-11-02'));
-        $this->assertSame('1512.3000', $this->value('colcap', '2026-10-01'));
-        $this->assertSame('1499.9000', $this->value('colcap', '2026-09-01'));
+        // The live `_LATEST` answers carry only today's value.
+        $this->assertSame(['2026-11-04' => '12.2500'], $this->history('tpm'));
+        $this->assertSame(['2026-10-01' => '2536.5100'], $this->history('colcap'));
         $this->assertSame(['banrep.gov.co'], MarketRate::query()->whereIn('code', ['tpm', 'colcap'])->distinct()->pluck('source')->all());
         $this->assertNull(MarketRate::query()->where('code', 'tpm')->value('valid_until'));
     }
@@ -111,8 +112,7 @@ class SyncMarketSourcesTest extends TestCase
     {
         // Fetched yesterday: a monthly series already read today would not be asked again.
         MarketRate::factory()->create(['code' => 'colcap', 'value' => '1400', 'valid_from' => '2026-09-01', 'source' => 'banrep.gov.co', 'fetched_at' => now()->subDay()]);
-        $xml = str_replace('<?xml version="1.0" encoding="UTF-8"?>', '<?xml version="1.0"?><!DOCTYPE m [<!ENTITY x SYSTEM "file:///etc/passwd">]>', $this->marketFixture('banrep-colcap-monthly.xml'));
-        $this->fakeSources(colcap: Http::response($xml, 200));
+        $this->fakeSources(colcap: Http::response($this->marketFixture('banrep-doctype.xml'), 200));
         Log::spy();
 
         $this->artisan('portal:sync-markets')
@@ -121,7 +121,7 @@ class SyncMarketSourcesTest extends TestCase
 
         $this->assertSame(['1400.0000'], MarketRate::query()->where('code', 'colcap')->pluck('value')->all());
         // The other source of the same host still came in.
-        $this->assertSame('9.0000', $this->value('tpm', '2026-11-03'));
+        $this->assertSame('12.2500', $this->value('tpm', '2026-11-04'));
         $this->assertWarned('colcap', 'doctype');
     }
 
@@ -134,7 +134,7 @@ class SyncMarketSourcesTest extends TestCase
         $this->artisan('portal:sync-markets')->assertFailed();
 
         $this->assertSame(['9.2500'], MarketRate::query()->where('code', 'tpm')->pluck('value')->all());
-        $this->assertSame('1512.3000', $this->value('colcap', '2026-10-01'));
+        $this->assertSame('2536.5100', $this->value('colcap', '2026-10-01'));
         $this->assertWarned('tpm', 'http_503');
     }
 
@@ -270,7 +270,7 @@ class SyncMarketSourcesTest extends TestCase
         $this->artisan('portal:sync-markets');
         $morning = Http::recorded()->count();
 
-        Carbon::setTestNow(Carbon::parse('2026-11-03 13:10:00', 'America/Bogota'));
+        Carbon::setTestNow(Carbon::parse('2026-11-04 13:10:00', 'America/Bogota'));
         $this->artisan('portal:sync-markets')
             ->expectsOutputToContain('Ya consultadas hoy: COLCAP, Zinc (US$/t)');
 
@@ -283,7 +283,7 @@ class SyncMarketSourcesTest extends TestCase
         $this->assertTrue($afternoon->contains(fn (string $url) => str_contains($url, 'series_id=DCOILBRENTEU')));
 
         // The next day they are read again.
-        Carbon::setTestNow(Carbon::parse('2026-11-04 07:10:00', 'America/Bogota'));
+        Carbon::setTestNow(Carbon::parse('2026-11-05 07:10:00', 'America/Bogota'));
         $this->artisan('portal:sync-markets');
         $this->assertSame($morning, Http::recorded()->count() - $morning - $afternoon->count());
     }
@@ -293,7 +293,7 @@ class SyncMarketSourcesTest extends TestCase
         config(['services.fred.key' => self::KEY]);
         $down = true;
         $this->fakeSources(colcap: function () use (&$down) {
-            return $down ? Http::response('', 503) : Http::response($this->marketFixture('banrep-colcap-monthly.xml'));
+            return $down ? Http::response('', 503) : Http::response($this->marketFixture('banrep-colcap-live.xml'));
         });
         Log::spy();
 
@@ -301,10 +301,75 @@ class SyncMarketSourcesTest extends TestCase
         $this->assertSame(0, MarketRate::query()->where('code', 'colcap')->count());
 
         $down = false;
-        Carbon::setTestNow(Carbon::parse('2026-11-03 13:10:00', 'America/Bogota'));
+        Carbon::setTestNow(Carbon::parse('2026-11-04 13:10:00', 'America/Bogota'));
         $this->artisan('portal:sync-markets');
 
-        $this->assertSame(3, MarketRate::query()->where('code', 'colcap')->count());
+        $this->assertSame(1, MarketRate::query()->where('code', 'colcap')->count());
+    }
+
+    // --- History: each answer carries one value ----------------------------------
+
+    public function test_every_sync_adds_the_day_of_the_value_and_the_change_comes_from_the_stored_one_before(): void
+    {
+        MarketRate::factory()->create(['code' => 'colcap', 'value' => '2500', 'valid_from' => '2026-09-01', 'source' => 'banrep.gov.co', 'fetched_at' => now()->subMonth()]);
+        $this->fakeSources();
+
+        $this->artisan('portal:sync-markets');
+
+        $this->assertSame(['2026-09-01' => '2500.0000', '2026-10-01' => '2536.5100'], $this->history('colcap'));
+
+        $colcap = MarketFigure::from((new MarketBoard)->current()['colcap']);
+        $this->assertSame('2.536,51', $colcap->value);
+        $this->assertSame('▲ 1,46 %', $colcap->shortChange());
+        $this->assertSame('oct 2026', $colcap->validFromLabel);
+    }
+
+    public function test_a_first_sync_shows_the_policy_rate_without_a_move(): void
+    {
+        $this->fakeSources();
+
+        $this->artisan('portal:sync-markets');
+
+        $tpm = MarketFigure::from((new MarketBoard)->current()['tpm']);
+        $this->assertSame('12,25 %', $tpm->value);
+        $this->assertSame('● 0,00 pp', $tpm->shortChange());
+        $this->assertSame('4 nov', $tpm->validFromLabel);
+    }
+
+    public function test_the_policy_rate_shows_its_last_decision_and_todays_date(): void
+    {
+        $answer = ['day' => '20261102', 'value' => '12.5'];
+        $this->fakeSources(tpm: function () use (&$answer) {
+            return Http::response($this->policyRateXml($answer['day'], $answer['value']));
+        });
+
+        foreach ([['20261102', '12.5', '2026-11-02'], ['20261103', '12.5', '2026-11-03'], ['20261104', '12.25', '2026-11-04'], ['20261105', '12.25', '2026-11-05'], ['20261106', '12.25', '2026-11-06']] as [$day, $value, $date]) {
+            $answer = ['day' => $day, 'value' => $value];
+            Carbon::setTestNow(Carbon::parse("{$date} 07:10:00", 'America/Bogota'));
+            $this->artisan('portal:sync-markets');
+        }
+
+        $this->assertCount(5, $this->history('tpm'));
+
+        // Two days after the cut, the band still shows it against 12,50 %, with today's date.
+        $tpm = MarketFigure::from((new MarketBoard)->current()['tpm']);
+        $this->assertSame('12,25 %', $tpm->value);
+        $this->assertSame('▼ 0,25 pp', $tpm->shortChange());
+        $this->assertSame('Bajó 0,25 puntos porcentuales', $tpm->spokenChange());
+        $this->assertSame('crit', $tpm->tone());
+        $this->assertSame('2026-11-06', $tpm->validFromIso);
+    }
+
+    /**
+     * The stored values of a code by date, oldest first.
+     *
+     * @return array<string, string>
+     */
+    private function history(string $code): array
+    {
+        return MarketRate::query()->where('code', $code)->orderBy('valid_from')->get()
+            ->mapWithKeys(fn (MarketRate $rate) => [$rate->valid_from->toDateString() => $rate->value])
+            ->all();
     }
 
     private function assertWarned(string $source, string $code): void

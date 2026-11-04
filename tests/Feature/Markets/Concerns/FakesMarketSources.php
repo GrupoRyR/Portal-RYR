@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Fake answers of the Banco de la República (SDMX) and FRED for
- * `portal:sync-markets`, from the hand-made samples in tests/Fixtures/markets.
+ * `portal:sync-markets`, from tests/Fixtures/markets: the BanRep ones are
+ * copies of the live answers of 2026-11-04 (one observation each), the
+ * FRED ones hand-made in the shape of its documentation.
  * Each answer is built per request: a read body is not read twice.
  */
 trait FakesMarketSources
@@ -31,11 +33,23 @@ trait FakesMarketSources
             }
 
             return $answer ?? Http::response(
-                $this->marketFixture(str_contains($request->url(), 'DF_CBR_DAILY_LATEST') ? 'banrep-tpm-daily.xml' : 'banrep-colcap-monthly.xml'),
+                $this->marketFixture(str_contains($request->url(), 'DF_CBR_DAILY_LATEST') ? 'banrep-cbr-live.xml' : 'banrep-colcap-live.xml'),
                 200,
                 ['Content-Type' => 'application/xml'],
             );
         };
+    }
+
+    /**
+     * The live policy-rate answer with another day (`20261104`) and value.
+     */
+    protected function policyRateXml(string $day, string $value): string
+    {
+        return str_replace(
+            ['<generic:ObsDimension value="20261104" />', '<generic:ObsValue value="12.25" />'],
+            ["<generic:ObsDimension value=\"{$day}\" />", "<generic:ObsValue value=\"{$value}\" />"],
+            $this->marketFixture('banrep-cbr-live.xml'),
+        );
     }
 
     /**

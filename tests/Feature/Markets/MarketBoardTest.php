@@ -175,4 +175,65 @@ class MarketBoardTest extends TestCase
         $this->assertCount(13, $board);
         $this->assertCount(1, $queries);
     }
+
+    // --- The policy rate: against its last decision -----------------------------
+
+    private function rate(string $date, string $value): void
+    {
+        MarketRate::factory()->create(['code' => 'tpm', 'value' => $value, 'valid_from' => $date, 'source' => 'banrep.gov.co']);
+    }
+
+    public function test_the_policy_rate_moves_against_the_last_different_rate_not_yesterday(): void
+    {
+        $this->rate('2026-10-29', '12.0000');
+        $this->rate('2026-10-30', '12.5000');
+        $this->rate('2026-10-31', '12.5000');
+        $this->rate('2026-11-01', '12.2500');
+        $this->rate('2026-11-02', '12.2500');
+        $this->rate('2026-11-03', '12.2500');
+
+        DB::enableQueryLog();
+        $tpm = (new MarketBoard)->current()['tpm'];
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertEqualsWithDelta(12.25, $tpm->value, 0.00001);
+        $this->assertEqualsWithDelta(-0.25, $tpm->change, 0.00001);
+        $this->assertEqualsWithDelta(-2.0, $tpm->changePercent, 0.00001);
+        // The date is the current value's, not the decision's.
+        $this->assertSame('2026-11-03', $tpm->validFrom->toDateString());
+        $this->assertCount(1, $queries, 'The last decision rides in the same query.');
+    }
+
+    public function test_a_policy_rate_that_never_changed_shows_no_move(): void
+    {
+        $this->rate('2026-11-02', '12.2500');
+        $this->rate('2026-11-03', '12.2500');
+
+        $this->assertSame(0.0, (new MarketBoard)->current()['tpm']->change);
+
+        MarketRate::query()->where('valid_from', '2026-11-02')->delete();
+
+        $only = (new MarketBoard)->current()['tpm'];
+        $this->assertSame(0.0, $only->change);
+        $this->assertSame(0.0, $only->changePercent);
+    }
+
+    public function test_a_future_rate_is_not_the_last_decision(): void
+    {
+        $this->rate('2026-11-02', '12.5000');
+        $this->rate('2026-11-03', '12.2500');
+        $this->rate('2026-11-04', '11.0000');
+
+        $this->assertEqualsWithDelta(-0.25, (new MarketBoard)->current()['tpm']->change, 0.00001);
+    }
+
+    public function test_other_series_still_move_against_their_previous_value(): void
+    {
+        MarketRate::factory()->trm()->create(['value' => '3100.0000', 'valid_from' => '2026-11-01']);
+        MarketRate::factory()->trm()->create(['value' => '3200.0000', 'valid_from' => '2026-11-02']);
+        MarketRate::factory()->trm()->create(['value' => '3200.0000', 'valid_from' => '2026-11-03']);
+
+        $this->assertSame(0.0, (new MarketBoard)->current()['trm']->change);
+    }
 }
