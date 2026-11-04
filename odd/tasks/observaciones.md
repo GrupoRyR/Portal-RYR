@@ -34,7 +34,10 @@ Corregir lo que Jhon encontró al probar el portal desplegado y completar lo que
   - Ruta: escritor delegado. Pruebas: `HtmlPageTest`, `NewsAutodiscoveryTest`, `NewsAdminTest`, `FeedParserTest` (`Http::fake` y resolvedor DNS falso).
   - Pendiente (sin cambio de código): fuentes de Colombia, internacionales y de mercado por empresa; las carga Jhon en Admin › Noticias.
   - Hay que dejar fuentes de Colombia, internacionales y de mercado para cada empresa (Segurex: cerraduras, seguridad y control de acceso; SDC: químicos, hipoclorito y aseo).
-- [ ] O4. **Catálogo.** Una cerradura agregada en Admin no sale en el inicio.
+- [x] O4. **Catálogo.** Una cerradura agregada en Admin no sale en el inicio.
+  - Causa (por diseño, no es un error): todo producto nuevo se crea oculto (`ProductManager::saveProduct()`, `'published' => false`) y el inicio solo muestra los publicados de una empresa activa a las personas de esa empresa (`ProductBoard::forCompany()`, `HomePageBuilder`). La foto no es obligatoria. La lista solo decía «Oculto».
+  - Cambio: debajo de cada producto que no sale en el inicio, Admin › Catálogos dice por qué («No se muestra en el inicio: está oculto. Pulsa «Publicar» para mostrarlo.» o «…: la empresa está inactiva.») y la lista aclara que cada persona ve solo el catálogo de su empresa.
+  - Ruta: escritor delegado. Pruebas: `ProductHomeHintTest`.
 - [ ] O5. **Mercados.** Hay que sumar el Brent desde una fuente oficial por confirmar, y los insumos de cada empresa ingresados por un administrador con fecha. La flecha y la cifra en verde, y la banda en movimiento, van con el front end.
 - [ ] F1. **Bocetos para aprobación:** el inicio en Liquid Glass y el inicio de sesión Vitrina.
 - [ ] F2. **Front end Liquid Glass**, después de la aprobación.

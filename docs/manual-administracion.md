@@ -724,6 +724,8 @@ Pulse **Nuevo producto** (o el lápiz de un producto para editarlo) y complete:
 | **Foto** | Opcional. JPG, PNG o WebP de 200 px o más por lado, de hasta 2 MB y de hasta 16 megapíxeles (las fotos de celular de 12 megapíxeles caben). Se vuelve a codificar y las fotos mayores de 1200 px se reducen. |
 
 - Un producto nuevo queda **Oculto**. Pulse **Publicar** cuando esté listo y **Ocultar** para retirarlo sin borrarlo. Solo los productos publicados se muestran a las personas.
+- Debajo de cada producto que no sale en el inicio, la lista dice por qué: «No se muestra en el inicio: está oculto. Pulsa «Publicar» para mostrarlo.» o «No se muestra en el inicio: la empresa está inactiva.». La foto no es obligatoria para salir en el inicio.
+- Cada persona ve en su inicio solo el catálogo de la empresa con la que entró: un producto de SDC no sale en el inicio de una cuenta de Segurex.
 - Con **Reemplazar** sube otra foto y la anterior se borra del servidor. **Quitar la foto** también la borra.
 - Las flechas ordenan los productos dentro de su categoría. Si cambia un producto de categoría, queda al final de la nueva.
 - **Borrar** (papelera) elimina el producto y su foto. No se puede deshacer.
@@ -742,6 +744,7 @@ Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó, publicó o 
 | «Escribe un enlace completo que empiece por https://…» | El enlace no es `https://` o está incompleto. | Copie la dirección completa desde el navegador. |
 | «Esta empresa ya tiene una categoría con ese nombre.» | Los nombres no se repiten dentro de una empresa, sin importar mayúsculas. | Use otro nombre o edite la categoría existente. |
 | Una foto subida no se ve. | Falta el enlace `public/storage` en el servidor. | Pida a TI revisar `docs/despliegue.md` §1.18. |
+| Un producto agregado no sale en el inicio. | Está **Oculto** (todo producto nuevo lo está), la empresa está inactiva o la cuenta con la que mira el inicio es de otra empresa. | Lea el aviso debajo del producto en Catálogos, pulse **Publicar** y mire el inicio con una cuenta de esa empresa. |
 
 ## 12. Panel gerencial
 
