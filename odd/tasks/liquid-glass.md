@@ -31,7 +31,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 
 ## Tareas
 
-- [ ] G1. **Base.**
+- [x] G1. **Base.** Hecho en `0ef5feb` (ruta: escritor delegado, 2+ archivos no triviales).
   - Kit en `resources/css/glass.css`, importado por `app.css`.
   - Modo oscuro por atributo (`data-theme`), con el del sistema por defecto.
   - `data-brand` en `<html>`, script contra el destello del tema y `<meta name="csrf-token">`.
@@ -56,3 +56,9 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 ## Avance
 
 - Plan creado a partir del mapeo del front end actual (ruta: exploración delegada).
+- G1 hecho en `0ef5feb` (`feat/glass-1-base`).
+  - Modo oscuro: `@custom-variant dark` en bloque, con `prefers-color-scheme` cuando no hay `data-theme="light"` y con `[data-theme=dark]`. Las utilidades `dark:` siguen funcionando sin JavaScript (comprobado en el navegador con el sistema oscuro y sin atributo). Los tokens de `app.css`, `.signin-stage` y `BrandPalette::toCss()` emiten los dos selectores.
+  - `data-brand` es el slug de la empresa (`segurex`, `derivados`) o `neutral`. Los tokens del Kit van con prefijo `--g-*`. El velo oscuro de SDC quedó solo en azules.
+  - Fotos webp en `public/images/glass/`: grande ≤ 186 KB y pequeña ≤ 90 KB (la pequeña bajo 768 px). Incluye las de la Vitrina (planta 2 y 3) para G8.
+  - Evidencia: `php artisan test` 3227 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 8 pruebas nuevas o cambiadas antes del código.
+  - Pendiente para G3: el `theme-color` sigue al sistema, no a `data-theme`; el botón de tema debe actualizarlo. Ninguna página usa aún `glass`.
