@@ -17,14 +17,18 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\StreamInterface;
+use Tests\Feature\Markets\Concerns\FakesMarketSources;
 use Tests\TestCase;
 
 /**
  * `php artisan portal:sync-markets`: the TRM from datos.gov.co and the
- * euro (TRM × the ECB's dollars per euro), by hand and twice a day.
+ * euro (TRM × the ECB's dollars per euro), by hand and twice a day. The
+ * Banco de la República answers its samples and FRED has no key here
+ * (SyncMarketSourcesTest covers both).
  */
 class SyncMarketsCommandTest extends TestCase
 {
+    use FakesMarketSources;
     use RefreshDatabase;
 
     private const TRM_URL = 'https://www.datos.gov.co/resource/32sa-8pi3.json';
@@ -39,7 +43,7 @@ class SyncMarketsCommandTest extends TestCase
 
         // The app and PHP run in UTC; Bogotá is only what the test clock says.
         $this->phpTimezone = date_default_timezone_get();
-        config(['app.timezone' => 'UTC']);
+        config(['app.timezone' => 'UTC', 'services.fred.key' => null]);
         date_default_timezone_set('UTC');
 
         Carbon::setTestNow(Carbon::parse('2026-11-03 10:00:00', 'America/Bogota'));
@@ -75,13 +79,20 @@ class SyncMarketsCommandTest extends TestCase
 XML;
     }
 
-    /** Fakes both hosts; pass a response (or closure) to change one. */
+    /** Fakes every host; pass a response (or closure) to change the TRM or the ECB. */
     private function fakeSources(mixed $trm = null, mixed $ecb = null): void
     {
         Http::fake([
             'www.datos.gov.co/*' => $trm ?? Http::response($this->trmRows()),
             'www.ecb.europa.eu/*' => $ecb ?? Http::response($this->ecbXml(), 200, ['Content-Type' => 'text/xml']),
+            'totoro.banrep.gov.co/*' => $this->banrepResponder(),
         ]);
+    }
+
+    /** The rows of the TRM and the euro only. */
+    private function rates(): int
+    {
+        return MarketRate::query()->whereIn('code', ['trm', 'eur'])->count();
     }
 
     public function test_it_stores_the_trm_and_the_euro(): void
@@ -203,7 +214,7 @@ XML;
 
         $this->artisan('portal:sync-markets')->assertSuccessful();
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(4);
         Http::assertSent(function (Request $request) {
             if (! str_starts_with($request->url(), self::TRM_URL.'?')) {
                 return false;
@@ -235,7 +246,7 @@ XML;
         $this->artisan('portal:sync-markets')->assertSuccessful();
         $this->artisan('portal:sync-markets')->assertSuccessful();
 
-        $this->assertSame(4, MarketRate::query()->count());
+        $this->assertSame(4, $this->rates());
         $this->assertSame('3182.9900', MarketRate::query()->where('code', 'trm')->where('valid_from', '2026-10-31')->sole()->value);
         $this->assertSame('3437.6292', $this->euro('2026-11-03')->value);
 
@@ -243,7 +254,7 @@ XML;
         $rows[0]['valor'] = '3200.00';
         $this->artisan('portal:sync-markets')->assertSuccessful();
 
-        $this->assertSame(4, MarketRate::query()->count());
+        $this->assertSame(4, $this->rates());
         $this->assertSame('3200.0000', MarketRate::query()->where('code', 'trm')->where('valid_from', '2026-10-31')->sole()->value);
         $this->assertSame('3456.0000', $this->euro('2026-11-03')->value);
     }
@@ -293,7 +304,7 @@ XML;
 
         $this->artisan('portal:sync-markets')->assertFailed();
 
-        $this->assertSame(0, MarketRate::query()->count());
+        $this->assertSame(0, $this->rates());
         $this->assertWarned('eur', 'no_trm');
     }
 
@@ -307,8 +318,8 @@ XML;
 
         $this->artisan('portal:sync-markets')->assertFailed();
 
-        Http::assertSentCount(2);
-        $this->assertSame(0, MarketRate::query()->count());
+        Http::assertSentCount(4);
+        $this->assertSame(0, $this->rates());
         $this->assertWarned('trm', 'http_302');
         $this->assertWarned('eur', 'http_301');
     }
@@ -403,7 +414,7 @@ XML;
         $this->artisan('portal:sync-markets')->assertFailed();
 
         $this->assertWarned('trm', 'connection');
-        $this->assertSame(0, MarketRate::query()->count());
+        $this->assertSame(0, $this->rates());
     }
 
     public function test_an_xml_with_a_doctype_is_rejected_and_the_trm_is_still_stored(): void

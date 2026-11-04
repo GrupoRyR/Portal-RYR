@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-made sample in the SDMX-ML 2.1 generic shape of DF_COLCAP_MONTHLY_LATEST (not a live copy). -->
+<message:GenericData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic" xmlns:common="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common">
+    <message:Header>
+        <message:ID>IREF000002</message:ID>
+        <message:Test>false</message:Test>
+        <message:Prepared>2026-11-03T08:00:00</message:Prepared>
+        <message:Sender id="BANREP"/>
+    </message:Header>
+    <message:DataSet structureRef="ESTAT_DF_COLCAP_MONTHLY_LATEST_1_0">
+        <generic:Series>
+            <generic:SeriesKey>
+                <generic:Value id="FREQ" value="M"/>
+                <generic:Value id="SERIE" value="COLCAP"/>
+            </generic:SeriesKey>
+            <generic:Obs>
+                <generic:ObsDimension value="2026-08"/>
+                <generic:ObsValue value="1478.21"/>
+            </generic:Obs>
+            <generic:Obs>
+                <generic:ObsDimension value="2026-09"/>
+                <generic:ObsValue value="1499.9"/>
+            </generic:Obs>
+            <generic:Obs>
+                <generic:ObsDimension value="2026-10"/>
+                <generic:ObsValue value="1512.3"/>
+            </generic:Obs>
+        </generic:Series>
+    </message:DataSet>
+</message:GenericData>

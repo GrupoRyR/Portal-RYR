@@ -3,14 +3,15 @@
 namespace App\Markets;
 
 use App\Models\MarketRate;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
  * Copies the market figures of the home band into `market_rates`
- * (odd/tasks/mercados.md). Run twice a day by `portal:sync-markets`.
+ * (odd/tasks/mercados.md, odd/tasks/mercados-o5.md). Run twice a day by
+ * `portal:sync-markets`; every series of the catalogue (MarketSeries) is
+ * a source of its own.
  *
  * - TRM: the last validities of the official dataset of datos.gov.co,
  *   saved by (code, start date).
@@ -27,6 +28,19 @@ use Throwable;
  *   the last stored value, logs a short code (never the body) and the other
  *   source goes on. With the TRM down, the euro still follows the last
  *   stored one.
+ * - Banco de la República (no key): the policy rate and COLCAP, from their
+ *   SDMX dataflows (BanRepSdmx), the newest OBSERVATIONS of each.
+ * - FRED (key `services.fred.key`): Brent and the input prices and indexes
+ *   (FredObservations), the newest OBSERVATIONS of each series. Without a
+ *   key they are skipped (`no_key`), which is not a failure. The key goes
+ *   in the query string FRED requires and nowhere else: a failure logs
+ *   only a short code, never an exception message or a URL.
+ * - A monthly series is read once a day: a run skips it (`fresh`) when one
+ *   of its rows was already fetched today in Bogotá, so the 13:10 run only
+ *   retries what the 07:10 run could not get. Daily series (TRM, euro,
+ *   Brent, the policy rate) are read every run.
+ * - Every request goes over https to a fixed host and sends the User-Agent
+ *   `PortalRYR/1.0` (FRED turns browsers away).
  * - Requests never follow redirects and read at most `markets.max_bytes` of
  *   the body. `markets.timeout` is both the connection timeout and a
  *   wall-clock deadline for the whole answer: with `stream` Guzzle's stream
@@ -37,14 +51,49 @@ final class MarketSync
 {
     private const READ_CHUNK = 8192;
 
+    private const TZ = 'America/Bogota';
+
+    /** Not a browser: FRED refuses browser User-Agents. */
+    public const USER_AGENT = 'PortalRYR/1.0';
+
+    /** SDMX REST data of a Banco de la República dataflow (`%s`). */
+    public const BANREP_URL = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,%s,1.0/all/ALL/';
+
+    public const FRED_URL = 'https://api.stlouisfed.org/fred/series/observations';
+
+    /** How many of the newest observations of a BanRep or FRED series are kept each run. */
+    public const OBSERVATIONS = 10;
+
+    /** A series id goes into a URL: only these characters. */
+    private const SOURCE_KEY = '/\A[A-Z0-9_]{1,40}\z/';
+
     public function __construct(private readonly Http $http) {}
 
     public function run(): MarketSyncResult
     {
         $saved = [];
         $failed = [];
+        $skipped = [];
+        $fredKey = trim((string) config('services.fred.key'));
+        $fresh = $this->monthlyFetchedToday();
+        $jobs = [];
 
-        foreach ([MarketRate::TRM => $this->syncTrm(...), MarketRate::EUR => $this->syncEuro(...)] as $code => $sync) {
+        foreach (MarketSeries::all() as $code => $series) {
+            if ($series->source === MarketSeries::SOURCE_FRED && $fredKey === '') {
+                $skipped[$code] = 'no_key';
+            } elseif (in_array($code, $fresh, true)) {
+                $skipped[$code] = 'fresh';
+            } else {
+                $jobs[$code] = match ($series->source) {
+                    MarketSeries::SOURCE_TRM => $this->syncTrm(...),
+                    MarketSeries::SOURCE_ECB => $this->syncEuro(...),
+                    MarketSeries::SOURCE_BANREP => fn () => $this->syncBanRep($series),
+                    MarketSeries::SOURCE_FRED => fn () => $this->syncFred($series, $fredKey),
+                };
+            }
+        }
+
+        foreach ($jobs as $code => $sync) {
             try {
                 $saved[$code] = $sync();
             } catch (MarketSourceException $e) {
@@ -57,7 +106,95 @@ final class MarketSync
             }
         }
 
-        return new MarketSyncResult($saved, $failed);
+        return new MarketSyncResult($saved, $failed, $skipped);
+    }
+
+    /**
+     * The monthly codes with a row fetched today in Bogotá (one query).
+     *
+     * @return list<string>
+     */
+    private function monthlyFetchedToday(): array
+    {
+        $monthly = array_keys(array_filter(MarketSeries::all(), fn (MarketSeries $series) => $series->isMonthly()));
+
+        // `fetched_at` is written in the app's time zone.
+        $startOfToday = now(self::TZ)->startOfDay()->setTimezone((string) config('app.timezone'));
+
+        return MarketRate::query()
+            ->whereIn('code', $monthly)
+            ->where('fetched_at', '>=', $startOfToday)
+            ->distinct()
+            ->pluck('code')
+            ->all();
+    }
+
+    /**
+     * @return int Rows written.
+     *
+     * @throws MarketSourceException
+     */
+    private function syncBanRep(MarketSeries $series): int
+    {
+        $observations = BanRepSdmx::observations($this->fetch(sprintf(self::BANREP_URL, self::sourceKey($series))));
+
+        return $this->store($series, array_slice($observations, 0, self::OBSERVATIONS));
+    }
+
+    /**
+     * @return int Rows written.
+     *
+     * @throws MarketSourceException
+     */
+    private function syncFred(MarketSeries $series, string $key): int
+    {
+        $observations = FredObservations::parse($this->fetch(self::FRED_URL, [
+            'series_id' => self::sourceKey($series),
+            'api_key' => $key,
+            'file_type' => 'json',
+            'sort_order' => 'desc',
+            'limit' => self::OBSERVATIONS,
+        ]));
+
+        return $this->store($series, $observations);
+    }
+
+    /**
+     * @throws MarketSourceException `invalid_series` when the catalogue id could not go in a URL
+     */
+    private static function sourceKey(MarketSeries $series): string
+    {
+        if ($series->sourceKey === null || preg_match(self::SOURCE_KEY, $series->sourceKey) !== 1) {
+            throw new MarketSourceException('invalid_series');
+        }
+
+        return $series->sourceKey;
+    }
+
+    /**
+     * Saves observations by (code, date): a run that repeats a date updates its row.
+     *
+     * @param  list<array{date: string, value: string}>  $observations
+     * @return int Rows written.
+     */
+    private function store(MarketSeries $series, array $observations): int
+    {
+        $now = now();
+
+        $rows = array_map(fn (array $observation) => [
+            'code' => $series->code,
+            'value' => $observation['value'],
+            'valid_from' => $observation['date'],
+            'valid_until' => null,
+            'source' => $series->source,
+            'fetched_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $observations);
+
+        MarketRate::query()->upsert($rows, ['code', 'valid_from'], ['value', 'valid_until', 'source', 'fetched_at', 'updated_at']);
+
+        return count($rows);
     }
 
     /**
@@ -79,7 +216,7 @@ final class MarketSync
             'value' => $row['value'],
             'valid_from' => $row['valid_from'],
             'valid_until' => $row['valid_until'],
-            'source' => 'datos.gov.co',
+            'source' => MarketSeries::SOURCE_TRM,
             'fetched_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -117,7 +254,7 @@ final class MarketSync
             'value' => Decimal::multiply($trm->value, $ecb['rate'], 4),
             'valid_from' => $ecb['date'],
             'valid_until' => null,
-            'source' => 'ecb.europa.eu',
+            'source' => MarketSeries::SOURCE_ECB,
             'fetched_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -145,9 +282,12 @@ final class MarketSync
                 ->timeout($timeout)
                 ->connectTimeout($timeout)
                 ->withoutRedirecting()
+                ->withUserAgent(self::USER_AGENT)
                 ->withOptions(['stream' => true, 'read_timeout' => $timeout])
                 ->get($url, $query);
-        } catch (ConnectionException) {
+        } catch (Throwable) {
+            // A ConnectionException or anything else of the request: its
+            // message may carry the URL, and the URL of FRED carries the key.
             throw new MarketSourceException('connection');
         }
 
