@@ -40,7 +40,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [ ] G2. **Respuestas JSON del asistente** para el panel flotante (`expectsJson()` en `ask` y `clear`, más un GET de la conversación). Rama `feat/assistant-json`, en paralelo a G1.
 - [ ] G3. **Encabezado común** `<x-portal-header>`, que reemplaza `brand-bar` y el encabezado del inicio, con el cambio de tema.
 - [ ] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio.
-- [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
+- [x] G5. **Banda de Mercados** en movimiento, con flechas verde y roja. Hecho en `6de88f0` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-5-markets`.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
 - [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
@@ -62,3 +62,10 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Fotos webp en `public/images/glass/`: grande ≤ 186 KB y pequeña ≤ 90 KB (la pequeña bajo 768 px). Incluye las de la Vitrina (planta 2 y 3) para G8.
   - Evidencia: `php artisan test` 3227 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 8 pruebas nuevas o cambiadas antes del código.
   - Pendiente para G3: el `theme-color` sigue al sistema, no a `data-theme`; el botón de tema debe actualizarlo. Ninguna página usa aún `glass`.
+- G5 hecho en `6de88f0` (`feat/glass-5-markets`).
+  - Banda de vidrio con marquesina CSS, sin JavaScript: `App\View\Home\MarketTicker` decide cuántas copias imprimir (cubren la banda más ancha) y la vuelta dura 4 s por cifra. Las copias van con `aria-hidden` y sin `data-market`. Se detiene al pasar el cursor y con el foco del teclado.
+  - Con una sola cifra no se mueve. Con `prefers-reduced-motion` se queda quieta, oculta las copias y se acomoda en varias líneas.
+  - Sube: ▲ verde (`--g-good`). Baja: ▼ rojo (`--g-crit`). Sin cambio: ● neutro (antes «=»). Contraste medido sobre el vidrio: claro ≥ 4,99 (sobre negro, el peor caso); oscuro ≥ 5,2 sobre el fondo oscuro del inicio, en las dos marcas.
+  - Toma cualquier código que entregue `MarketBoard`: nuevos `MarketRate::CODES` aparecen sin tocar la vista.
+  - Evidencia: `php artisan test` 3240 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 12 pruebas nuevas o cambiadas antes del código. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 375 px y escritorio, con y sin movimiento reducido.
+  - Pendiente: no hay botón de pausa para pantallas táctiles sin foco (WCAG 2.2.2); la frase leída dice «pesos», que no sirve para cifras en dólares como el Brent.
