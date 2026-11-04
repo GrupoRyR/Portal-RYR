@@ -386,6 +386,83 @@
         flex: 1;
     }
 
+    /* An app page (apps/*): its icon, then the name and its state. */
+    .g-page__app {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    /* The maintenance mark: warn on its own tint, as .g-pill.warn. */
+    .g-page__badge {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        color: var(--g-warn);
+        background: var(--g-warn-bg);
+    }
+
+    /* Numbered steps: white on the brand button (>= 4.8:1, BrandPalette). */
+    .g-page__steps {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .g-page__steps > li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 0.9375rem;
+        line-height: 1.45;
+    }
+
+    .g-page__step {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--g-button);
+    }
+
+    /* A fact set apart (when an app is back): ink on the accent tint. */
+    .g-page__callout {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 0.9375rem;
+        color: var(--g-ink);
+        background: var(--g-accent-tint);
+    }
+
+    /* The big status code of a refusal (large text: faint ink is enough). */
+    .g-page__code {
+        font-size: 3rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--g-ink-faint);
+    }
+
+    /* Buttons that share a row from tablets up and stack on phones. */
+    @media (max-width: 639.98px) {
+        .g-page__actions--wide > * {
+            flex: 1 1 100%;
+        }
+    }
+
     /* Controls: the kit's, with 16 px text so phones do not zoom in. */
     .g-page :is(.g-input, .g-select) {
         font-size: 16px;
