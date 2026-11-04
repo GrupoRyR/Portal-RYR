@@ -56,12 +56,12 @@ La banda de Mercados del inicio muestra, además de la TRM y el euro:
 - [x] M1. **Catálogo de series:** código, nombre, unidad (pesos, USD/barril, USD/t, %, puntos, índice), fuente, frecuencia y alcance (todos o insumo). La frase leída y el formato de la banda salen de la unidad. Las series mensuales muestran el mes («sep 2026»), y los índices muestran la variación en % en vez del valor en USD.
 - [x] M2. **Clientes del Banco de la República (SDMX) y de FRED.** `MarketSync` los usa además de la TRM y el BCE, cada fuente por separado. Sin llave de FRED, el comando lo dice y sigue. `config('services.fred.key')`.
 - [x] M3. **Qué ve cada empresa:** `companies.market_codes` (JSON, puede estar vacío). Si está vacío, la empresa ve solo las series para todos. `MarketBoard` arma la banda con las series para todos más los insumos elegidos, sin consultas de más en el inicio.
-- [ ] M4. **Admin › Mercados:**
+- [x] M4. **Admin › Mercados:**
   - por empresa, casillas para los insumos automáticos;
   - precios manuales en una tabla `market_inputs` (empresa, nombre, unidad, valor, fecha, fuente), con alta, edición y borrado;
   - queda en Auditoría;
   - los precios manuales aparecen en la banda de esa empresa con su fecha.
-- [ ] M5. **Documentación:**
+- [x] M5. **Documentación:**
   - `docs/despliegue.md`: `FRED_API_KEY` y salida a `api.stlouisfed.org` y `totoro.banrep.gov.co`;
   - manual de administración: cómo elegir insumos y cargar precios;
   - qué significa cada índice.
@@ -83,3 +83,19 @@ La banda de Mercados del inicio muestra, además de la TRM y el euro:
   - Revisión independiente de código y seguridad: nada grave; siete puntos corregidos en `e75c878`.
   - Evidencia: `php artisan test` 3438 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` sin cambios; `node --test` 48 pasan. RED observado en cada commit.
   - Para M4: etiqueta en español de `market_codes` en `AuditPresenter`. Para M5: `FRED_API_KEY` en `.env.example` y en la documentación.
+- PR B (M4–M5) hecho en `79e6577`, `6c1cb20`, `5d6d837`, `643fa73` y `57195df`, en la rama `feat/markets-o5-admin`, sobre el PR A.
+  - Admin › Mercados (`/admin/mercados`, `App\Livewire\Admin\MarketManager`), con el permiso `MarketInputPolicy`:
+    - super_admin y portal_admin manejan todas las empresas; el editor de anuncios, solo la suya.
+    - Casillas para los insumos de cada empresa (`market_codes`), con el significado de cada índice.
+    - Precios manuales en `market_inputs`: nombre, valor, unidad, fecha y fuente.
+    - Montos a la colombiana: «4.200» y «4.200,50» se leen bien; «4.2» se rechaza con «usa coma».
+    - Fecha dentro de los últimos 400 días.
+  - Banda: el último precio manual de cada nombre, con su fecha y su cambio frente al anterior, hasta 12 nombres. Va en la misma consulta de `MarketBoard` con `UNION ALL`, así que el presupuesto de consultas del inicio no cambia (23 y 18).
+  - Auditoría con etiquetas en español.
+  - Documentación: `docs/despliegue.md` §1.16 y `docs/manual-administracion.md` §16.
+  - Revisión independiente de código y seguridad: nada grave; ocho puntos corregidos en `57195df`, entre ellos «1.350», que antes se guardaba como 1,35.
+  - Evidencia, corrida por el coordinador sobre `57195df`: `php artisan test` 3499 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` sin cambios; `node --test` 48 pasan.
+  - **Pendiente de Jhon:**
+    - agregar `FRED_API_KEY=` a `.env.example` (la regla de los archivos `.env*` no deja tocarlo);
+    - poner la llave en el `.env` del servidor;
+    - probar en el servidor la consulta de la banda con un precio manual: nunca corrió en MariaDB, solo en SQLite.
