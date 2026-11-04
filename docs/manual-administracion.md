@@ -25,9 +25,9 @@ Los roles no se reparten a mano, salvo el de editor de anuncios:
 
 | Rol | Quién lo recibe | Qué puede hacer |
 |---|---|---|
-| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, eventos, roles, auditoría, informe de uso, integraciones y configuración. |
-| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, eventos, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
-| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, **Eventos** y **Estado de TI** (§13), y solo para su propia empresa. |
+| **Súper administrador** (`super_admin`) | Quien tenga su correo en `PORTAL_SUPER_ADMIN_EMAILS` (archivo `.env` del servidor) y entre con Microsoft. | Todo: empresas, aplicaciones, categorías, anuncios, eventos, mercados, roles, auditoría, informe de uso, integraciones y configuración. |
+| **Administrador** (`portal_admin`) | Quien esté en el grupo de seguridad `APP-PortalAdmin` de la organización de Segurex, identificado por su ID de objeto (`PORTAL_ADMIN_GROUP_ID`), y haya entrado con esa organización (`PORTAL_ADMIN_TENANT_ID`). Se asigna y se quita solo, en cada inicio de sesión. | Aplicaciones, categorías, anuncios, eventos, mercados, roles (solo editores de anuncios), auditoría e informe de uso. No ve Empresas, Integraciones ni Configuración. |
+| **Editor de anuncios** (`announcements_editor`) | Se asigna a mano en **Roles**. | Solo **Anuncios**, **Eventos**, **Estado de TI** (§13) y **Mercados** (§16), y solo para su propia empresa. |
 
 Un grupo con el nombre `APP-PortalAdmin` en otra empresa, o en un Team, no da ningún rol. Si `PORTAL_ADMIN_GROUP_ID` o `PORTAL_ADMIN_TENANT_ID` no están configurados, nadie es administrador del portal. Solo hay un grupo de administradores, el de Segurex: las empresas no tienen grupo propio.
 
@@ -991,3 +991,67 @@ Si Anthropic falla (sin saldo, llave inválida, límite de peticiones, sobrecarg
 - Si los dos proveedores fallan, la página dice «El asistente no está disponible en este momento.»
 - En Auditoría › Seguridad: «El asistente pasó al proveedor secundario · de anthropic:claude-haiku-5-5 a deepseek:deepseek-chat · motivo: billing», y las preguntas respondidas allí terminan en «· respondió el proveedor secundario».
 - **Ley 1581:** con DeepSeek como secundario, una falla de Anthropic envía a DeepSeek los datos de empleados que la respuesta necesita. Necesita la misma revisión legal de §15.8 antes de configurarlo.
+
+## 16. Mercados
+
+**Administración › Mercados** decide qué ve cada empresa en la banda «Mercados» del inicio, debajo del encabezado. La banda tiene tres partes, en este orden:
+
+1. **Indicadores para todos:** dólar (TRM), euro, petróleo Brent, tasa de política del Banco de la República y COLCAP. Llegan solos y no se pueden quitar.
+2. **Insumos automáticos** que elija aquí para cada empresa. También llegan solos, una vez al día.
+3. **Precios ingresados a mano** de esa empresa, por ejemplo cotizaciones de proveedores.
+
+El súper administrador y el administrador del portal administran todas las empresas. El **editor de anuncios** administra solo **su propia empresa**, igual que Estado de TI (§13). Gerencia no ve esta pantalla. La instalación (la llave de FRED y la primera carga) está en `docs/despliegue.md` §1.16.
+
+### 16.1 Elegir la empresa
+
+Arriba, en **Mercados de**, elija la empresa. Cada empresa tiene sus propios insumos y precios; no se comparten. La dirección de la página recuerda la empresa elegida (`?empresa=`). Como en Estado de TI, un editor de anuncios que abre la página con `?empresa=` de otra empresa recibe «Acceso denegado» (403).
+
+### 16.2 Insumos que ve esta empresa
+
+Marque las casillas de los insumos que la empresa debe ver y pulse **Guardar insumos**. Sin ninguno marcado, la empresa ve solo los indicadores para todos. Cada casilla dice la unidad, cada cuánto llega el dato y qué mide.
+
+| Insumo | Qué es | Cada cuánto llega |
+|---|---|---|
+| **Zinc**, **Cobre**, **Aluminio** (US$/t) | Precio internacional en dólares por tonelada, del Fondo Monetario Internacional. Es un precio real. | Mensual, con unos dos meses de rezago: en noviembre se ve el dato de septiembre. |
+| **Latón (índice)**, **Acero (índice)** | Índices de precios al productor de EE. UU. (BLS). **No son precios**: valen 100 en un año base y muestran cuánto subió o bajó el precio frente al mes anterior. | Mensual, con unos dos meses de rezago. |
+| **Cloro y soda (índice)**, **Resinas plásticas (índice)**, **Envases plásticos (índice)** | Igual que los anteriores: índices de precios al productor de EE. UU., para esos productos. | Mensual, con unos dos meses de rezago. |
+
+- En la banda, un índice muestra su nivel (por ejemplo «312,46») y su variación del mes en porcentaje; lo que importa es la flecha y el porcentaje, no el número.
+- Una serie mensual muestra el mes del dato («sep 2026»), no el día.
+- Sugerencia de partida: Segurex con zinc, cobre, aluminio, latón y acero; SDC con cloro y soda, resinas y envases plásticos. Es solo una sugerencia: el portal no decide por empresa.
+- Los insumos automáticos necesitan la llave de FRED en el servidor. Sin ella, no llegan datos y la banda no los muestra, aunque estén marcados.
+
+### 16.3 Precios ingresados a mano
+
+Para precios reales que ninguna fuente gratuita publica: soda cáustica, cloro, hipoclorito, PET, HDPE, latón o acero terminado. Pulse **Nuevo precio** (o el lápiz de un precio para editarlo) y complete:
+
+| Campo | Qué poner |
+|---|---|
+| **Insumo** | Obligatorio, hasta 40 caracteres, por ejemplo «Soda cáustica». Use **siempre el mismo nombre** para el mismo insumo: así la banda compara cada precio con el anterior. Si escribe un nombre que ya existe con otras mayúsculas o tildes («soda caustica»), el portal usa el que ya estaba («Soda cáustica»). |
+| **Valor** | Obligatorio, mayor que cero, hasta cuatro decimales. Puede escribirlo como «4200,50» o «4.200,50». |
+| **Unidad** | Pesos por kilo, pesos por unidad, pesos por tonelada, dólares por kilo o dólares por tonelada. |
+| **Fecha del precio** | Obligatoria: el día de la cotización, hoy o antes, nunca futura. Al crear un precio, empieza con la fecha de hoy. |
+| **Fuente** | Opcional, hasta 80 caracteres, por ejemplo «Cotización Brenntag». Se ve en esta pantalla, no en la banda. |
+
+- La lista muestra los 50 precios más recientes de la empresa, del más nuevo al más viejo.
+- **En la banda** aparece, después de los indicadores y los insumos, el **último precio de cada insumo** con su fecha («Soda cáustica $4.200,00/kg ▲ 2,44 % 3 nov»). La flecha compara con el precio anterior del mismo insumo: verde si subió, roja si bajó. Si el anterior estaba en otra unidad, no se compara. Los precios de más de 400 días no se muestran.
+- Dos precios del mismo insumo con la misma fecha: la banda muestra el que se cargó de último.
+- **Borrar** (papelera) pide confirmación y elimina ese precio. No se puede deshacer. Si borra el último precio de un insumo, la banda vuelve a mostrar el anterior.
+- Un precio cargado o cambiado se ve en el inicio en la siguiente carga de la página.
+
+### 16.4 Auditoría
+
+Cada cambio queda en **Auditoría**:
+
+- los insumos elegidos, como «Cambió la empresa …» con el campo **Insumos de Mercados** antes y después;
+- cada precio, como «Creó / Cambió / Borró el precio manual «Soda cáustica»», con **Nombre**, **Unidad**, **Valor**, **Fecha**, **Fuente** y **Empresa**.
+
+### 16.5 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| Un insumo marcado no aparece en la banda. | Todavía no hay datos: falta la llave de FRED o la primera carga. | Pida a TI revisar `docs/despliegue.md` §1.16. |
+| El insumo muestra un mes de hace dos meses. | Así publica la fuente. | Nada: es normal. Para un precio del día, cárguelo a mano. |
+| Un precio a mano aparece dos veces en la banda. | Se escribió con dos nombres distintos («Soda» y «Soda cáustica»). | Edite los precios para que usen el mismo nombre. |
+| La flecha de un precio a mano no aparece. | Es el primer precio de ese insumo, o el anterior estaba en otra unidad. | Nada; aparecerá con el siguiente precio en la misma unidad. |
+| Un editor de anuncios recibe «Acceso denegado» en Mercados. | La dirección tiene `?empresa=` de otra empresa, o su cuenta no tiene empresa. | Abra **Mercados** desde el menú, sin `?empresa=`. |
