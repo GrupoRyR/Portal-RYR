@@ -2,6 +2,7 @@
     Confirmation before unlinking one of the person's accounts
     (App\Http\Controllers\Account\AccountController::confirmUnlink), shown
     after a fresh Microsoft confirmation. The POST unlinks; no JavaScript.
+    Liquid Glass (odd/tasks/liquid-glass.md G9): a title banner and a card.
 --}}
 @use('App\Models\Company')
 @php($company = Company::displayName($account->company))
@@ -10,42 +11,46 @@
 
     <x-portal-header />
 
-    <main id="contenido" class="g-sheet mx-2 mt-3 mb-12 flex max-w-[680px] flex-col gap-6 px-4 pt-5 pb-8 md:mt-8 md:px-8 md:pt-8 min-[696px]:mx-auto">
-        <div class="flex flex-col gap-2">
-            <a href="{{ route('account.show') }}" class="-ml-1 inline-flex min-h-touch items-center gap-1.5 self-start pr-2 text-sm font-semibold text-fg-soft underline-offset-4 hover:underline">
+    <main id="contenido" class="g-page">
+        <div class="g-banner g-page__hello">
+            <a href="{{ route('account.show') }}" class="g-page__back">
                 <x-home.icon name="chevron-left" stroke-width="2" class="size-[18px]" />Cuentas vinculadas
             </a>
-            <h1 class="text-[1.75rem] leading-tight font-bold md:text-[2.125rem]">¿Desvincular la cuenta de {{ $company }}?</h1>
+            <h1>¿Desvincular la cuenta de {{ $company }}?</h1>
         </div>
 
-        <section class="flex flex-col gap-5 rounded-card border border-line bg-surface p-5 md:p-6">
-            <div class="flex flex-col">
-                <span class="font-semibold">{{ $company }}</span>
-                <span class="truncate text-[0.8125rem] text-fg-muted">{{ $account->email }}</span>
+        <section aria-labelledby="la-cuenta" class="g-card">
+            <div class="g-card__head">
+                <span class="g-mark" aria-hidden="true"></span>
+                <h2 id="la-cuenta" class="g-page__who">
+                    <span>{{ $company }}</span>
+                    <span class="font-normal">{{ $account->email }}</span>
+                </h2>
             </div>
+            <div class="g-card__body">
+                <ul role="list" class="g-page__bullets">
+                    @if ($account->is($current))
+                        <li>Es la cuenta con la que estás ahora. Sigues en ella, pero ya no podrás cambiar a tus otras cuentas desde el encabezado.</li>
+                    @else
+                        <li>Ya no podrás cambiar a esta cuenta desde el encabezado.</li>
+                    @endif
+                    @if ($lastLink)
+                        <li>Es tu único vínculo: tus dos cuentas quedarán separadas.</li>
+                    @endif
+                    <li>La cuenta no se borra y conserva sus permisos, aplicaciones y favoritos.</li>
+                    <li>Te avisaremos por correo en cada una de tus cuentas.</li>
+                    <li>Puedes volver a vincularla cuando quieras.</li>
+                </ul>
 
-            <ul role="list" class="flex flex-col gap-2.5 text-[0.9375rem] leading-relaxed text-fg-soft">
-                @if ($account->is($current))
-                    <li>Es la cuenta con la que estás ahora. Sigues en ella, pero ya no podrás cambiar a tus otras cuentas desde el encabezado.</li>
-                @else
-                    <li>Ya no podrás cambiar a esta cuenta desde el encabezado.</li>
-                @endif
-                @if ($lastLink)
-                    <li>Es tu único vínculo: tus dos cuentas quedarán separadas.</li>
-                @endif
-                <li>La cuenta no se borra y conserva sus permisos, aplicaciones y favoritos.</li>
-                <li>Te avisaremos por correo en cada una de tus cuentas.</li>
-                <li>Puedes volver a vincularla cuando quieras.</li>
-            </ul>
-
-            <div class="flex flex-wrap items-center gap-3">
-                <form method="POST" action="{{ route('account.unlink', $account) }}">
-                    @csrf
-                    <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center rounded-control border border-status-failure-line px-5 font-semibold text-status-failure hover:bg-status-failure-bg">
-                        Desvincular<span class="sr-only"> la cuenta de {{ $company }}</span>
-                    </button>
-                </form>
-                <a href="{{ route('account.show') }}" class="inline-flex min-h-touch items-center px-3 text-sm font-semibold text-fg-soft underline-offset-4 hover:underline">Cancelar</a>
+                <div class="g-page__actions">
+                    <form method="POST" action="{{ route('account.unlink', $account) }}">
+                        @csrf
+                        <button type="submit" class="g-btn g-btn--danger px-5">
+                            Desvincular<span class="sr-only"> la cuenta de {{ $company }}</span>
+                        </button>
+                    </form>
+                    <a href="{{ route('account.show') }}" class="g-btn px-5">Cancelar</a>
+                </div>
             </div>
         </section>
     </main>

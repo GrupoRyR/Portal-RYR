@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './glass.css';
+@import './glass-pages.css';
 
 /*
  * Dark mode: the system decides unless the person chose a theme. The layout

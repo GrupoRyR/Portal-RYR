@@ -4,26 +4,29 @@
     Plain JavaScript, no Alpine, inline so it needs no new Vite entry. The state shown is this
     browser's: it asks for permission, subscribes with the VAPID public key ($key) and posts the
     subscription; turning it off unsubscribes and removes it. While on, every visit posts it again,
-    so the device follows the account signed in on it.
+    so the device follows the account signed in on it. A g-card of /cuenta (Liquid Glass, G9).
 --}}
 <section id="avisos" aria-labelledby="avisos-titulo" data-push-optin
          data-vapid-key="{{ $key }}"
          data-subscribe-url="{{ route('account.push.store') }}"
          data-csrf="{{ csrf_token() }}"
-         class="flex scroll-mt-6 flex-col gap-4 rounded-card border border-line bg-surface p-5 md:p-6">
-    <div class="flex flex-col gap-2">
-        <h2 id="avisos-titulo" class="font-sans text-lg font-bold tracking-normal">Avisos en el celular</h2>
-        <p class="text-[0.9375rem] leading-relaxed text-fg-soft">Recibe en este dispositivo una notificación de los anuncios más importantes de tu empresa: solo los que quien publica marca «Enviar al celular». Se activa en cada dispositivo por separado.</p>
-        <p class="text-[0.8125rem] leading-relaxed text-fg-muted">En iPhone y iPad solo funciona con el portal instalado en la pantalla de inicio (iOS 16.4 o posterior): en Safari, toca Compartir › «Agregar a inicio», abre el portal desde ese ícono y actívalo aquí.</p>
+         class="g-card">
+    <div class="g-card__head">
+        <span class="g-mark" aria-hidden="true"></span>
+        <h2 id="avisos-titulo">Avisos en el celular</h2>
     </div>
+    <div class="g-card__body">
+        <div class="flex flex-col gap-2">
+            <p class="g-page__text">Recibe en este dispositivo una notificación de los anuncios más importantes de tu empresa: solo los que quien publica marca «Enviar al celular». Se activa en cada dispositivo por separado.</p>
+            <p class="g-page__fine">En iPhone y iPad solo funciona con el portal instalado en la pantalla de inicio (iOS 16.4 o posterior): en Safari, toca Compartir › «Agregar a inicio», abre el portal desde ese ícono y actívalo aquí.</p>
+        </div>
 
-    <p data-push-status role="status" aria-live="polite" class="text-sm font-semibold">Revisando este dispositivo…</p>
+        <p data-push-status role="status" aria-live="polite" class="g-page__strong">Revisando este dispositivo…</p>
 
-    <div class="flex flex-wrap gap-3">
-        <button type="button" data-push-enable hidden
-                class="inline-flex min-h-touch cursor-pointer items-center self-start rounded-control bg-brand-button px-5 font-semibold text-white disabled:opacity-60">Activar en este dispositivo</button>
-        <button type="button" data-push-disable hidden
-                class="inline-flex min-h-touch cursor-pointer items-center self-start rounded-control border border-line-strong bg-surface px-5 font-semibold hover:bg-subtle disabled:opacity-60">Desactivar en este dispositivo</button>
+        <div class="g-page__actions">
+            <button type="button" data-push-enable hidden class="g-btn g-btn--primary disabled:opacity-60">Activar en este dispositivo</button>
+            <button type="button" data-push-disable hidden class="g-btn disabled:opacity-60">Desactivar en este dispositivo</button>
+        </div>
     </div>
 </section>
 <script>
