@@ -6,8 +6,9 @@ use Illuminate\Contracts\View\View;
 
 /**
  * The floating «Asistente» button (odd/tasks/liquid-glass.md G7), rendered
- * by components/layouts/app on glass pages: the same check as the user
- * menu's link ({@see AssistantLink}), and never on /asistente itself.
+ * by components/layouts/app on the pages that opt in (`assistant`): the same
+ * check as the user menu's link ({@see AssistantLink}), and never on
+ * /asistente itself.
  *
  * Without JavaScript it is a link to /asistente. resources/js/header.js
  * loads resources/js/assistant-panel.js on its first click and opens the

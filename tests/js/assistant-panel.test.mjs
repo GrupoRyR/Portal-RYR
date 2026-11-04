@@ -197,10 +197,20 @@ test('a question is sent as JSON with the CSRF token, and the answer is announce
 
     assert.equal(send.disabled, false);
     assert.equal(view.$('[data-assistant-pending]'), null);
-    assert.equal(view.$('input[data-assistant-input]').value, '');
+    // Typed while it waited: not the question sent, so it stays.
+    assert.equal(view.$('input[data-assistant-input]').value, 'Otra');
     assert.equal(view.$$('[data-assistant-turn]').length, 2);
     assert.match(view.$('[data-assistant-live]').textContent, /Hola, mira los anuncios\./);
     assert.match(view.$('[data-assistant-hint]').textContent, /Te quedan 39 preguntas de 40/);
+});
+
+test('the question sent leaves the field once answered', async () => {
+    const view = await opened({ status: 200, body: conversation() }, { status: 200, body: answered() });
+
+    ask(view, 'Hola ');
+    await settle();
+
+    assert.equal(view.$('input[data-assistant-input]').value, '');
 });
 
 test('a suggestion asks it', async () => {
@@ -214,11 +224,16 @@ test('a suggestion asks it', async () => {
     assert.equal(view.doc.activeElement, view.$('input[data-assistant-input]'));
 });
 
-test('a refused question shows the server message in Spanish and keeps the question', async () => {
+test('a refused question shows the server message, keeps the question and reads the conversation again', async () => {
     const message = 'Llegaste al límite de 40 preguntas de hoy. Mañana puedes seguir.';
-    const view = await opened({ status: 200, body: conversation() }, { status: 429, body: { error: message } });
+    const view = await opened(
+        { status: 200, body: conversation() },
+        { status: 429, body: { error: message } },
+        { status: 200, body: conversation({ remaining: 0 }) },
+    );
 
     ask(view, 'Hola');
+    await settle();
     await settle();
 
     const notice = view.$('[data-assistant-notice]');
@@ -227,7 +242,68 @@ test('a refused question shows the server message in Spanish and keeps the quest
     assert.equal(notice.textContent, message);
     assert.equal(view.$('input[data-assistant-input]').value, 'Hola');
     assert.equal(view.$$('[data-assistant-turn]').length, 0);
-    assert.equal(view.$('button[data-assistant-send]').disabled, false);
+    // The re-read closes the field: no question left today.
+    assert.equal(view.requests.length, 3);
+    assert.equal(view.requests[2].url, '/asistente/conversacion');
+    assert.equal(view.$('button[data-assistant-send]').disabled, true);
+    assert.equal(view.$('input[data-assistant-input]').disabled, true);
+    assert.equal(view.doc.activeElement, view.$('button[data-assistant-close]'));
+});
+
+test('a full conversation (422) is read again and closes the field', async () => {
+    const message = 'Esta conversación está llena. Empieza una «Nueva conversación» para seguir preguntando.';
+    const view = await opened(
+        { status: 200, body: conversation({ turns: answered().turns }) },
+        { status: 422, body: { error: message } },
+        { status: 200, body: conversation({ turns: answered().turns, full: true }) },
+    );
+
+    ask(view, 'Otra');
+    await settle();
+    await settle();
+
+    assert.equal(view.$('[data-assistant-notice]').textContent, message);
+    assert.equal(view.$('input[data-assistant-input]').disabled, true);
+    assert.match(view.$('[data-assistant-hint]').textContent, /Nueva conversación/);
+});
+
+test('what the person types while an answer is pending is kept', async () => {
+    let release;
+    const view = await opened({ status: 200, body: conversation() }, () => new Promise((resolve) => { release = resolve; }));
+
+    ask(view, 'Hola');
+    await settle();
+    view.$('input[data-assistant-input]').value = 'Y mañana';
+    release({ status: 200, body: answered() });
+    await settle();
+
+    assert.equal(view.$('input[data-assistant-input]').value, 'Y mañana');
+});
+
+test('a failed question leaves new text in the field alone', async () => {
+    let release;
+    const view = await opened({ status: 200, body: conversation() }, () => new Promise((resolve) => { release = resolve; }));
+
+    ask(view, 'Hola');
+    await settle();
+    view.$('input[data-assistant-input]').value = 'Otra cosa';
+    release(new Error('offline'));
+    await settle();
+
+    assert.equal(view.$('input[data-assistant-input]').value, 'Otra cosa');
+    assert.match(view.$('[data-assistant-notice]').textContent, /No pudimos conectar/);
+});
+
+test('sending keeps the focus in the panel', async () => {
+    const view = await opened({ status: 200, body: conversation() }, () => new Promise(() => {}));
+    const send = view.$('button[data-assistant-send]');
+    send.focus();
+
+    ask(view, 'Hola');
+    await settle();
+
+    assert.equal(send.disabled, true);
+    assert.equal(view.doc.activeElement, view.$('input[data-assistant-input]'));
 });
 
 test('a restarted conversation (409) is read again', async () => {
@@ -247,12 +323,28 @@ test('a restarted conversation (409) is read again', async () => {
     assert.equal(view.$$('[data-assistant-turn]').length, 0);
 });
 
+test('a restarted conversation that cannot be read again says why', async () => {
+    const view = await opened(
+        { status: 200, body: conversation({ turns: answered().turns }) },
+        { status: 409, body: { error: RESTARTED } },
+        new Error('offline'),
+    );
+
+    ask(view, 'Otra');
+    await settle();
+    await settle();
+
+    assert.match(view.$('[data-assistant-notice]').textContent, /No pudimos conectar/);
+});
+
 test('a network failure or an unexpected answer gets a generic message', async () => {
     const cases = [
         [new Error('offline'), /No pudimos conectar con el asistente/],
         [{ status: 500, body: null }, /El asistente no pudo responder/],
         [{ status: 419, body: { message: 'CSRF token mismatch.' } }, /Recarga la página/],
         [{ status: 404, body: null }, /no está disponible/],
+        // The throttle's own 429 («Nueva conversación») has no `error`.
+        [{ status: 429, body: { message: 'Too Many Attempts.' } }, /Estás preguntando muy rápido/],
     ];
 
     for (const [response, expected] of cases) {
@@ -325,6 +417,60 @@ test('«Nueva conversación» clears it on the server and offers the suggestions
     assert.equal(view.$$('[data-assistant-turn]').length, 0);
     assert.equal(view.$$('button[data-assistant-suggestion]').length, 5);
     assert.equal(view.$('[data-assistant-live]').textContent, 'Empezaste una conversación nueva.');
+});
+
+test('«Nueva conversación» keeps the focus in the panel and maps a bare 429', async () => {
+    let release;
+    const view = await opened({ status: 200, body: conversation({ turns: answered().turns }) }, () => new Promise((resolve) => { release = resolve; }));
+    const clear = view.$('button[data-assistant-clear]');
+    clear.focus();
+
+    view.doc.dispatch('click', clear);
+    await settle();
+
+    assert.equal(clear.disabled, true);
+    assert.equal(view.doc.activeElement, view.$('input[data-assistant-input]'));
+
+    release({ status: 429, body: { message: 'Too Many Attempts.' } });
+    await settle();
+
+    assert.equal(view.$('[data-assistant-notice]').textContent, 'Estás preguntando muy rápido. Espera un momento.');
+});
+
+test('the panel is a modal dialog that keeps Tab inside', async () => {
+    const view = await opened({ status: 200, body: conversation() });
+    const panel = view.$('[data-assistant-panel]');
+    const clear = view.$('button[data-assistant-clear]');
+    const send = view.$('button[data-assistant-send]');
+    const input = view.$('input[data-assistant-input]');
+
+    assert.equal(panel.getAttribute('aria-modal'), 'true');
+
+    input.value = 'Hola';
+    send.focus();
+    const forward = view.doc.dispatch('keydown', send, { key: 'Tab' });
+    assert.equal(forward.defaultPrevented, true);
+    assert.equal(view.doc.activeElement, clear);
+
+    const back = view.doc.dispatch('keydown', clear, { key: 'Tab', shiftKey: true });
+    assert.equal(back.defaultPrevented, true);
+    assert.equal(view.doc.activeElement, send);
+
+    // Inside the panel, Tab moves on its own.
+    input.focus();
+    assert.equal(view.doc.dispatch('keydown', input, { key: 'Tab' }).defaultPrevented, false);
+});
+
+test('reopening shows the latest turn', async () => {
+    const view = await opened({ status: 200, body: conversation({ turns: answered().turns }) });
+    const log = view.$('[data-assistant-log]');
+
+    view.doc.dispatch('click', view.$('button[data-assistant-close]'));
+    log.scrollTop = 0;
+    log.scrollHeight = 640;
+    view.open();
+
+    assert.equal(log.scrollTop, 640);
 });
 
 test('Escape and the close button close the panel and return to the button', async () => {

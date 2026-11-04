@@ -18,10 +18,11 @@ use Tests\TestCase;
 
 /**
  * The floating «Asistente» button (<x-assistant-fab>, odd/tasks/liquid-glass.md
- * G7): on every glass page of a signed-in account while the assistant is on,
- * a plain link to /asistente without JavaScript. resources/js/assistant-panel.js
- * (tests/js/assistant-panel.test.mjs) turns it into the chat panel. Never on
- * the sign-in, the error pages or /asistente itself, which keeps its forms.
+ * G7): on the pages that opt in (layouts.app `assistant`) for a signed-in
+ * account while the assistant is on, a plain link to /asistente without
+ * JavaScript. resources/js/assistant-panel.js (tests/js/assistant-panel.test.mjs)
+ * turns it into the chat panel. Never on the sign-in, the error pages or
+ * /asistente itself, which keeps its forms.
  */
 class AssistantFabTest extends TestCase
 {
@@ -53,7 +54,9 @@ class AssistantFabTest extends TestCase
 
     public function test_the_button_floats_on_the_home_screen_and_on_a_secondary_page(): void
     {
-        foreach (['/', route('announcements.index', absolute: false), route('people.index', absolute: false)] as $path) {
+        $pages = ['/', 'announcements.index', 'events.index', 'people.index', 'account.show'];
+
+        foreach (array_map(fn (string $page) => $page === '/' ? $page : route($page, absolute: false), $pages) as $path) {
             $fab = $this->page($path)->query(self::FAB);
 
             $this->assertSame(1, $fab->length, $path);
@@ -105,6 +108,15 @@ class AssistantFabTest extends TestCase
     public function test_it_is_absent_on_the_error_pages_of_a_signed_in_account(): void
     {
         $this->actingAs($this->user)->get('/admin')->assertForbidden()->assertDontSee('data-assistant-fab', false);
+    }
+
+    public function test_a_glass_page_shows_it_only_when_it_opts_in(): void
+    {
+        // The sign-in, the error pages and Administración may be glass too (G8, G10).
+        $this->actingAs($this->user);
+
+        $this->assertStringNotContainsString('data-assistant-fab', (string) $this->blade('<x-layouts.app glass><main>Página</main></x-layouts.app>'));
+        $this->assertStringContainsString('data-assistant-fab', (string) $this->blade('<x-layouts.app glass assistant><main>Página</main></x-layouts.app>'));
     }
 
     public function test_it_is_absent_while_the_admin_toggle_is_off(): void

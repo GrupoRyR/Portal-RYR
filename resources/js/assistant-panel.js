@@ -7,7 +7,8 @@
 // It talks to AssistantController in JSON (App\View\Assistant\ConversationJson):
 // - GET  conversation (once, on the first opening): turns, draft, greeting…
 // - POST ask   {pregunta}: the new turns, or {error} with 422, 429, 409
-//   (the conversation restarted: read it again) or 503. Up to ~90 s.
+//   (the conversation restarted) or 503. Up to ~90 s. After a 409, 422 or
+//   429 the conversation is read again (its limits may have changed).
 // - POST clear: «Nueva conversación».
 // Turn `html` is safe server HTML; everything else (draft, greeting, errors)
 // is inserted as text.
@@ -40,7 +41,11 @@ const TEXT = {
     restarted: 'Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.',
     full: 'Esta conversación llegó a su límite. Empieza una «Nueva conversación» para seguir preguntando.',
     budget: 'El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.',
+    // AssistantController::TOO_FAST, for a throttle 429 without `error`.
+    tooFast: 'Estás preguntando muy rápido. Espera un momento.',
 };
+
+const FOCUSABLE = 'button, input, a[href]';
 
 const panels = new WeakMap();
 
@@ -92,7 +97,15 @@ function createPanel(doc, win, fab) {
     const hint = el('p', { id: 'asistente-ayuda', class: 'g-assist__hint', 'data-assistant-hint': '' });
     const panel = el(
         'section',
-        { id: 'asistente-panel', class: 'g-assist', role: 'dialog', 'aria-labelledby': 'asistente-titulo', hidden: '', 'data-assistant-panel': '' },
+        {
+            id: 'asistente-panel',
+            class: 'g-assist',
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-labelledby': 'asistente-titulo',
+            hidden: '',
+            'data-assistant-panel': '',
+        },
         el(
             'header',
             { class: 'g-assist__head' },
@@ -115,6 +128,17 @@ function createPanel(doc, win, fab) {
         notice.textContent = message;
         notice.hidden = !message;
     };
+
+    // The controls Tab can reach, in order (none inside a hidden form).
+    const focusables = () => [...panel.querySelectorAll(FOCUSABLE)].filter((node) => !node.disabled && !node.closest('[hidden]'));
+
+    // A render may disable or remove the control that had the focus.
+    function keepFocus() {
+        if (panel.hidden) return;
+        const active = doc.activeElement;
+        if (active && panel.contains(active) && !active.disabled) return;
+        (input.disabled || form.hidden ? close : input).focus();
+    }
 
     function greeting() {
         const { first_name: name, company, role } = state.greeting ?? {};
@@ -223,6 +247,7 @@ function createPanel(doc, win, fab) {
         if (status === 401 || status === 419) return TEXT.session;
         if (status === 404) return TEXT.off;
         if ([409, 422, 429, 503].includes(status) && typeof data?.error === 'string' && data.error) return data.error;
+        if (status === 429) return TEXT.tooFast;
         return TEXT.failed;
     }
 
@@ -262,8 +287,9 @@ function createPanel(doc, win, fab) {
         }
         showNotice(data ? '' : error);
         render();
-        // A closed conversation disables the field that had the focus.
-        if (!panel.hidden && input.disabled && (doc.activeElement === input || !panel.contains(doc.activeElement))) close.focus();
+        keepFocus();
+
+        return error;
     }
 
     async function ask(text) {
@@ -274,6 +300,7 @@ function createPanel(doc, win, fab) {
         state.pending = true;
         state.asking = question;
         render();
+        keepFocus();
 
         const { data, status, error } = await request('POST', urls.ask, { pregunta: question });
         state.pending = false;
@@ -281,20 +308,23 @@ function createPanel(doc, win, fab) {
 
         if (data) {
             apply(data);
-            input.value = '';
+            // Only the question sent goes; anything typed meanwhile stays.
+            if (input.value.trim() === question) input.value = '';
             render();
+            keepFocus();
             const answers = log.querySelectorAll('[data-assistant-turn="assistant"]');
             live.textContent = answers.length ? answers[answers.length - 1].querySelector('[data-assistant-html]').textContent : '';
             return;
         }
 
-        input.value = question;
         showNotice(error);
         render();
-        if (status === 409) {
-            await load();
-            state.restarted = false;
-            showNotice(error);
+        keepFocus();
+        if ([409, 422, 429].includes(status)) {
+            const failed = await load();
+            if (status === 409) state.restarted = false;
+            // A 409 that cannot be read again says why; a refusal keeps its reason.
+            showNotice(status === 409 && failed ? failed : error);
             render();
         }
     }
@@ -304,6 +334,7 @@ function createPanel(doc, win, fab) {
 
         state.pending = true;
         render();
+        keepFocus();
         const { data, error } = await request('POST', urls.clear);
         state.pending = false;
 
@@ -316,13 +347,15 @@ function createPanel(doc, win, fab) {
             showNotice(error);
         }
         render();
-        if (!input.disabled) input.focus();
+        keepFocus();
     }
 
     function open() {
         panel.hidden = false;
         fab.hidden = true;
         fab.setAttribute('aria-expanded', 'true');
+        // render() scrolled it while hidden: show the latest turn.
+        log.scrollTop = log.scrollHeight;
         (input.disabled || form.hidden ? close : input).focus();
         if (!state.loaded && !state.pending) {
             showNotice('');
@@ -362,6 +395,22 @@ function createPanel(doc, win, fab) {
         if (event.key !== 'Escape' || panel.hidden) return;
         if (!panel.contains(event.target) && doc.querySelector('details[data-menu][open]')) return;
         hide();
+    });
+
+    // A modal dialog (full screen on phones): Tab wraps around inside it.
+    doc.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab' || panel.hidden) return;
+        const nodes = focusables();
+        if (!nodes.length) return;
+        const first = nodes[0];
+        const last = nodes[nodes.length - 1];
+        const active = doc.activeElement;
+        const inside = active && panel.contains(active);
+
+        if (event.shiftKey ? !inside || active === first : !inside || active === last) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus();
+        }
     });
 
     render();

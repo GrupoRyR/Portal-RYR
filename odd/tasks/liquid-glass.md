@@ -98,18 +98,21 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - No se extrajo un ayudante compartido con `HomePageBuilder`, porque `app/View/Home` queda fuera de la superficie de G3. En su lugar hay pruebas en páginas secundarias para Administración, «Soporte TI» y «Mi cumpleaños».
 - G7 hecho en `1ceb56f` (`feat/glass-7-assistant`).
   - `<x-assistant-fab>` (`App\View\Components\AssistantFab`) usa la misma condición que el enlace del menú (`AssistantLink`) y no sale en `/asistente`.
-    - El layout lo pone en las páginas `glass` (prop `assistant`, que por defecto sigue a `glass`). Así no sale en el inicio de sesión, las páginas de error ni Administración, que no son de vidrio. G8 debe pasar `:assistant="false"` si vuelve de vidrio una página de error.
+    - El layout lo pone solo en las páginas que lo piden con la prop `assistant` (por defecto `false`): el inicio, `/anuncios`, `/eventos`, `/personas`, `/cuenta*` y `apps/*`. Nunca sale en el inicio de sesión, las páginas de error ni Administración, aunque sean de vidrio (G8 las pasa a vidrio).
     - Sin la clave de la API se muestra igual, y el panel dice «no disponible».
     - Sin JavaScript es un enlace a `/asistente`. En el inicio sube por encima de la barra inferior (`g-fab--raised`). En celular queda solo el ícono, con el texto oculto para lectores de pantalla.
   - `resources/js/assistant-panel.js` es una entrada de Vite (3,6 kB gzip).
     - `header.js` lo carga en el primer clic con un `<script type="module">`, no con `import()`: Vite 8 agrega su ayudante de precarga (otra petición en cada página) a cualquier `import()`. Como el script no recibe exportaciones, el módulo deja `window.openPortalAssistant`.
     - Si no carga (sin conexión o con otra compilación), se sigue el enlace. Un clic con Ctrl, Shift, Alt o Cmd abre el enlace.
     - Solo lee la conversación al abrir el panel la primera vez: el inicio guardado sin conexión nunca muestra una conversación vieja.
-  - Panel (diálogo no modal):
+  - Panel (diálogo modal, `aria-modal="true"`, con Tab encerrado en todos los anchos):
     - el foco entra al campo (o a «Cerrar» si está cerrado); Escape y «Cerrar» devuelven el foco al botón;
+    - si un envío deshabilita o quita el control con el foco, el foco pasa al campo (o a «Cerrar»);
+    - al reabrirlo, muestra el último turno;
+    - lo que la persona escribe mientras espera se queda: solo se borra el campo si aún tiene la pregunta enviada;
     - la respuesta nueva se anuncia en una región `aria-live="polite"` y los errores en `role="alert"`;
     - «Enviar» está deshabilitado mientras espera, con «Pensando…»;
-    - un 409 vuelve a leer la conversación; 422, 429 y 503 muestran el `{error}` del servidor; 419 pide recargar, 404 dice «no disponible» y un fallo de red da un mensaje general;
+    - un 409, un 422 o un 429 vuelven a leer la conversación (así se cierran los límites); 422, 429 y 503 muestran el `{error}` del servidor, y un 429 sin `error` (el freno de «Nueva conversación») dice «Estás preguntando muy rápido»; si la relectura tras un 409 falla, se muestra ese error; 419 pide recargar, 404 dice «no disponible» y un fallo de red da un mensaje general;
     - el campo se cierra con `full`, `budget_reached` o sin preguntas del día;
     - el borrador (título y extracto como texto) solo enlaza a «Revisar y publicar» en `/asistente#borrador`. Un `review_url` que no sea una ruta del portal vuelve a ese enlace.
     - Las sugerencias son las cinco de `/asistente`.
@@ -126,3 +129,12 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - En el navegador: enviar deshabilita «Enviar», pone `aria-busy` y oculta el botón; la respuesta llega, se anuncia y el borrador sale como texto; un 429 muestra su mensaje y conserva la pregunta; Escape cierra y devuelve el foco.
   - Sin medir: Lighthouse en celular. El inicio solo suma el enlace (unos 650 bytes) y unos 2 kB de CSS. Nada se pide hasta el primer clic.
   - El botón lee `AssistantSwitch` una vez más (una consulta por clave primaria) cuando el interruptor de despliegue está encendido, porque `AssistantSwitch` no es singleton y queda fuera de la superficie de G7.
+- Revisión independiente de G7: sin hallazgos graves. Se corrigió en un commit (`fix(glass): opt pages into the assistant and steady the panel`).
+  - El botón pasó a ser opcional por página (`assistant`), porque G8 vuelve de vidrio las páginas de error y `auth/admin-consent`. Hay una prueba de una página de vidrio sin la opción.
+  - En el panel: se conserva lo escrito mientras espera; 422 y 429 releen la conversación; el foco no se pierde; diálogo modal con Tab encerrado; al reabrir, baja al último turno; mensajes para un 409 que no se puede releer y para un 429 sin `error`.
+  - Evidencia:
+    - RED antes del código: la prueba nueva de PHP y 10 pruebas de Node.
+    - `node --test "tests/js/*.test.mjs"`: 48 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien (`assistant-panel` 3,83 kB gzip).
+    - En el navegador: Tab desde «Enviar» vuelve a «Nueva conversación»; el foco queda en el campo mientras espera; un 429 relee la conversación y conserva el texto nuevo.

@@ -71,6 +71,8 @@ export class FakeElement {
         this.parentElement = null;
         this.text = '';
         this.html = null;
+        // As in a browser, a field's value is a string from the start.
+        if (this.tagName === 'input' || this.tagName === 'textarea') this.value = '';
     }
 
     get textContent() {
