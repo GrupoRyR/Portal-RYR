@@ -58,7 +58,7 @@ final readonly class MarketFigure
     }
 
     /**
-     * «▲ 0,32 %» beside the value (hidden from screen readers), «= 0,00 %»
+     * «▲ 0,32 %» beside the value (hidden from screen readers), «● 0,00 %»
      * without a move, or null.
      */
     public function shortChange(): ?string
@@ -66,7 +66,21 @@ final readonly class MarketFigure
         return match ($this->direction) {
             'up' => '▲ '.($this->percent ?? $this->change),
             'down' => '▼ '.($this->percent ?? $this->change),
-            'flat' => '= 0,00'.($this->percent === null ? '' : ' %'),
+            'flat' => '● 0,00'.($this->percent === null ? '' : ' %'),
+            default => null,
+        };
+    }
+
+    /**
+     * The colour class of the change: «good» (green) for a rise, «crit»
+     * (red) for a fall, «flat» (neutral) without a move, or null.
+     */
+    public function tone(): ?string
+    {
+        return match ($this->direction) {
+            'up' => 'good',
+            'down' => 'crit',
+            'flat' => 'flat',
             default => null,
         };
     }

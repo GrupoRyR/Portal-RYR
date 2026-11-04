@@ -58,11 +58,13 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertStringContainsString('$3.861,38', $trm);
         $this->assertStringContainsString('Subió 12,40 pesos (0,32 %)', $trm);
         $this->assertStringContainsString('datetime="2026-11-03"', $trm);
+        $this->assertMatchesRegularExpression('/data-market-change="up"[^>]*class="[^"]*\bgood\b[^"]*"[^>]*>▲ 0,32 %/u', $trm);
 
         $euro = $this->element($response, 'data-market', 'eur');
         $this->assertStringContainsString('Euro', $euro);
         $this->assertStringContainsString('$4.478,12', $euro);
         $this->assertStringContainsString('Bajó 21,88 pesos (0,49 %)', $euro);
+        $this->assertMatchesRegularExpression('/data-market-change="down"[^>]*class="[^"]*\bcrit\b[^"]*"[^>]*>▼ 0,49 %/u', $euro);
     }
 
     public function test_a_figure_without_a_previous_value_shows_no_change(): void
@@ -85,7 +87,7 @@ class HomeMarketsAndNewsTest extends TestCase
 
         $trm = $this->element($this->home(), 'data-market', 'trm');
 
-        $this->assertStringContainsString('= 0,00 %', $trm);
+        $this->assertStringContainsString('● 0,00 %', $trm);
         $this->assertStringContainsString('Sin cambio frente al valor anterior', $trm);
         $this->assertStringNotContainsString('▲', $trm);
         $this->assertStringNotContainsString('Subió', $trm);

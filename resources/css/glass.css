@@ -614,3 +614,160 @@
         background-position: -60% 0;
     }
 }
+
+/* ---------- 6. Markets ticker (components/home/markets) ----------
+   A glass band whose list slides left one copy per lap (App\View\Home\
+   MarketTicker sets --g-ticker-groups and --g-ticker-duration). Still by
+   default: only .g-ticker-moves (two figures or more) slides, it pauses on
+   hover and on focus, and under reduced motion it stands and wraps.
+   Rise --g-good, fall --g-crit, no move --g-ink-faint: ≥ 4.9:1 on the
+   glass in both themes and both companies (section 1 measures). */
+@layer components {
+    .g-ticker {
+        color: var(--g-ink-soft);
+        background: var(--g-glass);
+        -webkit-backdrop-filter: var(--g-blur);
+        backdrop-filter: var(--g-blur);
+        box-shadow:
+            inset 0 -1px 0 rgb(255 255 255 / 0.35),
+            var(--g-drop-sm);
+        font-size: 0.8125rem;
+    }
+
+    .g-ticker-in {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-block: 8px;
+    }
+
+    .g-ticker-tag {
+        flex: none;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--g-accent-ink);
+    }
+
+    .g-ticker-view {
+        flex: 1;
+        min-width: 0;
+        border-radius: var(--g-r-md);
+    }
+
+    .g-ticker-view:focus-visible {
+        outline: 2px solid var(--g-ink);
+        outline-offset: 2px;
+    }
+
+    .g-ticker-track,
+    .g-ticker-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+    }
+
+    .g-ticker-group {
+        gap: 4px 26px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .g-ticker-item {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    .g-ticker-value {
+        font-weight: 700;
+        color: var(--g-ink);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .g-ticker-change {
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .g-ticker-change.good {
+        color: var(--g-good);
+    }
+
+    .g-ticker-change.crit {
+        color: var(--g-crit);
+    }
+
+    .g-ticker-change.flat,
+    .g-ticker-date {
+        color: var(--g-ink-faint);
+    }
+
+    .g-ticker-date {
+        font-size: 0.75rem;
+    }
+
+    /* Moving: one line, the edges fade, the copies follow the list. The
+       group's trailing padding equals the gap, so every copy is as wide as
+       the list and the lap ends exactly where the next copy began. */
+    .g-ticker-moves {
+        overflow: hidden;
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+    }
+
+    .g-ticker-moves .g-ticker-track {
+        flex-wrap: nowrap;
+        width: max-content;
+        animation: g-ticker var(--g-ticker-duration, 20s) linear infinite;
+    }
+
+    .g-ticker-moves .g-ticker-group {
+        flex-wrap: nowrap;
+        padding-right: 26px;
+    }
+
+    .g-ticker-moves:hover .g-ticker-track,
+    .g-ticker-moves:focus-within .g-ticker-track {
+        animation-play-state: paused;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .g-ticker-moves {
+            overflow: visible;
+            -webkit-mask-image: none;
+            mask-image: none;
+        }
+
+        .g-ticker-moves .g-ticker-track {
+            animation: none;
+            flex-wrap: wrap;
+            width: auto;
+        }
+
+        .g-ticker-moves .g-ticker-group {
+            flex-wrap: wrap;
+            padding-right: 0;
+        }
+
+        .g-ticker-group[aria-hidden='true'] {
+            display: none;
+        }
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .g-ticker {
+            background: var(--g-solid);
+        }
+    }
+}
+
+@keyframes g-ticker {
+    to {
+        transform: translateX(calc(-100% / var(--g-ticker-groups, 2)));
+    }
+}
