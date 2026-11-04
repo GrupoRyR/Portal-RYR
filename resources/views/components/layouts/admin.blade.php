@@ -1,9 +1,11 @@
 {{--
-    Administration shell (docs/diseno/AdminCompanies.dc.html).
+    Administration shell (docs/diseno/AdminCompanies.dc.html) in Liquid Glass:
+    the company photo behind, a glass sidebar and phone top bar, and the page
+    on one opaque panel (.g-admin-*, resources/css/glass.css).
     Desktop (≥1024px): fixed 248px sidebar. Below: off-canvas menu opened by
     a real button; Escape, the close button or the backdrop close it.
 --}}
-<x-layouts.app :title="$title ? $title.' · Administración' : 'Administración'" noindex livewire brand-band>
+<x-layouts.app :title="$title ? $title.' · Administración' : 'Administración'" noindex livewire glass>
     <a href="#contenido"
        class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-fg focus:px-4 focus:py-3 focus:font-semibold focus:text-on-fg">
         Saltar al contenido
@@ -13,20 +15,20 @@
          data-menu="closed"
          x-bind:data-menu="open ? 'open' : 'closed'"
          x-on:keydown.escape.window="if (open) { open = false; $nextTick(() => $refs.toggle.focus()) }"
-         class="group/shell min-h-dvh lg:flex">
+         class="g-admin group/shell min-h-dvh lg:flex">
 
-        <header class="brand-band sticky top-0 z-20 flex items-center gap-3 px-4 py-2 lg:hidden">
+        <header class="g-topbar g-admin-chrome sticky top-0 z-20 flex items-center gap-3 px-4 py-2 lg:hidden">
             <button type="button"
                     x-ref="toggle"
                     aria-controls="admin-sidebar"
                     aria-expanded="false"
                     x-bind:aria-expanded="open.toString()"
                     x-on:click="open = true; $nextTick(() => $refs.close.focus())"
-                    class="-ml-2 inline-flex size-touch items-center justify-center rounded-control text-white hover:bg-white/10">
+                    class="-ml-2 inline-flex size-touch items-center justify-center rounded-control text-fg hover:bg-(--g-accent-tint)">
                 <x-admin.nav-icon name="menu" class="size-6" />
                 <span class="sr-only">Abrir menú de administración</span>
             </button>
-            <x-brand-logo :company="$company" on-band />
+            <x-brand-logo :company="$company" />
         </header>
 
         <div x-on:click="open = false; $nextTick(() => $refs.toggle.focus())"
@@ -36,22 +38,22 @@
         <nav id="admin-sidebar"
              aria-label="Administración"
              x-trap="open"
-             class="fixed inset-y-0 left-0 z-40 flex w-[248px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface transition-[translate] duration-200 max-lg:invisible max-lg:-translate-x-full group-data-[menu=open]/shell:max-lg:visible group-data-[menu=open]/shell:max-lg:translate-x-0 lg:sticky lg:top-0 lg:h-dvh">
+             class="g-admin-side g-admin-chrome fixed inset-y-0 left-0 z-40 flex w-[248px] shrink-0 flex-col overflow-y-auto transition-[translate] duration-200 max-lg:invisible max-lg:-translate-x-full group-data-[menu=open]/shell:max-lg:visible group-data-[menu=open]/shell:max-lg:translate-x-0 lg:sticky lg:top-0 lg:h-dvh">
 
-            <div class="brand-band flex shrink-0 items-center gap-2.5 px-5 py-4">
-                <x-brand-logo :company="$company" on-band>
-                    <span class="text-xs text-white/80">Administración</span>
+            <div class="g-admin-head flex shrink-0 items-center gap-2.5 border-b border-line px-5 py-4">
+                <x-brand-logo :company="$company">
+                    <span class="text-xs text-fg-muted">Administración</span>
                 </x-brand-logo>
                 <button type="button"
                         x-ref="close"
                         x-on:click="open = false; $nextTick(() => $refs.toggle.focus())"
-                        class="ml-auto inline-flex size-touch shrink-0 items-center justify-center rounded-control text-white hover:bg-white/10 lg:hidden">
+                        class="ml-auto inline-flex size-touch shrink-0 items-center justify-center rounded-control text-fg hover:bg-(--g-accent-tint) lg:hidden">
                     <x-admin.nav-icon name="close" class="size-5" />
                     <span class="sr-only">Cerrar menú</span>
                 </button>
             </div>
 
-            {{-- The band above spans the full width; the list keeps its own padding. --}}
+            {{-- The head above spans the full width; the list keeps its own padding. --}}
             <div class="flex flex-1 flex-col gap-0.5 px-3.5 pt-4 pb-5">
                 @foreach ($navigation() as $group)
                     @if ($group['label'])
@@ -66,7 +68,7 @@
                                        @class([
                                            'flex min-h-touch items-center gap-3 rounded-[10px] px-3 text-sm',
                                            'bg-brand-tint font-bold text-brand-ink' => $current,
-                                           'font-semibold text-fg-soft hover:bg-ground hover:text-fg' => ! $current,
+                                           'font-semibold text-fg-soft hover:bg-(--g-accent-tint) hover:text-fg' => ! $current,
                                        ])>
                                         <x-admin.nav-icon :name="$item['icon']" />
                                         {{ $item['label'] }}
@@ -84,7 +86,7 @@
                 @endforeach
 
                 <div class="mt-auto flex flex-col gap-2.5 border-t border-line pt-4">
-                    <a href="{{ route('home') }}" class="flex min-h-touch items-center gap-3 rounded-[10px] px-3 text-sm font-semibold text-fg-soft hover:bg-ground hover:text-fg">
+                    <a href="{{ route('home') }}" class="flex min-h-touch items-center gap-3 rounded-[10px] px-3 text-sm font-semibold text-fg-soft hover:bg-(--g-accent-tint) hover:text-fg">
                         <x-admin.nav-icon name="back" />
                         Volver al portal
                     </a>
@@ -103,7 +105,7 @@
             </div>
         </nav>
 
-        <main id="contenido" tabindex="-1" class="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:p-8">
+        <main id="contenido" tabindex="-1" class="g-admin-main m-2 min-w-0 flex-1 px-3 py-6 focus:outline-none sm:m-3 sm:px-6 lg:m-4 lg:p-8">
             {{ $slot }}
         </main>
     </div>
