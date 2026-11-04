@@ -58,6 +58,16 @@ Que cada persona pueda preguntarle al portal, en lenguaje natural, por lo que ya
 
 Tamaño: unas 6.400 líneas sin `composer.lock` (más de la mitad, pruebas y documentación). Pasa mucho de las ~400 por ola porque los pedidos llegaron en serie; cada tarea es un commit separado y puede ir en su propio PR encadenado (A1 a A6, A7, A8, A9).
 
+- [x] A10. **Correcciones de la revisión independiente** (0 altas, 2 medias, 5 bajas). Ruta: delegada (escritor). Pruebas escritas con cada corrección; RED comprobado por mutación (quitar el control del presupuesto y del plazo: 2/4 fallan; mover antes de tiempo: falla; sin la entrada original: falla).
+  - M1: el presupuesto se revisa antes de cada llamada, con lo que la pregunta ya costó; se detiene con el mensaje del presupuesto, historial válido y Auditoría `assistant.budget_blocked`.
+  - M2: `ASSISTANT_DEADLINE_SECONDS` (90) para toda la pregunta, cada llamada con el tiempo que queda; «La respuesta tardó demasiado; intenta de nuevo.»; la línea de Auditoría se escribe en un `finally`, con el uso y el costo aunque una llamada lance una excepción.
+  - L1: un turno sin texto ni herramientas no se guarda; se guarda el texto de la página.
+  - L2: la entrada de cada `tool_use` se guarda como el JSON que escribió el proveedor (`input_json`) y se reenvía tal cual (un `{}` anidado sigue siendo objeto).
+  - L3: la conversación pasa al secundario solo cuando este responde; con el circuito abierto, va directo al secundario.
+  - L4: carrera del límite diario (dos preguntas a la vez pueden pasar la última): aceptada, la acota el limitador `assistant` (10 por minuto por cuenta).
+  - L5: los correos de presupuesto y de proveedor salen después de la respuesta (`defer`, sin cola en el servidor), tras el commit, con el mismo «una vez por ventana».
+  - Prueba nueva: el paso al secundario en la segunda ronda del bucle de herramientas.
+
 ## Decisiones tomadas sin consultar (para Jhon)
 
 1. El interruptor de Admin empieza **apagado** (el del conector empieza encendido): cada pregunta cuesta y envía datos a Anthropic.

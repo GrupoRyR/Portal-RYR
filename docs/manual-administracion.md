@@ -947,7 +947,7 @@ El respaldo repite la pregunta como una petición nueva, con la conversación en
 - Cada herramienta devuelve pocas filas (por ejemplo, 5 anuncios recientes o 30 apps) y se le pide al modelo que responda corto.
 - Las preguntas se responden en el momento: no se usan lotes.
 
-**Presupuesto del mes:** 20 dólares por defecto para todo el portal (`ASSISTANT_MONTHLY_BUDGET_USD`, en el servidor), contados desde el día 1 a la medianoche de Bogotá. Al 80 % y al 100 % los súper administradores reciben un correo, una vez por umbral y mes. Al 100 % el asistente deja de responder hasta el mes siguiente. La consola de Anthropic tiene además su propio límite de gasto, como segunda barrera (TI, `docs/despliegue.md` §1.23).
+**Presupuesto del mes:** 20 dólares por defecto para todo el portal (`ASSISTANT_MONTHLY_BUDGET_USD`, en el servidor), contados desde el día 1 a la medianoche de Bogotá. Al 80 % y al 100 % los súper administradores reciben un correo, una vez por umbral y mes. Al 100 % el asistente deja de responder hasta el mes siguiente, también a mitad de una pregunta larga. Una pregunta tiene además un tiempo máximo (90 segundos): si se pasa, la página dice «La respuesta tardó demasiado; intenta de nuevo.» La consola de Anthropic tiene además su propio límite de gasto, como segunda barrera (TI, `docs/despliegue.md` §1.23).
 
 **Reporte:** TI puede ver el consumo por día con `php artisan portal:assistant-usage --days=7` (tokens, aciertos de caché y costo por día, separados entre preguntas y borradores, y el gasto del mes).
 
