@@ -89,3 +89,9 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - G9: las páginas secundarias y quitar el `g-sheet`.
     - `mcp/authorize` y Administración siguen con `brand-band` (G9 y G10).
     - En iPhone con muesca, la barra fija baja hasta `env(safe-area-inset-top)` sin un relleno propio; revisar en G6.
+- Revisión independiente de G3: sin hallazgos graves. Se corrigió en un commit (`fix(glass): purge the saved home on any logout and tighten the header`).
+  - Privacidad: «Cerrar sesión» en cualquier página vuelve a pedir `purge` al service worker y anula la suscripción de avisos. El oyente pasó de `home.js` a `header.js`.
+  - `header.js` exporta `setUpHeader(doc, win)`. Las pruebas de Node (`tests/js/header.test.mjs`, sobre `tests/js/fake-dom.mjs`, que evalúa los selectores de verdad) cubren el clic afuera, Escape (con un respaldo cuando el foco está fuera del menú), los botones de tema, la aparición del grupo de tema y la purga.
+  - Accesibilidad: el logo lleva `aria-label="Ir al inicio"`. Los formularios de búsqueda se llaman «Buscar en el portal» y «Buscar personas».
+  - Las páginas secundarias ocultan la búsqueda si la persona no tiene apps (`AppCatalog`). El encabezado allí hace 6 consultas, con un tope de 8 en la prueba.
+  - No se extrajo un ayudante compartido con `HomePageBuilder`, porque `app/View/Home` queda fuera de la superficie de G3. En su lugar hay pruebas en páginas secundarias para Administración, «Soporte TI» y «Mi cumpleaños».

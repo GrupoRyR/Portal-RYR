@@ -1,58 +1,34 @@
 // resources/js/theme.js under Node's own runner (node --test tests/js),
-// run by tests/Feature/Layouts/ThemeScriptTest.php. A tiny stand-in for the
-// DOM: only what theme.js touches.
+// run by tests/Feature/Layouts/ThemeScriptTest.php, on the fake DOM of
+// fake-dom.mjs, which matches the script's selectors for real.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { FakeDocument } from './fake-dom.mjs';
 import { applyTheme, mediaFor, readTheme, storeTheme, THEME_KEY } from '../../resources/js/theme.js';
 
-class FakeElement {
-    constructor(tag, attributes = {}) {
-        this.tag = tag;
-        this.attributes = new Map(Object.entries(attributes));
-    }
+function page() {
+    const doc = new FakeDocument();
+    const el = {
+        lightBar: doc.element('meta', { name: 'theme-color', content: '#F5F5F2', media: '(prefers-color-scheme: light)' }),
+        darkBar: doc.element('meta', { name: 'theme-color', content: '#121315', media: '(prefers-color-scheme: dark)' }),
+        // Not scheme-bound: left alone.
+        brandBar: doc.element('meta', { name: 'theme-color', content: '#58595B' }),
+        darkIcon: doc.element('source', { srcset: '/icon-dark.svg', media: '(prefers-color-scheme: dark)' }),
+        wideImage: doc.element('source', { srcset: '/wide.webp', media: '(min-width: 768px)' }),
+        stylesheet: doc.element('link', { rel: 'stylesheet', media: '(prefers-color-scheme: dark)' }),
+        light: doc.element('button', { type: 'button', 'data-theme-choice': 'light', 'aria-pressed': 'false' }),
+        dark: doc.element('button', { type: 'button', 'data-theme-choice': 'dark', 'aria-pressed': 'false' }),
+        system: doc.element('button', { type: 'button', 'data-theme-choice': 'system', 'aria-pressed': 'true' }),
+    };
+    doc.documentElement.append(
+        doc.element('head', {}, el.lightBar, el.darkBar, el.brandBar, el.stylesheet),
+        doc.element('body', {}, doc.element('picture', {}, el.darkIcon, el.wideImage), el.light, el.dark, el.system),
+    );
 
-    getAttribute(name) {
-        return this.attributes.has(name) ? this.attributes.get(name) : null;
-    }
-
-    setAttribute(name, value) {
-        this.attributes.set(name, String(value));
-    }
-
-    removeAttribute(name) {
-        this.attributes.delete(name);
-    }
-
-    hasAttribute(name) {
-        return this.attributes.has(name);
-    }
+    return { doc, el };
 }
 
-function fakeDocument() {
-    const elements = {
-        html: new FakeElement('html'),
-        lightBar: new FakeElement('meta', { name: 'theme-color', content: '#F5F5F2', media: '(prefers-color-scheme: light)' }),
-        darkBar: new FakeElement('meta', { name: 'theme-color', content: '#121315', media: '(prefers-color-scheme: dark)' }),
-        darkIcon: new FakeElement('source', { srcset: '/icon-dark.svg', media: '(prefers-color-scheme: dark)' }),
-        light: new FakeElement('button', { 'data-theme-choice': 'light', 'aria-pressed': 'false' }),
-        dark: new FakeElement('button', { 'data-theme-choice': 'dark', 'aria-pressed': 'false' }),
-        system: new FakeElement('button', { 'data-theme-choice': 'system', 'aria-pressed': 'true' }),
-    };
-    const schemeBound = [elements.lightBar, elements.darkBar, elements.darkIcon];
-    const choices = [elements.light, elements.dark, elements.system];
-
-    return {
-        elements,
-        documentElement: elements.html,
-        querySelectorAll(selector) {
-            if (selector.includes('data-theme-choice')) return choices;
-            if (selector.includes('prefers-color-scheme')) return schemeBound;
-            throw new Error(`Unexpected selector ${selector}`);
-        },
-    };
-}
-
-const pressed = (doc) => ['light', 'dark', 'system'].filter((key) => doc.elements[key].getAttribute('aria-pressed') === 'true');
+const pressed = (el) => ['light', 'dark', 'system'].filter((key) => el[key].getAttribute('aria-pressed') === 'true');
 
 test('a chosen theme turns the scheme media on or off', () => {
     assert.equal(mediaFor('(prefers-color-scheme: dark)', 'light'), 'not all');
@@ -65,33 +41,43 @@ test('a chosen theme turns the scheme media on or off', () => {
 });
 
 test('light on a dark system: light attribute, light bar and light icons', () => {
-    const doc = fakeDocument();
+    const { doc, el } = page();
 
     applyTheme(doc, 'light');
 
-    assert.equal(doc.elements.html.getAttribute('data-theme'), 'light');
-    assert.equal(doc.elements.lightBar.getAttribute('media'), 'all');
-    assert.equal(doc.elements.darkBar.getAttribute('media'), 'not all');
-    assert.equal(doc.elements.darkIcon.getAttribute('media'), 'not all');
-    assert.deepEqual(pressed(doc), ['light']);
+    assert.equal(doc.documentElement.getAttribute('data-theme'), 'light');
+    assert.equal(el.lightBar.getAttribute('media'), 'all');
+    assert.equal(el.darkBar.getAttribute('media'), 'not all');
+    assert.equal(el.darkIcon.getAttribute('media'), 'not all');
+    assert.deepEqual(pressed(el), ['light']);
+});
+
+test('only theme-color metas and picture sources follow the theme', () => {
+    const { doc, el } = page();
+
+    applyTheme(doc, 'dark');
+
+    assert.equal(el.brandBar.hasAttribute('media'), false);
+    assert.equal(el.wideImage.getAttribute('media'), '(min-width: 768px)');
+    assert.equal(el.stylesheet.getAttribute('media'), '(prefers-color-scheme: dark)');
 });
 
 test('dark, then back to the system, restores what the server sent', () => {
-    const doc = fakeDocument();
+    const { doc, el } = page();
 
     applyTheme(doc, 'dark');
-    assert.equal(doc.elements.html.getAttribute('data-theme'), 'dark');
-    assert.equal(doc.elements.darkBar.getAttribute('media'), 'all');
-    assert.equal(doc.elements.lightBar.getAttribute('media'), 'not all');
-    assert.equal(doc.elements.darkIcon.getAttribute('media'), 'all');
-    assert.deepEqual(pressed(doc), ['dark']);
+    assert.equal(doc.documentElement.getAttribute('data-theme'), 'dark');
+    assert.equal(el.darkBar.getAttribute('media'), 'all');
+    assert.equal(el.lightBar.getAttribute('media'), 'not all');
+    assert.equal(el.darkIcon.getAttribute('media'), 'all');
+    assert.deepEqual(pressed(el), ['dark']);
 
     applyTheme(doc, null);
-    assert.equal(doc.elements.html.hasAttribute('data-theme'), false);
-    assert.equal(doc.elements.lightBar.getAttribute('media'), '(prefers-color-scheme: light)');
-    assert.equal(doc.elements.darkBar.getAttribute('media'), '(prefers-color-scheme: dark)');
-    assert.equal(doc.elements.darkIcon.getAttribute('media'), '(prefers-color-scheme: dark)');
-    assert.deepEqual(pressed(doc), ['system']);
+    assert.equal(doc.documentElement.hasAttribute('data-theme'), false);
+    assert.equal(el.lightBar.getAttribute('media'), '(prefers-color-scheme: light)');
+    assert.equal(el.darkBar.getAttribute('media'), '(prefers-color-scheme: dark)');
+    assert.equal(el.darkIcon.getAttribute('media'), '(prefers-color-scheme: dark)');
+    assert.deepEqual(pressed(el), ['system']);
 });
 
 test('only light and dark are read back from storage', () => {
