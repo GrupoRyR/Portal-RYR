@@ -90,7 +90,8 @@ class BrandManualColorsTest extends TestCase
         $this->assertStringContainsString('--brand-ink:#943E15;', $css);
         $this->assertStringContainsString('--brand-text:#58595B;', $css);
         $this->assertStringContainsString('--brand-dark:#58595B;', $css);
-        $this->assertStringContainsString('{:root{--brand-tint:', $css);
+        $this->assertStringContainsString('{:root:not([data-theme="light"]){--brand-tint:', $css);
+        $this->assertStringContainsString(':root[data-theme="dark"]{--brand-tint:', $css);
         $this->assertStringContainsString('--brand-ink:#F26522;--brand-text:#A8A9AA;}}', $css);
     }
 

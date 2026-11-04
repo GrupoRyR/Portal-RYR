@@ -199,11 +199,19 @@ final readonly class BrandPalette
     /**
      * Inline stylesheet for the page <head>. Every value is a HexColor that
      * was re-serialized, so the output only ever holds "#RRGGBB" values.
+     *
+     * The dark values apply when the system is dark and no light theme was
+     * chosen (this also covers pages without JavaScript), or when the dark
+     * theme was chosen: data-theme on <html>, set from localStorage by the
+     * layout before the stylesheet loads.
      */
     public function toCss(): string
     {
+        $dark = self::declarations($this->darkCssVariables());
+
         return ':root{'.self::declarations($this->cssVariables()).'}'
-            .'@media (prefers-color-scheme: dark){:root{'.self::declarations($this->darkCssVariables()).'}}';
+            .'@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){'.$dark.'}}'
+            .':root[data-theme="dark"]{'.$dark.'}';
     }
 
     /**
