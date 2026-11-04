@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyKpi;
 use App\Models\Integration;
 use App\Models\ItService;
+use App\Models\MarketInput;
 use App\Models\MarketRate;
 use App\Models\NewsItem;
 use App\Models\NewsSource;
@@ -24,9 +25,9 @@ use Tests\TestCase;
 
 /**
  * The home with every block on the page (odd/tasks/inicio-bloques.md H4):
- * markets, the management panel, news, the catalog, tasks with
- * «Completar», and «Estado de TI» run a fixed number of queries, however
- * many rows each block has.
+ * markets (with the company's manual prices), the management panel, news,
+ * the catalog, tasks with «Completar», and «Estado de TI» run a fixed
+ * number of queries, however many rows each block has.
  */
 class HomeEveryBlockQueriesTest extends TestCase
 {
@@ -85,7 +86,7 @@ class HomeEveryBlockQueriesTest extends TestCase
         $many = $this->countQueries();
 
         $response = $this->home();
-        foreach (['data-markets', 'data-market="zinc"', 'data-market="bottles"', 'id="panel-gerencial"', 'id="noticias"', 'id="catalogos"', 'id="tareas"', 'id="estado-ti"', 'data-complete-form'] as $marker) {
+        foreach (['data-markets', 'data-market="zinc"', 'data-market="bottles"', 'data-market="input-', 'id="panel-gerencial"', 'id="noticias"', 'id="catalogos"', 'id="tareas"', 'id="estado-ti"', 'data-complete-form'] as $marker) {
             $this->assertStringContainsString($marker, $response->getContent(), $marker);
         }
 
@@ -101,6 +102,9 @@ class HomeEveryBlockQueriesTest extends TestCase
             ItService::factory()->down()->create(['company_id' => $this->company->id]);
             NewsItem::factory()->create(['news_source_id' => $this->source->id]);
             Product::factory()->published()->create(['company_id' => $this->company->id, 'product_category_id' => ProductCategory::factory()->create(['company_id' => $this->company->id])->id]);
+            // Manual prices of Administración › Mercados ride in the markets query.
+            MarketInput::factory()->for($this->company)->create(['label' => "Insumo {$i}", 'valid_on' => '2026-10-01']);
+            MarketInput::factory()->for($this->company)->create(['label' => "Insumo {$i}", 'valid_on' => '2026-11-01']);
             CompanyKpi::factory()->create(['company_id' => $this->company->id, 'position' => CompanyKpi::query()->count() + 1]);
             // Completable tasks of the signed integration; approvals each from an integration of its own.
             WorkItem::factory()->create([

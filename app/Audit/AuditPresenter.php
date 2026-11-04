@@ -7,6 +7,8 @@ use App\Assistant\AssistantLog;
 use App\Assistant\AssistantSwitch;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
+use App\Markets\MarketSeries;
+use App\Markets\MarketUnit;
 use App\Mcp\AccountConfirmation;
 use App\Mcp\Connections;
 use App\Mcp\McpSwitch;
@@ -18,6 +20,7 @@ use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
 use App\Models\ItService;
+use App\Models\MarketInput;
 use App\Models\NewsSource;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -228,6 +231,14 @@ final class AuditPresenter
         'company_id' => 'Empresa',
         // Estado de TI (App\Models\ItService); name, status and position use the labels above.
         'message' => 'Mensaje',
+        // Administración › Mercados: the inputs a company chose
+        // (App\Models\Company) and its manual prices (App\Models\MarketInput).
+        'market_codes' => 'Insumos de Mercados',
+        'label' => 'Nombre',
+        'unit' => 'Unidad',
+        'value' => 'Valor',
+        'valid_on' => 'Fecha',
+        'source' => 'Fuente',
     ];
 
     /** Labels of an event that differ from FIELD_LABELS (an announcement's window is «Desde»/«Hasta»). */
@@ -313,6 +324,7 @@ final class AuditPresenter
             (new ProductCategory)->getMorphClass() => 'la categoría de productos «'.($name('name') ?? '(eliminada)').'»',
             (new Product)->getMorphClass() => 'el producto «'.($name('name') ?? '(eliminado)').'»',
             (new ItService)->getMorphClass() => 'el servicio de TI «'.($name('name') ?? '(eliminado)').'»',
+            (new MarketInput)->getMorphClass() => 'el precio manual «'.($name('label') ?? '(eliminado)').'»',
             default => $model instanceof Model ? class_basename($model).' #'.$model->getKey() : '',
         };
     }
@@ -489,8 +501,10 @@ final class AuditPresenter
             ? [...self::FIELD_LABELS, ...self::EVENT_FIELD_LABELS]
             : self::FIELD_LABELS;
 
-        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass(), (new ItService)->getMorphClass()], true);
+        $catalog = in_array($activity->subject_type, [(new Product)->getMorphClass(), (new ProductCategory)->getMorphClass(), (new ItService)->getMorphClass(), (new MarketInput)->getMorphClass()], true);
         $itService = $activity->subject_type === (new ItService)->getMorphClass();
+        $marketInput = $activity->subject_type === (new MarketInput)->getMorphClass();
+        $company = $activity->subject_type === (new Company)->getMorphClass();
 
         $rows = [];
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
@@ -509,6 +523,18 @@ final class AuditPresenter
                 $after = $after === null ? null : ItService::statusLabel((string) $after);
             }
 
+            // A manual price: its unit by name, its value and day in Spanish.
+            if ($marketInput && in_array($field, ['unit', 'value', 'valid_on'], true)) {
+                $before = self::marketInputValue($field, $before);
+                $after = self::marketInputValue($field, $after);
+            }
+
+            // The inputs of a company's markets band, by the catalogue's names.
+            if ($company && $field === 'market_codes') {
+                $before = self::marketSeriesNames($before);
+                $after = self::marketSeriesNames($after);
+            }
+
             $rows[] = [
                 'label' => $labels[$field] ?? (string) $field,
                 'old' => self::value($before),
@@ -517,6 +543,41 @@ final class AuditPresenter
         }
 
         return $rows;
+    }
+
+    /**
+     * «Pesos por kilo ($/kg)», «4.200,00» (up to four decimals) or
+     * «3 nov 2026»; anything unexpected is shown as stored.
+     */
+    private static function marketInputValue(string $field, mixed $value): mixed
+    {
+        if (! is_string($value) && ! is_int($value) && ! is_float($value)) {
+            return $value;
+        }
+
+        return match ($field) {
+            'unit' => MarketUnit::tryFrom((string) $value)?->label() ?? $value,
+            // Two decimals at least, the other two only when they say something.
+            'value' => is_numeric($value)
+                ? preg_replace('/(,\d\d)0{1,2}$/', '$1', number_format((float) $value, 4, ',', '.'))
+                : $value,
+            default => preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $value) === 1
+                ? str_replace('.', '', CarbonImmutable::parse(substr((string) $value, 0, 10))->locale('es')->isoFormat('D MMM YYYY'))
+                : $value,
+        };
+    }
+
+    /**
+     * The catalogue names of the stored input codes («Zinc (US$/t)»); an
+     * unknown code is shown as stored.
+     */
+    private static function marketSeriesNames(mixed $codes): mixed
+    {
+        if (! is_array($codes)) {
+            return $codes;
+        }
+
+        return array_map(fn ($code) => is_string($code) ? (MarketSeries::find($code)->label ?? $code) : $code, $codes);
     }
 
     /** @var array<string, string|null> Names already looked up, by «field:id». */

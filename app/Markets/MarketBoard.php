@@ -5,6 +5,9 @@ namespace App\Markets;
 use App\Models\Company;
 use App\Models\MarketRate;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Read model of the markets band: for each code of the catalogue
@@ -25,6 +28,12 @@ use Carbon\CarbonImmutable;
  * (`companies.market_codes`, read from the company already loaded: no query
  * of its own). Without a company, or without a choice, only the series for
  * everyone.
+ *
+ * A company also gets the prices its admins typed by hand (`market_inputs`,
+ * App\Models\MarketInput) in the SAME query (UNION ALL): after the series,
+ * by name, the latest price of each name compared with the previous price
+ * of that name when both are in the same unit. Two prices of one day: the
+ * last one entered is the latest. Their code is «input-<id>».
  */
 final class MarketBoard
 {
@@ -35,47 +44,69 @@ final class MarketBoard
      */
     public const WINDOW_DAYS = 400;
 
+    /** `kind` of a row of the catalogue (`market_rates`). */
+    private const RATE = 'rate';
+
+    /** `kind` of a price typed by hand (`market_inputs`). */
+    private const INPUT = 'input';
+
     /**
-     * @return array<string, MarketQuote> By code, in the order of the catalogue (MarketSeries).
+     * @return array<string, MarketQuote> By code: the catalogue's in its order (MarketSeries), then the company's manual prices by name.
      */
     public function current(?Company $company = null): array
     {
         $codes = MarketSeries::codesFor($company?->marketCodes() ?? []);
 
-        $today = CarbonImmutable::now(MarketSeries::TZ)->startOfDay();
+        $today = CarbonImmutable::now(MarketSeries::TZ)->startOfDay()->toDateString();
+        $from = CarbonImmutable::now(MarketSeries::TZ)->startOfDay()->subDays(self::WINDOW_DAYS)->toDateString();
         $byDecision = array_values(array_filter($codes, fn (string $code) => MarketSeries::find($code)?->movesByDecision === true));
 
-        // Window functions: MariaDB 10.2+ / MySQL 8 (production) and SQLite
-        // have them. Every value that already started, ranked newest first,
-        // with the newest value of its code beside it.
-        $ranked = MarketRate::query()
-            ->select('*')
-            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS position')
-            ->selectRaw('FIRST_VALUE(value) OVER (PARTITION BY code ORDER BY valid_from DESC) AS latest_value')
+        // The rows of both tables in one shape: a manual price's name is
+        // its code, its day its start, and `kind` keeps the two apart.
+        $rows = DB::table('market_rates')
+            ->selectRaw('id, code, value, valid_from, valid_until, ? AS kind, NULL AS unit', [self::RATE])
             ->whereIn('code', $codes)
-            ->where('valid_from', '<=', $today->toDateString())
-            ->where('valid_from', '>=', $today->subDays(self::WINDOW_DAYS)->toDateString());
+            ->where('valid_from', '<=', $today)
+            ->where('valid_from', '>=', $from)
+            ->when($company !== null, fn ($query) => $query->unionAll(DB::table('market_inputs')
+                ->selectRaw('id, label AS code, value, valid_on AS valid_from, NULL AS valid_until, ? AS kind, unit', [self::INPUT])
+                ->where('company_id', $company->getKey())
+                ->where('valid_on', '<=', $today)
+                ->where('valid_on', '>=', $from)));
+
+        // Window functions: MariaDB 10.2+ / MySQL 8 (production) and SQLite
+        // have them. Every value that already started, ranked newest first
+        // (the last entered first on a tie), with the newest value of its
+        // code beside it.
+        $order = 'PARTITION BY kind, code ORDER BY valid_from DESC, id DESC';
+        $ranked = DB::query()
+            ->fromSub($rows, 'all_rows')
+            ->select('*')
+            ->selectRaw("ROW_NUMBER() OVER ({$order}) AS position")
+            ->selectRaw("FIRST_VALUE(value) OVER ({$order}) AS latest_value");
 
         // The newest value, then the ones a change may be measured against:
         // any for most codes, only a different one for a decided rate.
-        $kept = MarketRate::query()
+        $kept = DB::query()
             ->fromSub($ranked, 'ranked')
             ->select('ranked.*')
-            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS kept_position')
+            ->selectRaw("ROW_NUMBER() OVER ({$order}) AS kept_position")
             ->when($byDecision !== [], fn ($query) => $query->where(fn ($query) => $query
                 ->where('position', 1)
+                ->orWhere('kind', self::INPUT)
                 ->orWhereNotIn('code', $byDecision)
                 ->orWhereColumn('value', '<>', 'latest_value')));
 
         // The two first of each code: the newest and the one it moved from.
-        $byCode = MarketRate::query()
+        $all = MarketRate::query()
             ->fromSub($kept, 'kept')
             ->where('kept_position', '<=', 2)
+            ->orderBy('kind')
             ->orderBy('code')
             ->orderBy('kept_position')
-            ->get()
-            ->groupBy('code');
+            ->get();
 
+        $byCode = $all->where('kind', self::RATE)->groupBy('code');
         $board = [];
 
         foreach ($codes as $code) {
@@ -86,7 +117,52 @@ final class MarketBoard
             }
         }
 
-        return $board;
+        return $board + $this->manualQuotes($all->where('kind', self::INPUT)->groupBy('code'));
+    }
+
+    /**
+     * The latest manual price of each name, by name (without case or
+     * accents), compared with the previous one only in the same unit.
+     *
+     * @param  Collection<array-key, Collection<int, MarketRate>>  $byName
+     * @return array<string, MarketQuote>
+     */
+    private function manualQuotes(Collection $byName): array
+    {
+        $quotes = [];
+
+        foreach ($byName->sortBy(fn ($rows, $name) => Str::lower(Str::ascii((string) $name)), SORT_NATURAL) as $name => $rows) {
+            $latest = $rows->first();
+            $unit = MarketUnit::tryFrom((string) $latest->getAttribute('unit'));
+            $previous = $rows->get(1);
+
+            if ($unit === null) {
+                continue;
+            }
+
+            // Pesos per kilo against dollars per kilo is no change.
+            if ($previous !== null && $previous->getAttribute('unit') !== $latest->getAttribute('unit')) {
+                $previous = null;
+            }
+
+            // Its own code: a name such as «tpm» is not the policy rate.
+            $code = 'input-'.$latest->id;
+            $quote = $this->quote($code, $latest, $previous);
+
+            $quotes[$code] = new MarketQuote(
+                code: $code,
+                value: $quote->value,
+                validFrom: $quote->validFrom,
+                validUntil: null,
+                change: $quote->change,
+                changePercent: $quote->changePercent,
+                label: (string) $name,
+                unit: $unit,
+                manual: true,
+            );
+        }
+
+        return $quotes;
     }
 
     private function quote(string $code, MarketRate $latest, ?MarketRate $previous): MarketQuote

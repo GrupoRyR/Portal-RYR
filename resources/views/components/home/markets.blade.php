@@ -17,6 +17,10 @@
     unit of each code (App\Markets\MarketSeries). A daily figure shows
     its day, a monthly one its month («sep 2026»); screen readers hear the
     whole date instead («dato de septiembre de 2026»).
+
+    After them come the company's prices typed by hand in Administración ›
+    Mercados (odd/tasks/mercados-o5.md M4): «Soda cáustica $4.200,00/kg»,
+    with the same arrows and the day of the quote.
 --}}
 @props(['figures'])
 
