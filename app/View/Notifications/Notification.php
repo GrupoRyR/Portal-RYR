@@ -14,7 +14,9 @@ use Illuminate\Support\Str;
  * its kind (the icon), a title, a short detail and where it leads. Titles
  * come from stored data: the view escapes them. A pending item opens its
  * app in a new tab only through a safe link (WebLink); otherwise it leads
- * to «Tareas pendientes» of the home screen.
+ * to «Tareas pendientes» of the home screen. An event carries its day and
+ * the moment it is over, so resources/js/home.js can drop it from the
+ * saved copy of the home screen once it is over.
  */
 final readonly class Notification
 {
@@ -32,6 +34,8 @@ final readonly class Notification
         public ?string $detail,
         public string $href,
         public bool $external = false,
+        public ?string $eventDate = null,
+        public ?string $eventEnd = null,
     ) {}
 
     /**
@@ -66,22 +70,19 @@ final readonly class Notification
     }
 
     /**
-     * An event of the coming days: «Hoy, 15:00», «Viernes 6 de noviembre» or
-     * «En curso · hasta el 7 de noviembre».
+     * An event of the coming days: «Viernes 6 de noviembre, 15:00» or «En
+     * curso · hasta el 7 de noviembre». Never «Hoy»: the saved copy of the
+     * home screen can be a day old.
      */
     public static function event(EventDate $event): self
     {
-        $time = $event->allDay ? '' : ', '.$event->start->format('H:i');
-
         return new self(
             kind: self::EVENT,
             title: $event->title,
-            detail: match (true) {
-                $event->isOngoing => $event->ongoingDetail(),
-                $event->isToday => 'Hoy'.$time,
-                default => Str::ucfirst($event->dateAndTime()),
-            },
+            detail: $event->isOngoing ? $event->ongoingDetail() : Str::ucfirst($event->dateAndTime()),
             href: $event->href(),
+            eventDate: $event->isoDate(),
+            eventEnd: $event->overIso(),
         );
     }
 }

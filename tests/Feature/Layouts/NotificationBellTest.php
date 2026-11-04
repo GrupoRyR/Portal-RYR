@@ -8,6 +8,7 @@ use App\Models\AppAccessRule;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\Integration;
+use App\Models\Person;
 use App\Models\User;
 use App\Models\WorkItem;
 use App\View\Notifications\NotificationList;
@@ -17,6 +18,7 @@ use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Home\HomeQueryBudget;
+use Tests\Feature\Push\PushTestKeys;
 use Tests\TestCase;
 
 /**
@@ -28,6 +30,7 @@ use Tests\TestCase;
  */
 class NotificationBellTest extends TestCase
 {
+    use PushTestKeys;
     use RefreshDatabase;
 
     private const TENANT = '6f1c2a9e-0000-4000-8000-000000000001';
@@ -84,7 +87,7 @@ class NotificationBellTest extends TestCase
             );
 
             $this->assertSame(1, $page->query('.//a[@data-bell-all][@href="'.route('home').'#mi-dia"]', $bell)->length, $path);
-            $this->assertSame(0, $page->query('.//*[@data-bell-empty]', $bell)->length, $path);
+            $this->assertSame(0, $page->query('.//*[@data-bell-empty][not(@hidden)]', $bell)->length, $path);
         }
     }
 
@@ -125,8 +128,115 @@ class NotificationBellTest extends TestCase
 
             $this->assertStringContainsString('Avisos, ninguno sin leer', $this->text($page->query('.//summary', $bell)->item(0)), $path);
             $this->assertSame(0, $page->query('.//*[@data-bell-badge]', $bell)->length, $path);
-            $this->assertSame('No tienes avisos nuevos', $this->text($page->query('.//*[@data-bell-empty]', $bell)->item(0)), $path);
+            $this->assertSame('No tienes avisos nuevos', $this->text($page->query('.//*[@data-bell-empty][not(@hidden)]', $bell)->item(0)), $path);
             $this->assertSame(0, $page->query('.//*[@data-bell-all]', $bell)->length, $path);
+        }
+    }
+
+    public function test_an_announcement_read_with_a_linked_account_is_cleared(): void
+    {
+        $person = Person::query()->create();
+        $this->user->forceFill(['person_id' => $person->id])->save();
+        $linked = User::factory()->microsoft(Company::factory()->forTenant('6f1c2a9e-0000-4000-8000-000000000003')->create())->create(['person_id' => $person->id]);
+        Announcement::factory()->mandatory()->create(['title' => 'Leído en la otra cuenta'])->markReadBy($linked);
+        Announcement::factory()->mandatory()->create(['title' => 'Sin leer']);
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $bell = $this->bell($page = $this->page($path));
+
+            $this->assertSame(['Sin leer'], array_map(fn ($title) => $this->text($title), iterator_to_array($page->query('.//*[@data-bell-title]', $bell))), $path);
+            $this->assertSame('1', trim($page->query('.//*[@data-bell-badge]', $bell)->item(0)->textContent), $path);
+        }
+    }
+
+    public function test_withdrawn_scheduled_and_expired_announcements_stay_out(): void
+    {
+        Announcement::factory()->mandatory()->withdrawn()->create(['title' => 'Retirado']);
+        Announcement::factory()->mandatory()->scheduled()->create(['title' => 'Programado']);
+        Announcement::factory()->mandatory()->expired()->create(['title' => 'Vencido']);
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $bell = $this->bell($page = $this->page($path));
+
+            $this->assertSame(0, $page->query('.//*[@data-bell-item]', $bell)->length, $path);
+            $this->assertSame(0, $page->query('.//*[@data-bell-badge]', $bell)->length, $path);
+        }
+    }
+
+    public function test_deleted_items_and_those_of_a_revoked_integration_stay_out(): void
+    {
+        $this->item(['title' => 'Borrada'])->delete();
+        $revoked = Integration::factory()->create([
+            'abilities' => [Integration::WORK_WRITE],
+            'app_id' => App::factory()->create()->id,
+            'revoked_at' => now()->subHour(),
+        ]);
+        $this->item(['title' => 'De una integración revocada', 'integration_id' => $revoked->id]);
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $bell = $this->bell($page = $this->page($path));
+
+            $this->assertSame(0, $page->query('.//*[@data-bell-item]', $bell)->length, $path);
+            $this->assertSame(0, $page->query('.//*[@data-bell-badge]', $bell)->length, $path);
+        }
+    }
+
+    public function test_an_event_under_way_shows_until_it_is_over(): void
+    {
+        Event::factory()->create(['title' => 'Semana de la seguridad', 'starts_at' => now()->subDays(2), 'ends_at' => now()->addDay()]);
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $bell = $this->bell($page = $this->page($path));
+            $item = $page->query('.//*[@data-bell-item="event"]', $bell);
+
+            $this->assertSame(1, $item->length, $path);
+            $this->assertStringContainsString('En curso · hasta el', $this->text($item->item(0)), $path);
+        }
+    }
+
+    public function test_events_show_from_today_through_the_seventh_day(): void
+    {
+        // Today is Wednesday 4 November: the window ends with Tuesday 10.
+        $today = now('America/Bogota')->startOfDay();
+        Event::factory()->create(['title' => 'Último día', 'starts_at' => $today->copy()->addDays(6)->setTime(23, 0), 'ends_at' => $today->copy()->addDays(6)->setTime(23, 30)]);
+        Event::factory()->create(['title' => 'Un día de más', 'starts_at' => $today->copy()->addDays(7), 'ends_at' => $today->copy()->addDays(7)->addHour()]);
+        Event::factory()->create(['title' => 'Más tarde hoy', 'starts_at' => now()->addHours(3), 'ends_at' => now()->addHours(4)]);
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $bell = $this->bell($page = $this->page($path));
+
+            $this->assertSame(['Más tarde hoy', 'Último día'], array_map(fn ($title) => $this->text($title), iterator_to_array($page->query('.//*[@data-bell-title]', $bell))), $path);
+        }
+    }
+
+    public function test_the_saved_home_can_drop_events_that_are_over(): void
+    {
+        $event = Event::factory()->create(['title' => 'Pausa activa', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHour()]);
+
+        $bell = $this->bell($page = $this->page('/'));
+        $row = $page->query('.//*[@data-bell-item="event"]', $bell)->item(0);
+
+        // resources/js/home.js hides it once over, as in «Próximas fechas».
+        $this->assertSame('2026-11-06', $row->getAttribute('data-event-date'));
+        $this->assertSame($event->ends_at->toImmutable()->setTimezone('America/Bogota')->toIso8601String(), $row->getAttribute('data-event-end'));
+        // Shown by home.js on the saved copy; the empty state waits hidden.
+        $this->assertSame(1, $page->query('.//*[@data-bell-saved][@hidden]', $bell)->length);
+        $this->assertSame('Guardado sin conexión', $this->text($page->query('.//*[@data-bell-saved]', $bell)->item(0)));
+        $this->assertSame(1, $page->query('.//*[@data-bell-empty][@hidden]', $bell)->length);
+        $this->assertSame(1, $page->query('.//*[@data-bell-list]', $bell)->length);
+        $this->assertSame(1, $page->query('.//*[@data-bell-footer]//*[@data-bell-all]', $bell)->length);
+    }
+
+    public function test_no_page_with_the_bell_repeats_an_id(): void
+    {
+        $this->everyKind();
+        // /cuenta with «Avisos en el celular», whose heading had the bell's id.
+        $this->configurePush();
+
+        foreach (['/', route('announcements.index', absolute: false), route('account.show', absolute: false)] as $path) {
+            $ids = array_map(fn ($node) => $node->value, iterator_to_array($this->page($path)->query('//@id')));
+
+            $this->assertSame([], array_keys(array_filter(array_count_values($ids), fn (int $count) => $count > 1)), $path);
         }
     }
 

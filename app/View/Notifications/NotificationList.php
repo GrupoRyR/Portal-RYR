@@ -21,7 +21,8 @@ use Illuminate\Database\Eloquent\Collection;
  * - the mandatory announcements the person has not confirmed, newest first;
  * - the account's pending approvals, then its tasks (as «Tareas pendientes»:
  *   overdue and soonest due first);
- * - the events of the next EVENT_DAYS days, soonest first.
+ * - the events that start in the next EVENT_DAYS days, today included (or
+ *   are under way), soonest first.
  *
  * At most LIMIT lines, in that order. The badge counts what needs the
  * person (the announcements and the pending items), exactly up to
@@ -179,7 +180,7 @@ final readonly class NotificationList
      */
     private static function from(Collection $unread, array $work, int $pendingWork, array $events, CarbonImmutable $now): self
     {
-        $horizon = $now->setTimezone((string) config('app.timezone'))->startOfDay()->addDays(self::EVENT_DAYS + 1);
+        $horizon = $now->setTimezone((string) config('app.timezone'))->startOfDay()->addDays(self::EVENT_DAYS);
 
         $items = [
             ...$unread->map(fn (Announcement $announcement) => Notification::announcement($announcement, $now))->all(),

@@ -5,6 +5,9 @@
     Rendered by the server, no polling; it works without JavaScript and
     resources/js/header.js closes it on a click elsewhere or Escape
     (data-menu). Titles come from stored data: always escaped ({{ }}).
+    On the saved copy of the home screen, resources/js/home.js says so
+    (data-bell-saved) and drops the events that are over (data-event-end,
+    as in «Próximas fechas»); events never count in the badge.
     On phones the list spans the header (the <details> is not positioned
     there); from tablets up it hangs from the bell.
 --}}
@@ -31,13 +34,15 @@
         @endif
     </summary>
     <div class="g-pop inset-x-3 w-auto sm:right-0 sm:left-auto sm:w-[22rem]">
-        <p id="avisos-titulo" class="g-label px-3 pt-2 pb-1">Avisos</p>
-        @if ($notifications->isEmpty())
-            <p class="px-3 pt-1 pb-3 text-sm text-(--g-ink-soft)" data-bell-empty>No tienes avisos nuevos</p>
-        @else
-            <ul role="list" aria-labelledby="avisos-titulo" class="flex flex-col gap-0.5">
+        <p id="bell-titulo" class="g-label px-3 pt-2 pb-1">Avisos</p>
+        {{-- resources/js/home.js shows it on the saved copy of the home screen. --}}
+        <p class="px-3 pb-1 text-xs text-(--g-ink-faint)" data-bell-saved hidden>Guardado sin conexión</p>
+        {{-- home.js also shows it when every saved line is over. --}}
+        <p class="px-3 pt-1 pb-3 text-sm text-(--g-ink-soft)" data-bell-empty @if (! $notifications->isEmpty()) hidden @endif>No tienes avisos nuevos</p>
+        @if (! $notifications->isEmpty())
+            <ul role="list" aria-labelledby="bell-titulo" class="flex flex-col gap-0.5" data-bell-list>
                 @foreach ($notifications->items as $item)
-                    <li data-bell-item="{{ $item->kind }}">
+                    <li data-bell-item="{{ $item->kind }}" @if ($item->eventEnd) data-event-date="{{ $item->eventDate }}" data-event-end="{{ $item->eventEnd }}" @endif>
                         <a href="{{ $item->href }}" class="{{ $row }}" @if ($item->external) target="_blank" rel="noopener" @endif>
                             <x-home.icon :name="$icons[$item->kind]" class="mt-0.5 size-[18px] text-(--g-accent-ink)" />
                             <span class="flex min-w-0 flex-col">
@@ -53,7 +58,7 @@
                     </li>
                 @endforeach
             </ul>
-            <div class="border-t border-(--g-line) pt-1">
+            <div class="border-t border-(--g-line) pt-1" data-bell-footer>
                 <a href="{{ route('home') }}#mi-dia" class="flex min-h-touch items-center justify-center rounded-[14px] px-3 text-sm font-semibold text-(--g-accent-ink) hover:bg-(--g-hover-row)" data-bell-all>Ver todo</a>
             </div>
         @endif
