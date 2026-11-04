@@ -8,6 +8,7 @@ use App\Models\User;
 use App\News\FeedFailure;
 use App\News\FeedReader;
 use App\News\FeedUrlPolicy;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -50,12 +51,23 @@ class NewsManager extends Component
         FeedFailure::TOO_LARGE => 'La respuesta pasa de 1 MB',
         FeedFailure::DOCTYPE => 'El documento no es seguro',
         FeedFailure::HTML_PAGE => 'Esta dirección es una página web, no un canal RSS',
+        FeedFailure::DUPLICATE_FEED => 'El canal que anuncia la página ya es otra fuente de esta pestaña',
         FeedFailure::INVALID_XML => 'No es un XML válido',
         FeedFailure::UNSUPPORTED_FORMAT => 'No es RSS ni Atom',
         FeedFailure::NO_ENTRIES => 'La fuente no trae noticias con título y enlace https',
         FeedFailure::UNSUPPORTED_ENCODING => 'La respuesta usa una compresión no válida',
         FeedFailure::UNEXPECTED => 'Error inesperado',
     ];
+
+    /**
+     * Seconds the check of a new URL may take in all: the page and the
+     * feeds it announces share them (App\News\FeedReader), so a save stays
+     * well under the web server's limit.
+     */
+    public const CHECK_SECONDS = 20;
+
+    /** Seconds PHP may run a save that checks a URL (raised, never lowered). */
+    public const TIME_LIMIT = 60;
 
     /** The company whose sources are listed (`?empresa=`). */
     #[Url(as: 'empresa', history: true)]
@@ -253,8 +265,10 @@ class NewsManager extends Component
      */
     private function discoveredFeed(int $companyId, string $tab, ?NewsSource $source): ?string
     {
+        self::allowTime();
+
         try {
-            $read = app(FeedReader::class)->read($this->url, (int) config('news.max_entries'));
+            $read = app(FeedReader::class)->read($this->url, (int) config('news.max_entries'), CarbonImmutable::now()->addSeconds(self::CHECK_SECONDS));
         } catch (FeedFailure $failure) {
             if ($failure->errorCode === FeedFailure::HTML_PAGE) {
                 throw ValidationException::withMessages([
@@ -286,6 +300,19 @@ class NewsManager extends Component
         }
 
         return $read->url;
+    }
+
+    /**
+     * Gives PHP the time of the check, like the assistant does
+     * (App\Http\Controllers\Assistant\AssistantController): only raised.
+     */
+    private static function allowTime(): void
+    {
+        $current = (int) ini_get('max_execution_time');
+
+        if ($current !== 0 && $current < self::TIME_LIMIT && function_exists('set_time_limit')) {
+            @set_time_limit(self::TIME_LIMIT);
+        }
     }
 
     /**

@@ -271,6 +271,61 @@ class ListEmailsByDefaultTest extends TestCase
         $this->assertSame('Reintentó el correo a la lista de el evento «Pausa activa»', app(AuditPresenter::class)->activity($activity)->what);
     }
 
+    // --- Review fixes (odd/tasks/observaciones.md, R1) ---------------------------
+
+    public function test_editing_an_event_without_the_emails_keeps_them_off(): void
+    {
+        $event = Event::factory()->create(['email_lists' => false, 'title' => 'Sin correo']);
+
+        Livewire::actingAs($this->admin)->test(EventEditor::class, ['event' => $event])
+            ->assertSet('emailLists', false)
+            ->set('title', 'Sin correo, editado')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertFalse($event->fresh()->email_lists);
+        $this->assertSame(0, EventListEmail::query()->count());
+    }
+
+    public function test_ticking_the_box_on_a_saved_announcement_audits_the_skipped_companies(): void
+    {
+        $this->derivados->forceFill(['all_staff_email' => null])->saveQuietly();
+        $announcement = Announcement::factory()->create(['email_lists' => false, 'title' => 'Cierre']);
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class, ['announcement' => $announcement])
+            ->set('emailLists', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $activity = Activity::query()->where('event', 'announcement.list_email_skipped')->sole();
+        $this->assertSame(['companies' => ['Derivados']], $activity->properties['attributes']);
+    }
+
+    public function test_ticking_the_box_on_a_saved_event_audits_the_skipped_companies(): void
+    {
+        $this->segurex->forceFill(['mail_sender' => null])->saveQuietly();
+        $event = Event::factory()->create(['email_lists' => false]);
+
+        Livewire::actingAs($this->admin)->test(EventEditor::class, ['event' => $event])
+            ->set('emailLists', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $activity = Activity::query()->where('event', 'event.list_email_skipped')->sole();
+        $this->assertSame(['companies' => ['Segurex']], $activity->properties['attributes']);
+    }
+
+    public function test_addresses_outside_the_company_domains_are_named_as_such(): void
+    {
+        $this->derivados->forceFill(['mail_sender' => 'info@gmail.com'])->saveQuietly();
+        $this->segurex->forceFill(['all_staff_email' => null])->saveQuietly();
+
+        Livewire::actingAs($this->admin)->test(AnnouncementEditor::class)
+            ->assertSeeText('Derivados tiene la lista de correo o el buzón remitente fuera de sus dominios; el anuncio no se enviará por correo a esa empresa.')
+            ->assertSeeText('Segurex no tiene lista de correo configurada; el anuncio no se enviará por correo a esa empresa.')
+            ->assertDontSeeText('Derivados no tiene lista de correo configurada');
+    }
+
     private function newEvent(string $title = 'Pausa activa'): Testable
     {
         return Livewire::actingAs($this->admin)->test(EventEditor::class)

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Console;
 
+use App\Announcements\AnnouncementListEmails;
 use App\Calendar\EventListEmails;
 use App\Models\Company;
 use App\Models\Event;
@@ -164,6 +165,71 @@ class SendEventListEmailsTest extends TestCase
                 && ! str_contains($content, 'href="https://evil.example')
                 && ! str_contains($content, 'src="https://evil.example');
         });
+    }
+
+    // --- Review fixes (odd/tasks/observaciones.md, R1) ---------------------------
+
+    public function test_a_pending_email_of_an_event_that_is_over_is_never_sent(): void
+    {
+        $this->fakeMicrosoft();
+        $this->queued(Event::factory()->past()->create(['email_lists' => true]));
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $this->assertSame(0, $this->sendRequests());
+        $this->assertSame([EventListEmail::STATUS_PENDING], EventListEmail::query()->pluck('status')->unique()->values()->all());
+    }
+
+    public function test_a_row_left_sending_by_a_crash_is_marked_interrupted_and_never_resent_on_its_own(): void
+    {
+        $this->fakeMicrosoft();
+        $event = $this->queued(Event::factory()->forCompanies($this->segurex)->create(['email_lists' => true]));
+        $row = EventListEmail::query()->sole();
+        $row->forceFill(['status' => EventListEmail::STATUS_SENDING, 'attempts' => 1])->save();
+        EventListEmail::query()->whereKey($row->id)->toBase()->update(['updated_at' => now()->subMinutes(EventListEmails::STALE_MINUTES + 1)]);
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $row->refresh();
+        $this->assertSame(EventListEmail::STATUS_FAILED, $row->status);
+        $this->assertSame(EventListEmail::ERROR_INTERRUPTED, $row->last_error);
+        $this->assertSame(0, $this->sendRequests());
+        $this->assertTrue($event->exists);
+    }
+
+    public function test_a_recent_row_left_sending_is_not_touched_yet(): void
+    {
+        $this->fakeMicrosoft();
+        $this->queued(Event::factory()->forCompanies($this->segurex)->create(['email_lists' => true]));
+        EventListEmail::query()->update(['status' => EventListEmail::STATUS_SENDING]);
+
+        $this->artisan('portal:send-announcement-list-emails')->assertSuccessful();
+
+        $this->assertSame(EventListEmail::STATUS_SENDING, EventListEmail::query()->sole()->status);
+        $this->assertSame(0, $this->sendRequests());
+    }
+
+    public function test_events_are_still_sent_when_the_announcement_batch_fails(): void
+    {
+        $this->fakeMicrosoft();
+        $this->queued(Event::factory()->create(['email_lists' => true]));
+        $this->app->instance(AnnouncementListEmails::class, new class extends AnnouncementListEmails
+        {
+            public function __construct() {}
+
+            public function send(int $limit = self::BATCH): array
+            {
+                throw new \RuntimeException('database gone');
+            }
+        });
+
+        $this->artisan('portal:send-announcement-list-emails')
+            ->expectsOutputToContain('Anuncios: no se pudo enviar el lote')
+            ->expectsOutputToContain('2 correos enviados')
+            ->assertFailed();
+
+        $this->assertSame(2, $this->sendRequests());
     }
 
     private function queued(Event $event): Event

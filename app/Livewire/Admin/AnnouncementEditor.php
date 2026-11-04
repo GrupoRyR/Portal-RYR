@@ -159,6 +159,7 @@ class AnnouncementEditor extends Component
 
         $creating = $this->announcement === null;
         $audienceBefore = $creating ? null : $this->audienceOf($this->announcement);
+        $wasEmailing = ! $creating && $this->announcement->email_lists;
         $attributes = [
             'title' => $this->title,
             'body' => $this->body,
@@ -191,7 +192,9 @@ class AnnouncementEditor extends Component
 
         // A company left out for lack of a list is named in Auditoría, when
         // the announcement is new or its audience changed.
-        if ($this->emailLists && ($creating || $audienceBefore !== $this->audienceOf($announcement))) {
+        // A company left out for lack of a list is audited when the item is
+        // new, its audience changed or the box was just ticked.
+        if ($this->emailLists && ($creating || ! $wasEmailing || $audienceBefore !== $this->audienceOf($announcement))) {
             AnnouncementListEmails::auditSkipped($announcement, $this->listUnreachable());
         }
 

@@ -94,24 +94,126 @@ class NewsAutodiscoveryTest extends TestCase
         $this->assertSame(0, NewsSource::query()->count());
     }
 
-    public function test_an_announced_feed_that_is_not_https_or_not_public_is_not_used(): void
+    public function test_a_page_that_only_announces_an_http_feed_is_refused_as_a_page(): void
+    {
+        Http::fake([self::PAGE => $this->page('<link rel="alternate" type="application/rss+xml" href="http://www.eltiempo.com/rss.xml">')]);
+
+        $this->manager()
+            ->set('name', 'El Tiempo Bogotá')
+            ->set('url', self::PAGE)
+            ->call('create')
+            ->assertHasErrors(['url'])
+            ->assertSeeText('Esta dirección es una página web, no un canal RSS');
+
+        // Only the page: the plain http link is never requested.
+        Http::assertSentCount(1);
+    }
+
+    public function test_an_announced_feed_on_an_internal_host_is_never_requested_and_the_page_is_saved_as_typed(): void
+    {
+        Http::fake([self::PAGE => $this->page('<link rel="alternate" type="application/rss+xml" href="https://feeds.internal.example.org/rss.xml">')]);
+
+        $this->manager()
+            ->set('name', 'El Tiempo Bogotá')
+            ->set('url', self::PAGE)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        Http::assertSentCount(1);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'internal.example.org'));
+        $this->assertSame(self::PAGE, NewsSource::query()->sole()->url);
+    }
+
+    // --- Review fixes (odd/tasks/observaciones.md, R1) ---------------------------
+
+    public function test_an_announced_feed_that_fails_now_saves_the_address_as_typed(): void
     {
         Http::fake([
-            self::PAGE => $this->page(
-                '<link rel="alternate" type="application/rss+xml" href="http://www.eltiempo.com/rss.xml">'
-                .'<link rel="alternate" type="application/rss+xml" href="https://feeds.internal.example.org/rss.xml">'
-            ),
+            self::PAGE => $this->page('<link rel="alternate" type="application/rss+xml" href="/rss/bogota.xml">'),
+            self::FEED => Http::response('', 503),
         ]);
 
         $this->manager()
             ->set('name', 'El Tiempo Bogotá')
             ->set('url', self::PAGE)
             ->call('create')
-            ->assertHasErrors(['url']);
+            ->assertHasNoErrors()
+            ->assertSeeText('Se agregó la fuente «El Tiempo Bogotá».');
 
-        // Only the page: the plain http link is dropped and the internal host is never requested.
-        Http::assertSentCount(1);
-        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'internal.example.org'));
+        $this->assertSame(self::PAGE, NewsSource::query()->sole()->url);
+    }
+
+    public function test_the_hourly_fetch_keeps_the_real_failure_of_the_announced_feed(): void
+    {
+        $source = NewsSource::factory()->for($this->segurex)->create(['url' => self::PAGE]);
+        Http::fake([
+            self::PAGE => $this->page('<link rel="alternate" type="application/rss+xml" href="/rss/bogota.xml">'),
+            self::FEED => Http::response('', 503),
+        ]);
+
+        $this->artisan('portal:fetch-news')->assertSuccessful();
+
+        $this->assertSame('http_503', $source->fresh()->last_error_code);
+        $this->assertSame(self::PAGE, $source->fresh()->url);
+    }
+
+    public function test_an_announced_feed_that_is_itself_a_page_is_not_reported_as_the_typed_page(): void
+    {
+        $source = NewsSource::factory()->for($this->segurex)->create(['url' => self::PAGE]);
+        Http::fake([
+            self::PAGE => $this->page('<link rel="alternate" type="application/rss+xml" href="/rss/bogota.xml">'),
+            self::FEED => $this->page(''),
+        ]);
+
+        $this->artisan('portal:fetch-news')->assertSuccessful();
+
+        $this->assertSame('unsupported_format', $source->fresh()->last_error_code);
+    }
+
+    public function test_a_feed_served_as_text_html_keeps_its_real_failure(): void
+    {
+        $empty = NewsSource::factory()->for($this->segurex)->create(['url' => 'https://www.eltiempo.com/vacio.xml']);
+        $unsafe = NewsSource::factory()->for($this->segurex)->create(['url' => 'https://www.eltiempo.com/xxe.xml']);
+        $broken = NewsSource::factory()->for($this->segurex)->create(['url' => 'https://www.eltiempo.com/roto.xml']);
+        $html = ['Content-Type' => 'text/html'];
+        Http::fake([
+            'https://www.eltiempo.com/vacio.xml' => Http::response('<?xml version="1.0"?><rss version="2.0"><channel><title>T</title></channel></rss>', 200, $html),
+            'https://www.eltiempo.com/xxe.xml' => Http::response('<?xml version="1.0"?><!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><rss version="2.0"><channel/></rss>', 200, $html),
+            'https://www.eltiempo.com/roto.xml' => Http::response('<rss version="2.0"><channel><item>', 200, $html),
+        ]);
+
+        $this->artisan('portal:fetch-news')->assertSuccessful();
+
+        $this->assertSame('no_entries', $empty->fresh()->last_error_code);
+        $this->assertSame('doctype', $unsafe->fresh()->last_error_code);
+        $this->assertSame('invalid_xml', $broken->fresh()->last_error_code);
+    }
+
+    public function test_a_slow_page_leaves_no_time_for_its_feed_and_is_saved_as_typed(): void
+    {
+        Http::fake([
+            self::PAGE => function () {
+                // The page alone uses up the time of the check.
+                $this->travel(NewsManager::CHECK_SECONDS + 1)->seconds();
+
+                return $this->page('<link rel="alternate" type="application/rss+xml" href="/rss/bogota.xml">');
+            },
+            self::FEED => Http::response($this->rss()),
+        ]);
+
+        $this->manager()
+            ->set('name', 'El Tiempo Bogotá')
+            ->set('url', self::PAGE)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::FEED);
+        $this->assertSame(self::PAGE, NewsSource::query()->sole()->url);
+    }
+
+    public function test_the_duplicate_feed_has_its_own_code_and_label(): void
+    {
+        $this->assertSame('El canal que anuncia la página ya es otra fuente de esta pestaña (duplicate_feed)', NewsManager::errorLabel('duplicate_feed'));
     }
 
     public function test_a_real_feed_is_saved_as_typed(): void
@@ -249,7 +351,7 @@ class NewsAutodiscoveryTest extends TestCase
         $this->artisan('portal:fetch-news')->assertSuccessful();
 
         $this->assertSame(self::PAGE, $page->fresh()->url);
-        $this->assertSame('html_page', $page->fresh()->last_error_code);
+        $this->assertSame('duplicate_feed', $page->fresh()->last_error_code);
     }
 
     private function manager(): Testable

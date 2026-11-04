@@ -103,19 +103,28 @@ class AnnouncementListEmails
     }
 
     /**
-     * «Derivados no tiene lista de correo configurada; el anuncio no se
-     * enviará por correo a esa empresa.», or the plural for several.
+     * Why each company of {@see unreachable()} is left out, one sentence
+     * per reason: «Derivados no tiene lista de correo configurada; el
+     * anuncio no se enviará por correo a esa empresa.» when an address is
+     * missing, «Segurex tiene la lista de correo o el buzón remitente fuera
+     * de sus dominios; …» when both are set but one is not at the
+     * company's domains (or it is inactive, which unreachable() leaves out).
      *
      * @param  Collection<int, Company>  $companies  {@see unreachable()}
      * @param  string  $what  «el anuncio», «el evento».
      */
     public static function unreachableNotice(Collection $companies, string $what): string
     {
-        $names = self::names($companies);
+        [$missing, $foreign] = $companies->partition(fn (Company $company) => $company->all_staff_email === null || $company->mail_sender === null);
 
-        return $companies->count() === 1
-            ? "{$names} no tiene lista de correo configurada; {$what} no se enviará por correo a esa empresa."
-            : "{$names} no tienen lista de correo configurada; {$what} no se enviará por correo a esas empresas.";
+        return collect([
+            $missing->isEmpty() ? null : self::names($missing).($missing->count() === 1
+                ? " no tiene lista de correo configurada; {$what} no se enviará por correo a esa empresa."
+                : " no tienen lista de correo configurada; {$what} no se enviará por correo a esas empresas."),
+            $foreign->isEmpty() ? null : self::names($foreign).($foreign->count() === 1
+                ? " tiene la lista de correo o el buzón remitente fuera de sus dominios; {$what} no se enviará por correo a esa empresa."
+                : " tienen la lista de correo o el buzón remitente fuera de sus dominios; {$what} no se enviará por correo a esas empresas."),
+        ])->filter()->implode(' ');
     }
 
     /**

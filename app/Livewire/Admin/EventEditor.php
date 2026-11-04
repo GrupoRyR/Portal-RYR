@@ -156,6 +156,7 @@ class EventEditor extends Component
 
         $creating = $this->event === null;
         $audienceBefore = $creating ? null : $this->audienceOf($this->event);
+        $wasEmailing = ! $creating && $this->event->email_lists;
         $attributes = [
             'title' => $this->title,
             'description' => $this->description === '' ? null : $this->description,
@@ -179,7 +180,9 @@ class EventEditor extends Component
         // Only the companies that can get it now and have no email of it yet.
         app(EventListEmails::class)->queue($event);
 
-        if ($this->emailLists && ($creating || $audienceBefore !== $this->audienceOf($event))) {
+        // A company left out for lack of a list is audited when the item is
+        // new, its audience changed or the box was just ticked.
+        if ($this->emailLists && ($creating || ! $wasEmailing || $audienceBefore !== $this->audienceOf($event))) {
             AnnouncementListEmails::auditSkipped($event, $this->listUnreachable());
         }
 

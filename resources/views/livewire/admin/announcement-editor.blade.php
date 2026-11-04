@@ -191,7 +191,7 @@
                 @if ($emailLists && $listUnreachable->isNotEmpty())
                     <p role="status" data-list-unreachable class="rounded-control bg-status-maintenance-bg px-4 py-3 text-sm text-status-maintenance">
                         <span class="font-semibold">{{ \App\Announcements\AnnouncementListEmails::unreachableNotice($listUnreachable, 'el anuncio') }}</span>
-                        Configura la lista de todo el personal y el buzón remitente en Admin › Empresas.
+                        Revisa la lista de todo el personal y el buzón remitente en Admin › Empresas.
                     </p>
                 @endif
                 {{-- Only with the VAPID settings (App\Push\PushSettings); the cron sends it (App\Push\AnnouncementPushes). --}}

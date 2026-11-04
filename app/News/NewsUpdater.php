@@ -18,7 +18,8 @@ use Throwable;
  * - a source saved with a web page instead of a feed is read through the
  *   feed the page announces (App\News\FeedReader); its URL then becomes
  *   that feed's, audited as a change by «Sistema», unless another source
- *   of the same company and tab already has it (odd/tasks/observaciones.md O3);
+ *   of the same company and tab already has it (`duplicate_feed`,
+ *   odd/tasks/observaciones.md O3);
  * - if an admin changed the URL (or deleted the source) while it was being
  *   read, the result belongs to the old URL and is discarded;
  * - items are matched by `guid_hash`, so a headline seen again is updated,
@@ -106,7 +107,7 @@ class NewsUpdater
 
         if ($code === null && $feedUrl !== $url) {
             if ($this->taken($current, $feedUrl)) {
-                $code = FeedFailure::HTML_PAGE;
+                $code = FeedFailure::DUPLICATE_FEED;
             } else {
                 // Audited by the model (log `news`), without a causer: «Sistema».
                 $current->update(['url' => $feedUrl]);

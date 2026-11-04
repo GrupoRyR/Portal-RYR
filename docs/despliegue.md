@@ -576,6 +576,7 @@ Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cad
 | `http_404`, `http_503`, … | El sitio respondió con ese estado. |
 | `too_large` | La respuesta pasa de 1 MB. |
 | `html_page` | La dirección es una página web, no un canal RSS, y la página no anuncia ningún canal. Busque el RSS del sitio (suele estar en `/rss`). |
+| `duplicate_feed` | La dirección es una página web cuyo canal ya es otra fuente de la misma empresa y pestaña; la dirección no se cambia. Borre una de las dos fuentes. |
 | `doctype` | El documento XML trae `<!DOCTYPE` o `<!ENTITY`. |
 | `invalid_xml`, `unsupported_format` | No es XML válido, o no es RSS ni Atom. |
 | `no_entries` | Es RSS o Atom, pero ninguna noticia tiene título y enlace `https`. |
