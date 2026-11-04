@@ -110,3 +110,15 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - RED observado antes del código: 11 pruebas (10 nuevas en `NotificationBellTest` y la del encabezado).
     - Revisión visual en el inicio, `/anuncios` y el estado vacío, con las dos marcas, en claro y oscuro, a 375 px (panel del navegador) y a 1280 px (Chrome sin interfaz).
   - Tamaño: unas 740 líneas, la mitad son pruebas.
+- Revisión independiente de G4: sin hallazgos graves. Se corrigió en `b9d8471` (`fix(glass): keep the cached bell honest and its ids unique`).
+  - El id del título pasó a `bell-titulo`: `avisos-titulo` ya estaba en «Avisos en el celular» de `/cuenta`. Una prueba revisa que el inicio, `/anuncios` y `/cuenta` no repitan ids.
+  - Copia guardada del inicio: las filas de eventos de la campanita llevan `data-event-date` y `data-event-end`, y `home.js` las oculta cuando terminan, como en «Próximas fechas». Muestra «Guardado sin conexión» y el estado vacío si no queda ninguna. Los eventos no cuentan en la insignia. Comprobado en el navegador con una copia `cache`.
+  - Los eventos nunca dicen «Hoy», porque la copia guardada puede tener un día. La ventana son 7 días contando hoy.
+  - Pruebas nuevas: lectura con una cuenta vinculada; anuncios retirados, programados y vencidos; pendientes borrados o de una integración revocada; un evento en curso y el borde de la ventana.
+  - RED antes del código: 3 pruebas (ids repetidos en `/cuenta`, borde de la ventana y marcas de la copia guardada). Las demás cubren reglas que ya se cumplían.
+- Fusión de `feat/glass-3-header` (`90c757b`) en `4c5cd31`. Se conservaron los dos lados del encabezado y se reconstruyó `public/build`. El tope de consultas del encabezado en páginas secundarias (prueba de G3) suma las de la campanita: `8 + NotificationList::QUERIES`.
+  - Evidencia después de la fusión:
+    - `php artisan test`: 3268 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - `node --test "tests/js/*.test.mjs"`: 19 pasan.
