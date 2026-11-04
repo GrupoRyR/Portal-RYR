@@ -713,9 +713,11 @@
     }
 
     /* Moving: one line, the edges fade, the copies follow the list. The
+       fade and the clipping sit on the inner window, never on the
+       focusable view, so its focus ring stays whole (WCAG 2.4.7). The
        group's trailing padding equals the gap, so every copy is as wide as
        the list and the lap ends exactly where the next copy began. */
-    .g-ticker-moves {
+    .g-ticker-moves .g-ticker-window {
         overflow: hidden;
         -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
         mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
@@ -785,7 +787,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .g-ticker-moves {
+        .g-ticker-moves .g-ticker-window {
             overflow: visible;
             -webkit-mask-image: none;
             mask-image: none;

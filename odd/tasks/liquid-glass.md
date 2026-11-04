@@ -72,3 +72,8 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - Control «Pausar» / «Reanudar» sin JavaScript al final de la banda (WCAG 2.2.2): una casilla que detiene la pista con `:has()`, con foco visible y texto ≥ 7,5:1 en las dos marcas y los dos temas. No aparece con menos de dos cifras ni con movimiento reducido.
     - La frase leída usa la unidad de cada código (`MarketFigure::UNITS`): pesos para TRM y euro (igual que antes), dólares para el Brent cuando se sincronice y «puntos» para cualquier otro.
     - Evidencia: `php artisan test` 3246 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 4 pruebas nuevas antes del código. En Chrome sin interfaz: marcada la casilla, la pista queda en `paused`, el texto dice «Reanudar» y el foco muestra el contorno.
+  - Revisión independiente de G5 sin hallazgos graves; corregido en `fix(glass): keep the ticker focus ring visible`:
+    - El desvanecido y el recorte pasan a una ventana interior (`.g-ticker-window`): el contorno de foco de la banda ya no queda enmascarado (WCAG 2.4.7). Comprobado en Chrome sin interfaz enfocando la banda por script, en las dos marcas y los dos temas: contorno completo de 2 px y pista en pausa.
+    - La etiqueta del grupo es neutra («Indicadores de mercado»), porque con movimiento reducido la banda no se mueve.
+    - Pruebas directas de `MarketTicker::for` (0, 1, 2, 9 y 40 cifras) y de la banda sin cifras.
+    - El nombre de la casilla «Pausar o reanudar…» queda igual (compromiso aceptado).

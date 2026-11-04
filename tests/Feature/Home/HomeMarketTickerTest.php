@@ -102,7 +102,30 @@ class HomeMarketTickerTest extends TestCase
 
         $this->assertSame(1, $views->length);
         $this->assertSame('0', $views->item(0)->getAttribute('tabindex'));
-        $this->assertNotSame('', $views->item(0)->getAttribute('aria-label'));
+        // Neutral: under reduced motion it does not move, so it promises no pause.
+        $this->assertSame('Indicadores de mercado', $views->item(0)->getAttribute('aria-label'));
+    }
+
+    public function test_the_focus_ring_is_outside_the_masked_window(): void
+    {
+        $xpath = $this->band($this->figures(2));
+        $windows = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " g-ticker-moves ")]/*[contains(concat(" ", normalize-space(@class), " "), " g-ticker-window ")]');
+
+        $this->assertSame(1, $windows->length);
+        $this->assertSame(1, $xpath->query('./*[@data-market-track]', $windows->item(0))->length);
+
+        $css = (string) file_get_contents(resource_path('css/glass.css'));
+        $this->assertMatchesRegularExpression('/\.g-ticker-moves \.g-ticker-window\s*\{[^}]*overflow:\s*hidden;[^}]*mask-image:/', $css);
+        $this->assertDoesNotMatchRegularExpression('/\.g-ticker-moves\s*\{[^}]*(mask-image|overflow)/', $css);
+        $this->assertMatchesRegularExpression('/\.g-ticker-view:focus-visible\s*\{[^}]*outline:\s*2px solid/', $css);
+    }
+
+    public function test_an_empty_list_does_not_move(): void
+    {
+        $xpath = $this->band([]);
+
+        $this->assertSame(0, $xpath->query('//*[contains(@class, "g-ticker-moves")]')->length);
+        $this->assertSame(0, $xpath->query('//*[@data-market] | //*[@data-market-pause] | //*[@aria-hidden="true"]')->length);
     }
 
     public function test_a_moving_band_has_a_pause_control_for_touch_screens(): void
