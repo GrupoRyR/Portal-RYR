@@ -10,13 +10,17 @@ namespace Tests\Feature\Home;
  */
 final class HomeQueryBudget
 {
-    /** An ordinary account: no management figures, no pending items, no products. */
-    public const MAX = 17;
+    /**
+     * An ordinary account: no management figures, no pending items, no
+     * products. The bell of the header adds one (its unread announcements,
+     * App\View\Notifications\NotificationList::unreadAnnouncements()).
+     */
+    public const MAX = 18;
 
     /**
      * A «Gerencia» account with every block on the page: the management
      * panel (+2), pending items with their integrations and apps (+2) and
      * the products of the catalog (+1).
      */
-    public const WITH_EVERY_BLOCK = 22;
+    public const WITH_EVERY_BLOCK = 23;
 }

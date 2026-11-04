@@ -102,13 +102,15 @@ class PortalHeaderTest extends TestCase
         $this->actingAs($this->user)->get('/')->assertOk()->assertSee('/build/assets/header-', false);
     }
 
-    public function test_the_bell_has_a_slot_before_the_user_menu(): void
+    public function test_the_bell_comes_before_the_user_menu(): void
     {
         $this->actingAs($this->user);
 
-        $html = (string) $this->blade('<x-portal-header><x-slot:bell><button type="button">Campanita</button></x-slot:bell></x-portal-header>');
-        $this->assertMatchesRegularExpression('~<div [^>]*data-header-bell[^>]*>\s*<button type="button">Campanita</button>\s*</div>.*id="cuenta"~s', $html);
+        $html = (string) $this->blade('<x-portal-header />');
+        $this->assertMatchesRegularExpression('~<div [^>]*data-header-bell[^>]*>\s*<details [^>]*data-bell[^>]*>.*id="cuenta"~s', $html);
 
+        // Nobody signed in: nothing to tell.
+        auth()->logout();
         $this->assertStringNotContainsString('data-header-bell', (string) $this->blade('<x-portal-header />'));
     }
 

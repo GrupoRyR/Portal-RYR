@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Settings\PortalSettings;
 use App\View\Home\HomePage;
 use App\View\Home\HomePageBuilder;
+use App\View\Notifications\NotificationList;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -17,14 +19,16 @@ use Illuminate\View\Component;
  * The glass top bar of the portal (odd/tasks/liquid-glass.md G3), shared by
  * the home screen and the secondary pages of a signed-in account: the
  * company logo on its plate, «Portal RYR», «Cambiar de empresa»
- * (AccountSwitcher), the search, «Soporte TI», a `bell` slot (G4) and the
- * user menu (its links, «Tus empresas», the theme choice and «Cerrar
- * sesión»).
+ * (AccountSwitcher), the search, «Soporte TI», the bell (G4,
+ * NotificationList) and the user menu (its links, «Tus empresas», the
+ * theme choice and «Cerrar sesión»).
  *
  * The home screen passes its HomePage, so the header asks for nothing more
- * (home query budget) and gets the «Secciones» menu and the «Ctrl K»
- * search of resources/js/home.js. Elsewhere it reads the signed-in user:
- * the search is then a server search of the home screen (`/?q=`).
+ * (home query budget: its builder reads the bell too) and gets the
+ * «Secciones» menu and the «Ctrl K» search of resources/js/home.js.
+ * Elsewhere it reads the signed-in user, and the bell in at most
+ * NotificationList::QUERIES queries: the search is then a server search
+ * of the home screen (`/?q=`).
  */
 class PortalHeader extends Component
 {
@@ -58,6 +62,9 @@ class PortalHeader extends Component
 
     public readonly string $query;
 
+    /** The bell; null (nobody signed in) hides it. */
+    public readonly ?NotificationList $notifications;
+
     public function __construct(public readonly ?HomePage $page = null)
     {
         if ($page !== null) {
@@ -74,6 +81,7 @@ class PortalHeader extends Component
             $this->hasSearch = $page->hasApps();
             $this->hasSearchDialog = $page->searchIndex !== null;
             $this->query = $page->query;
+            $this->notifications = $page->notifications;
 
             return;
         }
@@ -94,6 +102,7 @@ class PortalHeader extends Component
         $this->hasSearch = true;
         $this->hasSearchDialog = false;
         $this->query = '';
+        $this->notifications = $user === null ? null : NotificationList::for($user, CarbonImmutable::now());
     }
 
     /**

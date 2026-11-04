@@ -2,7 +2,7 @@
     Glass top bar of the portal (App\View\Components\PortalHeader), approved
     sketch of 2026-11-04: the logo on its plate (the white Segurex logo on
     --brand-dark, SDC on white), «Portal RYR», «Cambiar de empresa», the
-    search, «Soporte TI», the bell slot (G4) and the user menu. Phones get a
+    search, «Soporte TI», the bell (x-notification-bell) and the user menu. Phones get a
     second row with «Secciones» (home screen) and the search.
 
     Works without JavaScript: menus are <details>, the search is a GET form
@@ -73,12 +73,11 @@
                 </a>
             @endif
 
-            {{-- G4: the bell goes here. --}}
-            @isset($bell)
+            @if ($notifications)
                 <div class="flex items-center" data-header-bell>
-                    {{ $bell }}
+                    <x-notification-bell :notifications="$notifications" />
                 </div>
-            @endisset
+            @endif
 
             <details id="cuenta" class="relative" data-account data-menu>
                 <summary class="g-btn list-none gap-2 p-1 lg:pr-3.5 [&::-webkit-details-marker]:hidden">

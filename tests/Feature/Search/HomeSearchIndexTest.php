@@ -402,7 +402,8 @@ class HomeSearchIndexTest extends TestCase
 
         $this->home('?q=camaras');
 
-        $announcementQueries = array_values(array_filter($sql, fn (string $query) => str_contains($query, 'from "announcements"')));
+        // The bell of the header reads the unread mandatory ones on its own (`requires_read` = true).
+        $announcementQueries = array_values(array_filter($sql, fn (string $query) => str_contains($query, 'from "announcements"') && ! str_contains($query, '"requires_read" = ?')));
         $this->assertCount(1, $announcementQueries);
         $this->assertStringContainsString('limit 3', $announcementQueries[0]);
     }

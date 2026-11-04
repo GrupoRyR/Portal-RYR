@@ -20,6 +20,7 @@ use App\Products\ProductBoard;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
+use App\View\Notifications\NotificationList;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -62,7 +63,10 @@ use InvalidArgumentException;
  * - «Tareas pendientes»: the account's own approvals and tasks
  *   (App\View\Home\WorkList, four queries);
  * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
- *   one query: it reuses the visible apps).
+ *   one query: it reuses the visible apps);
+ * - the bell of the header (App\View\Notifications\NotificationList): the
+ *   unread mandatory announcements (one query), the pending items above
+ *   and the events of the coming week.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -153,6 +157,7 @@ final class HomePageBuilder
 
         // The apps already read above: one query of its own (the services).
         $itStatus = $this->itStatus->for($user, $visible);
+        $work = WorkList::for($user, CarbonImmutable::instance($now), $visible);
 
         return new HomePage(
             salutation: $greeting->salutation,
@@ -199,8 +204,9 @@ final class HomePageBuilder
             news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
             catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
-            work: WorkList::for($user, CarbonImmutable::instance($now), $visible),
+            work: $work,
             itStatus: $itStatus->available ? $itStatus : null,
+            notifications: NotificationList::forHome(NotificationList::unreadAnnouncements($user), $work, $visibleEvents, $now),
         );
     }
 
