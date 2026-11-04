@@ -619,7 +619,8 @@
 
         .g-card,
         .g-tile,
-        .g-banner {
+        .g-banner,
+        .g-sheet {
             background: #fff;
             box-shadow: 0 0 0 1px #d2d8e2;
             -webkit-backdrop-filter: none;
