@@ -2,7 +2,6 @@
 
 namespace App\Markets;
 
-use DOMDocument;
 use DOMElement;
 use DOMXPath;
 
@@ -10,10 +9,9 @@ use DOMXPath;
  * Reads the dollars per euro from the ECB daily reference rates XML
  * (`<Cube time="2026-11-03"><Cube currency="USD" rate="1.0800"/>…`).
  *
- * The XML comes from the network, so it is parsed defensively: a DOCTYPE
- * is refused (no entities, no DTD), entities are never substituted, the
- * parser may not touch the network, and the date and the rate are checked
- * before they are believed.
+ * The XML comes from the network, so it is parsed defensively (SafeXml:
+ * no DOCTYPE, no entities, no network), and the date and the rate are
+ * checked before they are believed.
  *
  * @see https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
  */
@@ -32,20 +30,7 @@ final class EcbRates
      */
     public static function usdPerEur(string $xml): array
     {
-        // UTF-16 and the like would hide a DOCTYPE from the check below.
-        if ($xml === '' || str_contains($xml, "\0")) {
-            throw new MarketSourceException('invalid_xml');
-        }
-
-        if (stripos($xml, '<!DOCTYPE') !== false) {
-            throw new MarketSourceException('doctype');
-        }
-
-        $document = self::load($xml);
-
-        if ($document->doctype !== null) {
-            throw new MarketSourceException('doctype');
-        }
+        $document = SafeXml::load($xml);
 
         $xpath = new DOMXPath($document);
         $xpath->registerNamespace('e', self::NAMESPACE);
@@ -65,29 +50,5 @@ final class EcbRates
         }
 
         return ['date' => $date, 'rate' => $rate];
-    }
-
-    /**
-     * @throws MarketSourceException
-     */
-    private static function load(string $xml): DOMDocument
-    {
-        $previous = libxml_use_internal_errors(true);
-
-        try {
-            $document = new DOMDocument;
-
-            // No LIBXML_NOENT (entities stay unsubstituted), no DTDLOAD, no network.
-            $loaded = $document->loadXML($xml, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors($previous);
-        }
-
-        if (! $loaded) {
-            throw new MarketSourceException('invalid_xml');
-        }
-
-        return $document;
     }
 }

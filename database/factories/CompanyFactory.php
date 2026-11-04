@@ -76,6 +76,17 @@ class CompanyFactory extends Factory
     }
 
     /**
+     * A company that chose these input series for its markets band
+     * (App\Markets\MarketSeries::inputCodes()).
+     *
+     * @param  list<string>  $codes
+     */
+    public function withMarketCodes(array $codes): static
+    {
+        return $this->state(fn () => ['market_codes' => $codes]);
+    }
+
+    /**
      * A company sharing the given Microsoft tenant.
      *
      * @param  list<string>  $domains

@@ -53,7 +53,7 @@ class HomeEveryBlockQueriesTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->travelTo(CarbonImmutable::parse('2026-11-04 09:00', 'America/Bogota'));
-        $this->company = Company::factory()->forTenant(self::TENANT)->withManagementGroup(self::GROUP)->create();
+        $this->company = Company::factory()->forTenant(self::TENANT)->withManagementGroup(self::GROUP)->withMarketCodes(['zinc', 'bottles'])->create();
         $this->user = User::factory()->microsoft($this->company)->create();
         $this->user->assignRole(MicrosoftLogin::MANAGEMENT);
         $this->user->syncGroups([['id' => self::GROUP, 'display_name' => 'APP-PortalGerencia', 'security_group' => true]]);
@@ -70,6 +70,9 @@ class HomeEveryBlockQueriesTest extends TestCase
 
         MarketRate::factory()->trm()->create(['valid_from' => '2026-11-03']);
         MarketRate::factory()->eur()->create(['valid_from' => '2026-11-03']);
+        // The inputs the company chose ride in the same query.
+        MarketRate::factory()->create(['code' => 'zinc', 'valid_from' => '2026-09-01', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'bottles', 'valid_from' => '2026-09-01', 'source' => 'fred.stlouisfed.org']);
     }
 
     public function test_every_block_together_runs_a_fixed_number_of_queries(): void
@@ -82,7 +85,7 @@ class HomeEveryBlockQueriesTest extends TestCase
         $many = $this->countQueries();
 
         $response = $this->home();
-        foreach (['data-markets', 'id="panel-gerencial"', 'id="noticias"', 'id="catalogos"', 'id="tareas"', 'id="estado-ti"', 'data-complete-form'] as $marker) {
+        foreach (['data-markets', 'data-market="zinc"', 'data-market="bottles"', 'id="panel-gerencial"', 'id="noticias"', 'id="catalogos"', 'id="tareas"', 'id="estado-ti"', 'data-complete-form'] as $marker) {
             $this->assertStringContainsString($marker, $response->getContent(), $marker);
         }
 

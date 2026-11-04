@@ -3,31 +3,30 @@
 namespace App\View\Home;
 
 use App\Markets\MarketQuote;
-use App\Models\MarketRate;
+use App\Markets\MarketSeries;
+use App\Markets\MarketUnit;
+use Carbon\CarbonImmutable;
 
 /**
  * One figure of the «Mercados» band of the home (App\Markets\MarketBoard),
  * ready to print: «Dólar (TRM) $3.861,38 ▲ 0,32 %», with the sentence a
  * screen reader hears instead of the arrow.
+ *
+ * The label, the format and the spoken words come from the unit of the
+ * series (App\Markets\MarketSeries, App\Markets\MarketUnit):
+ *
+ * - pesos «$3.861,38», dollars «US$64,53» (per barrel or per tonne, in the
+ *   label), points «1.512,30»: change in the unit and in percent;
+ * - percent «9,25 %»: change in percentage points («▲ 0,25 pp»);
+ * - index «312,46»: its level with its monthly change in percent (the
+ *   level alone means little, the change says where prices go).
+ *
+ * A daily series shows its day («3 nov»), a monthly one its month
+ * («sep 2026»); screen readers hear the whole date instead (spokenDate()).
  */
 final readonly class MarketFigure
 {
-    public const LABELS = [
-        MarketRate::TRM => 'Dólar (TRM)',
-        MarketRate::EUR => 'Euro',
-    ];
-
-    /**
-     * The unit a screen reader hears with the change: the TRM and the euro
-     * are pesos per unit; codes priced in dollars (Brent, when it is
-     * synced) say dólares; any other code says puntos.
-     */
-    public const UNITS = [
-        MarketRate::TRM => 'pesos',
-        MarketRate::EUR => 'pesos',
-        'brent' => 'dólares',
-    ];
-
+    /** The unit a screen reader hears for a code outside the catalogue. */
     public const FALLBACK_UNIT = 'puntos';
 
     /** A change (in the code's unit, or in percent) below this prints as none. */
@@ -49,6 +48,9 @@ final readonly class MarketFigure
 
     public static function from(MarketQuote $quote): self
     {
+        $series = MarketSeries::find($quote->code);
+        $unit = $series?->unit;
+
         // Under half a cent (or a percent that prints as 0,00) is no move:
         // it would show an arrow beside «0,00 %».
         $direction = match (true) {
@@ -58,24 +60,37 @@ final readonly class MarketFigure
             default => 'down',
         };
 
+        $monthly = $series?->isMonthly() === true;
+
         return new self(
             code: $quote->code,
-            label: self::LABELS[$quote->code] ?? strtoupper($quote->code),
-            value: '$'.self::number($quote->value),
+            label: $series->label ?? strtoupper($quote->code),
+            value: self::value($quote->value, $unit),
             direction: $direction,
-            percent: $quote->changePercent === null ? null : self::number(abs($quote->changePercent)).' %',
+            // A rate moves in percentage points: a percent of a percent only confuses.
+            percent: $quote->changePercent === null || $unit === MarketUnit::Percent ? null : self::number(abs($quote->changePercent)).' %',
             change: $quote->change === null ? null : self::number(abs($quote->change)),
-            validFromIso: $quote->validFrom->toDateString(),
-            validFromLabel: str_replace('.', '', $quote->validFrom->locale('es')->isoFormat('D MMM')),
+            // «2026-09» is a valid <time> month.
+            validFromIso: $monthly ? $quote->validFrom->format('Y-m') : $quote->validFrom->toDateString(),
+            validFromLabel: str_replace('.', '', $quote->validFrom->locale('es')->isoFormat($monthly ? 'MMM YYYY' : 'D MMM')),
         );
     }
 
     /**
-     * «▲ 0,32 %» beside the value (hidden from screen readers), «● 0,00 %»
-     * without a move, or null.
+     * «▲ 0,32 %» beside the value (hidden from screen readers), «▲ 0,25 pp»
+     * for a rate, «● 0,00 %» without a move, or null.
      */
     public function shortChange(): ?string
     {
+        if ($this->unit() === MarketUnit::Percent) {
+            return match ($this->direction) {
+                'up' => "▲ {$this->change} pp",
+                'down' => "▼ {$this->change} pp",
+                'flat' => '● 0,00 pp',
+                default => null,
+            };
+        }
+
         return match ($this->direction) {
             'up' => '▲ '.($this->percent ?? $this->change),
             'down' => '▼ '.($this->percent ?? $this->change),
@@ -100,18 +115,71 @@ final readonly class MarketFigure
 
     /**
      * «Subió 12,40 pesos (0,32 %)» for screen readers, in the unit of the
-     * code (UNITS), or null.
+     * code: «Bajó 0,25 puntos porcentuales» for a rate, «Subió 0,81 %
+     * frente al mes anterior» for an index. Null without a change.
      */
     public function spokenChange(): ?string
     {
-        $percent = $this->percent === null ? '' : " ({$this->percent})";
-        $unit = self::UNITS[$this->code] ?? self::FALLBACK_UNIT;
-
-        return match ($this->direction) {
-            'up' => "Subió {$this->change} {$unit}{$percent}",
-            'down' => "Bajó {$this->change} {$unit}{$percent}",
-            'flat' => 'Sin cambio frente al valor anterior',
+        $verb = match ($this->direction) {
+            'up' => 'Subió',
+            'down' => 'Bajó',
+            'flat' => 'Sin cambio',
             default => null,
+        };
+
+        if ($verb === null) {
+            return null;
+        }
+
+        if ($this->direction === 'flat') {
+            return 'Sin cambio frente al valor anterior';
+        }
+
+        $unit = $this->unit();
+
+        if ($unit === MarketUnit::Index && $this->percent !== null) {
+            return "{$verb} {$this->percent} frente al ".($this->isMonthly() ? 'mes anterior' : 'valor anterior');
+        }
+
+        $words = $unit?->spokenAmount() ?? self::FALLBACK_UNIT;
+        $percent = $this->percent === null ? '' : " ({$this->percent})";
+
+        return "{$verb} {$this->change} {$words}{$percent}";
+    }
+
+    /**
+     * The whole date a screen reader hears instead of the short label:
+     * «vigente el 3 de noviembre» for a daily value, «dato de septiembre de
+     * 2026» for a monthly one.
+     */
+    public function spokenDate(): string
+    {
+        $date = CarbonImmutable::parse($this->isMonthly() ? $this->validFromIso.'-01' : $this->validFromIso)->locale('es');
+
+        return $this->isMonthly()
+            ? 'dato de '.$date->isoFormat('MMMM [de] YYYY')
+            : 'vigente el '.$date->isoFormat('D [de] MMMM');
+    }
+
+    private function unit(): ?MarketUnit
+    {
+        return MarketSeries::find($this->code)?->unit;
+    }
+
+    private function isMonthly(): bool
+    {
+        return MarketSeries::find($this->code)?->isMonthly() === true;
+    }
+
+    /** The value in its unit: «$3.861,38», «US$64,53», «9,25 %» or «1.512,30». */
+    private static function value(float $value, ?MarketUnit $unit): string
+    {
+        return match ($unit) {
+            MarketUnit::UsdPerBarrel, MarketUnit::UsdPerTonne => 'US$'.self::number($value),
+            MarketUnit::Percent => self::number($value).' %',
+            MarketUnit::Points, MarketUnit::Index => self::number($value),
+            // Pesos, and a code outside the catalogue as before.
+            default => '$'.self::number($value),
         };
     }
 

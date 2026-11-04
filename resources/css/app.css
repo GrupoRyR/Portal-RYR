@@ -25,6 +25,10 @@
 /* Compiled views (storage/framework/views) are not scanned: their content
    depends on the local view cache and made builds differ between runs.
    Blade sources under resources/ are detected automatically. */
+/* The compiled assets are not scanned either: the bundled Livewire script
+   in public/build made the output depend on whether a previous build was
+   still on disk. */
+@source not '../../public/build';
 
 /*
  * Design tokens — approved design system (docs/diseno/Tokens.dc.html).

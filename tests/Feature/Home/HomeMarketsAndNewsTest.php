@@ -9,6 +9,7 @@ use App\Models\NewsSource;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Home\Concerns\ReadsTheHome;
 use Tests\TestCase;
 
@@ -91,6 +92,75 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertStringContainsString('Sin cambio frente al valor anterior', $trm);
         $this->assertStringNotContainsString('▲', $trm);
         $this->assertStringNotContainsString('Subió', $trm);
+    }
+
+    public function test_the_band_shows_brent_and_the_monthly_colcap_for_everyone(): void
+    {
+        MarketRate::factory()->create(['code' => 'brent', 'value' => 65.73, 'valid_from' => '2026-10-26', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'brent', 'value' => 64.53, 'valid_from' => '2026-10-27', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'colcap', 'value' => 1512.3, 'valid_from' => '2026-10-01', 'source' => 'banrep.gov.co']);
+
+        $response = $this->home();
+
+        $brent = $this->element($response, 'data-market', 'brent');
+        $this->assertStringContainsString('US$64,53', $brent);
+        $this->assertStringContainsString('Bajó 1,20 dólares por barril (1,83 %)', $brent);
+
+        $colcap = $this->element($response, 'data-market', 'colcap');
+        $this->assertStringContainsString('1.512,30', $colcap);
+        $this->assertStringContainsString('datetime="2026-10"', $colcap);
+        $this->assertStringContainsString('dato de octubre de 2026', $colcap);
+        // The short label is for the eye; screen readers hear the whole date.
+        $this->assertMatchesRegularExpression('/<time datetime="2026-10" aria-hidden="true">oct 2026<\/time>/', $colcap);
+    }
+
+    public function test_a_company_sees_only_the_inputs_it_chose(): void
+    {
+        MarketRate::factory()->trm()->create(['value' => 3861.38, 'valid_from' => '2026-11-03']);
+        MarketRate::factory()->create(['code' => 'zinc', 'value' => 2845.5, 'valid_from' => '2026-09-01', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'resins', 'value' => 301.2, 'valid_from' => '2026-09-01', 'source' => 'fred.stlouisfed.org']);
+        $this->company->update(['market_codes' => ['zinc']]);
+        $other = User::factory()->microsoft(Company::factory()->withMarketCodes(['resins'])->create())->create();
+
+        $mine = $this->home();
+        $this->assertStringContainsString('US$2.845,50', $this->element($mine, 'data-market', 'zinc'));
+        $this->assertNoElement($mine, 'data-market', 'resins');
+
+        $theirs = $this->home(as: $other);
+        $this->assertStringContainsString('301,20', $this->element($theirs, 'data-market', 'resins'));
+        $this->assertNoElement($theirs, 'data-market', 'zinc');
+        $this->element($theirs, 'data-market', 'trm');
+    }
+
+    public function test_choosing_inputs_adds_no_query_to_the_home(): void
+    {
+        foreach (['trm', 'eur', 'zinc', 'copper', 'bottles'] as $code) {
+            MarketRate::factory()->create(['code' => $code, 'value' => '100', 'valid_from' => '2026-11-01']);
+        }
+
+        $this->home(); // Warms the settings and permission caches, as on any later request.
+        $without = $this->countHomeQueries();
+
+        $this->company->update(['market_codes' => ['zinc', 'copper', 'bottles']]);
+        $with = $this->countHomeQueries();
+
+        $this->assertSame($without, $with);
+        $this->assertStringContainsString('data-market="bottles"', $this->home()->getContent());
+    }
+
+    private function countHomeQueries(): int
+    {
+        $user = $this->user->fresh();
+        $count = 0;
+        DB::listen(function () use (&$count) {
+            $count++;
+        });
+
+        $this->actingAs($user)->get('/')->assertOk();
+
+        app('events')->forget('Illuminate\Database\Events\QueryExecuted');
+
+        return $count;
     }
 
     // --- Noticias ------------------------------------------------------------
