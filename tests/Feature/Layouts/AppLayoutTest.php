@@ -126,6 +126,12 @@ class AppLayoutTest extends TestCase
         $this->assertLessThan($stylesheet, $script);
         // A blocked or broken storage must never stop the page.
         $this->assertStringContainsString('try{', $html);
+        // Only the two known themes reach the attribute: any other stored
+        // value leaves it unset, so the system decides.
+        $this->assertStringContainsString(
+            "if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)",
+            $html,
+        );
     }
 
     public function test_pages_are_not_glass_by_default(): void

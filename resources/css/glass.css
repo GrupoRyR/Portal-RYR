@@ -586,6 +586,25 @@
     }
 }
 
+/* Paper is white in either theme: print with the light text tokens. Kept
+   outside the layer and after the dark blocks, with the same specificity
+   as the company dark blocks (0,2,0), so it wins over all of them. */
+@media print {
+    :root,
+    :root[data-brand] {
+        --g-ink: #17191c;
+        --g-ink-soft: #45474a;
+        --g-ink-faint: #55575b;
+        --g-line: rgb(23 25 28 / 0.14);
+        --g-line-strong: rgb(23 25 28 / 0.24);
+        --g-accent-ink: #17191c;
+        --g-accent-tint: rgb(23 25 28 / 0.08);
+        --g-good: #135e35;
+        --g-warn: #7a4600;
+        --g-crit: #a61f15;
+    }
+}
+
 @keyframes g-shine {
     from {
         background-position: 160% 0;
