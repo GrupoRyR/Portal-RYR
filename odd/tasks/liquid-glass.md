@@ -43,7 +43,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Cambio de tema Claro/Oscuro/Sistema en el menú de la persona.
   - Rama `feat/glass-3-header`.
 - [x] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio. Hecho en `4d9269d` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-4-bell`, sobre G3.
-- [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
+- [x] G5. **Banda de Mercados** en movimiento, con flechas verde y roja. Hecho en `6de88f0` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-5-markets`.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
 - [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
@@ -122,3 +122,18 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - `vendor/bin/pint --test`: sale en 0.
     - `npm run build`: bien.
     - `node --test "tests/js/*.test.mjs"`: 19 pasan.
+- G5 hecho en `6de88f0` (`feat/glass-5-markets`).
+  - Banda de vidrio con marquesina CSS, sin JavaScript: `App\View\Home\MarketTicker` decide cuántas copias imprimir (cubren la banda más ancha) y la vuelta dura 4 s por cifra. Las copias van con `aria-hidden` y sin `data-market`. Se detiene al pasar el cursor y con el foco del teclado.
+  - Con una sola cifra no se mueve. Con `prefers-reduced-motion` se queda quieta, oculta las copias y se acomoda en varias líneas.
+  - Sube: ▲ verde (`--g-good`). Baja: ▼ rojo (`--g-crit`). Sin cambio: ● neutro (antes «=»). Contraste medido sobre el vidrio: claro ≥ 4,99 (sobre negro, el peor caso); oscuro ≥ 5,2 sobre el fondo oscuro del inicio, en las dos marcas.
+  - Toma cualquier código que entregue `MarketBoard`: nuevos `MarketRate::CODES` aparecen sin tocar la vista.
+  - Evidencia: `php artisan test` 3240 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 12 pruebas nuevas o cambiadas antes del código. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 375 px y escritorio, con y sin movimiento reducido.
+  - Cerrado en un segundo commit de G5 (`fix(glass)`, pedido del coordinador):
+    - Control «Pausar» / «Reanudar» sin JavaScript al final de la banda (WCAG 2.2.2): una casilla que detiene la pista con `:has()`, con foco visible y texto ≥ 7,5:1 en las dos marcas y los dos temas. No aparece con menos de dos cifras ni con movimiento reducido.
+    - La frase leída usa la unidad de cada código (`MarketFigure::UNITS`): pesos para TRM y euro (igual que antes), dólares para el Brent cuando se sincronice y «puntos» para cualquier otro.
+    - Evidencia: `php artisan test` 3246 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 4 pruebas nuevas antes del código. En Chrome sin interfaz: marcada la casilla, la pista queda en `paused`, el texto dice «Reanudar» y el foco muestra el contorno.
+  - Revisión independiente de G5 sin hallazgos graves; corregido en `fix(glass): keep the ticker focus ring visible`:
+    - El desvanecido y el recorte pasan a una ventana interior (`.g-ticker-window`): el contorno de foco de la banda ya no queda enmascarado (WCAG 2.4.7). Comprobado en Chrome sin interfaz enfocando la banda por script, en las dos marcas y los dos temas: contorno completo de 2 px y pista en pausa.
+    - La etiqueta del grupo es neutra («Indicadores de mercado»), porque con movimiento reducido la banda no se mueve.
+    - Pruebas directas de `MarketTicker::for` (0, 1, 2, 9 y 40 cifras) y de la banda sin cifras.
+    - El nombre de la casilla «Pausar o reanudar…» queda igual (compromiso aceptado).
