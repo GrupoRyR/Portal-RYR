@@ -1,5 +1,6 @@
 {{--
-    «Tareas pendientes» of «Mi día» (odd/tasks/inicio-bloques.md H3,
+    «Tareas pendientes», the first block of the «Mi día» card (glass.css
+    section 7; odd/tasks/inicio-bloques.md H3,
     docs/contrato-tareas-aprobaciones.md §4 to §7; App\View\Home\WorkList):
     «Por aprobar» first, then «Tareas». «Ver tarea» and «Ver aprobación»
     open the app in a new tab. «Completar» (only a task the portal may
@@ -12,8 +13,8 @@
 --}}
 @props(['work' => null, 'status' => null])
 
-<section id="tareas" aria-labelledby="tareas-titulo" {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-3.5 p-5']) }}>
-    <h2 id="tareas-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Tareas pendientes</h2>
+<section id="tareas" aria-labelledby="tareas-titulo" {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-3']) }}>
+    <h3 id="tareas-titulo">Tareas pendientes</h3>
 
     @if ($status)
         <p role="status" data-flash data-work-status class="rounded-control border border-line bg-ground px-3 py-2 text-sm font-semibold">{{ $status }}</p>
@@ -28,7 +29,7 @@
         ] as $kind => [$heading, $rows, $more])
             @continue($rows === [])
             <div data-work-kind="{{ $kind }}" class="flex flex-col gap-2">
-                <h3 class="font-sans text-xs font-bold tracking-[0.06em] text-fg-muted uppercase">{{ $heading }}</h3>
+                <h4 class="g-label">{{ $heading }}</h4>
                 <ul class="flex flex-col divide-y divide-line">
                     @foreach ($rows as $row)
                         <li data-work-item="{{ $row->id }}" class="flex flex-col gap-2 py-3 first:pt-1 last:pb-0">
@@ -52,15 +53,15 @@
                             @if ($row->url || $row->completeAction)
                                 <div class="flex flex-wrap items-start gap-2">
                                     @if ($row->url)
-                                        <a href="{{ $row->url }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-touch items-center rounded-control border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">{{ $row->viewLabel() }}<span class="sr-only">: {{ $row->title }} (se abre en otra pestaña)</span></a>
+                                        <a href="{{ $row->url }}" target="_blank" rel="noopener noreferrer" class="g-btn px-3 text-[0.8125rem]">{{ $row->viewLabel() }}<span class="sr-only">: {{ $row->title }} (se abre en otra pestaña)</span></a>
                                     @endif
                                     @if ($row->completeAction)
                                         <details data-complete class="open:basis-full">
-                                            <summary class="inline-flex min-h-touch cursor-pointer list-none items-center rounded-control bg-brand-button px-3 text-[0.8125rem] font-semibold text-white hover:opacity-90 [&::-webkit-details-marker]:hidden">Completar<span class="sr-only">: {{ $row->title }}</span></summary>
+                                            <summary class="g-btn g-btn--primary list-none px-3 text-[0.8125rem] [&::-webkit-details-marker]:hidden">Completar<span class="sr-only">: {{ $row->title }}</span></summary>
                                             <form method="POST" action="{{ $row->completeAction }}" data-complete-form class="mt-2 flex flex-col gap-2 rounded-control border border-line bg-ground p-3">
                                                 @csrf
                                                 <p class="text-[0.8125rem]">¿Marcar «{{ $row->title }}» como completada{{ $row->appName ? ' en '.$row->appName : '' }}?</p>
-                                                <button type="submit" class="inline-flex min-h-touch cursor-pointer items-center justify-center self-start rounded-control bg-brand-button px-4 text-[0.8125rem] font-semibold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-70">Sí, completar</button>
+                                                <button type="submit" class="g-btn g-btn--primary self-start px-4 text-[0.8125rem] disabled:cursor-wait disabled:opacity-70">Sí, completar</button>
                                             </form>
                                         </details>
                                     @endif
@@ -70,7 +71,7 @@
                     @endforeach
                 </ul>
                 @foreach ($more as $link)
-                    <a href="{{ $link['href'] }}" target="_blank" rel="noopener noreferrer" data-work-more="{{ $kind }}" class="-my-1 inline-flex min-h-touch items-center self-start text-[0.8125rem] font-semibold text-brand-ink underline-offset-4 hover:underline">Ver todas en {{ $link['app'] }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
+                    <a href="{{ $link['href'] }}" target="_blank" rel="noopener noreferrer" data-work-more="{{ $kind }}" class="g-more ml-0 self-start">Ver todas en {{ $link['app'] }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
                 @endforeach
             </div>
         @endforeach

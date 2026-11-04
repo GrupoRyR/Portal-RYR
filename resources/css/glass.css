@@ -1201,3 +1201,405 @@
         transform: translateX(calc(-100% / var(--g-ticker-groups, 2)));
     }
 }
+
+/* ---------- 7. Home blocks (home.blade.php, components/home/*) ----------
+   The prototype's placements: the greeting banner and the glass cards of
+   the main column, with «Mi día» beside them from 1024 px (after them on
+   phones and tablets). 16 px gutters on phones.
+
+   Inside the home (.g-home) and its bottom bar (.g-dock) the Tailwind
+   colour tokens the blocks use take the glass values measured in sections
+   1 to 3 (≥ 4.9:1 for text), so a shared component (an announcement card)
+   keeps AA on the glass without a second set of classes.
+
+   Tiles and chips inside a card drop their own backdrop-filter: they sit
+   on the card's glass, which already blurs the photo, so a second blur
+   adds nothing but paint work. Their tone (--g-inset) only ever raises
+   contrast: lighter under dark text in the light theme, darker under
+   light text in the dark theme. */
+@layer components {
+    .g-home,
+    .g-dock {
+        --g-inset: rgb(255 255 255 / 0.5);
+        --color-fg: var(--g-ink);
+        --color-fg-soft: var(--g-ink-soft);
+        --color-fg-muted: var(--g-ink-faint);
+        --color-line: var(--g-line);
+        --color-line-strong: var(--g-line-strong);
+        --color-subtle: var(--g-track);
+        --color-ground: var(--g-track);
+        --color-status-active: var(--g-good);
+        --color-status-active-bg: var(--g-good-bg);
+        --color-status-active-dot: var(--g-good);
+        --color-status-maintenance: var(--g-warn);
+        --color-status-maintenance-bg: var(--g-warn-bg);
+        --color-status-failure: var(--g-crit);
+        --color-status-failure-bg: var(--g-crit-bg);
+        --color-status-failure-line: var(--g-crit);
+        --color-status-neutral: var(--g-ink-soft);
+        --color-status-neutral-bg: var(--g-track);
+        --brand-ink: var(--g-accent-ink);
+        --brand-tint: var(--g-accent-tint);
+        --brand-text: var(--g-ink);
+
+        @variant dark {
+            --g-inset: rgb(0 0 0 / 0.16);
+        }
+    }
+
+    /* Layout: one column on phones, the «Mi día» rail from 1024 px. The
+       bottom padding keeps the last block above the phone bottom bar. */
+    .g-home {
+        display: grid;
+        align-items: start;
+        gap: 14px;
+        width: 100%;
+        max-width: 1328px;
+        margin-inline: auto;
+        padding: 14px 16px calc(5.5rem + env(safe-area-inset-bottom));
+    }
+
+    .g-home__col {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    @media (min-width: 768px) {
+        .g-home {
+            gap: 22px;
+            padding: 22px 24px 40px;
+        }
+
+        .g-home__col {
+            gap: 22px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .g-home {
+            grid-template-columns: minmax(0, 1fr) 340px;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .g-home {
+            grid-template-columns: minmax(0, 1fr) 360px;
+        }
+    }
+
+    /* The big cards do not shine on hover: only tiles and chips move. */
+    .g-home .g-card:hover::after {
+        animation: none;
+    }
+
+    .g-home .g-card__head {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .g-home .g-card__head h2 {
+        font-size: 16px;
+        letter-spacing: normal;
+    }
+
+    .g-note {
+        font-size: 12px;
+        color: var(--g-ink-faint);
+    }
+
+    /* «Ver todos» and the like at the end of a card head or rail block. */
+    .g-more {
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--spacing-touch, 44px);
+        margin-block: -12px;
+        margin-left: auto;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--g-accent-ink);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .g-home .g-card :is(.g-tile, .g-chip, .g-btn, .g-input) {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    .g-home .g-card .g-tile {
+        background: var(--g-inset);
+    }
+
+    /* Greeting banner */
+    .g-hello {
+        justify-content: space-between;
+        gap: 12px 24px;
+        padding: 16px;
+    }
+
+    .g-hello h1 {
+        font-size: 26px;
+        line-height: 1.15;
+        font-weight: 700;
+        color: var(--g-ink);
+    }
+
+    .g-hello__sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin-top: 6px;
+        font-size: 14px;
+        color: var(--g-ink-soft);
+    }
+
+    @media (min-width: 768px) {
+        .g-hello {
+            padding: 18px 22px;
+        }
+
+        .g-hello h1 {
+            font-size: 32px;
+        }
+    }
+
+    /* Status line of the last account action, on its own glass. */
+    .g-flash {
+        padding: 12px 18px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    /* Mis aplicaciones: two tiles a row on phones, then as many as fit. */
+    .g-apps {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    @media (min-width: 640px) {
+        .g-apps {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+    }
+
+    .g-app {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 150px;
+        padding: 12px;
+    }
+
+    /* app.css lifts the app card itself with `translate` (and wiggles the
+       logo): no second lift, and the tile eases into that one. */
+    .g-home .g-app.g-tile:hover {
+        transform: none;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .g-app {
+            transition:
+                translate 0.2s ease,
+                box-shadow 0.3s;
+        }
+    }
+
+    .g-app--failing {
+        box-shadow:
+            var(--g-drop-sm),
+            var(--g-bevel),
+            inset 0 0 0 1.5px var(--g-crit);
+    }
+
+    .g-apps-group + .g-apps-group {
+        margin-top: 18px;
+    }
+
+    .g-apps-group > h3 {
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: normal;
+        color: var(--g-ink-soft);
+    }
+
+    /* Accesos rápidos, the catalog filters and the news tabs: chips that wrap. */
+    .g-quick {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .g-quick .g-chip {
+        min-height: var(--spacing-touch, 44px);
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--g-ink);
+        text-decoration: none;
+    }
+
+    .g-quick .g-chip svg {
+        color: var(--g-accent-ink);
+    }
+
+    /* The chosen catalog category: white on the brand button (≥ 4.8:1, BrandPalette). */
+    .g-quick .g-chip[aria-current='true'] {
+        color: #fff;
+        background: linear-gradient(170deg, var(--g-button), color-mix(in srgb, var(--g-button) 80%, #000));
+    }
+
+    /* The chosen news tab: raised, with the accent ink underneath (≥ 5.0:1). */
+    .g-quick .g-chip[aria-selected='true'] {
+        background: var(--g-glass-hi);
+        box-shadow:
+            var(--g-bevel),
+            inset 0 -3px 0 var(--g-accent-ink),
+            var(--g-drop-sm);
+    }
+
+    /* Announcements: tiles, a mandatory one with an accent edge on top. */
+    .g-anns {
+        display: grid;
+        gap: 12px;
+    }
+
+    @media (min-width: 768px) {
+        .g-anns {
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        }
+    }
+
+    .g-ann {
+        padding: 14px 16px;
+    }
+
+    .g-ann--must {
+        box-shadow:
+            var(--g-drop-sm),
+            var(--g-bevel),
+            inset 0 3px 0 var(--g-accent);
+    }
+
+    /* A tile with a form or a long text does not lift. */
+    .g-home .g-ann.g-tile:hover {
+        transform: none;
+    }
+
+    /* Catalog products: two a row on phones. The photo keeps the tile's
+       top corners, so the link itself needs no overflow clipping. */
+    .g-prods {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    @media (min-width: 640px) {
+        .g-prods {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+    }
+
+    .g-prod {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 0;
+        color: var(--g-ink);
+        text-decoration: none;
+    }
+
+    .g-prod__art {
+        border-radius: var(--g-r-lg) var(--g-r-lg) 0 0;
+    }
+
+    /* «Mi día»: one card, its blocks split by a line. */
+    .g-rail > section {
+        padding: 16px;
+    }
+
+    .g-rail > section ~ section {
+        border-top: 1px solid var(--g-line);
+    }
+
+    .g-rail h3 {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: normal;
+        color: var(--g-ink);
+    }
+
+    @media (min-width: 768px) {
+        .g-rail > section {
+            padding: 18px;
+        }
+    }
+
+    /* The day badge of dates and celebrations. */
+    .g-day {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        align-items: center;
+        width: 46px;
+        padding: 5px 0;
+        border-radius: 12px;
+        line-height: 1.1;
+        color: var(--g-ink);
+        background: var(--g-inset);
+        box-shadow: var(--g-bevel);
+    }
+
+    .g-day--accent {
+        color: var(--g-accent-ink);
+        background: var(--g-accent-tint);
+    }
+
+    /* Phone bottom bar: nearly opaque, never a blur over moving content. */
+    .g-dock {
+        color: var(--g-ink-faint);
+        background: var(--g-solid);
+        box-shadow:
+            inset 0 1px 0 var(--g-line),
+            var(--g-drop-sm);
+    }
+
+    @media (max-width: 639.98px) {
+        .g-home .g-card__head,
+        .g-home .g-card__body {
+            padding-inline: 14px;
+        }
+
+        .g-app {
+            min-height: 140px;
+        }
+    }
+
+    @media print {
+        /* Paper: tiles on white in either theme (after the dark value above). */
+        .g-home,
+        .g-dock {
+            --g-inset: #fff;
+        }
+
+        .g-home {
+            display: block;
+            padding: 0;
+        }
+
+        .g-home__col > *,
+        .g-rail {
+            margin-bottom: 12px;
+        }
+
+        .g-dock {
+            display: none;
+        }
+    }
+}
