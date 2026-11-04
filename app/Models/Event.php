@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -50,6 +51,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'all_day',
     'repeats_yearly',
     'audience',
+    'email_lists',
     'published_at',
     'created_by',
 ])]
@@ -110,6 +112,7 @@ class Event extends Model
         'audience' => self::AUDIENCE_ALL,
         'all_day' => false,
         'repeats_yearly' => false,
+        'email_lists' => false,
     ];
 
     protected function casts(): array
@@ -121,6 +124,7 @@ class Event extends Model
             'withdrawn_at' => 'datetime',
             'all_day' => 'boolean',
             'repeats_yearly' => 'boolean',
+            'email_lists' => 'boolean',
         ];
     }
 
@@ -152,6 +156,30 @@ class Event extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Its emails to the companies' all-staff lists, when it asks for them
+     * (`email_lists`, App\Calendar\EventListEmails).
+     *
+     * @return HasMany<EventListEmail, $this>
+     */
+    public function listEmails(): HasMany
+    {
+        return $this->hasMany(EventListEmail::class);
+    }
+
+    /**
+     * The companies it is addressed to now: every active company when it
+     * is for all, its chosen ones otherwise (active or not).
+     *
+     * @return Builder<Company>
+     */
+    public function addressedCompanies(): Builder
+    {
+        return $this->isForAllCompanies()
+            ? Company::query()->where('companies.is_active', true)
+            : Company::query()->whereIn('companies.id', DB::table('event_company')->where('event_id', $this->id)->select('company_id'));
     }
 
     /**

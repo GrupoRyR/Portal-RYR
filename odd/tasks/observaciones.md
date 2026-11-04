@@ -18,7 +18,11 @@ Corregir lo que Jhon encontró al probar el portal desplegado y completar lo que
 
 ## Tareas
 
-- [ ] O1. **Correos de anuncios y eventos a todos.** Hoy no se envía ningún correo. Hay que hallar la causa y probarlo con Segurex y con SDC. Los borradores del asistente también deben enviar a la lista; hoy no lo hacen, por la decisión 3 de la ola 3.
+- [x] O1. **Correos de anuncios y eventos a todos.** Hoy no se envía ningún correo. Hay que hallar la causa y probarlo con Segurex y con SDC. Los borradores del asistente también deben enviar a la lista; hoy no lo hacen, por la decisión 3 de la ola 3.
+  - Causa: la casilla «Enviar también por correo a la lista de cada empresa» venía desmarcada en un anuncio nuevo (`AnnouncementEditor::$emailLists = false`); sin «Lista de todo el personal» y «Buzón remitente» en Admin › Empresas la casilla ni aparecía y el anuncio se guardaba sin correo, sin aviso; los eventos no tenían correo. Los borradores del asistente se publican con `email_lists => false` (`AssistantDraftController`).
+  - Cambio: casilla marcada por defecto en anuncios y eventos nuevos; los eventos van a la lista con el mismo cron (`portal:send-announcement-list-emails`, `App\Calendar\EventListEmails`, migración `2026_11_06_100001`); aviso en el editor y línea en Auditoría (`*.list_email_skipped`) cuando una empresa no tiene lista o buzón.
+  - Pendiente (decisión de Jhon): los borradores del asistente siguen sin correo; no se tocó el asistente.
+  - Ruta: escritor delegado (más de dos archivos no triviales). Pruebas: `ListEmailsByDefaultTest`, `SendEventListEmailsTest` (Segurex y SDC, `Http::fake`).
 - [ ] O2. **Eliminar anuncios y eventos.** Hoy solo se pueden retirar. Eliminar pide confirmación, borra lo que cuelga del anuncio o evento (lecturas, confirmaciones y avisos al celular) y deja una línea en Auditoría con el título y quién lo eliminó.
 - [ ] O3. **Noticias.**
   - Una dirección que es una página web y no un canal RSS da el mensaje «El documento no es seguro (doctype)». Debe decir que es una página web.

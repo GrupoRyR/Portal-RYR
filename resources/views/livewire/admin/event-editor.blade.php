@@ -162,6 +162,80 @@
                 <span id="e-published-h" class="{{ $hint }}">Antes de esta fecha queda programado y nadie lo ve.</span>
                 @error('publishedAt') <p id="e-published-error" class="{{ $error }}">{{ $message }}</p> @enderror
             </div>
+            {{-- Only when a company of the audience has an all-staff list (App\Calendar\EventListEmails). --}}
+            @if ($listRecipients->isNotEmpty())
+                <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-[0.9375rem] font-semibold">Enviar también por correo a la lista de cada empresa</span>
+                        <span id="e-lists-h" class="{{ $hint }}">Lo reciben: {{ \App\Announcements\AnnouncementListEmails::sentence($listRecipients) }}. Se envía al guardar con la casilla marcada, cuando el evento se muestre, desde el buzón de cada empresa y una sola vez por empresa.</span>
+                    </span>
+                    <input type="checkbox" role="switch" wire:model.live="emailLists" aria-describedby="e-lists-h"
+                           class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
+                </label>
+            @endif
+            {{-- Companies of the audience whose list it cannot reach (odd/tasks/observaciones.md O1): never skipped in silence. --}}
+            @if ($emailLists && $listUnreachable->isNotEmpty())
+                <p role="status" data-list-unreachable class="rounded-control bg-status-maintenance-bg px-4 py-3 text-sm text-status-maintenance">
+                    <span class="font-semibold">{{ \App\Announcements\AnnouncementListEmails::unreachableNotice($listUnreachable, 'el evento') }}</span>
+                    Configura la lista de todo el personal y el buzón remitente en Admin › Empresas.
+                </p>
+            @endif
         </section>
     </form>
+
+    {{-- Emails to the lists: per company, for whoever may edit it (App\Calendar\EventListEmails::report()). --}}
+    @if ($listReport !== [])
+        <section class="{{ $card }} max-w-[760px] gap-3" aria-labelledby="e-lists" data-list-emails>
+            <h2 id="e-lists" class="{{ $heading }}">Correo a las listas</h2>
+            <ul class="flex flex-col gap-3">
+                @foreach ($listReport as $item)
+                    @php($hintText = $item['state'] === \App\Models\EventListEmail::STATUS_FAILED ? \App\Announcements\AnnouncementListEmails::hint($item['error']) : null)
+                    <li wire:key="list-email-{{ $loop->index }}-{{ $item['row_id'] }}" class="flex flex-col gap-1">
+                        <span class="text-[0.9375rem] font-semibold break-words">{{ $item['company'] }} · {{ $item['list'] ?? 'sin lista' }}</span>
+                        @switch($item['state'])
+                            @case(\App\Models\EventListEmail::STATUS_SENT)
+                                <span class="text-sm font-semibold text-status-active">Enviado el {{ \App\Announcements\AnnouncementReminders::when($item['sent_at']) }}</span>
+                                @break
+                            @case(\App\Models\EventListEmail::STATUS_FAILED)
+                                <span class="text-sm font-semibold text-status-failure">No se pudo enviar ({{ $item['error'] ?? 'sin código' }})</span>
+                                @if ($hintText) <span class="{{ $hint }}">{{ $hintText }}</span> @endif
+                                @if ($item['next_retry_at'])
+                                    <span class="{{ $hint }}">Podrás reintentar a las {{ \App\Announcements\AnnouncementListEmails::time($item['next_retry_at']) }}.</span>
+                                @else
+                                    <div class="pt-1">
+                                        <button type="button" wire:click="retryListEmail({{ $item['row_id'] }})" wire:loading.attr="disabled" wire:target="retryListEmail"
+                                                class="inline-flex h-11 items-center rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold hover:bg-subtle disabled:opacity-60">
+                                            Reintentar
+                                        </button>
+                                    </div>
+                                @endif
+                                @break
+                            @case(\App\Models\EventListEmail::STATUS_SENDING)
+                                <span class="text-sm text-fg-soft">Enviando…</span>
+                                @break
+                            @case('scheduled')
+                                <span class="text-sm text-fg-soft">Pendiente: sale cuando se muestre, el {{ \App\Announcements\AnnouncementReminders::when($event->published_at) }}.</span>
+                                @break
+                            @case('not_published')
+                                <span class="text-sm text-fg-soft">No se envía: el evento está retirado o ya pasó.</span>
+                                @break
+                            @case('off')
+                                <span class="text-sm text-fg-soft">No se envía: la casilla de correo está desmarcada.</span>
+                                @break
+                            @case('company_unavailable')
+                                <span class="text-sm text-fg-soft">No se envía: la empresa está inactiva o ya no tiene lista y buzón remitente.</span>
+                                @break
+                            @case('not_queued')
+                                <span class="text-sm text-fg-soft">Sin enviar: guarda el evento con la casilla marcada para enviárselo.</span>
+                                @break
+                            @default
+                                <span class="text-sm text-fg-soft">Pendiente: sale en los próximos minutos.</span>
+                        @endswitch
+                    </li>
+                @endforeach
+            </ul>
+            @error('listEmail') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
+            <p class="{{ $hint }}">Cada lista recibe el evento una sola vez. Si lo editas después de enviado, no se vuelve a enviar; guardar de nuevo solo lo envía a las empresas que aún no lo tienen.</p>
+        </section>
+    @endif
 </div>

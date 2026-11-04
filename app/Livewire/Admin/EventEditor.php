@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Admin;
 
+use App\Announcements\AnnouncementListEmails;
+use App\Announcements\ListEmailRetryRefused;
+use App\Calendar\EventListEmails;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\User;
@@ -9,6 +12,7 @@ use App\Policies\AnnouncementPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
@@ -28,6 +32,12 @@ use Livewire\Component;
  * «Se repite cada año» (odd/tasks/ajustes-inicio-y-tareas.md T3) is only
  * for an all-day event: unticking «Todo el día» clears it, and a timed
  * event sent with it is refused.
+ *
+ * «Enviar también por correo a la lista de cada empresa» (on for a new
+ * event, odd/tasks/observaciones.md O1) works as in the announcement
+ * editor: the cron sends it once per company (App\Calendar\EventListEmails),
+ * a company of the audience without its list is named and the skip
+ * audited, and the editor shows how each email went, with «Reintentar».
  */
 class EventEditor extends Component
 {
@@ -66,6 +76,9 @@ class EventEditor extends Component
     /** «Se muestra desde»: before it, the event is scheduled. */
     public string $publishedAt = '';
 
+    /** «Enviar también por correo a la lista de cada empresa»: on for a new one. */
+    public bool $emailLists = true;
+
     public function mount(?Event $event = null): void
     {
         if ($event === null || ! $event->exists) {
@@ -95,6 +108,7 @@ class EventEditor extends Component
         $this->audience = $event->audience;
         $this->companyIds = $event->companies()->orderBy('companies.id')->pluck('companies.id')->map(fn ($id) => (string) $id)->all();
         $this->publishedAt = $event->published_at->format(self::DATETIME_FORMAT);
+        $this->emailLists = $event->email_lists;
     }
 
     /**
@@ -141,6 +155,7 @@ class EventEditor extends Component
         }
 
         $creating = $this->event === null;
+        $audienceBefore = $creating ? null : $this->audienceOf($this->event);
         $attributes = [
             'title' => $this->title,
             'description' => $this->description === '' ? null : $this->description,
@@ -150,6 +165,8 @@ class EventEditor extends Component
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
             'audience' => $this->audience,
+            // Only kept while a company of the audience can get it.
+            'email_lists' => $this->emailLists && $this->listRecipients()->isNotEmpty(),
             'published_at' => Carbon::createFromFormat(self::DATETIME_FORMAT.'|', $this->publishedAt),
         ];
 
@@ -158,6 +175,13 @@ class EventEditor extends Component
         }
 
         $event = ($this->event ?? new Event)->saveWithCompanies($attributes, $companyIds);
+
+        // Only the companies that can get it now and have no email of it yet.
+        app(EventListEmails::class)->queue($event);
+
+        if ($this->emailLists && ($creating || $audienceBefore !== $this->audienceOf($event))) {
+            AnnouncementListEmails::auditSkipped($event, $this->listUnreachable());
+        }
 
         session()->flash('status', $creating ? 'Evento creado.' : 'Cambios guardados.');
 
@@ -184,6 +208,25 @@ class EventEditor extends Component
     }
 
     /**
+     * «Reintentar» on a failed email to a list: the cron sends it again in
+     * its next run ({@see EventListEmails::retry()} checks the limits).
+     */
+    public function retryListEmail(int $rowId, EventListEmails $emails): void
+    {
+        abort_if($this->event === null, 404);
+        $this->authorize('update', $this->event);
+        $this->resetErrorBag('listEmail');
+
+        try {
+            $row = $emails->retry($this->event, $rowId, $this->user());
+            $company = $row->company === null ? 'la empresa' : AnnouncementListEmails::label($row->company);
+            session()->flash('status', "El correo a la lista de {$company} sale de nuevo en los próximos minutos.");
+        } catch (ListEmailRetryRefused $refused) {
+            $this->addError('listEmail', $refused->getMessage());
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function rules(): array
@@ -203,6 +246,7 @@ class EventEditor extends Component
             'companyIds' => $specific ? ['required', 'array'] : ['array'],
             'companyIds.*' => ['distinct', Rule::exists('companies', 'id')],
             'publishedAt' => ['required', 'date_format:'.self::DATETIME_FORMAT],
+            'emailLists' => ['boolean'],
         ];
     }
 
@@ -242,7 +286,47 @@ class EventEditor extends Component
                 ? Company::query()->whereKey($this->user()->company_id)->get(['id', 'name', 'short_name'])
                 : Company::query()->orderBy('name')->get(['id', 'name', 'short_name', 'is_active']),
             'status' => $this->event?->status,
+            'listRecipients' => $this->listRecipients(),
+            'listUnreachable' => $this->listUnreachable(),
+            'listReport' => $this->event !== null && $this->user()->can('update', $this->event)
+                ? app(EventListEmails::class)->report($this->event)
+                : [],
         ]);
+    }
+
+    /**
+     * The companies whose lists the event would reach as the form stands:
+     * an announcements editor only ever addresses their company.
+     *
+     * @return Collection<int, Company>
+     */
+    private function listRecipients(): Collection
+    {
+        return $this->restricted()
+            ? app(AnnouncementListEmails::class)->recipients(Event::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
+            : app(AnnouncementListEmails::class)->recipients($this->audience, $this->companyIds);
+    }
+
+    /**
+     * The active companies of the audience whose list the event cannot reach.
+     *
+     * @return Collection<int, Company>
+     */
+    private function listUnreachable(): Collection
+    {
+        return $this->restricted()
+            ? app(AnnouncementListEmails::class)->unreachable(Event::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
+            : app(AnnouncementListEmails::class)->unreachable($this->audience, $this->audience === Event::AUDIENCE_COMPANIES ? $this->companyIds : []);
+    }
+
+    /**
+     * The audience and the chosen companies, to tell whether a save changed them.
+     *
+     * @return array{string, list<int>}
+     */
+    private function audienceOf(Event $event): array
+    {
+        return [$event->audience, $event->companies()->orderBy('companies.id')->pluck('companies.id')->map(fn ($id) => (int) $id)->all()];
     }
 
     /**

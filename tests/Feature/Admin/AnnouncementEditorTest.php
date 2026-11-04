@@ -356,11 +356,13 @@ class AnnouncementEditorTest extends TestCase
         $entries = Activity::query()->where('log_name', Announcement::AUDIT_LOG)->orderBy('id')->get();
 
         $this->assertSame(
-            ['created', 'announcement.companies_changed', 'updated', 'announcement.withdrawn'],
+            // Segurex has no all-staff list here: the skipped email is recorded too (O1).
+            ['created', 'announcement.companies_changed', 'announcement.list_email_skipped', 'updated', 'announcement.withdrawn'],
             $entries->pluck('event')->all(),
         );
         $this->assertSame(['companies' => ['Segurex']], $entries[1]->properties['attributes']);
-        $this->assertSame(['title' => 'Dos'], $entries[2]->properties['attributes']);
+        $this->assertSame(['companies' => ['Segurex']], $entries[2]->properties['attributes']);
+        $this->assertSame(['title' => 'Dos'], $entries[3]->properties['attributes']);
         $this->assertTrue($entries->every(fn (Activity $entry) => $entry->causer?->is($this->admin)));
     }
 

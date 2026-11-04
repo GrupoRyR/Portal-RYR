@@ -181,6 +181,13 @@
                                class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
                     </label>
                 @endif
+                {{-- Companies of the audience whose list it cannot reach (odd/tasks/observaciones.md O1): never skipped in silence. --}}
+                @if ($emailLists && $listUnreachable->isNotEmpty())
+                    <p role="status" data-list-unreachable class="rounded-control bg-status-maintenance-bg px-4 py-3 text-sm text-status-maintenance">
+                        <span class="font-semibold">{{ \App\Announcements\AnnouncementListEmails::unreachableNotice($listUnreachable, 'el anuncio') }}</span>
+                        Configura la lista de todo el personal y el buzón remitente en Admin › Empresas.
+                    </p>
+                @endif
                 {{-- Only with the VAPID settings (App\Push\PushSettings); the cron sends it (App\Push\AnnouncementPushes). --}}
                 @if ($pushAvailable)
                     <label class="flex min-h-touch cursor-pointer items-center justify-between gap-4">
