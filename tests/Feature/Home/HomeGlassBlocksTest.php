@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
 use App\View\Home\QuickLinks;
+use App\View\Notifications\NotificationList;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -173,6 +174,50 @@ class HomeGlassBlocksTest extends TestCase
         Announcement::factory()->create(['title' => 'Solo informativo', 'starts_at' => now()->subHour()]);
 
         $this->assertNoElement($this->home(), 'id', 'por-confirmar');
+    }
+
+    public function test_a_full_list_to_confirm_links_to_every_announcement(): void
+    {
+        // The bell's list stops at NotificationList::LIMIT lines: more may be waiting.
+        foreach (range(1, NotificationList::LIMIT) as $day) {
+            Announcement::factory()->mandatory()->create(['title' => "Obligatorio {$day}", 'starts_at' => now()->subDays($day)]);
+        }
+
+        $xpath = $this->xpath($this->home());
+        $section = $xpath->query('//section[@id="por-confirmar"]')->item(0);
+
+        $this->assertSame(NotificationList::LIMIT, $xpath->query('.//li', $section)->length);
+        $this->assertSame(1, $xpath->query('.//a[@href="'.route('announcements.index').'"][starts-with(normalize-space(), "Ver todos")]', $section)->length);
+    }
+
+    public function test_a_short_list_to_confirm_has_no_see_all_link(): void
+    {
+        Announcement::factory()->mandatory()->count(NotificationList::LIMIT - 1)->create(['starts_at' => now()->subDay()]);
+
+        $xpath = $this->xpath($this->home());
+
+        $this->assertSame(NotificationList::LIMIT - 1, $xpath->query('//section[@id="por-confirmar"]//li')->length);
+        $this->assertSame(0, $xpath->query('//section[@id="por-confirmar"]//a[@href="'.route('announcements.index').'"]')->length);
+    }
+
+    public function test_an_empty_my_day_says_so_and_keeps_its_anchor(): void
+    {
+        // Late in 9999 the holiday calendar runs out (HomePageBuilder::upcomingHolidays),
+        // and an emergency account has no company blocks: «Mi día» holds nothing.
+        $this->travelTo(CarbonImmutable::parse('9999-12-30 10:00', 'America/Bogota'));
+        $emergency = User::factory()->emergency()->create();
+
+        $xpath = $this->xpath($this->home(as: $emergency));
+        $rail = $xpath->query('//aside[@id="mi-dia"]');
+
+        $this->assertSame(1, $rail->length);
+        $this->assertSame(0, $xpath->query('.//section', $rail->item(0))->length);
+        $this->assertSame(1, $xpath->query('.//p[normalize-space()="Nada pendiente por hoy."]', $rail->item(0))->length);
+    }
+
+    public function test_my_day_with_a_block_has_no_empty_line(): void
+    {
+        $this->home()->assertDontSeeText('Nada pendiente por hoy.');
     }
 
     public function test_the_directory_block_searches_people_with_a_plain_form(): void

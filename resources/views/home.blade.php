@@ -165,7 +165,7 @@
                                 <li class="min-w-0">
                                     <a href="{{ $link->url }}" target="_blank" rel="noopener" class="g-chip">
                                         <x-home.icon :name="$link->icon" stroke-width="1.75" />
-                                        <span class="truncate">{{ $link->label }}</span><span class="sr-only"> (se abre en otra pestaña)</span>
+                                        <span class="min-w-0 truncate">{{ $link->label }}</span><span class="sr-only"> (se abre en otra pestaña)</span>
                                     </a>
                                 </li>
                             @endforeach
@@ -226,6 +226,9 @@
                             </li>
                         @endforeach
                     </ul>
+                    @if ($page->moreToConfirm())
+                        <a href="{{ route('announcements.index') }}" class="g-more my-0 ml-0 self-start">Ver todos<span class="sr-only"> los anuncios</span></a>
+                    @endif
                 </section>
             @endif
 
@@ -330,6 +333,11 @@
 
             @if ($page->itStatus)
                 <x-home.it-status :status="$page->itStatus" />
+            @endif
+
+            {{-- Nothing above (an emergency account, say): the card still answers /#mi-dia. --}}
+            @if (! ($page->work || $completionStatus) && $toConfirm === [] && $page->celebrations === [] && $page->upcomingDates === [] && ! $page->peopleHref && ! $page->itStatus)
+                <p class="g-rail__empty">Nada pendiente por hoy.</p>
             @endif
         </aside>
     </div>

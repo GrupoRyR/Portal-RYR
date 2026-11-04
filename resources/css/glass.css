@@ -1415,8 +1415,12 @@
             inset 0 0 0 1.5px var(--g-crit);
     }
 
-    .g-apps-group + .g-apps-group {
-        margin-top: 18px;
+    /* The tile hover (section 5) replaces the shadow: keep the red ring. */
+    .g-app--failing:hover {
+        box-shadow:
+            var(--g-drop),
+            var(--g-bevel),
+            inset 0 0 0 1.5px var(--g-crit);
     }
 
     .g-apps-group > h3 {
@@ -1434,7 +1438,9 @@
         gap: 8px;
     }
 
+    /* max-width: a long label ellipsizes (its span truncates) on a phone. */
     .g-quick .g-chip {
+        max-width: 100%;
         min-height: var(--spacing-touch, 44px);
         padding: 8px 14px;
         font-size: 13px;
@@ -1485,6 +1491,14 @@
             inset 0 3px 0 var(--g-accent);
     }
 
+    /* The tile hover (section 5) replaces the shadow: keep the accent edge. */
+    .g-ann--must:hover {
+        box-shadow:
+            var(--g-drop),
+            var(--g-bevel),
+            inset 0 3px 0 var(--g-accent);
+    }
+
     /* A tile with a form or a long text does not lift. */
     .g-home .g-ann.g-tile:hover {
         transform: none;
@@ -1519,12 +1533,19 @@
         border-radius: var(--g-r-lg) var(--g-r-lg) 0 0;
     }
 
-    /* «Mi día»: one card, its blocks split by a line. */
-    .g-rail > section {
+    /* «Mi día»: one card, its blocks split by a line. A block the saved
+       offline copy hides (home.js) leaves no stray line behind. */
+    .g-rail > section,
+    .g-rail__empty {
         padding: 16px;
     }
 
-    .g-rail > section ~ section {
+    .g-rail__empty {
+        font-size: 14px;
+        color: var(--g-ink-soft);
+    }
+
+    .g-rail > section:not([hidden]) ~ section {
         border-top: 1px solid var(--g-line);
     }
 

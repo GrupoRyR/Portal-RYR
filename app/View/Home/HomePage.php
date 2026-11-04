@@ -178,6 +178,15 @@ final readonly class HomePage
         ));
     }
 
+    /**
+     * «Ver todos» under «Por confirmar»: the bell's list stops at
+     * NotificationList::LIMIT lines, so a full list may leave some out.
+     */
+    public function moreToConfirm(): bool
+    {
+        return count($this->toConfirm()) >= NotificationList::LIMIT;
+    }
+
     public function hasApps(): bool
     {
         return $this->appCount > 0;

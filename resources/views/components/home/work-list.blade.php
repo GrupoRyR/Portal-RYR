@@ -71,7 +71,7 @@
                     @endforeach
                 </ul>
                 @foreach ($more as $link)
-                    <a href="{{ $link['href'] }}" target="_blank" rel="noopener noreferrer" data-work-more="{{ $kind }}" class="g-more ml-0 self-start">Ver todas en {{ $link['app'] }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
+                    <a href="{{ $link['href'] }}" target="_blank" rel="noopener noreferrer" data-work-more="{{ $kind }}" class="g-more my-0 ml-0 self-start">Ver todas en {{ $link['app'] }}<span class="sr-only"> (se abre en otra pestaña)</span></a>
                 @endforeach
             </div>
         @endforeach
