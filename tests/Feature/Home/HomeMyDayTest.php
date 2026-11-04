@@ -16,9 +16,10 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * The «Mi día» column of the home screen (upcoming holidays, announcements
- * and Microsoft 365 links), the next holiday beside the date line and the
- * «Secciones» menu of phones. The holiday data: HomeUpcomingHolidaysTest.
+ * The «Mi día» card of the home screen (upcoming dates and holidays), the
+ * next holiday beside the date line and the «Secciones» menu of phones.
+ * The holiday data: HomeUpcomingHolidaysTest; the glass blocks and their
+ * placements: HomeGlassBlocksTest.
  */
 class HomeMyDayTest extends TestCase
 {
@@ -69,7 +70,7 @@ class HomeMyDayTest extends TestCase
             ->assertDontSeeText('Próximo festivo');
     }
 
-    public function test_the_my_day_column_holds_the_dates_the_announcements_and_microsoft_365(): void
+    public function test_the_my_day_card_holds_the_dates_beside_the_announcements_and_quick_links(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-10-29 10:00', 'America/Bogota'));
         $this->openableApp();
@@ -79,17 +80,16 @@ class HomeMyDayTest extends TestCase
         $response = $this->home();
         $myDay = $this->section($response, 'id', 'mi-dia');
 
-        $this->assertStringContainsString('aria-label="Mi día"', $myDay);
+        $this->assertStringContainsString('aria-labelledby="mi-dia-titulo"', $myDay);
         $this->assertStringContainsString('id="fechas"', $myDay);
         $this->assertStringContainsString('Todos los Santos', $myDay);
-        $this->assertStringContainsString('data-announcements', $myDay);
-        $this->assertStringContainsString('Jornada de vacunación', $myDay);
-        $this->assertStringContainsString('Microsoft 365', $myDay);
-        $this->assertStringContainsString('href="'.QuickLinks::DEFAULTS['Outlook'].'"', $myDay);
+        $this->assertStringNotContainsString('data-announcements', $myDay);
         $response->assertDontSeeText('Para otra empresa');
 
-        // The phone banner keeps the top announcement above the apps.
-        $this->assertStringContainsString('Jornada de vacunación', $this->section($response, 'data-announcement-banner'));
+        // Announcements and quick links are cards of the main column (the prototype's places).
+        $this->assertStringContainsString('Jornada de vacunación', $this->section($response, 'data-announcements'));
+        $this->assertStringContainsString('href="'.QuickLinks::DEFAULTS['Outlook'].'"', $this->section($response, 'id', 'accesos'));
+        $this->assertStringNotContainsString('href="'.QuickLinks::DEFAULTS['Outlook'].'"', $myDay);
     }
 
     public function test_there_is_no_view_as_selector(): void
@@ -102,7 +102,7 @@ class HomeMyDayTest extends TestCase
     public function test_the_sections_menu_links_only_to_sections_on_the_page(): void
     {
         $this->openableApp();
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#accesos', '#fechas', '#estado-ti']);
     }
 
     public function test_there_is_no_sections_menu_without_apps(): void
@@ -122,11 +122,11 @@ class HomeMyDayTest extends TestCase
         $this->openableApp(['name' => 'Cartera', 'description' => 'Cuentas por cobrar']);
 
         // No match at all: neither Favoritos nor Aplicaciones are on screen.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=zzzz'), ['#contenido', '#fechas', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=zzzz'), ['#contenido', '#accesos', '#fechas', '#estado-ti']);
         // Only a category matches.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=cartera'), ['#contenido', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=cartera'), ['#contenido', '#aplicaciones', '#accesos', '#fechas', '#estado-ti']);
         // Only a favorite matches.
-        $this->assertSectionsMenuLinksResolve($this->home('?q=nomina'), ['#contenido', '#favoritos', '#fechas', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home('?q=nomina'), ['#contenido', '#favoritos', '#accesos', '#fechas', '#estado-ti']);
     }
 
     public function test_holiday_dates_are_marked_for_the_saved_copy(): void
@@ -167,7 +167,7 @@ class HomeMyDayTest extends TestCase
             'launched_at' => now()->subMinutes(5),
         ]);
 
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#recientes', '#aplicaciones', '#fechas', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#recientes', '#aplicaciones', '#accesos', '#fechas', '#estado-ti']);
     }
 
     public function test_the_sections_menu_lists_birthdays_and_anniversaries_when_there_are_some(): void
@@ -175,7 +175,7 @@ class HomeMyDayTest extends TestCase
         $this->openableApp();
         DirectoryEntry::factory()->forCompany($this->company)->create(['hire_date' => now('America/Bogota')->subYears(3)->toDateString()]);
 
-        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#fechas', '#celebraciones', '#estado-ti', '#m365']);
+        $this->assertSectionsMenuLinksResolve($this->home(), ['#contenido', '#favoritos', '#aplicaciones', '#accesos', '#celebraciones', '#fechas', '#estado-ti']);
     }
 
     /**

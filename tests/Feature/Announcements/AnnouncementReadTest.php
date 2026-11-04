@@ -276,16 +276,20 @@ class AnnouncementReadTest extends TestCase
             ->assertDontSee('x-data', false);
     }
 
-    public function test_the_phone_banner_says_the_announcement_is_mandatory_until_read(): void
+    public function test_the_home_card_asks_to_confirm_a_mandatory_announcement_until_read(): void
     {
         $announcement = Announcement::factory()->mandatory()->create();
 
-        $banner = fn () => $this->bannerOf($this->actingAs($this->ana)->get('/')->getContent());
+        $card = fn () => $this->cardOf($this->actingAs($this->ana)->get('/')->getContent());
 
-        $this->assertStringContainsString('Lectura obligatoria', $banner());
+        $this->assertStringContainsString('Lectura obligatoria', $card());
+        $this->assertStringContainsString('Confirmar lectura', $card());
+        $this->assertStringContainsString('g-ann--must', $card());
 
         $announcement->markReadBy($this->ana);
-        $this->assertStringNotContainsString('Lectura obligatoria', $banner());
+        $this->assertStringNotContainsString('Confirmar lectura', $card());
+        $this->assertStringNotContainsString('g-ann--must', $card());
+        $this->assertStringContainsString('Leído el', $card());
     }
 
     public function test_the_read_state_costs_the_home_no_extra_query(): void
@@ -303,9 +307,12 @@ class AnnouncementReadTest extends TestCase
         $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $mandatory);
     }
 
-    private function bannerOf(string $html): string
+    /**
+     * The «Anuncios» card of the home (main column, every width).
+     */
+    private function cardOf(string $html): string
     {
-        $this->assertSame(1, preg_match('/<[^>]*data-announcement-strip.*?<\/(a|div)>\s*<\/div>/s', $html, $match));
+        $this->assertSame(1, preg_match('/<section[^>]*data-announcements.*?<\/section>/s', $html, $match));
 
         return $match[0];
     }
