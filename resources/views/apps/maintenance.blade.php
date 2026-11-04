@@ -1,5 +1,5 @@
 {{-- Maintenance notice (docs/diseno/PhoneMaint.dc.html): shown instead of opening the app. --}}
-<x-layouts.app :title="$app->name" noindex glass class="flex flex-col">
+<x-layouts.app :title="$app->name" noindex glass assistant class="flex flex-col">
     <x-portal-header />
 
     <main id="contenido" class="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">

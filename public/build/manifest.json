@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-indOJPP_.css",
+    "file": "assets/app-C53UgI32.css",
     "name": "app",
     "names": [
       "app.css"
@@ -8,14 +8,20 @@
     "src": "resources/css/app.css",
     "isEntry": true
   },
+  "resources/js/assistant-panel.js": {
+    "file": "assets/assistant-panel-Bjyua6oS.js",
+    "name": "assistant-panel",
+    "src": "resources/js/assistant-panel.js",
+    "isEntry": true
+  },
   "resources/js/header.js": {
-    "file": "assets/header-B7DxCpJH.js",
+    "file": "assets/header-BvL1_eV0.js",
     "name": "header",
     "src": "resources/js/header.js",
     "isEntry": true
   },
   "resources/js/home.js": {
-    "file": "assets/home-BgKbqPkW.js",
+    "file": "assets/home-DPtL4dO0.js",
     "name": "home",
     "src": "resources/js/home.js",
     "isEntry": true,

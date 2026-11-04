@@ -9,15 +9,31 @@
 //   elsewhere, after following a link inside and on Escape.
 // - «Cerrar sesión» (form[data-logout]) on any page: the service worker
 //   forgets the saved pages of this user.
+// - The floating «Asistente» (a[data-assistant-fab], components/assistant-fab):
+//   a link to /asistente that opens the chat panel instead. Its script
+//   (resources/js/assistant-panel.js) loads on the first click only; if it
+//   cannot load (offline, a newer build), the link is followed.
 //
-// setUpHeader() takes the document and window so tests/js/header.test.mjs
-// can run it on a fake DOM.
+// setUpHeader() takes the document, the window and the module loader so
+// tests/js/header.test.mjs can run it on a fake DOM.
 
 import { applyTheme, readTheme, storeTheme } from './theme.js';
 
 const OPEN_MENUS = 'details[data-menu][open]';
 
-export function setUpHeader(doc, win) {
+// A module <script> rather than import(): Vite would add its preload helper
+// (another request on every page) around any dynamic import.
+const scriptLoader = (doc) => (url) =>
+    new Promise((resolve, reject) => {
+        const script = doc.createElement('script');
+        script.type = 'module';
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = reject;
+        doc.head.append(script);
+    });
+
+export function setUpHeader(doc, win, loadModule = scriptLoader(doc)) {
     const storage = (() => {
         try {
             return win.localStorage;
@@ -62,6 +78,24 @@ export function setUpHeader(doc, win) {
 
         menu.open = false;
         menu.querySelector('summary')?.focus();
+    });
+
+    // A click with a modifier (new tab, new window) stays a link. Once loaded,
+    // the panel script leaves win.openPortalAssistant(fab) behind.
+    doc.addEventListener('click', (event) => {
+        const fab = event.target.closest?.('a[data-assistant-fab]');
+        if (!fab || event.button > 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+        event.preventDefault();
+        if (win.openPortalAssistant) return win.openPortalAssistant(fab);
+        if (fab.hasAttribute('data-assistant-loading')) return;
+
+        fab.setAttribute('data-assistant-loading', '');
+        Promise.resolve()
+            .then(() => loadModule(fab.dataset.module))
+            .then(() => win.openPortalAssistant(fab))
+            .catch(() => win.location.assign(fab.getAttribute('href')))
+            .finally(() => fab.removeAttribute('data-assistant-loading'));
     });
 
     // Signing out also sends Clear-Site-Data; this covers browsers without it:

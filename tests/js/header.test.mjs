@@ -178,3 +178,76 @@ test('signing out without a service worker or a controller does not throw', asyn
     assert.doesNotThrow(() => uncontrolled.doc.dispatch('submit', uncontrolled.el.logout));
     await settle();
 });
+
+function assistantPage(load) {
+    const doc = new FakeDocument();
+    const icon = doc.element('svg', { 'aria-hidden': 'true' });
+    const fab = doc.element('a', { href: '/asistente', 'data-assistant-fab': '', 'data-module': '/build/assets/assistant-panel-abc.js' }, icon);
+    doc.documentElement.append(doc.element('body', {}, fab));
+    const win = { navigator: {}, location: { assigned: [], assign(url) { this.assigned.push(url); } } };
+    setUpHeader(doc, win, (url) => load(url, win));
+
+    return { doc, fab, icon, win };
+}
+
+test('the floating «Asistente» button loads the chat panel once and opens it on every click', async () => {
+    const loaded = [];
+    const opened = [];
+    const { doc, fab, icon } = assistantPage(async (url, win) => {
+        loaded.push(url);
+        // What resources/js/assistant-panel.js leaves behind once it runs.
+        win.openPortalAssistant = (target) => opened.push(target);
+    });
+
+    const event = doc.dispatch('click', icon, { button: 0 });
+    assert.equal(event.defaultPrevented, true);
+    // A second click while it loads does not load it twice.
+    doc.dispatch('click', fab, { button: 0 });
+    await settle();
+
+    assert.deepEqual(loaded, ['/build/assets/assistant-panel-abc.js']);
+    assert.deepEqual(opened, [fab]);
+
+    assert.equal(doc.dispatch('click', fab, { button: 0 }).defaultPrevented, true);
+    assert.deepEqual(loaded, ['/build/assets/assistant-panel-abc.js']);
+    assert.deepEqual(opened, [fab, fab]);
+});
+
+test('a click with a modifier key follows the floating button as a link', async () => {
+    const loaded = [];
+    const { doc, fab } = assistantPage(async (url) => loaded.push(url));
+
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey', 'altKey']) {
+        assert.equal(doc.dispatch('click', fab, { button: 0, [modifier]: true }).defaultPrevented, false, modifier);
+    }
+    assert.equal(doc.dispatch('click', fab, { button: 1 }).defaultPrevented, false);
+    await settle();
+
+    assert.deepEqual(loaded, []);
+});
+
+test('when the chat panel cannot load, the floating button goes to /asistente', async () => {
+    const { doc, fab, win } = assistantPage(async () => { throw new Error('offline'); });
+
+    doc.dispatch('click', fab, { button: 0 });
+    await settle();
+
+    assert.deepEqual(win.location.assigned, ['/asistente']);
+    assert.equal(fab.hasAttribute('data-assistant-loading'), false);
+});
+
+test('the default loader adds the panel as a module script', async () => {
+    const doc = new FakeDocument();
+    const fab = doc.element('a', { href: '/asistente', 'data-assistant-fab': '', 'data-module': '/build/assets/assistant-panel-abc.js' });
+    const head = doc.element('head', {});
+    doc.documentElement.append(head, doc.element('body', {}, fab));
+    setUpHeader(doc, { navigator: {} });
+
+    doc.dispatch('click', fab, { button: 0 });
+    await settle();
+
+    const script = head.children[0];
+    assert.equal(script.tagName, 'script');
+    assert.equal(script.type, 'module');
+    assert.equal(script.src, '/build/assets/assistant-panel-abc.js');
+});

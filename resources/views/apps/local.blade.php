@@ -1,7 +1,7 @@
 {{-- Info page of an app installed on the computer (docs/diseno/PhoneLocal.dc.html). --}}
 @php($steps = collect(preg_split('/\R/u', (string) $app->local_instructions))->map(fn ($step) => trim($step))->filter()->values())
 @php($downloadUrl = is_string($app->download_url) && str_starts_with(strtolower($app->download_url), 'https://') ? $app->download_url : null)
-<x-layouts.app :title="$app->name" glass class="flex flex-col">
+<x-layouts.app :title="$app->name" glass assistant class="flex flex-col">
     <x-portal-header />
 
     <div class="g-sheet mx-2 my-3 flex max-w-lg flex-1 flex-col md:my-8 min-[528px]:mx-auto min-[528px]:w-full">

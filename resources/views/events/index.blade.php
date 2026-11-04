@@ -5,7 +5,7 @@
     out (App\Http\Controllers\EventController::LIMIT). No Livewire or Alpine;
     each item has an anchor (#e-{id}) for «Próximas fechas» and the search.
 --}}
-<x-layouts.app title="Eventos" glass>
+<x-layouts.app title="Eventos" glass assistant>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
     <x-portal-header />
