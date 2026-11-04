@@ -269,6 +269,123 @@
         color: var(--g-accent-ink);
     }
 
+    /* Lists of entries (announcements, events, people): rows of one card,
+       edge to edge, each with its anchor (#a-…, #e-…, #p-…). */
+    .g-page__list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .g-page__entry {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 18px;
+        border-top: 1px solid var(--g-line);
+    }
+
+    .g-page__entry:first-child {
+        border-top: 0;
+    }
+
+    @media (max-width: 639.98px) {
+        .g-page__entry {
+            padding: 16px 14px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .g-page__entry {
+            padding: 20px 24px;
+        }
+    }
+
+    /* The row a link jumped to: the menu-row highlight and an accent edge
+       (decoration only; the text keeps its colors). */
+    .g-page__entry:target {
+        background: var(--g-hover-row);
+        box-shadow: inset 3px 0 0 var(--g-accent);
+    }
+
+    .g-page__entry-title {
+        font-family: var(--g-font);
+        font-size: 1.0625rem;
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: normal;
+        overflow-wrap: anywhere;
+    }
+
+    @media (min-width: 768px) {
+        .g-page__entry-title {
+            font-size: 1.1875rem;
+        }
+    }
+
+    /* An event: its date badge beside the text (accent ink on the accent
+       tint, the .g-pill pair). */
+    .g-page__event {
+        display: flex;
+        gap: 16px;
+    }
+
+    .g-page__date {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        align-items: center;
+        align-self: flex-start;
+        width: 56px;
+        padding: 8px 0;
+        border-radius: 14px;
+        line-height: 1.15;
+        color: var(--g-accent-ink);
+        background: var(--g-accent-tint);
+    }
+
+    .g-page__date > :first-child {
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    .g-page__date > :last-child {
+        font-size: 12px;
+    }
+
+    /* Ways to reach a person: links in the accent ink, 44 px tall. */
+    .g-page__links {
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 16px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .g-page__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: var(--spacing-touch, 44px);
+        color: var(--g-accent-ink);
+        overflow-wrap: anywhere;
+        text-underline-offset: 4px;
+    }
+
+    .g-page__link:hover {
+        text-decoration: underline;
+    }
+
+    /* The search of a list (/personas). */
+    .g-page__search {
+        display: flex;
+        gap: 8px;
+    }
+
+    .g-page__search .g-input {
+        min-width: 0;
+        flex: 1;
+    }
+
     /* Controls: the kit's, with 16 px text so phones do not zoom in. */
     .g-page :is(.g-input, .g-select) {
         font-size: 16px;
