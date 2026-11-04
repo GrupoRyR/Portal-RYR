@@ -619,7 +619,8 @@
    A glass band whose list slides left one copy per lap (App\View\Home\
    MarketTicker sets --g-ticker-groups and --g-ticker-duration). Still by
    default: only .g-ticker-moves (two figures or more) slides, it pauses on
-   hover and on focus, and under reduced motion it stands and wraps.
+   hover, on focus and with the «Pausar» control, and under reduced motion
+   it stands and wraps (the control hides).
    Rise --g-good, fall --g-crit, no move --g-ink-faint: ≥ 4.9:1 on the
    glass in both themes and both companies (section 1 measures). */
 @layer components {
@@ -736,6 +737,53 @@
         animation-play-state: paused;
     }
 
+    /* «Pausar» / «Reanudar» for touch screens: the checkbox covers the
+       pill (invisible, still focusable) and stops the track. Ink on the
+       glass ≥ 9:1 in every theme and company (section 1 measures). */
+    .g-ticker-pause {
+        position: relative;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 11px;
+        border-radius: var(--g-r-pill);
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--g-ink);
+        background: var(--g-accent-tint);
+        box-shadow: inset 0 0 0 1px var(--g-line-strong);
+        cursor: pointer;
+    }
+
+    .g-ticker-pause-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .g-ticker-pause:has(:focus-visible) {
+        outline: 2px solid var(--g-ink);
+        outline-offset: 2px;
+    }
+
+    .g-ticker-pause-on,
+    .g-ticker-pause:has(:checked) .g-ticker-pause-off {
+        display: none;
+    }
+
+    .g-ticker-pause:has(:checked) .g-ticker-pause-on {
+        display: inline;
+    }
+
+    .g-ticker-in:has(.g-ticker-pause-input:checked) .g-ticker-track {
+        animation-play-state: paused;
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .g-ticker-moves {
             overflow: visible;
@@ -755,6 +803,10 @@
         }
 
         .g-ticker-group[aria-hidden='true'] {
+            display: none;
+        }
+
+        .g-ticker-pause {
             display: none;
         }
     }

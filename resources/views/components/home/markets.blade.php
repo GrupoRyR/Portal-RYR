@@ -6,12 +6,13 @@
     A glass ticker with no JavaScript: the list is printed again
     (App\View\Home\MarketTicker) and the track slides one copy per lap, so
     the loop never jumps. The copies are hidden from screen readers and
-    carry no data-market. It pauses on hover and on keyboard focus; under
-    reduced motion, or with a single figure, it stands still and wraps
-    (glass.css, section 6).
+    carry no data-market. It pauses on hover, on keyboard focus and with
+    the «Pausar» control; under reduced motion, or with a single figure, it
+    stands still and wraps, without the control (glass.css, section 6).
 
     A rise is green ▲, a fall red ▼, no move a neutral ●. The arrow is for
-    the eye; screen readers hear «Subió 12,40 pesos (0,32 %)».
+    the eye; screen readers hear «Subió 12,40 pesos (0,32 %)», in the
+    unit of each code (MarketFigure::UNITS).
 --}}
 @props(['figures'])
 
@@ -42,5 +43,15 @@
                 @endfor
             </div>
         </div>
+        @if ($ticker->moves)
+            {{-- Pause for touch screens (WCAG 2.2.2), no JavaScript: the
+                 checkbox stops the track through :has(). Its name holds both
+                 words the label shows, so voice control finds either. --}}
+            <label class="g-ticker-pause">
+                <input type="checkbox" class="g-ticker-pause-input" data-market-pause aria-label="Pausar o reanudar los indicadores de mercado">
+                <span class="g-ticker-pause-off" aria-hidden="true">Pausar</span>
+                <span class="g-ticker-pause-on" aria-hidden="true">Reanudar</span>
+            </label>
+        @endif
     </div>
 </section>

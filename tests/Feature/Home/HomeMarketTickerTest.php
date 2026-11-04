@@ -105,6 +105,59 @@ class HomeMarketTickerTest extends TestCase
         $this->assertNotSame('', $views->item(0)->getAttribute('aria-label'));
     }
 
+    public function test_a_moving_band_has_a_pause_control_for_touch_screens(): void
+    {
+        $xpath = $this->band($this->figures(2));
+        $controls = $xpath->query('//*[@data-markets]//input[@data-market-pause]');
+
+        $this->assertSame(1, $controls->length);
+        $input = $controls->item(0);
+        $this->assertSame('checkbox', $input->getAttribute('type'));
+        $this->assertNotSame('-1', $input->getAttribute('tabindex'));
+        $this->assertStringContainsString('Pausar', $input->getAttribute('aria-label'));
+        $this->assertStringContainsString('reanudar', $input->getAttribute('aria-label'));
+
+        $label = $input->parentNode;
+        $this->assertSame('label', $label->nodeName);
+        $this->assertStringContainsString('Pausar', $label->textContent);
+        $this->assertStringContainsString('Reanudar', $label->textContent);
+        $this->assertSame(0, $xpath->query('ancestor::*[@aria-hidden="true"]', $input)->length);
+    }
+
+    public function test_the_pause_control_stops_the_track_and_shows_focus(): void
+    {
+        $css = (string) file_get_contents(resource_path('css/glass.css'));
+
+        $this->assertMatchesRegularExpression('/:has\(\.g-ticker-pause-input:checked\)\s+\.g-ticker-track\s*\{[^}]*animation-play-state:\s*paused/', $css);
+        $this->assertMatchesRegularExpression('/\.g-ticker-pause:has\(:focus-visible\)\s*\{[^}]*outline:\s*2px solid/', $css);
+        $this->assertMatchesRegularExpression(
+            '/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*\.g-ticker-pause\s*\{[^}]*display:\s*none/',
+            $css,
+        );
+    }
+
+    public function test_a_still_band_has_no_pause_control(): void
+    {
+        $this->assertSame(0, $this->band([$this->figure('trm', 'up')])->query('//*[@data-market-pause]')->length);
+    }
+
+    public function test_the_spoken_change_keeps_pesos_for_the_trm_and_the_euro(): void
+    {
+        $this->assertSame('Subió 12,40 pesos (0,32 %)', $this->figure('trm', 'up')->spokenChange());
+        $this->assertSame('Bajó 12,40 pesos (0,32 %)', $this->figure('eur', 'down')->spokenChange());
+        $this->assertSame('Sin cambio frente al valor anterior', $this->figure('trm', 'flat')->spokenChange());
+    }
+
+    public function test_the_spoken_change_says_dollars_for_dollar_priced_codes(): void
+    {
+        $this->assertSame('Subió 12,40 dólares (0,32 %)', $this->figure('brent', 'up')->spokenChange());
+    }
+
+    public function test_the_spoken_change_says_points_for_an_unknown_code(): void
+    {
+        $this->assertSame('Bajó 12,40 puntos (0,32 %)', $this->figure('m9', 'down')->spokenChange());
+    }
+
     public function test_a_single_figure_does_not_move(): void
     {
         $xpath = $this->band([$this->figure('trm', 'up')]);

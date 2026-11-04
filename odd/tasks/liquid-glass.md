@@ -68,4 +68,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Sube: ▲ verde (`--g-good`). Baja: ▼ rojo (`--g-crit`). Sin cambio: ● neutro (antes «=»). Contraste medido sobre el vidrio: claro ≥ 4,99 (sobre negro, el peor caso); oscuro ≥ 5,2 sobre el fondo oscuro del inicio, en las dos marcas.
   - Toma cualquier código que entregue `MarketBoard`: nuevos `MarketRate::CODES` aparecen sin tocar la vista.
   - Evidencia: `php artisan test` 3240 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 12 pruebas nuevas o cambiadas antes del código. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 375 px y escritorio, con y sin movimiento reducido.
-  - Pendiente: no hay botón de pausa para pantallas táctiles sin foco (WCAG 2.2.2); la frase leída dice «pesos», que no sirve para cifras en dólares como el Brent.
+  - Cerrado en un segundo commit de G5 (`fix(glass)`, pedido del coordinador):
+    - Control «Pausar» / «Reanudar» sin JavaScript al final de la banda (WCAG 2.2.2): una casilla que detiene la pista con `:has()`, con foco visible y texto ≥ 7,5:1 en las dos marcas y los dos temas. No aparece con menos de dos cifras ni con movimiento reducido.
+    - La frase leída usa la unidad de cada código (`MarketFigure::UNITS`): pesos para TRM y euro (igual que antes), dólares para el Brent cuando se sincronice y «puntos» para cualquier otro.
+    - Evidencia: `php artisan test` 3246 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 4 pruebas nuevas antes del código. En Chrome sin interfaz: marcada la casilla, la pista queda en `paused`, el texto dice «Reanudar» y el foco muestra el contorno.
