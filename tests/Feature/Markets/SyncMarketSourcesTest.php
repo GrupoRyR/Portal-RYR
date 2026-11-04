@@ -5,6 +5,7 @@ namespace Tests\Feature\Markets;
 use App\Markets\MarketBoard;
 use App\Models\MarketRate;
 use App\View\Home\MarketFigure;
+use Closure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -28,9 +29,10 @@ class SyncMarketSourcesTest extends TestCase
 
     private const KEY = 'abcdef0123456789abcdef0123456789';
 
-    private const TPM_URL = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_CBR_DAILY_LATEST,1.0/all/ALL/';
+    // About 13 months back for the policy rate (its flow ignores it today), 3 for COLCAP.
+    private const TPM_URL = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_CBR_DAILY_HIST,1.0/all/ALL/?startPeriod=2025-10';
 
-    private const COLCAP_URL = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_COLCAP_MONTHLY_LATEST,1.0/all/ALL/';
+    private const COLCAP_URL = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_COLCAP_MONTHLY_HIST,1.0/all/ALL/?startPeriod=2026-08';
 
     private const FRED_URL = 'https://api.stlouisfed.org/fred/series/observations';
 
@@ -85,12 +87,14 @@ class SyncMarketSourcesTest extends TestCase
         $this->fakeSources();
 
         $this->artisan('portal:sync-markets')
-            ->expectsOutputToContain('Tasa de política (BanRep): 1 valor guardado.')
-            ->expectsOutputToContain('COLCAP: 1 valor guardado.');
+            ->expectsOutputToContain('Tasa de política (BanRep): 2 valores guardados.')
+            ->expectsOutputToContain('COLCAP: 2 valores guardados.');
 
-        // The live `_LATEST` answers carry only today's value.
-        $this->assertSame(['2026-11-04' => '12.2500'], $this->history('tpm'));
-        $this->assertSame(['2026-10-01' => '2536.5100'], $this->history('colcap'));
+        // Out of 672 days of policy rate, only today's and the last day of
+        // the rate before the last decision (12 → 12,25 on 1 Oct).
+        $this->assertSame(['2026-09-30' => '12.0000', '2026-11-04' => '12.2500'], $this->history('tpm'));
+        // COLCAP: the last two months.
+        $this->assertSame(['2026-09-01' => '2560.6100', '2026-10-01' => '2536.5100'], $this->history('colcap'));
         $this->assertSame(['banrep.gov.co'], MarketRate::query()->whereIn('code', ['tpm', 'colcap'])->distinct()->pluck('source')->all());
         $this->assertNull(MarketRate::query()->where('code', 'tpm')->value('valid_until'));
     }
@@ -293,7 +297,7 @@ class SyncMarketSourcesTest extends TestCase
         config(['services.fred.key' => self::KEY]);
         $down = true;
         $this->fakeSources(colcap: function () use (&$down) {
-            return $down ? Http::response('', 503) : Http::response($this->marketFixture('banrep-colcap-live.xml'));
+            return $down ? Http::response('', 503) : Http::response($this->marketFixture('banrep-colcap-hist.xml'));
         });
         Log::spy();
 
@@ -304,60 +308,88 @@ class SyncMarketSourcesTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-11-04 13:10:00', 'America/Bogota'));
         $this->artisan('portal:sync-markets');
 
-        $this->assertSame(1, MarketRate::query()->where('code', 'colcap')->count());
+        $this->assertSame(2, MarketRate::query()->where('code', 'colcap')->count());
     }
 
     // --- History: each answer carries one value ----------------------------------
 
-    public function test_every_sync_adds_the_day_of_the_value_and_the_change_comes_from_the_stored_one_before(): void
+    public function test_the_band_shows_the_last_decision_and_the_last_colcap_month_after_one_sync(): void
     {
-        MarketRate::factory()->create(['code' => 'colcap', 'value' => '2500', 'valid_from' => '2026-09-01', 'source' => 'banrep.gov.co', 'fetched_at' => now()->subMonth()]);
         $this->fakeSources();
 
         $this->artisan('portal:sync-markets');
+        $board = (new MarketBoard)->current();
 
-        $this->assertSame(['2026-09-01' => '2500.0000', '2026-10-01' => '2536.5100'], $this->history('colcap'));
+        $tpm = MarketFigure::from($board['tpm']);
+        $this->assertSame('12,25 %', $tpm->value);
+        $this->assertSame('▲ 0,25 pp', $tpm->shortChange());
+        $this->assertSame('Subió 0,25 puntos porcentuales', $tpm->spokenChange());
+        $this->assertSame('2026-11-04', $tpm->validFromIso);
 
-        $colcap = MarketFigure::from((new MarketBoard)->current()['colcap']);
+        $colcap = MarketFigure::from($board['colcap']);
         $this->assertSame('2.536,51', $colcap->value);
-        $this->assertSame('▲ 1,46 %', $colcap->shortChange());
+        $this->assertSame('▼ 0,94 %', $colcap->shortChange());
         $this->assertSame('oct 2026', $colcap->validFromLabel);
     }
 
-    public function test_a_first_sync_shows_the_policy_rate_without_a_move(): void
+    public function test_a_policy_rate_that_never_changed_in_the_answer_stores_only_today(): void
     {
-        $this->fakeSources();
+        $this->fakeSources(tpm: Http::response($this->policyRateXml(['20261102' => '12.25', '20261103' => '12.25', '20261104' => '12.25'])));
 
         $this->artisan('portal:sync-markets');
 
-        $tpm = MarketFigure::from((new MarketBoard)->current()['tpm']);
-        $this->assertSame('12,25 %', $tpm->value);
-        $this->assertSame('● 0,00 pp', $tpm->shortChange());
-        $this->assertSame('4 nov', $tpm->validFromLabel);
+        $this->assertSame(['2026-11-04' => '12.2500'], $this->history('tpm'));
+        $this->assertSame('● 0,00 pp', MarketFigure::from((new MarketBoard)->current()['tpm'])->shortChange());
     }
 
-    public function test_the_policy_rate_shows_its_last_decision_and_todays_date(): void
+    public function test_the_next_day_keeps_the_last_decision_with_the_new_date(): void
     {
-        $answer = ['day' => '20261102', 'value' => '12.5'];
-        $this->fakeSources(tpm: function () use (&$answer) {
-            return Http::response($this->policyRateXml($answer['day'], $answer['value']));
+        $days = ['20261101' => '12.5', '20261102' => '12.25', '20261103' => '12.25'];
+        $this->fakeSources(tpm: function () use (&$days) {
+            return Http::response($this->policyRateXml($days));
         });
 
-        foreach ([['20261102', '12.5', '2026-11-02'], ['20261103', '12.5', '2026-11-03'], ['20261104', '12.25', '2026-11-04'], ['20261105', '12.25', '2026-11-05'], ['20261106', '12.25', '2026-11-06']] as [$day, $value, $date]) {
-            $answer = ['day' => $day, 'value' => $value];
-            Carbon::setTestNow(Carbon::parse("{$date} 07:10:00", 'America/Bogota'));
-            $this->artisan('portal:sync-markets');
-        }
+        Carbon::setTestNow(Carbon::parse('2026-11-03 07:10:00', 'America/Bogota'));
+        $this->artisan('portal:sync-markets');
 
-        $this->assertCount(5, $this->history('tpm'));
+        $days['20261104'] = '12.25';
+        Carbon::setTestNow(Carbon::parse('2026-11-04 07:10:00', 'America/Bogota'));
+        $this->artisan('portal:sync-markets');
 
-        // Two days after the cut, the band still shows it against 12,50 %, with today's date.
+        $this->assertSame(['2026-11-01' => '12.5000', '2026-11-03' => '12.2500', '2026-11-04' => '12.2500'], $this->history('tpm'));
+
         $tpm = MarketFigure::from((new MarketBoard)->current()['tpm']);
-        $this->assertSame('12,25 %', $tpm->value);
         $this->assertSame('▼ 0,25 pp', $tpm->shortChange());
-        $this->assertSame('Bajó 0,25 puntos porcentuales', $tpm->spokenChange());
-        $this->assertSame('crit', $tpm->tone());
-        $this->assertSame('2026-11-06', $tpm->validFromIso);
+        $this->assertSame('2026-11-04', $tpm->validFromIso);
+    }
+
+    // --- Time limits -------------------------------------------------------------
+
+    public function test_banrep_and_fred_get_short_time_limits_so_the_scheduler_is_not_held(): void
+    {
+        config(['services.fred.key' => self::KEY, 'markets.timeout' => 10]);
+        $options = [];
+        // Not an arrow function: it would copy $options instead of sharing it.
+        $record = function (string $host, Closure $answer) use (&$options) {
+            return function (Request $request, array $sent) use (&$options, $host, $answer) {
+                $options[$host] = [$sent['connect_timeout'] ?? null, $sent['timeout'] ?? null];
+
+                return $answer($request);
+            };
+        };
+        Http::fake([
+            'www.datos.gov.co/*' => $record('trm', fn () => Http::response([['valor' => '3182.99', 'unidad' => 'COP', 'vigenciadesde' => '2026-10-31T00:00:00.000']])),
+            'www.ecb.europa.eu/*' => $record('ecb', fn () => Http::response('', 503)),
+            'totoro.banrep.gov.co/*' => $record('banrep', $this->banrepResponder()),
+            'api.stlouisfed.org/*' => $record('fred', $this->fredResponder()),
+        ]);
+
+        $this->artisan('portal:sync-markets');
+
+        // Connect 5 s, everything 8 s; the TRM and the ECB keep `markets.timeout`.
+        $this->assertSame([5, 8], $options['banrep']);
+        $this->assertSame([5, 8], $options['fred']);
+        $this->assertSame([10, 10], $options['trm']);
     }
 
     /**

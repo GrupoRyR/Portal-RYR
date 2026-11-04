@@ -24,13 +24,13 @@ enum MarketUnit: string
     /** Index points of a stock index (COLCAP): «1.512,30». */
     case Points = 'points';
 
-    /** A producer price index (base 100 at some past date): only its change in % means something. */
+    /** A producer price index (base 100 at some past date): its level, read with its monthly change in %. */
     case Index = 'index';
 
     /**
      * The words a screen reader hears after the amount of a change
-     * («Subió 12,40 pesos»). Null for an index, whose change is spoken in
-     * percent only.
+     * («Subió 12,40 pesos»). Null for an index: the band prints its level,
+     * but its change is spoken in percent only.
      */
     public function spokenAmount(): ?string
     {

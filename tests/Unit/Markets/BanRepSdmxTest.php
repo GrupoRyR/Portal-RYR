@@ -8,9 +8,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The observations of a Banco de la República SDMX-ML 2.1 generic message.
- * `banrep-*-live.xml` are copies of the live answers of 2026-11-04: the
- * `_LATEST` dataflows carry one series with ONE observation, a daily date
- * spelled `20261104` and attributes inside the series and the observation.
+ * `banrep-*-hist.xml` are copies of the live `_HIST` answers of 2026-11-04:
+ * one series, a daily date spelled `20261104`, a monthly one `2026-10`, and
+ * attributes inside the series and each observation.
  */
 class BanRepSdmxTest extends TestCase
 {
@@ -35,20 +35,40 @@ class BanRepSdmxTest extends TestCase
             .'<generic:Attributes><generic:Value id="OBS_STATUS" value="A"/></generic:Attributes></generic:Obs>';
     }
 
-    public function test_it_reads_the_live_policy_rate_with_its_compact_daily_date(): void
+    public function test_it_reads_the_live_policy_rate_history_with_its_compact_daily_dates(): void
     {
-        $this->assertSame(
-            [['date' => '2026-11-04', 'value' => '12.2500']],
-            BanRepSdmx::observations($this->fixture('banrep-cbr-live.xml')),
-        );
+        $observations = BanRepSdmx::observations($this->fixture('banrep-cbr-hist.xml'));
+
+        $this->assertCount(672, $observations);
+        $this->assertSame(['date' => '2026-11-04', 'value' => '12.2500'], $observations[0]);
+        $this->assertContains(['date' => '2026-09-30', 'value' => '12.0000'], $observations);
+        $this->assertSame(['date' => '2025-01-01', 'value' => '9.5000'], $observations[671]);
     }
 
-    public function test_it_reads_the_live_monthly_colcap_on_the_first_day_of_its_month(): void
+    public function test_it_reads_the_live_monthly_colcap_on_the_first_day_of_each_month(): void
     {
-        $this->assertSame(
-            [['date' => '2026-10-01', 'value' => '2536.5100']],
-            BanRepSdmx::observations($this->fixture('banrep-colcap-live.xml')),
-        );
+        $observations = BanRepSdmx::observations($this->fixture('banrep-colcap-hist.xml'));
+
+        $this->assertCount(10, $observations);
+        $this->assertSame([
+            ['date' => '2026-10-01', 'value' => '2536.5100'],
+            ['date' => '2026-09-01', 'value' => '2560.6100'],
+        ], array_slice($observations, 0, 2));
+    }
+
+    public function test_a_java_double_is_rounded_to_four_decimals(): void
+    {
+        $xml = $this->message($this->obs('2026-10', '2536.5100000000002').$this->obs('2026-09', '2560.610000000000000001'));
+
+        // Seventeen decimals are a double printed in full; eighteen are not a value.
+        $this->assertSame([['date' => '2026-10-01', 'value' => '2536.5100']], BanRepSdmx::observations($xml));
+    }
+
+    public function test_a_repeated_date_keeps_the_last_published(): void
+    {
+        $xml = $this->message($this->obs('20261104', '12.5').$this->obs('20261104', '12.25'));
+
+        $this->assertSame([['date' => '2026-11-04', 'value' => '12.2500']], BanRepSdmx::observations($xml));
     }
 
     public function test_the_other_date_spellings_are_read_too(): void

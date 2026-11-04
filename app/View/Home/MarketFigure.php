@@ -5,6 +5,7 @@ namespace App\View\Home;
 use App\Markets\MarketQuote;
 use App\Markets\MarketSeries;
 use App\Markets\MarketUnit;
+use Carbon\CarbonImmutable;
 
 /**
  * One figure of the «Mercados» band of the home (App\Markets\MarketBoard),
@@ -17,10 +18,11 @@ use App\Markets\MarketUnit;
  * - pesos «$3.861,38», dollars «US$64,53» (per barrel or per tonne, in the
  *   label), points «1.512,30»: change in the unit and in percent;
  * - percent «9,25 %»: change in percentage points («▲ 0,25 pp»);
- * - index «312,46»: change in percent only, the index level means little.
+ * - index «312,46»: its level with its monthly change in percent (the
+ *   level alone means little, the change says where prices go).
  *
  * A daily series shows its day («3 nov»), a monthly one its month
- * («sep 2026»).
+ * («sep 2026»); screen readers hear the whole date instead (spokenDate()).
  */
 final readonly class MarketFigure
 {
@@ -146,12 +148,17 @@ final readonly class MarketFigure
     }
 
     /**
-     * What a screen reader hears before the date: the day a daily value is
-     * valid, or the month a monthly value belongs to.
+     * The whole date a screen reader hears instead of the short label:
+     * «vigente el 3 de noviembre» for a daily value, «dato de septiembre de
+     * 2026» for a monthly one.
      */
-    public function datePrefix(): string
+    public function spokenDate(): string
     {
-        return $this->isMonthly() ? 'dato de' : 'vigente el';
+        $date = CarbonImmutable::parse($this->isMonthly() ? $this->validFromIso.'-01' : $this->validFromIso)->locale('es');
+
+        return $this->isMonthly()
+            ? 'dato de '.$date->isoFormat('MMMM [de] YYYY')
+            : 'vigente el '.$date->isoFormat('D [de] MMMM');
     }
 
     private function unit(): ?MarketUnit

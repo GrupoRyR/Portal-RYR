@@ -109,8 +109,9 @@ class HomeMarketsAndNewsTest extends TestCase
         $colcap = $this->element($response, 'data-market', 'colcap');
         $this->assertStringContainsString('1.512,30', $colcap);
         $this->assertStringContainsString('datetime="2026-10"', $colcap);
-        $this->assertStringContainsString('dato de', $colcap);
-        $this->assertStringContainsString('oct 2026', $colcap);
+        $this->assertStringContainsString('dato de octubre de 2026', $colcap);
+        // The short label is for the eye; screen readers hear the whole date.
+        $this->assertMatchesRegularExpression('/<time datetime="2026-10" aria-hidden="true">oct 2026<\/time>/', $colcap);
     }
 
     public function test_a_company_sees_only_the_inputs_it_chose(): void

@@ -17,17 +17,17 @@ use DOMXPath;
  *             <generic:ObsValue value="12.25"/>
  *             <generic:Attributes>…</generic:Attributes>
  *
- * The `_LATEST` dataflows answer only the newest observation (checked
- * against the live answers of 2026-11-04, tests/Fixtures/markets): the
- * history the band compares with is what `market_rates` kept from earlier
- * runs.
+ * The portal reads the `_HIST` dataflows (the `_LATEST` ones carry only
+ * the newest observation, so the policy rate's last decision would be
+ * lost); the shape was checked against the live answers of 2026-11-04
+ * (tests/Fixtures/markets). MarketSync keeps only what the band needs.
  *
  * The XML is parsed with SafeXml (no DOCTYPE, no entities, no network).
  * Each dataflow carries one series; a message with more is refused
  * (`many_series`) instead of guessing which one is meant. An observation
  * that is not a plain number on a real date is skipped.
  *
- * @see https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_CBR_DAILY_LATEST,1.0/all/ALL/
+ * @see https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_CBR_DAILY_HIST,1.0/all/ALL/
  */
 final class BanRepSdmx
 {
@@ -59,6 +59,7 @@ final class BanRepSdmx
             $date = Observation::date(self::attribute($xpath, 'g:ObsDimension', $obs), monthsToo: true);
             $value = Observation::amount(self::attribute($xpath, 'g:ObsValue', $obs));
 
+            // The same date twice: the last published stays, as in FredObservations.
             if ($date !== null && $value !== null) {
                 $rows[$date] = ['date' => $date, 'value' => $value];
             }

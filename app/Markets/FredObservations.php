@@ -38,8 +38,8 @@ final class FredObservations
             $date = Observation::date(is_array($observation) ? ($observation['date'] ?? null) : null);
             $value = Observation::amount(is_array($observation) ? ($observation['value'] ?? null) : null);
 
-            // The same date twice: the first one stays.
-            if ($date !== null && $value !== null && ! isset($rows[$date])) {
+            // The same date twice: the last published stays, as in BanRepSdmx.
+            if ($date !== null && $value !== null) {
                 $rows[$date] = ['date' => $date, 'value' => $value];
             }
         }

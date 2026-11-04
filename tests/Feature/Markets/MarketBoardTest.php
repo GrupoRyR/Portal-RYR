@@ -236,4 +236,36 @@ class MarketBoardTest extends TestCase
 
         $this->assertSame(0.0, (new MarketBoard)->current()['trm']->change);
     }
+
+    // --- Only recent rows ----------------------------------------------------------
+
+    public function test_rows_older_than_the_window_are_not_read(): void
+    {
+        // Today is 2026-11-03 in Bogotá: the window starts 400 days before, on 2025-09-29.
+        MarketRate::factory()->eur()->create(['value' => '4000.0000', 'valid_from' => '2025-09-28']);
+        MarketRate::factory()->trm()->create(['value' => '3000.0000', 'valid_from' => '2025-09-28']);
+        MarketRate::factory()->trm()->create(['value' => '3100.0000', 'valid_from' => '2025-09-29']);
+        MarketRate::factory()->trm()->create(['value' => '3200.0000', 'valid_from' => '2026-11-03']);
+
+        $board = (new MarketBoard)->current();
+
+        // A code with only old rows is left out; the TRM compares with the oldest row in the window.
+        $this->assertSame(['trm'], array_keys($board));
+        $this->assertEqualsWithDelta(100.0, $board['trm']->change, 0.00001);
+    }
+
+    public function test_a_decision_older_than_the_window_is_no_longer_compared(): void
+    {
+        $this->rate('2025-09-01', '11.0000');
+        $this->rate('2026-11-02', '12.2500');
+        $this->rate('2026-11-03', '12.2500');
+
+        DB::enableQueryLog();
+        $tpm = (new MarketBoard)->current()['tpm'];
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertSame(0.0, $tpm->change);
+        $this->assertCount(1, $queries);
+    }
 }

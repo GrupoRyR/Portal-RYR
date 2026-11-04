@@ -5,7 +5,6 @@ namespace App\Markets;
 use App\Models\Company;
 use App\Models\MarketRate;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Carbon;
 
 /**
  * Read model of the markets band: for each code of the catalogue
@@ -14,7 +13,8 @@ use Illuminate\Support\Carbon;
  *
  * «Latest» is the newest value that already started today in Bogotá: the
  * dataset publishes the TRM ahead of its validity, and a figure must not
- * show before its day. A code that has no value yet is left out.
+ * show before its day. A code that has no value yet is left out, and rows
+ * older than WINDOW_DAYS are not read.
  *
  * A series that moves by decision (the policy rate, MarketSeries) is
  * compared with its last DIFFERENT stored value, in the same query: the
@@ -28,7 +28,12 @@ use Illuminate\Support\Carbon;
  */
 final class MarketBoard
 {
-    private const TZ = 'America/Bogota';
+    /**
+     * Only rows this recent are read, so the query stays small however long
+     * the table grows: a year of daily values and a last decision of the
+     * policy rate up to about thirteen months old.
+     */
+    public const WINDOW_DAYS = 400;
 
     /**
      * @return array<string, MarketQuote> By code, in the order of the catalogue (MarketSeries).
@@ -37,6 +42,7 @@ final class MarketBoard
     {
         $codes = MarketSeries::codesFor($company?->marketCodes() ?? []);
 
+        $today = CarbonImmutable::now(MarketSeries::TZ)->startOfDay();
         $byDecision = array_values(array_filter($codes, fn (string $code) => MarketSeries::find($code)?->movesByDecision === true));
 
         // Window functions: MariaDB 10.2+ / MySQL 8 (production) and SQLite
@@ -47,7 +53,8 @@ final class MarketBoard
             ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS position')
             ->selectRaw('FIRST_VALUE(value) OVER (PARTITION BY code ORDER BY valid_from DESC) AS latest_value')
             ->whereIn('code', $codes)
-            ->where('valid_from', '<=', Carbon::now(self::TZ)->toDateString());
+            ->where('valid_from', '<=', $today->toDateString())
+            ->where('valid_from', '>=', $today->subDays(self::WINDOW_DAYS)->toDateString());
 
         // The newest value, then the ones a change may be measured against:
         // any for most codes, only a different one for a decided rate.

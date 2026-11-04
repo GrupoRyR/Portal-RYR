@@ -47,7 +47,7 @@ class MarketSeriesTest extends TestCase
         $this->assertSame(MarketUnit::UsdPerBarrel, MarketSeries::find('brent')->unit);
         $this->assertSame('DCOILBRENTEU', MarketSeries::find('brent')->sourceKey);
         $this->assertSame(MarketUnit::Percent, MarketSeries::find('tpm')->unit);
-        $this->assertSame('DF_CBR_DAILY_LATEST', MarketSeries::find('tpm')->sourceKey);
+        $this->assertSame('DF_CBR_DAILY_HIST', MarketSeries::find('tpm')->sourceKey);
         $this->assertSame(MarketUnit::Points, MarketSeries::find('colcap')->unit);
         $this->assertTrue(MarketSeries::find('colcap')->isMonthly());
         $this->assertSame(MarketUnit::UsdPerTonne, MarketSeries::find('zinc')->unit);

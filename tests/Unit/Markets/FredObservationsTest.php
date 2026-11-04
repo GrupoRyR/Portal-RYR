@@ -45,10 +45,20 @@ class FredObservationsTest extends TestCase
             'nope',
             ['date' => '2026-10-24', 'value' => '1e5'],
             ['date' => '2026-10-23', 'value' => '61.2'],
-            ['date' => '2026-10-23', 'value' => '99.9'],
+            ['date' => '2026-10-22', 'value' => '60.100000000000000001'],
         ]]);
 
         $this->assertSame([['date' => '2026-10-23', 'value' => '61.2000']], FredObservations::parse($json));
+    }
+
+    public function test_a_repeated_date_keeps_the_last_published_like_banrep(): void
+    {
+        $json = json_encode(['observations' => [
+            ['date' => '2026-10-23', 'value' => '61.2'],
+            ['date' => '2026-10-23', 'value' => '61.25000000000001'],
+        ]]);
+
+        $this->assertSame([['date' => '2026-10-23', 'value' => '61.2500']], FredObservations::parse($json));
     }
 
     public function test_an_answer_without_usable_observations_is_invalid(): void

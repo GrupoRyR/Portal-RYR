@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\Http;
 /**
  * Fake answers of the Banco de la República (SDMX) and FRED for
  * `portal:sync-markets`, from tests/Fixtures/markets: the BanRep ones are
- * copies of the live answers of 2026-11-04 (one observation each), the
- * FRED ones hand-made in the shape of its documentation.
+ * copies of the live `_HIST` answers of 2026-11-04 (the policy rate since
+ * 2025-01-01, the policy rate's flow ignores `startPeriod`; COLCAP since
+ * 2026-01), the FRED ones hand-made in the shape of its documentation.
  * Each answer is built per request: a read body is not read twice.
  */
 trait FakesMarketSources
@@ -26,14 +27,14 @@ trait FakesMarketSources
     protected function banrepResponder(mixed $tpm = null, mixed $colcap = null): Closure
     {
         return function (Request $request) use ($tpm, $colcap) {
-            $answer = str_contains($request->url(), 'DF_CBR_DAILY_LATEST') ? $tpm : $colcap;
+            $answer = str_contains($request->url(), 'DF_CBR_DAILY') ? $tpm : $colcap;
 
             if ($answer instanceof Closure) {
                 return $answer($request);
             }
 
             return $answer ?? Http::response(
-                $this->marketFixture(str_contains($request->url(), 'DF_CBR_DAILY_LATEST') ? 'banrep-cbr-live.xml' : 'banrep-colcap-live.xml'),
+                $this->marketFixture(str_contains($request->url(), 'DF_CBR_DAILY') ? 'banrep-cbr-hist.xml' : 'banrep-colcap-hist.xml'),
                 200,
                 ['Content-Type' => 'application/xml'],
             );
@@ -41,15 +42,24 @@ trait FakesMarketSources
     }
 
     /**
-     * The live policy-rate answer with another day (`20261104`) and value.
+     * A policy-rate answer in the live shape with these observations.
+     *
+     * @param  array<string, string>  $observations  Value by day («20261104»), oldest first.
      */
-    protected function policyRateXml(string $day, string $value): string
+    protected function policyRateXml(array $observations): string
     {
-        return str_replace(
-            ['<generic:ObsDimension value="20261104" />', '<generic:ObsValue value="12.25" />'],
-            ["<generic:ObsDimension value=\"{$day}\" />", "<generic:ObsValue value=\"{$value}\" />"],
-            $this->marketFixture('banrep-cbr-live.xml'),
-        );
+        $obs = '';
+
+        foreach ($observations as $day => $value) {
+            $obs .= "<generic:Obs><generic:ObsDimension value=\"{$day}\" /><generic:ObsValue value=\"{$value}\" />"
+                .'<generic:Attributes><generic:Value id="OBS_STATUS" value="A" /></generic:Attributes></generic:Obs>';
+        }
+
+        return "<?xml version='1.0' encoding='UTF-8'?>"
+            .'<message:GenericData xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic" xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message">'
+            .'<message:Header><message:ID>DF_CBR_DAILY_HIST</message:ID></message:Header><message:DataSet structureRef="OECD_STES_3_0"><generic:Series>'
+            .'<generic:SeriesKey><generic:Value id="SUBJECT" value="IRCBRM01" /><generic:Value id="FREQ" value="D" /></generic:SeriesKey>'
+            ."{$obs}</generic:Series></message:DataSet></message:GenericData>";
     }
 
     /**

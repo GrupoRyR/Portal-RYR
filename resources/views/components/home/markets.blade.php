@@ -15,7 +15,8 @@
     A rise is green ▲, a fall red ▼, no move a neutral ●. The arrow is for
     the eye; screen readers hear «Subió 12,40 pesos (0,32 %)», in the
     unit of each code (App\Markets\MarketSeries). A daily figure shows
-    its day, a monthly one its month («sep 2026»).
+    its day, a monthly one its month («sep 2026»); screen readers hear the
+    whole date instead («dato de septiembre de 2026»).
 --}}
 @props(['figures'])
 
@@ -40,7 +41,7 @@
                                         <span data-market-change="{{ $figure->direction }}" class="g-ticker-change {{ $figure->tone() }}" aria-hidden="true">{{ $short }}</span>
                                         <span class="sr-only">{{ $figure->spokenChange() }}</span>
                                     @endif
-                                    <span class="g-ticker-date"><span class="sr-only">{{ $figure->datePrefix() }} </span><time datetime="{{ $figure->validFromIso }}">{{ $figure->validFromLabel }}</time></span>
+                                    <span class="g-ticker-date"><span class="sr-only">{{ $figure->spokenDate() }}</span><time datetime="{{ $figure->validFromIso }}" aria-hidden="true">{{ $figure->validFromLabel }}</time></span>
                                 </li>
                             @endforeach
                         </ul>

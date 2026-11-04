@@ -9,8 +9,12 @@ namespace App\Markets;
  */
 final class Observation
 {
-    /** What `market_rates.value` (decimal 14,4) holds: up to ten integer digits. */
-    private const AMOUNT = '/\A\d{1,10}(\.\d{1,12})?\z/';
+    /**
+     * What `market_rates.value` (decimal 14,4) holds: up to ten integer
+     * digits. Up to seventeen decimals: BanRep prints Java doubles in full
+     * («2536.5100000000002»); the value is rounded to four.
+     */
+    private const AMOUNT = '/\A\d{1,10}(\.\d{1,17})?\z/';
 
     /** «2026-11-04», or the compact «20261104» of the BanRep daily dataflows. */
     private const DAY = '/\A(\d{4})-?(\d{2})-?(\d{2})\z/';

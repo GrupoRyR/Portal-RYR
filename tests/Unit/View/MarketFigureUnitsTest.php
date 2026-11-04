@@ -36,7 +36,7 @@ class MarketFigureUnitsTest extends TestCase
         $this->assertSame('Subió 12,40 pesos (0,32 %)', $trm->spokenChange());
         $this->assertSame('2026-11-03', $trm->validFromIso);
         $this->assertSame('3 nov', $trm->validFromLabel);
-        $this->assertSame('vigente el', $trm->datePrefix());
+        $this->assertSame('vigente el 3 de noviembre', $trm->spokenDate());
     }
 
     public function test_brent_is_in_dollars_per_barrel(): void
@@ -59,7 +59,7 @@ class MarketFigureUnitsTest extends TestCase
         $this->assertSame('Subió 45,00 dólares por tonelada (1,61 %)', $zinc->spokenChange());
         $this->assertSame('2026-09', $zinc->validFromIso);
         $this->assertSame('sep 2026', $zinc->validFromLabel);
-        $this->assertSame('dato de', $zinc->datePrefix());
+        $this->assertSame('dato de septiembre de 2026', $zinc->spokenDate());
         $this->assertSame('good', $zinc->tone());
     }
 
@@ -87,7 +87,18 @@ class MarketFigureUnitsTest extends TestCase
         $this->assertSame('oct 2026', $colcap->validFromLabel);
     }
 
-    public function test_an_index_shows_its_monthly_change_in_percent(): void
+    public function test_the_spoken_date_is_whole_while_the_label_stays_short(): void
+    {
+        $colcap = $this->figure('colcap', 2536.51, null, null, '2026-10-01');
+        $brent = $this->figure('brent', 64.53, null, null, '2026-08-01');
+
+        $this->assertSame('oct 2026', $colcap->validFromLabel);
+        $this->assertSame('dato de octubre de 2026', $colcap->spokenDate());
+        $this->assertSame('1 ago', $brent->validFromLabel);
+        $this->assertSame('vigente el 1 de agosto', $brent->spokenDate());
+    }
+
+    public function test_an_index_shows_its_level_and_its_monthly_change_in_percent(): void
     {
         $brass = $this->figure('brass', 312.456, 2.5, 0.81, '2026-09-01');
 
