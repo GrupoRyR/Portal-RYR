@@ -53,8 +53,8 @@ use InvalidArgumentException;
  * - «Cumpleaños y aniversarios» (App\View\Home\Celebration) from the same
  *   directory query: the birthdays people chose to show and the work
  *   anniversaries of today and the next seven days (none on a server search);
- * - the «Mercados» band: the series for everyone and the inputs the
- *   company chose (App\Markets\MarketBoard, one query);
+ * - the «Mercados» band: the series for everyone, the inputs the company
+ *   chose and its manual prices (App\Markets\MarketBoard, one query);
  * - «Noticias» of the user's company (App\News\NewsBoard, one query), the
  *   tab named in `?noticias=` selected (none on a server search);
  * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,

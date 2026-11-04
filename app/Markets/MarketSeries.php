@@ -18,6 +18,8 @@ namespace App\Markets;
  * - `movesByDecision`: the value only changes when someone decides it (the
  *   policy rate). Its change is against the last DIFFERENT value, so the
  *   band shows the last decision instead of «no change since yesterday».
+ * - meaning() is the one line Administración › Mercados shows under each
+ *   series, so whoever chooses an input knows what it measures.
  */
 final readonly class MarketSeries
 {
@@ -182,5 +184,35 @@ final readonly class MarketSeries
     public function isMonthly(): bool
     {
         return $this->frequency === self::MONTHLY;
+    }
+
+    /**
+     * What the series measures, in one Spanish line, with its lag.
+     */
+    public function meaning(): string
+    {
+        $producerIndex = 'Índice de precios al productor de EE. UU.; no es un precio: muestra cuánto subió o bajó frente al mes anterior. Llega con unos dos meses de rezago.';
+        $metal = 'Precio internacional en dólares por tonelada (FMI). Llega con unos dos meses de rezago.';
+
+        return match ($this->code) {
+            self::TRM => 'Tasa representativa del mercado: el dólar oficial del día en Colombia.',
+            self::EUR => 'El euro en pesos: la TRM por la tasa del Banco Central Europeo.',
+            self::BRENT => 'Petróleo de referencia internacional, en dólares por barril. Llega con una semana de rezago.',
+            self::TPM => 'Tasa de interés que fija la junta del Banco de la República; cambia solo cuando la junta decide.',
+            self::COLCAP => 'Índice de las acciones más negociadas de la Bolsa de Colombia, dato mensual.',
+            self::ZINC, self::COPPER, self::ALUMINUM => $metal,
+            self::BRASS => 'Latón: '.$producerIndex,
+            self::STEEL => 'Acero: '.$producerIndex,
+            self::ALKALI => 'Cloro y soda cáustica: '.$producerIndex,
+            self::RESINS => 'Resinas plásticas: '.$producerIndex,
+            self::BOTTLES => 'Fabricación de envases plásticos: '.$producerIndex,
+            default => '',
+        };
+    }
+
+    /** «Diaria» or «Mensual». */
+    public function frequencyLabel(): string
+    {
+        return $this->isMonthly() ? 'Mensual' : 'Diaria';
     }
 }

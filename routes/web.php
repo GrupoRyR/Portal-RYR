@@ -35,6 +35,7 @@ use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\ItService;
+use App\Models\MarketInput;
 use App\Models\NewsSource;
 use App\Models\Product;
 use App\Policies\AdminSections;
@@ -287,6 +288,13 @@ Route::middleware(['auth', 'role:super_admin|portal_admin|announcements_editor']
         Route::view('/estado-ti', 'admin.it-services.index')
             ->can('viewAny', ItService::class)
             ->name('it-services.index');
+
+        // App\Policies\MarketInputPolicy (Mercados): the same people as Estado de
+        // TI, editors only for their own company. App\Livewire\Admin\MarketManager
+        // re-authorizes every action.
+        Route::view('/mercados', 'admin.markets.index')
+            ->can('viewAny', MarketInput::class)
+            ->name('markets.index');
 
         // App\Policies\RolePolicy: super_admin and portal_admin; both only
         // add or remove announcements editors.

@@ -507,7 +507,7 @@ Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp
 
 ### 1.16 Mercados
 
-El portal guarda la **TRM** y el **euro en pesos** para la banda de mercados del inicio (la banda se conecta en una entrega posterior; esta guarda los datos). No hay claves ni cuentas: las dos fuentes son públicas. El diseño está en `odd/tasks/mercados.md`.
+El portal guarda la **TRM** y el **euro en pesos** para la banda «Mercados» del inicio. No hay claves ni cuentas: las dos fuentes son públicas. El diseño está en `odd/tasks/mercados.md`. Brent, el Banco de la República y los insumos están más abajo, en «Más mercados».
 
 - **TRM:** conjunto de datos oficial de datos.gov.co (`www.datos.gov.co`), las últimas 10 vigencias.
 - **Euro:** los dólares por euro del tipo de cambio de referencia del Banco Central Europeo (`www.ecb.europa.eu`) multiplicados por la TRM que estaba vigente en la fecha de ese tipo de cambio. El BCE no publica el peso colombiano.
@@ -536,6 +536,50 @@ El portal guarda la **TRM** y el **euro en pesos** para la banda de mercados del
 - **Si una fuente falla**, el comando termina con error, esa cifra conserva su último valor y la otra fuente se actualiza igual. El motivo es un código corto en `storage/logs` («Market rates could not be updated…», con `source` `trm` o `eur`), nunca el contenido de la respuesta: `connection` (sin conexión o la fuente dejó de responder), `timeout` (la respuesta no terminó de llegar en 10 segundos en total, aunque la fuente siga enviando datos), `http_503` (u otro código HTTP; `http_302` es una redirección, que no se sigue), `too_large` (más de 1 MB), `invalid_json`, `invalid_xml`, `doctype` (el XML trae una declaración DOCTYPE, que se rechaza), `invalid_data` (el formato cambió), `no_trm` (no hay ninguna TRM guardada para calcular el euro).
 - Mientras la TRM no se pueda leer, el euro sigue calculándose con la última TRM guardada vigente en la fecha del BCE.
 - El euro lleva la fecha de referencia del BCE y la TRM su vigencia. El tablero muestra, de cada cifra, el último valor cuya vigencia ya empezó hoy (hora de Bogotá); una TRM publicada por adelantado se guarda, pero no se muestra hasta que llegue su fecha.
+
+#### Más mercados: Brent, Banco de la República e insumos
+
+La banda también muestra, para todos, el **petróleo Brent**, la **tasa de política monetaria** del Banco de la República y el **COLCAP** (mensual); y a cada empresa los **insumos** que se le elijan en **Administración › Mercados** y los **precios ingresados a mano** de esa empresa. El diseño está en `odd/tasks/mercados-o5.md`.
+
+- **Banco de la República** (`totoro.banrep.gov.co`), sin llave: tasa de política (diaria) y COLCAP (mensual).
+- **FRED**, del Banco de la Reserva Federal de St. Louis (`api.stlouisfed.org`), con una **llave gratuita**: Brent (diario, con una semana de rezago) y los insumos (mensuales, con unos dos meses de rezago). Qué mide cada uno está en el manual de administración (§16).
+- La misma corrida de las 7:10 y las 13:10 lee las dos fuentes. Las series diarias se consultan en cada corrida; las mensuales, una vez al día. Cada fuente tiene 5 segundos para conectar y 8 en total.
+
+1. **Llave de FRED (una sola vez).**
+   1. Cree una cuenta gratuita en <https://fred.stlouisfed.org> (enlace **My Account**, arriba a la derecha).
+   2. Con la sesión abierta, pida una llave de API siguiendo <https://fred.stlouisfed.org/docs/api/api_key.html>. En el motivo basta «Portal interno del Grupo RYR, indicadores de mercado». La llave llega al momento.
+   3. Copie la llave (32 caracteres) en el `.env` del servidor (paso 1.6):
+
+      ```dotenv
+      FRED_API_KEY=la-llave-de-32-caracteres
+      ```
+
+   4. Aplique el cambio con `php artisan config:cache`.
+
+   Sin la llave, Brent y los insumos se omiten: el comando lo dice con la línea `Sin FRED_API_KEY: se omiten Brent y los insumos.` y termina bien. La llave nunca se escribe en los registros ni en la salida del comando.
+2. **Migraciones.** El despliegue de rutina (paso 2.2) aplica con `php artisan migrate --force`:
+   - `companies.market_codes`: los insumos que ve cada empresa (vacío: solo los indicadores para todos);
+   - la tabla `market_inputs`: los precios ingresados a mano. Los nombres de índices y claves son cortos a propósito (MariaDB admite 64 caracteres como máximo): `mkt_inputs_company_fk`, `mkt_inputs_creator_fk` y `mkt_inputs_company_on_ix`. Borrar una empresa borra sus precios; borrar a la persona que cargó un precio deja el precio sin autor.
+3. **Salida a internet.** Desde el servidor, pruebe las dos direcciones. Un error de conexión o de certificado significa que el servidor no tiene salida a ese sitio:
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" "https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_COLCAP_MONTHLY_HIST,1.0/all/ALL/"
+   curl -sS -o /dev/null -w "%{http_code}\n" -A "PortalRYR/1.0" "https://api.stlouisfed.org/fred/series?series_id=DCOILBRENTEU&file_type=json"
+   ```
+
+   El Banco de la República debe responder `200`. FRED responde `400` porque la prueba va sin llave (así la llave no queda en el historial de la consola): ese código ya demuestra que hay salida. Si alguna falla, pida a GoDaddy que permita la salida HTTPS a `totoro.banrep.gov.co` y a `api.stlouisfed.org`. El Banco de la República a veces está en mantenimiento: mientras tanto, la banda conserva el último valor.
+4. **Primera carga.** No espere al cron:
+
+   ```bash
+   cd /home/<usuario>/<ruta-app>
+   php artisan portal:sync-markets
+   ```
+
+   Debe responder una línea por serie con los valores que guardó, por ejemplo `Petróleo Brent: 5 valores guardados.` o `Zinc (US$/t): 2 valores guardados.`, y ninguna línea `no se pudo actualizar`. Una segunda corrida el mismo día responde `Ya consultadas hoy: …` para las mensuales.
+5. **Elegir los insumos.** En **Administración › Mercados**, marque los insumos de cada empresa (manual de administración, §16). Hasta entonces, cada empresa ve solo los indicadores para todos.
+
+- **Si una fuente falla**, el motivo queda en `storage/logs` igual que arriba, con `source` igual al código de la serie (`brent`, `tpm`, `colcap`, `zinc`…). Las demás series se actualizan igual.
+- **Precios a mano.** No tienen fuente ni cron: se ven en la banda en la siguiente carga del inicio, sin limpiar nada. La banda los lee en la misma consulta que las demás cifras.
 
 ### 1.17 Noticias
 

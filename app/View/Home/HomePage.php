@@ -32,7 +32,7 @@ final readonly class HomePage
      * @param  string|null  $birthdayHref  «Mi cumpleaños» (`/cuenta#cumpleanos`) in the account menu; null hides it (no directory for this account).
      * @param  list<Celebration>  $celebrations  «Cumpleaños y aniversarios»: today and the next Celebration::DAYS days, at most Celebration::LIMIT; empty hides the block.
      * @param  string|null  $moreCelebrationsHref  «Ver directorio» when more fall in those days than the block shows.
-     * @param  list<MarketFigure>  $markets  The «Mercados» band (the series for everyone and the company's inputs); empty hides it (before the first sync).
+     * @param  list<MarketFigure>  $markets  The «Mercados» band (the series for everyone, the company's inputs, then its manual prices); empty hides it (before the first sync).
      * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
      * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
      * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).

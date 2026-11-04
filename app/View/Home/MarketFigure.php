@@ -23,6 +23,11 @@ use Carbon\CarbonImmutable;
  *
  * A daily series shows its day («3 nov»), a monthly one its month
  * («sep 2026»); screen readers hear the whole date instead (spokenDate()).
+ *
+ * A price typed by hand in Administración › Mercados (MarketQuote::$manual)
+ * brings its own name and unit, prints the unit after the value
+ * («$4.200,00/kg»), and shows the day it was quoted, with the year when it
+ * is not this year's («15 dic 2025»).
  */
 final readonly class MarketFigure
 {
@@ -44,12 +49,15 @@ final readonly class MarketFigure
         public ?string $change,
         public string $validFromIso,
         public string $validFromLabel,
+        public ?MarketUnit $unit = null,
+        public bool $monthly = false,
+        public bool $manual = false,
     ) {}
 
     public static function from(MarketQuote $quote): self
     {
-        $series = MarketSeries::find($quote->code);
-        $unit = $series?->unit;
+        $series = $quote->manual ? null : MarketSeries::find($quote->code);
+        $unit = $quote->unit ?? $series?->unit;
 
         // Under half a cent (or a percent that prints as 0,00) is no move:
         // it would show an arrow beside «0,00 %».
@@ -64,15 +72,25 @@ final readonly class MarketFigure
 
         return new self(
             code: $quote->code,
-            label: $series->label ?? strtoupper($quote->code),
-            value: self::value($quote->value, $unit),
+            label: $quote->label ?? $series->label ?? strtoupper($quote->code),
+            // A manual price keeps the decimals it was typed with («$0,1234/kg»).
+            value: $quote->manual && $unit !== null
+                ? $unit->format($quote->value, precise: true).$unit->suffix()
+                : self::value($quote->value, $unit),
             direction: $direction,
             // A rate moves in percentage points: a percent of a percent only confuses.
             percent: $quote->changePercent === null || $unit === MarketUnit::Percent ? null : self::number(abs($quote->changePercent)).' %',
             change: $quote->change === null ? null : self::number(abs($quote->change)),
             // «2026-09» is a valid <time> month.
             validFromIso: $monthly ? $quote->validFrom->format('Y-m') : $quote->validFrom->toDateString(),
-            validFromLabel: str_replace('.', '', $quote->validFrom->locale('es')->isoFormat($monthly ? 'MMM YYYY' : 'D MMM')),
+            validFromLabel: str_replace('.', '', $quote->validFrom->locale('es')->isoFormat(match (true) {
+                $monthly => 'MMM YYYY',
+                $quote->manual && $quote->validFrom->year !== CarbonImmutable::now(MarketSeries::TZ)->year => 'D MMM YYYY',
+                default => 'D MMM',
+            })),
+            unit: $unit,
+            monthly: $monthly,
+            manual: $quote->manual,
         );
     }
 
@@ -150,42 +168,44 @@ final readonly class MarketFigure
     /**
      * The whole date a screen reader hears instead of the short label:
      * «vigente el 3 de noviembre» for a daily value, «dato de septiembre de
-     * 2026» for a monthly one.
+     * 2026» for a monthly one, «precio del 3 de noviembre de 2026» for a
+     * price typed by hand.
      */
     public function spokenDate(): string
     {
         $date = CarbonImmutable::parse($this->isMonthly() ? $this->validFromIso.'-01' : $this->validFromIso)->locale('es');
 
-        return $this->isMonthly()
-            ? 'dato de '.$date->isoFormat('MMMM [de] YYYY')
-            : 'vigente el '.$date->isoFormat('D [de] MMMM');
+        return match (true) {
+            $this->manual => 'precio del '.$date->isoFormat('D [de] MMMM [de] YYYY'),
+            $this->isMonthly() => 'dato de '.$date->isoFormat('MMMM [de] YYYY'),
+            default => 'vigente el '.$date->isoFormat('D [de] MMMM'),
+        };
     }
 
+    /**
+     * The unit given by from(), else the catalogue's for the code (a figure
+     * built by hand, as the ticker tests do).
+     */
     private function unit(): ?MarketUnit
     {
-        return MarketSeries::find($this->code)?->unit;
+        return $this->unit ?? ($this->manual ? null : MarketSeries::find($this->code)?->unit);
     }
 
     private function isMonthly(): bool
     {
-        return MarketSeries::find($this->code)?->isMonthly() === true;
+        return $this->monthly || (! $this->manual && MarketSeries::find($this->code)?->isMonthly() === true);
     }
 
     /** The value in its unit: «$3.861,38», «US$64,53», «9,25 %» or «1.512,30». */
     private static function value(float $value, ?MarketUnit $unit): string
     {
-        return match ($unit) {
-            MarketUnit::UsdPerBarrel, MarketUnit::UsdPerTonne => 'US$'.self::number($value),
-            MarketUnit::Percent => self::number($value).' %',
-            MarketUnit::Points, MarketUnit::Index => self::number($value),
-            // Pesos, and a code outside the catalogue as before.
-            default => '$'.self::number($value),
-        };
+        // Pesos for a code outside the catalogue, as before.
+        return $unit?->format($value) ?? '$'.self::number($value);
     }
 
     /** «3.861,38»: Colombian thousands and decimals. */
     private static function number(float $value): string
     {
-        return number_format($value, 2, ',', '.');
+        return MarketUnit::number($value);
     }
 }
