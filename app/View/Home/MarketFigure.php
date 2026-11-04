@@ -17,7 +17,20 @@ final readonly class MarketFigure
         MarketRate::EUR => 'Euro',
     ];
 
-    /** A change (in pesos, or in percent) below this prints as none. */
+    /**
+     * The unit a screen reader hears with the change: the TRM and the euro
+     * are pesos per unit; codes priced in dollars (Brent, when it is
+     * synced) say dólares; any other code says puntos.
+     */
+    public const UNITS = [
+        MarketRate::TRM => 'pesos',
+        MarketRate::EUR => 'pesos',
+        'brent' => 'dólares',
+    ];
+
+    public const FALLBACK_UNIT = 'puntos';
+
+    /** A change (in the code's unit, or in percent) below this prints as none. */
     public const NO_CHANGE = 0.005;
 
     /**
@@ -58,7 +71,7 @@ final readonly class MarketFigure
     }
 
     /**
-     * «▲ 0,32 %» beside the value (hidden from screen readers), «= 0,00 %»
+     * «▲ 0,32 %» beside the value (hidden from screen readers), «● 0,00 %»
      * without a move, or null.
      */
     public function shortChange(): ?string
@@ -66,21 +79,37 @@ final readonly class MarketFigure
         return match ($this->direction) {
             'up' => '▲ '.($this->percent ?? $this->change),
             'down' => '▼ '.($this->percent ?? $this->change),
-            'flat' => '= 0,00'.($this->percent === null ? '' : ' %'),
+            'flat' => '● 0,00'.($this->percent === null ? '' : ' %'),
             default => null,
         };
     }
 
     /**
-     * «Subió 12,40 pesos (0,32 %)» for screen readers, or null.
+     * The colour class of the change: «good» (green) for a rise, «crit»
+     * (red) for a fall, «flat» (neutral) without a move, or null.
+     */
+    public function tone(): ?string
+    {
+        return match ($this->direction) {
+            'up' => 'good',
+            'down' => 'crit',
+            'flat' => 'flat',
+            default => null,
+        };
+    }
+
+    /**
+     * «Subió 12,40 pesos (0,32 %)» for screen readers, in the unit of the
+     * code (UNITS), or null.
      */
     public function spokenChange(): ?string
     {
         $percent = $this->percent === null ? '' : " ({$this->percent})";
+        $unit = self::UNITS[$this->code] ?? self::FALLBACK_UNIT;
 
         return match ($this->direction) {
-            'up' => "Subió {$this->change} pesos{$percent}",
-            'down' => "Bajó {$this->change} pesos{$percent}",
+            'up' => "Subió {$this->change} {$unit}{$percent}",
+            'down' => "Bajó {$this->change} {$unit}{$percent}",
             'flat' => 'Sin cambio frente al valor anterior',
             default => null,
         };

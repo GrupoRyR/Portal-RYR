@@ -4,7 +4,7 @@
     other account. Behind microsoft.recent; no Livewire or Alpine.
 --}}
 @use('App\Models\Company')
-<x-layouts.app title="Vincular otra cuenta" glass noindex>
+<x-layouts.app title="Vincular otra cuenta" glass assistant noindex>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
     <x-portal-header />

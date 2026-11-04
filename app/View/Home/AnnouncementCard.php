@@ -68,7 +68,7 @@ final readonly class AnnouncementCard
         return $this->requiresRead && $this->id !== null && $this->readOn === null;
     }
 
-    /** Where the phone/tablet banner leads: the announcement on /anuncios. */
+    /** Where the announcement banner (the Admin editor preview) leads: the announcement on /anuncios. */
     public function href(): ?string
     {
         return $this->id === null ? null : route('announcements.index').'#a-'.$this->id;

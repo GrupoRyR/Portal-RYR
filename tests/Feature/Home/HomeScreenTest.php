@@ -194,7 +194,7 @@ class HomeScreenTest extends TestCase
             ['label' => 'SharePoint', 'url' => 'https://segurex.sharepoint.com'],
         ]]);
 
-        $response = $this->home()->assertSeeText('Microsoft 365');
+        $response = $this->home()->assertSeeText('Accesos rápidos')->assertDontSeeText('Microsoft 365');
 
         foreach (QuickLinks::DEFAULTS as $label => $url) {
             $response->assertSee('href="'.$url.'"', false)->assertSeeText($label);

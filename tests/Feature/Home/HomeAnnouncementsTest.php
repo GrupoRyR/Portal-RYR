@@ -46,7 +46,7 @@ class HomeAnnouncementsTest extends TestCase
             ->assertDontSeeText('Para otra empresa');
     }
 
-    public function test_the_desktop_aside_lists_up_to_three_announcements(): void
+    public function test_the_card_lists_up_to_three_announcements(): void
     {
         Announcement::factory()->pinned()->create([
             'title' => 'Ya puedes entrar con tu cuenta de Microsoft',
@@ -58,34 +58,34 @@ class HomeAnnouncementsTest extends TestCase
         Announcement::factory()->create(['title' => 'Tercero', 'starts_at' => now()->subDays(3)]);
         Announcement::factory()->create(['title' => 'Cuarto', 'starts_at' => now()->subDays(4)]);
 
-        $aside = $this->section($this->home(), 'data-announcements');
+        $card = $this->section($this->home(), 'data-announcements');
 
-        $this->assertStringContainsString('Anuncios', $aside);
-        $this->assertStringContainsString('href="'.route('announcements.index').'"', $aside);
-        $this->assertStringContainsString('Ver todos', $aside);
-        $this->assertStringContainsString('Fijado', $aside);
-        $this->assertStringContainsString('5 de octubre', $aside);
-        $this->assertStringContainsString('Ya puedes entrar con tu cuenta de Microsoft', $aside);
-        $this->assertStringContainsString('Toma Pedidos SAP ya no pide otra contraseña.', $aside);
-        $this->assertStringContainsString('src="'.Storage::disk('public')->url('announcements/1/abc.webp').'"', $aside);
-        $this->assertStringContainsString('loading="lazy"', $aside);
-        $this->assertStringContainsString('width="1280" height="720"', $aside);
-        $this->assertStringContainsString('Tercero', $aside);
-        $this->assertStringNotContainsString('Cuarto', $aside);
-        $this->assertSame(1, substr_count($aside, 'Fijado'));
+        $this->assertStringContainsString('Anuncios', $card);
+        $this->assertStringContainsString('href="'.route('announcements.index').'"', $card);
+        $this->assertStringContainsString('Ver todos', $card);
+        $this->assertStringContainsString('Fijado', $card);
+        $this->assertStringContainsString('5 de octubre', $card);
+        $this->assertStringContainsString('Ya puedes entrar con tu cuenta de Microsoft', $card);
+        $this->assertStringContainsString('Toma Pedidos SAP ya no pide otra contraseña.', $card);
+        $this->assertStringContainsString('src="'.Storage::disk('public')->url('announcements/1/abc.webp').'"', $card);
+        $this->assertStringContainsString('loading="lazy"', $card);
+        $this->assertStringContainsString('width="1280" height="720"', $card);
+        $this->assertStringContainsString('Tercero', $card);
+        $this->assertStringNotContainsString('Cuarto', $card);
+        $this->assertSame(1, substr_count($card, 'Fijado'));
     }
 
-    public function test_the_phone_banner_shows_the_top_announcement_and_links_to_it(): void
+    public function test_the_card_shows_on_phones_too_with_the_pinned_one_first(): void
     {
         Announcement::factory()->create(['title' => 'Más reciente', 'starts_at' => now()->subHour()]);
-        $pinned = Announcement::factory()->pinned()->create(['title' => 'El fijado', 'starts_at' => now()->subDays(3)]);
+        Announcement::factory()->pinned()->create(['title' => 'El fijado', 'starts_at' => now()->subDays(3)]);
 
-        $banner = $this->section($this->home(), 'data-announcement-banner');
+        $response = $this->home()->assertDontSee('data-announcement-banner', false);
+        $card = $this->section($response, 'data-announcements');
 
-        $this->assertStringContainsString('href="'.route('announcements.index').'#a-'.$pinned->id.'"', $banner);
-        $this->assertStringContainsString('El fijado', $banner);
-        $this->assertStringContainsString('Anuncio fijado', $banner);
-        $this->assertStringNotContainsString('Más reciente', $banner);
+        // One card on every width (no phone banner repeating the first one).
+        $this->assertStringNotContainsString('hidden', substr($card, 0, (int) strpos($card, '>')));
+        $this->assertLessThan(strpos($card, 'Más reciente'), strpos($card, 'El fijado'));
     }
 
     public function test_user_text_is_escaped_and_the_body_keeps_its_line_breaks_as_plain_text(): void

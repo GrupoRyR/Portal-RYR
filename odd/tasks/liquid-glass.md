@@ -37,18 +37,19 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - `data-brand` en `<html>`, script contra el destello del tema y `<meta name="csrf-token">`.
   - Foto de fondo optimizada (webp).
   - Rama `feat/glass-1-base`.
-- [ ] G2. **Respuestas JSON del asistente** para el panel flotante (`expectsJson()` en `ask` y `clear`, más un GET de la conversación). Rama `feat/assistant-json`, en paralelo a G1.
+- [x] G2. **Respuestas JSON del asistente** para el panel flotante (`expectsJson()` en `ask` y `clear`, más un GET de la conversación). Rama `feat/assistant-json`, en paralelo a G1. Hecho en `c4d71a4` (PR #102).
 - [x] G3. **Encabezado común.** Hecho en `aeb8827`, con `bf370d1` y la fusión de G1 en `271f787` (ruta: escritor delegado, 2+ archivos no triviales).
   - `<x-portal-header>` reemplaza el encabezado del inicio y `brand-bar`, que se borró.
   - Cambio de tema Claro/Oscuro/Sistema en el menú de la persona.
   - Rama `feat/glass-3-header`.
 - [x] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio. Hecho en `4d9269d` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-4-bell`, sobre G3.
-- [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
-- [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
-- [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
-- [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
+- [x] G5. **Banda de Mercados** en movimiento, con flechas verde y roja. Hecho en `6de88f0` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-5-markets`.
+- [x] G6. **Bloques del inicio:** Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día». Hecho en `e1d39d5`, `b7af6db` y `bbca5c6` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-6-home`, sobre G4 con G5 y G7 fusionados.
+- [x] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`. Hecho en `1ceb56f` (ruta: escritor delegado, 2+ archivos no triviales).
+  - Rama `feat/glass-7-assistant`: G3 con `feat/assistant-json` (G2) fusionada.
+- [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en la rama `feat/glass-8-login` (PR #106).
 - [ ] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*`, `errors/*` y `mcp/*`.
-- [ ] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR).
+- [x] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR). Hecho en la rama `feat/glass-10-admin` (PR #108).
 
 ## Comprobaciones
 
@@ -85,7 +86,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - G4: la campanita dentro de `<x-slot:bell>`.
     - G5: la banda de Mercados (sigue `bg-surface`).
     - G6: los bloques del inicio y quitar el `g-sheet`.
-    - G7: el botón flotante del asistente (hoy está en el menú).
+    - ~~G7: el botón flotante del asistente (hoy está en el menú).~~ Hecho; el enlace del menú se queda.
     - G9: las páginas secundarias y quitar el `g-sheet`.
     - `mcp/authorize` y Administración siguen con `brand-band` (G9 y G10).
     - En iPhone con muesca, la barra fija baja hasta `env(safe-area-inset-top)` sin un relleno propio; revisar en G6.
@@ -122,3 +123,69 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - `vendor/bin/pint --test`: sale en 0.
     - `npm run build`: bien.
     - `node --test "tests/js/*.test.mjs"`: 19 pasan.
+- G5 hecho en `6de88f0` (`feat/glass-5-markets`).
+  - Banda de vidrio con marquesina CSS, sin JavaScript: `App\View\Home\MarketTicker` decide cuántas copias imprimir (cubren la banda más ancha) y la vuelta dura 4 s por cifra. Las copias van con `aria-hidden` y sin `data-market`. Se detiene al pasar el cursor y con el foco del teclado.
+  - Con una sola cifra no se mueve. Con `prefers-reduced-motion` se queda quieta, oculta las copias y se acomoda en varias líneas.
+  - Sube: ▲ verde (`--g-good`). Baja: ▼ rojo (`--g-crit`). Sin cambio: ● neutro (antes «=»). Contraste medido sobre el vidrio: claro ≥ 4,99 (sobre negro, el peor caso); oscuro ≥ 5,2 sobre el fondo oscuro del inicio, en las dos marcas.
+  - Toma cualquier código que entregue `MarketBoard`: nuevos `MarketRate::CODES` aparecen sin tocar la vista.
+  - Evidencia: `php artisan test` 3240 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 12 pruebas nuevas o cambiadas antes del código. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 375 px y escritorio, con y sin movimiento reducido.
+  - Cerrado en un segundo commit de G5 (`fix(glass)`, pedido del coordinador):
+    - Control «Pausar» / «Reanudar» sin JavaScript al final de la banda (WCAG 2.2.2): una casilla que detiene la pista con `:has()`, con foco visible y texto ≥ 7,5:1 en las dos marcas y los dos temas. No aparece con menos de dos cifras ni con movimiento reducido.
+    - La frase leída usa la unidad de cada código (`MarketFigure::UNITS`): pesos para TRM y euro (igual que antes), dólares para el Brent cuando se sincronice y «puntos» para cualquier otro.
+    - Evidencia: `php artisan test` 3246 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 4 pruebas nuevas antes del código. En Chrome sin interfaz: marcada la casilla, la pista queda en `paused`, el texto dice «Reanudar» y el foco muestra el contorno.
+  - Revisión independiente de G5 sin hallazgos graves; corregido en `fix(glass): keep the ticker focus ring visible`:
+    - El desvanecido y el recorte pasan a una ventana interior (`.g-ticker-window`): el contorno de foco de la banda ya no queda enmascarado (WCAG 2.4.7). Comprobado en Chrome sin interfaz enfocando la banda por script, en las dos marcas y los dos temas: contorno completo de 2 px y pista en pausa.
+    - La etiqueta del grupo es neutra («Indicadores de mercado»), porque con movimiento reducido la banda no se mueve.
+    - Pruebas directas de `MarketTicker::for` (0, 1, 2, 9 y 40 cifras) y de la banda sin cifras.
+    - El nombre de la casilla «Pausar o reanudar…» queda igual (compromiso aceptado).
+
+- G7 hecho en `1ceb56f` (`feat/glass-7-assistant`).
+  - `<x-assistant-fab>` (`App\View\Components\AssistantFab`) usa la misma condición que el enlace del menú (`AssistantLink`) y no sale en `/asistente`.
+    - El layout lo pone solo en las páginas que lo piden con la prop `assistant` (por defecto `false`): el inicio, `/anuncios`, `/eventos`, `/personas`, `/cuenta*` y `apps/*`. Nunca sale en el inicio de sesión, las páginas de error ni Administración, aunque sean de vidrio (G8 las pasa a vidrio).
+    - Sin la clave de la API se muestra igual, y el panel dice «no disponible».
+    - Sin JavaScript es un enlace a `/asistente`. En el inicio sube por encima de la barra inferior (`g-fab--raised`). En celular queda solo el ícono, con el texto oculto para lectores de pantalla.
+  - `resources/js/assistant-panel.js` es una entrada de Vite (3,6 kB gzip).
+    - `header.js` lo carga en el primer clic con un `<script type="module">`, no con `import()`: Vite 8 agrega su ayudante de precarga (otra petición en cada página) a cualquier `import()`. Como el script no recibe exportaciones, el módulo deja `window.openPortalAssistant`.
+    - Si no carga (sin conexión o con otra compilación), se sigue el enlace. Un clic con Ctrl, Shift, Alt o Cmd abre el enlace.
+    - Solo lee la conversación al abrir el panel la primera vez: el inicio guardado sin conexión nunca muestra una conversación vieja.
+  - Panel (diálogo modal, `aria-modal="true"`, con Tab encerrado en todos los anchos):
+    - el foco entra al campo (o a «Cerrar» si está cerrado); Escape y «Cerrar» devuelven el foco al botón;
+    - si un envío deshabilita o quita el control con el foco, el foco pasa al campo (o a «Cerrar»);
+    - al reabrirlo, muestra el último turno;
+    - lo que la persona escribe mientras espera se queda: solo se borra el campo si aún tiene la pregunta enviada;
+    - la respuesta nueva se anuncia en una región `aria-live="polite"` y los errores en `role="alert"`;
+    - «Enviar» está deshabilitado mientras espera, con «Pensando…»;
+    - un 409, un 422 o un 429 vuelven a leer la conversación (así se cierran los límites); 422, 429 y 503 muestran el `{error}` del servidor, y un 429 sin `error` (el freno de «Nueva conversación») dice «Estás preguntando muy rápido»; si la relectura tras un 409 falla, se muestra ese error; 419 pide recargar, 404 dice «no disponible» y un fallo de red da un mensaje general;
+    - el campo se cierra con `full`, `budget_reached` o sin preguntas del día;
+    - el borrador (título y extracto como texto) solo enlaza a «Revisar y publicar» en `/asistente#borrador`. Un `review_url` que no sea una ruta del portal vuelve a ese enlace.
+    - Las sugerencias son las cinco de `/asistente`.
+  - `/asistente` pasó a tarjetas `g-card`, con burbujas `g-msg` y campos `g-field`. Los formularios, los ids (`#respuesta`, `#borrador`), los mensajes y la publicación del borrador no cambiaron.
+  - Los enlaces de las respuestas llevan `text-brand-ink`. Sobre la burbuja de vidrio se usa `--g-accent-ink`, el color medido (con `!important`, porque la utilidad está en una capa posterior).
+  - `tests/js/fake-dom.mjs` ahora tiene nodos de texto, `innerHTML` (guarda el marcado, y su texto sin etiquetas), `createElement`, `replaceChildren`, `remove`, `head` y `body`.
+  - Evidencia:
+    - RED antes del código: 6 de 11 pruebas nuevas de PHP, 3 pruebas nuevas de `header.test.mjs`, y `assistant-panel.test.mjs` sin el módulo.
+    - `php artisan test`: 3281 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - `node --test "tests/js/*.test.mjs"`: 39 pasan (16 del panel y 4 del botón en `header.test.mjs`).
+    - Revisión visual de las dos marcas, en claro y oscuro: en escritorio (Chrome sin interfaz, 1280 px) y a 375 px (en un iframe de 375 px; el panel del navegador escala la vista).
+    - En el navegador: enviar deshabilita «Enviar», pone `aria-busy` y oculta el botón; la respuesta llega, se anuncia y el borrador sale como texto; un 429 muestra su mensaje y conserva la pregunta; Escape cierra y devuelve el foco.
+  - Sin medir: Lighthouse en celular. El inicio solo suma el enlace (unos 650 bytes) y unos 2 kB de CSS. Nada se pide hasta el primer clic.
+  - El botón lee `AssistantSwitch` una vez más (una consulta por clave primaria) cuando el interruptor de despliegue está encendido, porque `AssistantSwitch` no es singleton y queda fuera de la superficie de G7.
+- Revisión independiente de G7: sin hallazgos graves. Se corrigió en un commit (`fix(glass): opt pages into the assistant and steady the panel`).
+  - El botón pasó a ser opcional por página (`assistant`), porque G8 vuelve de vidrio las páginas de error y `auth/admin-consent`. Hay una prueba de una página de vidrio sin la opción.
+  - En el panel: se conserva lo escrito mientras espera; 422 y 429 releen la conversación; el foco no se pierde; diálogo modal con Tab encerrado; al reabrir, baja al último turno; mensajes para un 409 que no se puede releer y para un 429 sin `error`.
+  - Evidencia:
+    - RED antes del código: la prueba nueva de PHP y 10 pruebas de Node.
+    - `node --test "tests/js/*.test.mjs"`: 48 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien (`assistant-panel` 3,83 kB gzip).
+    - En el navegador: Tab desde «Enviar» vuelve a «Nueva conversación»; el foco queda en el campo mientras espera; un 429 relee la conversación y conserva el texto nuevo.
+- G6 hecho en `e1d39d5` (`feat/glass-6-home`), más `b7af6db` (prueba de anuncios) y `bbca5c6` (correcciones de la revisión).
+  - Base: `feat/glass-4-bell` con `feat/glass-5-markets` y `feat/glass-7-assistant` fusionados (`147fb4c`); suite 3328 en verde antes de empezar.
+  - Inicio sin `.g-sheet`: `div.g-home` con `<main>` y `<aside id="mi-dia">` (al lado desde 1024 px, debajo en celular). Saludo en `g-banner`; bloques como `g-card` en el orden del prototipo: Panel gerencial, Mis aplicaciones (Favoritos, Recientes y categorías en `g-tile`), Accesos rápidos (chips, sin «Microsoft 365»), Anuncios (en todos los anchos; se quitó la franja del celular), Noticias, Catálogos y categorías.
+  - «Mi día»: Tareas pendientes, Por confirmar (anuncios obligatorios sin leer, de `NotificationList`; «Ver todos» al llegar al límite de 8), Cumpleaños y aniversarios, Próximas fechas, Personas (búsqueda GET a `/personas`) y Estado de TI. Sin consultas nuevas.
+  - CSS en la sección 7 de `glass.css`; dentro de `.g-home` los tokens de Tailwind apuntan a los `--g-*` medidos. Sin JS nuevo ni fuentes.
+  - Fuera por falta de datos: resumen semanal, «Instalar en tu celular», clima, «Agregar a mi calendario».
+  - Revisión independiente de código y seguridad: nada grave; 8 hallazgos menores corregidos en `bbca5c6`.
+  - Evidencia: `php artisan test` 3344 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien; `node --test` 48 pasan. RED observado en 11 + 2 pruebas nuevas. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 1280 px y 375 px sin desborde.

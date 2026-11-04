@@ -55,14 +55,13 @@ class HomeBrandTest extends TestCase
 
         $html = $this->home()
             ->assertSeeText('Favoritos')
-            ->assertSeeText('Microsoft 365')
+            ->assertSeeText('Accesos rápidos')
             ->getContent();
 
-        preg_match_all('/<h2 id="(favoritos-titulo|m365|categoria-[^"]+)" class="([^"]*)"/', $html, $headings);
-        $this->assertCount(3, $headings[0]);
-        foreach ($headings[2] as $classes) {
-            $this->assertStringNotContainsString('uppercase', $classes);
-            $this->assertStringContainsString('text-brand-text', $classes);
+        preg_match_all('/<h[23] id="(mis-aplicaciones-titulo|favoritos-titulo|accesos-titulo|categoria-[^"]+)"[^>]*>/', $html, $headings);
+        $this->assertCount(4, $headings[0]);
+        foreach ($headings[0] as $heading) {
+            $this->assertStringNotContainsString('uppercase', $heading);
         }
     }
 

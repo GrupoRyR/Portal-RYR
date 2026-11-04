@@ -1,5 +1,6 @@
 {{--
-    «Estado de TI» of «Mi día» (odd/tasks/inicio-bloques.md H4,
+    «Estado de TI», the last block of the «Mi día» card (glass.css section 7;
+    odd/tasks/inicio-bloques.md H4,
     App\ItStatus\ItStatus): the overall headline of the user's company,
     what is failing (worst first: the manual services and the visible apps
     in maintenance or with a current failure report) and «Reportar un
@@ -19,8 +20,8 @@
         ->values();
 @endphp
 
-<section id="estado-ti" aria-labelledby="estado-ti-titulo" {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-3.5 p-5']) }}>
-    <h2 id="estado-ti-titulo" class="font-sans text-base font-bold tracking-normal text-brand-text">Estado de TI</h2>
+<section id="estado-ti" aria-labelledby="estado-ti-titulo" {{ $attributes->merge(['class' => 'flex scroll-mt-6 flex-col gap-3']) }}>
+    <h3 id="estado-ti-titulo">Estado de TI</h3>
 
     <p @class(['flex items-center gap-2 self-start rounded-control px-3 py-2 text-sm font-semibold', $tone($status->level)])>
         <span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-current"></span>{{ $status->level->headline() }}
@@ -47,7 +48,7 @@
     @endif
 
     @if ($status->reportHref)
-        <a href="{{ $status->reportHref }}" target="_blank" rel="noopener" class="inline-flex min-h-touch items-center gap-2 self-start rounded-control border border-line-strong px-3 text-[0.8125rem] font-semibold hover:bg-subtle">
+        <a href="{{ $status->reportHref }}" target="_blank" rel="noopener" class="g-btn self-start px-3 text-[0.8125rem]">
             <x-home.icon name="lifebuoy" class="size-[18px] text-fg-muted" />Reportar un problema
         </a>
     @endif
