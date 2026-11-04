@@ -32,7 +32,7 @@ class AssistantController extends Controller
     /** Seconds PHP may run one question (several model calls and tools). */
     public const TIME_LIMIT = 180;
 
-    public const BUDGET_REACHED = 'El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.';
+    public const BUDGET_REACHED = Assistant::BUDGET_REACHED;
 
     public const RESTARTED = 'Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.';
 

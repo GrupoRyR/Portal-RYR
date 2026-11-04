@@ -62,7 +62,7 @@ class OpenAiCompatibleModel implements AssistantModel
                 ->withToken((string) $this->apiKey)
                 ->acceptJson()
                 ->asJson()
-                ->timeout($this->timeout)
+                ->timeout(min($this->timeout, $request->timeout ?? $this->timeout))
                 ->connectTimeout(self::CONNECT_TIMEOUT)
                 ->withOptions(['allow_redirects' => false])
                 ->retry(2, 500, fn (Throwable $e) => $e instanceof ConnectionException
@@ -118,7 +118,9 @@ class OpenAiCompatibleModel implements AssistantModel
                     'text' => $text[] = (string) $block['text'],
                     'tool_use' => $calls[] = ['id' => $block['id'], 'type' => 'function', 'function' => [
                         'name' => $block['name'],
-                        'arguments' => json_encode($block['input'] === [] ? new \stdClass : $block['input'], JSON_UNESCAPED_UNICODE),
+                        'arguments' => is_string($block[ModelTurn::INPUT_JSON] ?? null)
+                            ? $block[ModelTurn::INPUT_JSON]
+                            : json_encode($block['input'] === [] ? new \stdClass : $block['input'], JSON_UNESCAPED_UNICODE),
                     ]],
                     'tool_result' => $out[] = ['role' => 'tool', 'tool_call_id' => $block['tool_use_id'], 'content' => (string) $block['content']],
                     default => null, // thinking and other Anthropic-only blocks
@@ -152,7 +154,7 @@ class OpenAiCompatibleModel implements AssistantModel
             $name = (string) ($call['function']['name'] ?? '');
 
             $calls[] = new ToolCall($id, $name, $input);
-            $content[] = ['type' => 'tool_use', 'id' => $id, 'name' => $name, 'input' => $input];
+            $content[] = ['type' => 'tool_use', 'id' => $id, 'name' => $name, 'input' => $input, ModelTurn::INPUT_JSON => is_array($arguments) ? (string) $call['function']['arguments'] : '{}'];
         }
 
         $usage = $response->json('usage') ?? [];

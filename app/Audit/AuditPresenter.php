@@ -399,8 +399,13 @@ final class AuditPresenter
             .(($properties['failover'] ?? false) === true ? ' · respondió el proveedor secundario' : '')
             .(($properties['refused'] ?? false) === true ? ' · el modelo no quiso responder' : '')
             .(($properties['truncated'] ?? false) === true ? ' · la respuesta se cortó' : '')
-            .(($properties['draft'] ?? false) === true ? ' · propuso un borrador de anuncio' : '')
-            .(is_string($properties['error'] ?? null) ? ' · no pudo responder ('.$properties['error'].')' : '');
+            .match ($properties['stopped'] ?? null) {
+                'budget' => ' · se detuvo al alcanzar el presupuesto del mes',
+                'deadline' => ' · se detuvo por tiempo',
+                default => '',
+            }
+        .(($properties['draft'] ?? false) === true ? ' · propuso un borrador de anuncio' : '')
+        .(is_string($properties['error'] ?? null) ? ' · no pudo responder ('.$properties['error'].')' : '');
     }
 
     /**

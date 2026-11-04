@@ -18,6 +18,12 @@ final readonly class ModelTurn
     public const MAX_TOKENS = 'max_tokens';
 
     /**
+     * Key of a `tool_use` block that keeps its input as the provider's raw
+     * JSON text, sent back as written (never sent as a field).
+     */
+    public const INPUT_JSON = 'input_json';
+
+    /**
      * @param  list<ToolCall>  $toolCalls
      * @param  list<array<string, mixed>>  $content
      */

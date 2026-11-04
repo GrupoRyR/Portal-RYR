@@ -65,8 +65,13 @@ class AnthropicModel implements AssistantModel
             throw new ModelUnavailable('not_configured');
         }
 
+        $transport = new CapturingTransport($this->transporter ?? new GuzzleClient([
+            'timeout' => min($this->timeout, $request->timeout ?? $this->timeout),
+            'connect_timeout' => self::CONNECT_TIMEOUT,
+        ]));
+
         try {
-            $message = $this->client()->messages->create(
+            $message = $this->client($transport)->messages->create(
                 maxTokens: $request->maxTokens,
                 messages: self::messages($request->messages),
                 model: $request->model,
@@ -85,18 +90,15 @@ class AnthropicModel implements AssistantModel
             throw new ModelUnavailable(self::reason($e), $e);
         }
 
-        return self::turn($message, $request->model);
+        return self::turn($message, $request->model, $transport->lastJson());
     }
 
-    private function client(): Client
+    private function client(ClientInterface $transport): Client
     {
         return new Client(
             apiKey: (string) $this->apiKey,
             requestOptions: [
-                'transporter' => $this->transporter ?? new GuzzleClient([
-                    'timeout' => $this->timeout,
-                    'connect_timeout' => self::CONNECT_TIMEOUT,
-                ]),
+                'transporter' => $transport,
                 'maxRetries' => self::MAX_RETRIES,
             ],
         );
@@ -143,28 +145,32 @@ class AnthropicModel implements AssistantModel
         $param = [];
 
         foreach ($block as $key => $value) {
-            if ($value === null) {
+            if ($value === null || $key === ModelTurn::INPUT_JSON) {
                 continue;
             }
 
             $param[self::PARAM_KEYS[$key] ?? $key] = $value;
         }
 
-        // The session's JSON keeps {} as []: the API wants an object.
-        if (($param['type'] ?? null) === 'tool_use' && ($param['input'] ?? null) === []) {
-            $param['input'] = new stdClass;
+        if (($param['type'] ?? null) === 'tool_use') {
+            // The input exactly as the API wrote it: the session's JSON turns
+            // every {} (nested too) into [], which would edit the turn.
+            $raw = is_string($block[ModelTurn::INPUT_JSON] ?? null) ? json_decode($block[ModelTurn::INPUT_JSON], false) : null;
+            $param['input'] = is_object($raw) ? $raw : (($param['input'] ?? []) === [] ? new stdClass : $param['input']);
         }
 
         return $param;
     }
 
-    private static function turn(Message $message, string $requested): ModelTurn
+    private static function turn(Message $message, string $requested, ?object $raw = null): ModelTurn
     {
+        $rawBlocks = is_array($raw->content ?? null) ? $raw->content : [];
+
         $text = [];
         $calls = [];
         $content = [];
 
-        foreach ($message->content as $block) {
+        foreach (array_values($message->content) as $index => $block) {
             if ($block instanceof ToolUseBlock) {
                 $calls[] = new ToolCall($block->id, $block->name, $block->input);
             } elseif ($block->type === 'text') {
@@ -172,7 +178,13 @@ class AnthropicModel implements AssistantModel
             }
 
             // The wire shape, lossless (an empty thinking text and its signature too).
-            $content[] = json_decode(json_encode($block, JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+            $wire = json_decode(json_encode($block, JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+
+            if ($block instanceof ToolUseBlock && isset($rawBlocks[$index]->input)) {
+                $wire[ModelTurn::INPUT_JSON] = json_encode($rawBlocks[$index]->input, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+
+            $content[] = $wire;
         }
 
         $usage = $message->usage;

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * When the primary provider fails, the assistant moves to the secondary
  * (`assistant.secondary_model`, ASSISTANT_SECONDARY_MODEL). Errors are
@@ -61,6 +63,16 @@ class ProviderFailover
     }
 
     /**
+     * The error type that opened the provider's breaker, while it is open.
+     */
+    public function reason(string $provider): ?string
+    {
+        $reason = Cache::get(self::key($provider));
+
+        return is_string($reason) ? $reason : null;
+    }
+
+    /**
      * Opens the breaker for the provider and, for a LONG failure, emails
      * the super admins once per cooldown window.
      */
@@ -85,7 +97,9 @@ class ProviderFailover
         $recipients = AdminRecipients::superAdmins();
         AssistantLog::primaryDownAlert($provider, $reason, $recipients->count());
 
-        DB::afterCommit(function () use ($provider, $reason, $recipients) {
+        // After the commit and after the response is sent (no queue worker
+        // on the server): the person never waits for the mail.
+        DB::afterCommit(fn () => defer(function () use ($provider, $reason, $recipients) {
             $notice = new PrimaryDownNotice($provider, $reason);
 
             foreach ($recipients as $recipient) {
@@ -95,7 +109,7 @@ class ProviderFailover
                     Log::warning('Assistant failover alert could not be sent.', ['provider' => $provider, 'exception' => $e::class]);
                 }
             }
-        });
+        }, always: true));
     }
 
     private static function key(string $provider): string

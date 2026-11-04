@@ -56,6 +56,10 @@ class Assistant
 
     public const BOTH_UNAVAILABLE = 'El asistente no está disponible en este momento.';
 
+    public const BUDGET_REACHED = 'El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.';
+
+    public const TOO_SLOW = 'La respuesta tardó demasiado; intenta de nuevo.';
+
     public function __construct(
         private readonly AssistantModel $model,
         private readonly AssistantTools $tools,
@@ -93,32 +97,73 @@ class Assistant
 
     public function ask(User $user, Conversation $conversation, string $question): Answer
     {
+        $usage = new Usage;
+        $answer = null;
+        $model = $this->plan($user)->model;
+
+        try {
+            return $answer = $this->answer($user, $conversation, $question, $usage);
+        } finally {
+            // Always audited, also when something throws midway: the spend
+            // and the daily count never miss a call that was made.
+            AssistantLog::asked($user, $answer ?? new Answer(
+                text: '',
+                model: $model->model,
+                usage: $usage,
+                provider: $model->provider,
+                error: 'exception',
+            ));
+            $this->budget->alertIfNeeded();
+        }
+    }
+
+    private function answer(User $user, Conversation $conversation, string $question, Usage $usage): Answer
+    {
         $this->sync($user, $conversation);
         $plan = $this->plan($user);
         $secondary = $this->settings->secondaryFor($plan->editor);
-        $serving = $conversation->moved() && $secondary !== null ? $plan->on($secondary) : $plan;
+        $guard = new QuestionGuard(
+            CarbonImmutable::now()->addSeconds($this->settings->deadlineSeconds),
+            $this->budget->limit(),
+            $this->budget->spentThisMonth(),
+        );
 
         $message = ['role' => 'user', 'content' => [
             ['type' => 'text', 'text' => SystemPrompt::context($user, $plan->editor, CarbonImmutable::now())],
             ['type' => 'text', 'text' => $question],
         ]];
 
-        $usage = new Usage;
-        $failover = $conversation->moved();
-        $run = $this->run($user, $serving, $serving->model, [...$conversation->transcript(), $message], $usage);
+        $failover = $conversation->moved() && $secondary !== null;
+        $serving = $failover ? $plan->on($secondary) : $plan;
+        $moveOnSuccess = false;
+        $run = null;
 
-        // The primary failed for a reason that fails over: the rest of the
-        // conversation goes to the secondary, as plain text.
-        if ($run->status === Run::FAILED && ! $failover && $secondary !== null && ProviderFailover::kind($run->error) !== null) {
-            $this->failover->markDown($plan->model->provider, (string) $run->error);
-            AssistantLog::failover($user, $plan->model->key(), $secondary->key(), (string) $run->error);
-            $conversation->moveTo($secondary);
+        // While the primary is down (the breaker), straight to the secondary.
+        $skipPrimary = ! $failover && $secondary !== null && $this->failover->isDown($plan->model->provider);
+
+        if (! $skipPrimary) {
+            $run = $this->run($user, $serving, $serving->model, [...$conversation->transcript(), $message], $usage, $guard);
+        }
+
+        if ($skipPrimary || ($run->status === Run::FAILED && ! $failover && $secondary !== null && ProviderFailover::kind($run->error) !== null)) {
+            $reason = $run === null ? ($this->failover->reason($plan->model->provider) ?? 'cooldown') : (string) $run->error;
+
+            if ($run !== null) {
+                $this->failover->markDown($plan->model->provider, $reason);
+            }
+
+            AssistantLog::failover($user, $plan->model->key(), $secondary->key(), $reason);
             $failover = true;
             $serving = $plan->on($secondary);
-            $run = $this->run($user, $serving, $secondary, [...$conversation->transcript(), $message], $usage);
+            // The secondary cannot read the primary's blocks: the conversation as plain text.
+            $secondaryRun = $this->run($user, $serving, $secondary, [...$conversation->plainTranscript(), $message], $usage, $guard);
+            $run = $run === null ? $secondaryRun : $secondaryRun->asFallback($run);
 
             if ($run->status === Run::FAILED) {
                 $run->text = self::BOTH_UNAVAILABLE;
+            } else {
+                // Moved only once the secondary answered: a failure of both keeps the history.
+                $moveOnSuccess = true;
             }
         } elseif ($run->status === Run::FAILED && ProviderFailover::kind($run->error) === null) {
             // A request the provider rejects (400, 404, 413...) is a bug: never a failover.
@@ -130,7 +175,11 @@ class Assistant
         if ($run->status === Run::REFUSED && ($fallbackModel = $this->settings->fallbackFor($serving->model)) !== null) {
             $fallback = true;
             $fresh = [...$conversation->plainTranscript(), $message];
-            $run = $this->run($user, $serving, $fallbackModel, $fresh, $usage)->asFallback($run);
+            $run = $this->run($user, $serving, $fallbackModel, $fresh, $usage, $guard)->asFallback($run);
+        }
+
+        if ($run->status === Run::BUDGET) {
+            AssistantLog::budgetBlocked($user, $guard->spentBefore + $usage->costUsd, $guard->budget);
         }
 
         $answer = new Answer(
@@ -146,34 +195,48 @@ class Assistant
             truncated: $run->status === Run::TRUNCATED,
             error: $run->error,
             draft: $run->draft,
+            stopped: in_array($run->status, [Run::BUDGET, Run::DEADLINE], true) ? $run->status : null,
         );
 
         if (! $answer->failed()) {
+            if ($moveOnSuccess) {
+                $conversation->moveTo($secondary);
+            }
+
             $kept = $fallback || $run->status === Run::REFUSED
                 ? [$message, self::assistantText($run->text)]
                 : [$message, ...$run->kept];
             $conversation->append($question, $answer->text, $kept);
         }
 
-        AssistantLog::asked($user, $answer);
-        $this->budget->alertIfNeeded();
-
         return $answer;
     }
 
     /**
-     * One model's tool loop over $messages.
+     * One model's tool loop over $messages. Before every call: the
+     * question's deadline and the month's budget (spend so far plus this
+     * question's), each call limited to the time left.
      *
      * @param  list<array<string, mixed>>  $messages
      */
-    private function run(User $user, ConversationPlan $plan, ModelRef $model, array $messages, Usage $usage): Run
+    private function run(User $user, ConversationPlan $plan, ModelRef $model, array $messages, Usage $usage, QuestionGuard $guard): Run
     {
         $run = new Run($model->model, $model->provider);
         $rounds = 0;
 
         while (true) {
+            if ($guard->budgetReached($usage)) {
+                return $run->ends(Run::BUDGET, self::BUDGET_REACHED, [self::assistantText(self::BUDGET_REACHED)]);
+            }
+
+            if ($guard->expired()) {
+                return $run->ends(Run::DEADLINE, self::TOO_SLOW, [self::assistantText(self::TOO_SLOW)]);
+            }
+
             try {
-                $turn = $this->model->send(new ModelRequest($model->model, $plan->effort, $plan->maxTokens, $plan->system, $plan->tools, $messages, $model->provider));
+                $turn = $this->model->send(new ModelRequest(
+                    $model->model, $plan->effort, $plan->maxTokens, $plan->system, $plan->tools, $messages, $model->provider, $guard->secondsLeft(),
+                ));
             } catch (ModelUnavailable $unavailable) {
                 return $run->ends(Run::FAILED, self::UNAVAILABLE, error: $unavailable->reason);
             }
@@ -189,13 +252,19 @@ class Assistant
             if ($turn->stopReason === ModelTurn::MAX_TOKENS) {
                 $text = ($turn->text !== '' ? $turn->text."\n\n" : '').self::TRUNCATED;
 
-                return $turn->toolCalls === []
+                // An unfinished tool call, or a turn with no text, is never kept.
+                return $turn->toolCalls === [] && $turn->text !== ''
                     ? $run->ends(Run::TRUNCATED, $text, [$turn->message()])
                     : $run->ends(Run::TRUNCATED, $text, [self::assistantText($text)]);
             }
 
             if ($turn->stopReason !== ModelTurn::TOOL_USE || $turn->toolCalls === []) {
-                return $run->ends(Run::ANSWERED, $turn->text !== '' ? $turn->text : self::EMPTY, [$turn->message()]);
+                // A turn with no text and no tool call would be an empty
+                // assistant message on the next request (a 400): keep the
+                // page's text instead.
+                return $turn->text !== ''
+                    ? $run->ends(Run::ANSWERED, $turn->text, [$turn->message()])
+                    : $run->ends(Run::ANSWERED, self::EMPTY, [self::assistantText(self::EMPTY)]);
             }
 
             if ($rounds >= $this->settings->maxToolRounds) {

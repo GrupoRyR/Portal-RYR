@@ -61,6 +61,7 @@ final class AssistantLog
                 'truncated' => $answer->truncated,
                 'draft' => $answer->draft !== null,
                 'error' => $answer->error,
+                'stopped' => $answer->stopped,
             ])
             ->log(self::ASKED);
     }

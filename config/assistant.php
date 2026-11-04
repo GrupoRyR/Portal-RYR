@@ -100,6 +100,10 @@ return [
     // Seconds the server waits for one model call before giving up.
     'timeout' => (int) env('PORTAL_ASSISTANT_TIMEOUT', 60),
 
+    // Seconds one question may take in all (every call, retry, tool round,
+    // the secondary and the fallback); each call gets at most what is left.
+    'deadline_seconds' => (int) env('ASSISTANT_DEADLINE_SECONDS', 90),
+
     // Questions per account and day (Bogotá), counted from Auditoría.
     'daily_questions' => (int) env('PORTAL_ASSISTANT_DAILY_QUESTIONS', 40),
 

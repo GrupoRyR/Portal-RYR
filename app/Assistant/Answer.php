@@ -31,6 +31,8 @@ final readonly class Answer
         public bool $truncated = false,
         public ?string $error = null,
         public ?AnnouncementDraft $draft = null,
+        // Run::BUDGET or Run::DEADLINE when the question was stopped midway.
+        public ?string $stopped = null,
     ) {}
 
     public function failed(): bool

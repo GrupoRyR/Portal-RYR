@@ -21,6 +21,12 @@ final class Run
 
     public const FAILED = 'failed';
 
+    /** The month's budget was reached in the middle of the question. */
+    public const BUDGET = 'budget';
+
+    /** The question's deadline passed. */
+    public const DEADLINE = 'deadline';
+
     public string $status = self::ANSWERED;
 
     public string $text = '';

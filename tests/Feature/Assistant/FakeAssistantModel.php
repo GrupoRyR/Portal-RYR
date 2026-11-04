@@ -17,8 +17,11 @@ use PHPUnit\Framework\Assert;
  */
 final class FakeAssistantModel implements AssistantModel
 {
-    /** @var list<ModelTurn|ModelUnavailable> */
+    /** @var list<ModelTurn|\Throwable> */
     private array $queue = [];
+
+    /** @var (\Closure(ModelRequest): void)|null Runs on every call, before it answers. */
+    private ?\Closure $onSend = null;
 
     /** @var list<ModelRequest> */
     public array $requests = [];
@@ -61,6 +64,26 @@ final class FakeAssistantModel implements AssistantModel
         return $this->queue('max_tokens', $text, $calls, $model, [['type' => 'text', 'text' => $text]]);
     }
 
+    public function onSend(\Closure $callback): self
+    {
+        $this->onSend = $callback;
+
+        return $this;
+    }
+
+    /** A turn with no text and no tool call (content []). */
+    public function emptyTurn(string $model = 'claude-haiku-5-5'): self
+    {
+        return $this->queue('end_turn', '', [], $model, []);
+    }
+
+    public function throws(\Throwable $e): self
+    {
+        $this->queue[] = $e;
+
+        return $this;
+    }
+
     public function fails(string $reason = 'timeout'): self
     {
         $this->queue[] = new ModelUnavailable($reason);
@@ -75,7 +98,11 @@ final class FakeAssistantModel implements AssistantModel
 
         $next = array_shift($this->queue);
 
-        if ($next instanceof ModelUnavailable) {
+        if ($this->onSend !== null) {
+            ($this->onSend)($request);
+        }
+
+        if ($next instanceof \Throwable) {
             throw $next;
         }
 

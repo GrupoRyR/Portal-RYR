@@ -174,6 +174,29 @@ class AnthropicModelTest extends TestCase
         ], $sentBack[2]);
     }
 
+    public function test_a_nested_empty_object_in_a_tool_input_goes_back_unchanged(): void
+    {
+        $model = $this->model([
+            self::answer([
+                ['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-1'],
+                ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'buscar_personas', 'input' => ['texto' => 'Ana', 'filtros' => (object) [], 'lista' => []], 'caller' => ['type' => 'direct']],
+            ], 'tool_use'),
+            self::answer([['type' => 'text', 'text' => 'Listo.']], 'end_turn'),
+        ]);
+
+        $first = $model->send($this->request());
+        $kept = json_decode(json_encode($first->message()), true);
+        $model->send($this->request([
+            self::question('Busca a Ana'),
+            $kept,
+            ['role' => 'user', 'content' => [['type' => 'tool_result', 'tool_use_id' => 'toolu_1', 'content' => '{}', 'is_error' => false]]],
+        ]));
+
+        $body = (string) $this->sent[1]['request']->getBody();
+        $this->assertStringContainsString('"input":{"texto":"Ana","filtros":{},"lista":[]}', $body);
+        $this->assertStringNotContainsString('input_json', $body);
+    }
+
     /**
      * @return array<string, array{string}>
      */

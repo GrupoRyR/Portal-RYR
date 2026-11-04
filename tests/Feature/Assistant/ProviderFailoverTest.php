@@ -16,6 +16,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -45,6 +46,8 @@ class ProviderFailoverTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         Notification::fake();
+        // Alerts go after the response (defer); here they run at once.
+        $this->withoutDefer();
         $this->travelTo(CarbonImmutable::parse('2026-11-04 09:00', 'America/Bogota'));
         config([
             'assistant.enabled' => true,
@@ -202,6 +205,47 @@ class ProviderFailoverTest extends TestCase
 
         $this->assertSame([], $this->model->requests);
         $this->assertSame(0, Activity::query()->where('event', AssistantLog::FAILOVER)->count());
+    }
+
+    public function test_a_failure_of_both_keeps_the_conversation_on_the_primary(): void
+    {
+        $this->model->answers('R1', signature: 'sig-keep')->fails('overloaded')->fails('http_503');
+        $this->ask('P1');
+        $before = $this->conversation()->transcript();
+
+        $this->assertSame(Assistant::BOTH_UNAVAILABLE, $this->ask('P2')->text);
+
+        $this->assertFalse($this->conversation()->moved());
+        $this->assertSame('anthropic:claude-haiku-5-5', $this->conversation()->model());
+        $this->assertSame($before, $this->conversation()->transcript(), 'The history with its thinking is untouched.');
+    }
+
+    public function test_a_failover_in_a_later_round_of_the_tool_loop_starts_clean_on_the_secondary(): void
+    {
+        $this->model->callsTool('mis_apps')->fails('overloaded')->answers('Desde DeepSeek.', 'deepseek-chat');
+
+        $answer = $this->ask('¿Qué apps tengo?');
+
+        $this->assertSame('Desde DeepSeek.', $answer->text);
+        $this->assertSame(['anthropic:claude-haiku-5-5', 'anthropic:claude-haiku-5-5', 'deepseek:deepseek-chat'], $this->providers());
+        $secondary = $this->model->requests[2];
+        $this->assertCount(1, $secondary->messages, 'Only the question: the primary\'s tool round is not carried over.');
+        $this->assertStringNotContainsString('tool_use', json_encode($secondary->messages));
+        $this->assertSame(['mis_apps'], $answer->tools);
+        $this->assertTrue($this->conversation()->moved());
+        $this->assertStringNotContainsString('tool_use', json_encode($this->conversation()->transcript()));
+    }
+
+    public function test_the_alert_mail_waits_until_after_the_response(): void
+    {
+        $this->withDefer();
+        $this->model->fails('billing')->answers('ok', 'deepseek-chat');
+
+        $this->ask();
+
+        Notification::assertNothingSent();
+        app(DeferredCallbackCollection::class)->invoke();
+        Notification::assertSentTimes(PrimaryDownNotice::class, 1);
     }
 
     public function test_without_a_secondary_the_behavior_is_unchanged(): void

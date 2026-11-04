@@ -28,5 +28,7 @@ final readonly class ModelRequest
         public array $messages,
         // The provider of `assistant.providers` that serves $model.
         public string $provider = ModelRef::DEFAULT_PROVIDER,
+        // Seconds this call may take at most (the question's deadline); null: the driver's own.
+        public ?int $timeout = null,
     ) {}
 }

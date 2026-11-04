@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * The monthly spend cap of the assistant (`assistant.monthly_budget_usd`,
  * ASSISTANT_MONTHLY_BUDGET_USD): the calendar month in Bogotá, summed from
@@ -101,7 +103,9 @@ class AssistantBudget
 
         AssistantLog::budgetAlert($threshold, $month, $spent, $budget, $recipients->count());
 
-        DB::afterCommit(function () use ($threshold, $spent, $budget, $recipients) {
+        // After the commit and after the response is sent (no queue worker
+        // on the server): the person never waits for the mail.
+        DB::afterCommit(fn () => defer(function () use ($threshold, $spent, $budget, $recipients) {
             $notice = new BudgetAlertNotice($threshold, $spent, $budget);
 
             foreach ($recipients as $recipient) {
@@ -111,6 +115,6 @@ class AssistantBudget
                     Log::warning('Assistant budget alert could not be sent.', ['threshold' => $threshold, 'exception' => $e::class]);
                 }
             }
-        });
+        }, always: true));
     }
 }

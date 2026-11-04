@@ -33,6 +33,7 @@ final readonly class AssistantSettings
         public ?ModelRef $secondaryEditorModel = null,
         public int $primaryCooldownMinutes = 30,
         public int $shortCooldownMinutes = 2,
+        public int $deadlineSeconds = 90,
     ) {}
 
     public static function fromConfig(): self
@@ -61,6 +62,7 @@ final readonly class AssistantSettings
             secondaryEditorModel: ($secondaryEditor ?: $secondary) === '' ? null : ModelRef::parse($secondaryEditor ?: $secondary),
             primaryCooldownMinutes: max(1, (int) config('assistant.primary_cooldown_minutes')),
             shortCooldownMinutes: max(1, (int) config('assistant.short_cooldown_minutes')),
+            deadlineSeconds: max(5, (int) config('assistant.deadline_seconds')),
         );
     }
 
