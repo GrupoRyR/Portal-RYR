@@ -13,9 +13,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Administration on the official brand manual SGX/SDC: the logo on a
- * --brand-dark band, labels in sentence case and filled buttons on
- * --brand-button.
+ * Administration on the official brand manual SGX/SDC: the logo on its own
+ * plate over the glass (white logos on --brand-dark), labels in sentence
+ * case and filled buttons on --brand-button.
  */
 class AdminBrandTest extends TestCase
 {
@@ -38,25 +38,27 @@ class AdminBrandTest extends TestCase
         $this->admin->assignRole('super_admin');
     }
 
-    public function test_the_shell_shows_the_logo_on_brand_dark_bands(): void
+    public function test_the_shell_shows_the_white_logo_on_its_brand_dark_plate(): void
     {
         $html = $this->actingAs($this->admin)->get(route('admin.categories.index'))->assertOk()->getContent();
 
-        // Phone top bar and the head of the sidebar, each with the logo.
-        $this->assertMatchesRegularExpression('/<header class="brand-band [^"]*lg:hidden">.*?alt="Segurex Latam".*?<\/header>/s', $html);
-        $this->assertMatchesRegularExpression('/<nav id="admin-sidebar".*?<div class="brand-band [^"]*">.*?alt="Segurex Latam"/s', $html);
-        $this->assertStringNotContainsString('bg-brand-dark px-3', $html);
+        // Phone top bar and the head of the sidebar, each with the logo on
+        // the --brand-dark plate: the glass behind it is light.
+        $plate = '<span class="flex h-11 shrink-0 items-center rounded-control bg-brand-dark px-3">\s*<img [^>]*alt="Segurex Latam"';
+        $this->assertMatchesRegularExpression('/<header class="g-topbar [^"]*lg:hidden">.*?'.$plate.'.*?<\/header>/s', $html);
+        $this->assertMatchesRegularExpression('/<nav id="admin-sidebar".*?<div class="g-admin-head [^"]*">.*?'.$plate.'/s', $html);
+        $this->assertStringNotContainsString('brand-band', $html);
     }
 
-    public function test_the_sidebar_band_does_not_rely_on_the_parent_padding(): void
+    public function test_the_sidebar_head_does_not_rely_on_the_parent_padding(): void
     {
         $html = $this->actingAs($this->admin)->get(route('admin.categories.index'))->assertOk()->getContent();
 
         preg_match('/<nav id="admin-sidebar"[^>]*class="([^"]*)"/s', $html, $nav);
-        preg_match('/<div class="(brand-band [^"]*)">/', $html, $band);
+        preg_match('/<div class="(g-admin-head [^"]*)">/', $html, $head);
 
         $this->assertDoesNotMatchRegularExpression('/(^| )(px|py|p)-/', $nav[1]);
-        $this->assertDoesNotMatchRegularExpression('/(^| )-m[xyt]-/', $band[1]);
+        $this->assertDoesNotMatchRegularExpression('/(^| )-m[xyt]-/', $head[1]);
     }
 
     /**
