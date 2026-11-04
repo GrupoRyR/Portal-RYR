@@ -47,7 +47,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [x] G6. **Bloques del inicio:** Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día». Hecho en `e1d39d5`, `b7af6db` y `bbca5c6` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-6-home`, sobre G4 con G5 y G7 fusionados.
 - [x] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`. Hecho en `1ceb56f` (ruta: escritor delegado, 2+ archivos no triviales).
   - Rama `feat/glass-7-assistant`: G3 con `feat/assistant-json` (G2) fusionada.
-- [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en la rama `feat/glass-8-login` (PR #106).
+- [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en `887f69a`, `2db9d5a` (título en `PlaceholderPagesTest`) y el arreglo de la revisión `fix(glass): lighten the Vitrina slideshow` (ruta: escritor delegado, 2+ archivos no triviales). PR #106.
 - [x] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*` y `mcp/*` (`errors/*` quedó en G8). Hecho en `93bc248`, `3bb479a`, `62f797f` y `3644641` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-9-pages`, sobre G6.
 - [x] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR). Hecho en la rama `feat/glass-10-admin` (PR #108).
 
@@ -211,3 +211,13 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - Al imprimir, la barra lateral y la barra superior salen en blanco.
     - La sección de `glass.css` pasa a ser la «7», porque G5 también agrega una «6».
     - Prueba nueva `tests/Unit/Branding/AdminGlassSkinTest.php`: el panel no lleva `backdrop-filter`, `filter`, `transform` ni `z-index`, ni `color-mix`, y el brillo excluye `:disabled`.
+- G8 hecho en `887f69a` (`feat/glass-8-login`).
+  - Vitrina en `auth/login`: la foto de planta 1 de fondo y tres fotos (stand, planta 2 y 3) que entran por turnos (CSS, 7 s cada una), con un velo neutro. Corre dos ciclos y se queda en la foto de fondo (WCAG 2.2.2). Con movimiento reducido las tres quedan en `display: none`. En celular, las fotos pequeñas.
+  - Arreglo de la revisión: solo se anima la opacidad (sin escala). Mientras hay movimiento, el vidrio de la Vitrina usa la superficie sólida `--g-solid` sin `backdrop-filter`, así que no se recalcula ningún desenfoque. Cada diapositiva recibe su foto con una animación de un solo paso 4 s antes de su turno (a los 3, 10 y 17 s), así que la página carga solo la foto de fondo y un logo. Comprobado con Resource Timing en Chrome: al cargar no hay fotos de diapositivas, y aparecen cuando corre su animación.
+  - Bytes de imagen en celular al cargar: 103 274 en claro (planta 1 pequeña 89 260 + One color 14 014) y 110 832 en oscuro (One cristal 21 572). Las diapositivas suman 191 628 después, y nada con movimiento reducido.
+  - Tarjeta de vidrio: logo One (`public/images/one/`, webp de 14 y 22 KB) en un `<picture>` con `<source media="(prefers-color-scheme: dark)">`, así que se descarga una sola variante. Lleva `fetchpriority="high"`. Sin JavaScript sigue al sistema; el `theme.js` de G3 reescribe el `media` de esas fuentes cuando hay un tema elegido. Además: «Bienvenido a One», «Iniciar sesión con Microsoft», el error, los logos de `companies` y la nota de soporte.
+  - Sin «grupo»: el texto de soporte dice «Solo para colaboradores de Segurex y Soluciones y Derivados». Se quitaron la franja naranja y azul del boceto y su velo de dos colores.
+  - Pie: los nombres legales con el año actual, y solo los enlaces con dirección conocida: «Soporte TI» (si hay URL de soporte) y segurex.com (del boceto). La política, los términos y el sitio de SDC no tienen URL todavía, así que no salen.
+  - Se borraron el cielo de cometas (`components/auth/sky`) y su CSS. Las páginas de emergencia, de consentimiento y de error ahora son tarjetas de vidrio sobre `glass`. Los botones sin empresa usan `.g-btn--ink` (17,6:1 en claro y 15,7:1 en oscuro).
+  - Sin botón de tema en la Vitrina: lo agrega G3.
+  - Evidencia: RED en 18 pruebas antes del código, y en la prueba del `<picture>` antes del arreglo. `PlaceholderPagesTest` ya espera «Bienvenido a One» (`2db9d5a`). Después del arreglo: `php artisan test` pasan 3237 de 3237; `vendor/bin/pint --test` sale en 0; `npm run build` funciona. Se revisó en Chrome sin interfaz, en claro y oscuro, a 375 px y 1440 px.

@@ -21,7 +21,7 @@ class PlaceholderPagesTest extends TestCase
             ->assertOk()
             ->assertSee('<html lang="es" data-brand="neutral">', false)
             ->assertSee('<style>'.BrandPalette::neutral()->toCss().'</style>', false)
-            ->assertSee('Todas tus aplicaciones en un solo lugar')
+            ->assertSee('Bienvenido a One')
             ->assertSee('/build/assets/', false);
     }
 

@@ -23,16 +23,17 @@ class SignInBrandTest extends TestCase
         Storage::fake('public');
     }
 
-    public function test_the_companies_label_is_in_sentence_case(): void
+    public function test_the_company_row_is_named_without_the_group(): void
     {
-        Company::factory()->create();
+        Company::factory()->create(['name' => 'Segurex Latam', 'short_name' => 'Segurex']);
 
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<p class="([^"]*)">Empresas del grupo<\/p>/', $html);
-        preg_match('/<p class="([^"]*)">Empresas del grupo<\/p>/', $html, $label);
-        $this->assertStringNotContainsString('uppercase', $label[1]);
-        // The group row above the headline was removed on request (option B).
+        // Vitrina: no «grupo» wording (Jhon, 2026-11-04), no shouted label.
+        $this->assertMatchesRegularExpression('/<ul role="list" aria-label="Empresas" class="([^"]*)">/', $html);
+        preg_match('/<ul role="list" aria-label="Empresas" class="([^"]*)">/', $html, $row);
+        $this->assertStringNotContainsString('uppercase', $row[1]);
+        $this->assertStringNotContainsString('Empresas del grupo', $html);
         $this->assertStringNotContainsString('Grupo Empresarial RYR', $html);
     }
 

@@ -23,7 +23,7 @@ class SessionRoutesTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Entrar con Microsoft')
+            ->assertSee('Iniciar sesión con Microsoft')
             ->assertSee(route('auth.microsoft.redirect'), false);
     }
 
@@ -37,7 +37,7 @@ class SessionRoutesTest extends TestCase
             ->get('/auth/microsoft/callback?code=abc&state=xyz')
             ->assertOk()
             ->assertSee('No pudimos completar el inicio de sesión. Inténtalo de nuevo.')
-            ->assertSee('Entrar con Microsoft');
+            ->assertSee('Iniciar sesión con Microsoft');
     }
 
     public function test_signed_in_users_see_the_home_page(): void

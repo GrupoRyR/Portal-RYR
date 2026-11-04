@@ -63,9 +63,10 @@ class SecondaryPagesBrandTest extends TestCase
 
     public function test_the_forbidden_page_uses_the_brand_button_without_a_band(): void
     {
+        // Glass primary button: its color is --brand-button (glass.css).
         $this->actingAs($this->user)->get(route('admin.index'))
             ->assertForbidden()
-            ->assertSee('bg-brand-button', false)
+            ->assertSee('g-btn g-btn--primary', false)
             ->assertDontSee('brand-band', false)
             ->assertDontSee('text-on-fg', false);
     }

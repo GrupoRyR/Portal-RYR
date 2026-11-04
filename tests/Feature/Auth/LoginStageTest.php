@@ -9,37 +9,49 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * The sign-in stage (docs/diseno/LoginOpcionB.html): decorative app comets
- * behind a glass card, neutral chrome, brand color only in each logo chip.
+ * The sign-in «Vitrina» (approved sketch, 2026-11-04): company photos fade
+ * behind a neutral veil, under one glass card. Neutral chrome: brand color
+ * only in the One mark and each company's logo chip.
  */
 class LoginStageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_the_comets_and_the_still_tiles_are_hidden_from_assistive_technology(): void
+    public function test_the_photo_slides_and_the_veil_are_hidden_from_assistive_technology(): void
     {
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<div aria-hidden="true"[^>]*>\s*<ul class="signin-comets/', $html);
-        $this->assertSame(11, substr_count($html, '<li class="signin-comet'));
-        $this->assertStringContainsString('class="signin-floats', $html);
+        $this->assertStringContainsString('<body class="min-h-dvh vitrina">', $html);
+        $this->assertMatchesRegularExpression('/<div class="vitrina-slides" aria-hidden="true">\s*(<div class="vitrina-slide"><\/div>\s*){3}<\/div>/', $html);
+        $this->assertStringContainsString('<div class="vitrina-veil" aria-hidden="true"></div>', $html);
     }
 
-    public function test_the_sign_in_sits_on_the_glass_card_with_one_heading(): void
+    public function test_the_sign_in_sits_on_one_glass_card_with_one_heading(): void
     {
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<section aria-labelledby="titulo" class="signin-card /', $html);
+        $this->assertMatchesRegularExpression('/<section aria-labelledby="titulo" class="g-card /', $html);
         $this->assertSame(1, substr_count($html, '<h1'));
-        $this->assertStringContainsString('<body class="min-h-dvh signin-stage">', $html);
+        $this->assertMatchesRegularExpression('/<h1 id="titulo" class="[^"]*\btext-balance\b[^"]*">Bienvenido a One<\/h1>/', $html);
+        $this->assertStringNotContainsString('hyphens-auto', $html);
     }
 
-    public function test_the_title_wraps_between_words_without_hyphens(): void
+    public function test_the_one_mark_follows_the_theme_with_its_size_declared(): void
     {
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<h1 id="titulo" class="[^"]*\btext-balance\b/', $html);
-        $this->assertStringNotContainsString('hyphens-auto', $html);
+        // One <picture>: only the variant for the scheme downloads. The
+        // dark source follows the system without JavaScript; the theme
+        // script rewrites the media of scheme-bound sources for a stored
+        // choice (data-scheme-media convention).
+        $this->assertMatchesRegularExpression(
+            '/<picture>\s*<source srcset="[^"]*\/images\/one\/one-cristal\.webp" media="\(prefers-color-scheme: dark\)" width="220" height="103">\s*'
+            .'<img src="[^"]*\/images\/one\/one-color\.webp" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" fetchpriority="high"[^>]*>\s*<\/picture>/',
+            $html,
+        );
+        $this->assertSame(1, substr_count($html, 'alt="One, portal'));
+        $this->assertFileExists(public_path('images/one/one-color.webp'));
+        $this->assertFileExists(public_path('images/one/one-cristal.webp'));
     }
 
     public function test_a_dark_logo_sits_on_its_own_company_dark_color(): void
@@ -65,10 +77,14 @@ class LoginStageTest extends TestCase
         app(PortalSettings::class)->update(['support_url' => 'https://soporte.segurex.com.co/tickets/nuevo'], null);
 
         // Directly to the URL: the /soporte route needs a session.
-        $this->get(route('login'))
+        $html = $this->get(route('login'))
             ->assertOk()
             ->assertSee('<a href="https://soporte.segurex.com.co/tickets/nuevo" target="_blank" rel="noopener"', false)
-            ->assertSeeText('Escribe a soporte de TI');
+            ->assertSeeText('Escribe a soporte de TI')
+            ->getContent();
+
+        // The footer links to it too.
+        $this->assertMatchesRegularExpression('/<footer .*<a href="https:\/\/soporte\.segurex\.com\.co\/tickets\/nuevo"[^>]*>Soporte TI<\/a>.*<\/footer>/s', $html);
     }
 
     public function test_without_a_support_url_the_note_is_plain_text(): void
@@ -77,6 +93,34 @@ class LoginStageTest extends TestCase
 
         $this->assertStringContainsString('Escribe a soporte de TI.', $html);
         $this->assertStringNotContainsString('target="_blank"', $html);
+        $this->assertStringNotContainsString('Soporte TI', $html);
+    }
+
+    public function test_the_footer_carries_the_legal_lines_and_only_known_links(): void
+    {
+        $html = $this->get(route('login'))->assertOk()->getContent();
+
+        preg_match('/<footer .*?<\/footer>/s', $html, $footer);
+        $this->assertNotEmpty($footer);
+        $this->assertStringContainsString('© '.now()->year.' Segurex LATAM S.A.S. · Soluciones y Derivados de Colombia S.A.S.', $footer[0]);
+        $this->assertStringContainsString('Acceso exclusivo para colaboradores autorizados.', $footer[0]);
+        $this->assertStringContainsString('<a href="https://www.segurex.com"', $footer[0]);
+        $this->assertStringContainsString('<a href="https://derivadoscol.com"', $footer[0]);
+        // No URL is configured for the policy or the terms yet.
+        $this->assertStringNotContainsString('Política de tratamiento', $footer[0]);
+        $this->assertStringNotContainsString('Términos de uso', $footer[0]);
+    }
+
+    public function test_the_page_never_names_the_group_and_has_no_dead_links(): void
+    {
+        app(PortalSettings::class)->update(['support_url' => 'https://soporte.segurex.com.co'], null);
+        Company::factory()->create(['name' => 'Segurex Latam', 'short_name' => 'Segurex']);
+        Company::factory()->create(['name' => 'Soluciones y Derivados de Colombia S.A.S.', 'short_name' => 'Derivados']);
+
+        $html = $this->get(route('login'))->assertOk()->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('/grupo/i', $html);
+        $this->assertStringNotContainsString('href="#"', $html);
     }
 
     public function test_an_invalid_dark_color_never_reaches_the_style_attribute(): void

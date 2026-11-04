@@ -1,50 +1,83 @@
 {{--
-    Neutral sign-in (docs/diseno/LoginOpcionB.html): no company is known yet,
-    so no brand color outside each company's own logo chip. The apps cross the
-    stage like comets (components/auth/sky) behind a glass card.
+    Sign-in «Vitrina» (approved sketch, 2026-11-04): photos of the companies
+    fade one into the next behind a neutral veil, under one glass card. No
+    company is known yet, so the page stays neutral (data-brand="neutral"):
+    brand color lives only in the One mark and in each company's logo chip.
+    CSS only, no JavaScript (app.css, "Sign-in Vitrina"); with reduced motion
+    a single photo stays still.
 --}}
 @use('App\Branding\BrandPalette')
-<x-layouts.app title="Iniciar sesión" class="signin-stage">
-    <main class="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 max-md:place-items-end max-md:px-4 max-md:pt-42 max-md:pb-6">
-        <x-auth.sky />
+<x-layouts.app title="Iniciar sesión" class="vitrina">
+    <div class="vitrina-slides" aria-hidden="true">
+        <div class="vitrina-slide"></div>
+        <div class="vitrina-slide"></div>
+        <div class="vitrina-slide"></div>
+    </div>
+    <div class="vitrina-veil" aria-hidden="true"></div>
 
-        <section aria-labelledby="titulo" class="signin-card relative z-10 w-full max-w-[592px] rounded-[28px] px-11 pt-11 pb-9 max-md:rounded-3xl max-md:px-6 max-md:pt-8 max-md:pb-7">
-            <h1 id="titulo" class="text-[2.5rem] leading-[1.04] font-bold tracking-[-0.03em] text-balance break-words max-md:text-[2rem]">Todas tus aplicaciones en un solo lugar</h1>
-            <p class="mt-3.5 text-[1.0625rem] leading-normal text-fg-soft">Entra con la misma cuenta de Microsoft que usas para tu correo de trabajo.</p>
+    <main class="flex grow items-center justify-center px-4 py-12 max-sm:py-8">
+        <section aria-labelledby="titulo" class="g-card flex w-full max-w-[460px] flex-col items-center gap-5 px-10 pt-11 pb-9 text-center max-sm:px-5.5 max-sm:pt-8 max-sm:pb-7">
+            {{-- One mark: color on light glass, crystal on dark glass. Only
+                 the variant for the scheme downloads. Without JavaScript it
+                 follows the system; the theme script rewrites the media of
+                 scheme-bound sources when a theme was chosen. --}}
+            <picture>
+                <source srcset="{{ asset('images/one/one-cristal.webp') }}" media="(prefers-color-scheme: dark)" width="220" height="103">
+                <img src="{{ asset('images/one/one-color.webp') }}" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" fetchpriority="high" class="h-auto w-[220px]">
+            </picture>
+
+            <div class="flex flex-col gap-2.5">
+                <h1 id="titulo" class="text-[2.125rem] leading-[1.15] font-bold tracking-[-0.015em] text-balance max-sm:text-[1.75rem]">Bienvenido a One</h1>
+                <p class="text-base leading-normal">Tus apps, anuncios y tareas de Segurex y Soluciones y Derivados, en un solo lugar.</p>
+            </div>
 
             @error('login')
-                <p role="alert" class="mt-6 rounded-control bg-status-failure-bg px-4 py-3 text-sm font-semibold text-status-failure">{{ $message }}</p>
+                <p role="alert" class="w-full rounded-(--g-r-md) bg-(--g-crit-bg) px-4 py-3 text-sm font-semibold text-(--g-crit)">{{ $message }}</p>
             @enderror
 
-            <a href="{{ route('auth.microsoft.redirect') }}"
-               class="mt-8 flex h-14 items-center justify-center gap-3 rounded-icon bg-fg text-[1.0625rem] font-bold text-on-fg transition-[translate,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_10px_24px_rgb(23_25_28/0.25)]">
-                {{-- Microsoft's four squares, in the button's own color. --}}
-                <svg class="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="3" y="3" width="8.5" height="8.5"/><rect x="12.5" y="3" width="8.5" height="8.5"/><rect x="3" y="12.5" width="8.5" height="8.5"/><rect x="12.5" y="12.5" width="8.5" height="8.5"/></svg>
-                Entrar con Microsoft
+            <a href="{{ route('auth.microsoft.redirect') }}" class="g-btn g-btn--ink min-h-13 w-full gap-3 text-base font-bold">
+                {{-- Microsoft's four squares, as its sign-in guidelines ask. --}}
+                <svg class="size-5" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect width="9" height="9" fill="#F25022"/><rect x="11" width="9" height="9" fill="#7FBA00"/><rect y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+                Iniciar sesión con Microsoft
             </a>
 
+            <p class="text-[0.8125rem] leading-normal">Usa tu cuenta de trabajo de Segurex o de SDC. Si tienes las dos, entra con cualquiera y cambia de empresa desde el portal.</p>
+
             @if ($companies->isNotEmpty())
-                <div class="mt-8 border-t border-line pt-6">
-                    <p class="text-center text-[0.8125rem] font-bold text-fg-muted">Empresas del grupo</p>
-                    <ul role="list" class="mt-3 flex flex-wrap items-center justify-center gap-2.5">
-                        @foreach ($companies as $company)
-                            {{-- Same mark as the headers; a dark logo sits on its own company's dark color. --}}
-                            <li class="text-fg-soft" style="--brand-dark: {{ BrandPalette::forCompany($company)->dark }}">
-                                <x-brand-logo :company="$company" compact />
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
+                <ul role="list" aria-label="Empresas" class="flex w-full flex-wrap items-center justify-center gap-2.5 border-t border-(--g-line) pt-5">
+                    @foreach ($companies as $company)
+                        {{-- Same mark as the headers; a dark logo sits on its own company's dark color. --}}
+                        <li class="text-(--g-ink-soft)" style="--brand-dark: {{ BrandPalette::forCompany($company)->dark }}">
+                            <x-brand-logo :company="$company" compact />
+                        </li>
+                    @endforeach
+                </ul>
             @endif
 
-            <p class="mt-[18px] text-center text-[0.8125rem] text-fg-muted">
-                Solo para colaboradores del grupo. ¿Problemas para entrar?
+            <p class="text-[0.8125rem] leading-normal text-(--g-ink-soft)">
+                Solo para colaboradores de Segurex y Soluciones y Derivados. ¿Problemas para entrar?
                 @if ($supportUrl)
-                    <a href="{{ $supportUrl }}" target="_blank" rel="noopener" class="font-semibold text-fg underline underline-offset-2">Escribe a soporte de TI</a>.
+                    <a href="{{ $supportUrl }}" target="_blank" rel="noopener" class="font-semibold text-(--g-ink) underline underline-offset-2">Escribe a soporte de TI</a>.
                 @else
                     Escribe a soporte de TI.
                 @endif
             </p>
         </section>
     </main>
+
+    {{-- Links render only when their address is known: the data policy, the
+         terms and the SDC site have none yet, so they stay out (no "#"). --}}
+    <footer class="g-foot mx-4 mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4.5 text-[0.8125rem] leading-normal text-(--g-ink)">
+        <div class="flex min-w-0 flex-[1_1_360px] flex-col gap-0.5">
+            <span class="font-bold">© {{ now()->year }} Segurex LATAM S.A.S. · Soluciones y Derivados de Colombia S.A.S.</span>
+            <span>Todos los derechos reservados. Acceso exclusivo para colaboradores autorizados.</span>
+        </div>
+        <nav aria-label="Enlaces del pie" class="flex flex-wrap gap-x-5 gap-y-2">
+            @if ($supportUrl)
+                <a href="{{ $supportUrl }}" target="_blank" rel="noopener" class="underline underline-offset-2">Soporte TI</a>
+            @endif
+            <a href="https://www.segurex.com" class="underline underline-offset-2">segurex.com</a>
+            <a href="https://derivadoscol.com" class="underline underline-offset-2">derivadoscol.com</a>
+        </nav>
+    </footer>
 </x-layouts.app>
