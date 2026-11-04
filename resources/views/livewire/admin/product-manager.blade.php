@@ -109,6 +109,7 @@
                     <button type="button" wire:click="newProduct" class="{{ $primary }}">Nuevo producto</button>
                 @endunless
             </div>
+            <p class="-mt-2 text-[0.8125rem] text-fg-muted">En el inicio, cada persona ve solo los productos publicados de la empresa con la que entró.</p>
 
             @forelse ($categories as $index => $category)
                 @php($lastProduct = $category->products->count() - 1)
@@ -162,6 +163,10 @@
                                         @if ($product->summary)
                                             <span class="text-sm text-fg-muted">{{ \Illuminate\Support\Str::limit($product->summary, 90) }}</span>
                                         @endif
+                                        {{-- Why the home page does not show it (odd/tasks/observaciones.md O4). --}}
+                                        @foreach (\App\Livewire\Admin\ProductManager::homeHints($product, $company) as $homeHint)
+                                            <span class="text-[0.8125rem] font-semibold text-status-maintenance" data-home-hint>{{ $homeHint }}</span>
+                                        @endforeach
                                     </span>
                                     <span @class([
                                         'inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[0.8125rem] font-semibold',

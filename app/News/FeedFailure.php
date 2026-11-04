@@ -27,6 +27,18 @@ final class FeedFailure extends RuntimeException
 
     public const DOCTYPE = 'doctype';
 
+    /**
+     * A web page (HTML) instead of a feed, with no usable feed announced in
+     * it (App\News\FeedDiscovery).
+     */
+    public const HTML_PAGE = 'html_page';
+
+    /**
+     * The page announces a feed that another source of the same company
+     * and tab already reads (App\News\NewsUpdater).
+     */
+    public const DUPLICATE_FEED = 'duplicate_feed';
+
     public const INVALID_XML = 'invalid_xml';
 
     public const UNSUPPORTED_FORMAT = 'unsupported_format';

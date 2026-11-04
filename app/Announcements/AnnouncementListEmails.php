@@ -8,9 +8,11 @@ use App\Microsoft\TenantMailSender;
 use App\Models\Announcement;
 use App\Models\AnnouncementListEmail;
 use App\Models\Company;
+use App\Models\Event;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +57,9 @@ class AnnouncementListEmails
     /** Named audit entry of «Reintentar». */
     public const RETRY_EVENT = 'announcement.list_email_retried';
 
+    /** Named audit entry, after the prefix of the subject: «announcement.list_email_skipped». */
+    public const SKIPPED_EVENT = 'list_email_skipped';
+
     public function __construct(private readonly TenantMailSender $sender) {}
 
     /**
@@ -74,6 +79,84 @@ class AnnouncementListEmails
             ->filter(fn (Company $company) => $company->canReceiveListEmail())
             ->sortBy(fn (Company $company) => mb_strtolower(self::label($company)))
             ->values();
+    }
+
+    /**
+     * The active companies an announcement or event with this audience
+     * addresses whose list it cannot reach: no all-staff list, no sender
+     * mailbox, or one of them outside the company's domains (Admin ›
+     * Empresas). The editors name them instead of skipping them in silence
+     * (odd/tasks/observaciones.md O1).
+     *
+     * @param  array<int|string>  $companyIds  Ignored when the audience is every company.
+     * @return Collection<int, Company>
+     */
+    public function unreachable(string $audience, array $companyIds): Collection
+    {
+        return Company::query()
+            ->where('companies.is_active', true)
+            ->when($audience !== Announcement::AUDIENCE_ALL, fn (Builder $query) => $query->whereKey(array_map('intval', $companyIds)))
+            ->get()
+            ->reject(fn (Company $company) => $company->canReceiveListEmail())
+            ->sortBy(fn (Company $company) => mb_strtolower(self::label($company)))
+            ->values();
+    }
+
+    /**
+     * Why each company of {@see unreachable()} is left out, one sentence
+     * per reason: «Derivados no tiene lista de correo configurada; el
+     * anuncio no se enviará por correo a esa empresa.» when an address is
+     * missing, «Segurex tiene la lista de correo o el buzón remitente fuera
+     * de sus dominios; …» when both are set but one is not at the
+     * company's domains (or it is inactive, which unreachable() leaves out).
+     *
+     * @param  Collection<int, Company>  $companies  {@see unreachable()}
+     * @param  string  $what  «el anuncio», «el evento».
+     */
+    public static function unreachableNotice(Collection $companies, string $what): string
+    {
+        [$missing, $foreign] = $companies->partition(fn (Company $company) => $company->all_staff_email === null || $company->mail_sender === null);
+
+        return collect([
+            $missing->isEmpty() ? null : self::names($missing).($missing->count() === 1
+                ? " no tiene lista de correo configurada; {$what} no se enviará por correo a esa empresa."
+                : " no tienen lista de correo configurada; {$what} no se enviará por correo a esas empresas."),
+            $foreign->isEmpty() ? null : self::names($foreign).($foreign->count() === 1
+                ? " tiene la lista de correo o el buzón remitente fuera de sus dominios; {$what} no se enviará por correo a esa empresa."
+                : " tienen la lista de correo o el buzón remitente fuera de sus dominios; {$what} no se enviará por correo a esas empresas."),
+        ])->filter()->implode(' ');
+    }
+
+    /**
+     * Records in Auditoría that a save asked for the emails and these
+     * companies could not get them ({@see unreachable()}):
+     * «{prefix}.list_email_skipped» with their names. The causer is the
+     * signed-in user.
+     *
+     * @param  Announcement|Event  $subject
+     * @param  Collection<int, Company>  $companies
+     */
+    public static function auditSkipped(Model $subject, Collection $companies): void
+    {
+        if ($companies->isEmpty()) {
+            return;
+        }
+
+        $subject->audit($subject::AUDIT_EVENT_PREFIX.'.'.self::SKIPPED_EVENT, [
+            'attributes' => ['companies' => $companies->map(fn (Company $company) => self::label($company))->values()->all()],
+        ]);
+    }
+
+    /**
+     * «Derivados», «Derivados y Segurex», «A, B y C».
+     *
+     * @param  Collection<int, Company>  $companies
+     */
+    private static function names(Collection $companies): string
+    {
+        $names = $companies->map(fn (Company $company) => self::label($company))->values();
+
+        return $names->count() > 1 ? $names->slice(0, -1)->implode(', ').' y '.$names->last() : (string) $names->first();
     }
 
     /**

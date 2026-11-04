@@ -297,11 +297,12 @@ class AnnouncementListEmailEditorTest extends TestCase
         $this->assertSame(0, $row->attempts);
     }
 
-    public function test_saving_without_the_box_queues_nothing(): void
+    public function test_saving_with_the_box_unticked_queues_nothing(): void
     {
         Livewire::actingAs($this->admin)->test(AnnouncementEditor::class)
             ->set('title', 'Cierre de oficinas')
             ->set('body', 'Texto.')
+            ->set('emailLists', false)
             ->call('save')
             ->assertHasNoErrors();
 

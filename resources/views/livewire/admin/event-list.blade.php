@@ -15,6 +15,10 @@
         @endcan
     </div>
 
+    @if (session('status'))
+        <p role="status" class="mt-5 rounded-control bg-status-active-bg px-4 py-3 text-sm font-semibold text-status-active">{{ session('status') }}</p>
+    @endif
+
     <nav aria-label="Estado" class="mt-6 max-w-full overflow-x-auto">
         <ul class="flex w-max gap-1.5 rounded-control bg-subtle p-1">
             @foreach ($tabs as $value => $label)

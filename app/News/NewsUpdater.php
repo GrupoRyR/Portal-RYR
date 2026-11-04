@@ -15,6 +15,11 @@ use Throwable;
  * - one source at a time; a failure is stored on that source as a short
  *   code (App\News\FeedFailure) and the run goes on with the next one;
  *   its previous items stay;
+ * - a source saved with a web page instead of a feed is read through the
+ *   feed the page announces (App\News\FeedReader); its URL then becomes
+ *   that feed's, audited as a change by «Sistema», unless another source
+ *   of the same company and tab already has it (`duplicate_feed`,
+ *   odd/tasks/observaciones.md O3);
  * - if an admin changed the URL (or deleted the source) while it was being
  *   read, the result belongs to the old URL and is discarded;
  * - items are matched by `guid_hash`, so a headline seen again is updated,
@@ -27,10 +32,7 @@ use Throwable;
  */
 class NewsUpdater
 {
-    public function __construct(
-        private readonly FeedFetcher $fetcher,
-        private readonly FeedParser $parser,
-    ) {}
+    public function __construct(private readonly FeedReader $reader) {}
 
     /**
      * @return array{fetched: int, failed: int}
@@ -64,11 +66,14 @@ class NewsUpdater
     {
         $now = CarbonImmutable::now();
         $url = $source->url;
+        $feedUrl = $url;
         $entries = [];
         $code = null;
 
         try {
-            $entries = $this->parser->parse($this->fetcher->fetch($url), (int) config('news.max_entries'), $url);
+            $read = $this->reader->read($url, (int) config('news.max_entries'));
+            $entries = $read->entries;
+            $feedUrl = $read->url;
         } catch (FeedFailure $failure) {
             $code = $failure->errorCode;
         } catch (Throwable $exception) {
@@ -76,7 +81,7 @@ class NewsUpdater
         }
 
         try {
-            return DB::transaction(fn () => $this->record($source->id, $url, $entries, $code, $now));
+            return DB::transaction(fn () => $this->record($source->id, $url, $entries, $code, $now, $feedUrl));
         } catch (Throwable $exception) {
             $code = $this->unexpected($source, $exception);
             $this->bookkeeping($source->id, $url, $code, $now);
@@ -87,16 +92,27 @@ class NewsUpdater
 
     /**
      * Writes the items and the outcome, unless the source is gone or its URL
-     * is no longer the one that was read.
+     * is no longer the one that was read. A feed found on the page
+     * ($feedUrl) replaces the URL first.
      *
      * @param  list<FeedEntry>  $entries
      */
-    private function record(int $sourceId, string $url, array $entries, ?string $code, CarbonImmutable $now): ?bool
+    private function record(int $sourceId, string $url, array $entries, ?string $code, CarbonImmutable $now, string $feedUrl): ?bool
     {
-        $current = NewsSource::query()->whereKey($sourceId)->lockForUpdate()->first(['id', 'url']);
+        $current = NewsSource::query()->whereKey($sourceId)->lockForUpdate()->first();
 
         if ($current === null || $current->url !== $url) {
             return null;
+        }
+
+        if ($code === null && $feedUrl !== $url) {
+            if ($this->taken($current, $feedUrl)) {
+                $code = FeedFailure::DUPLICATE_FEED;
+            } else {
+                // Audited by the model (log `news`), without a causer: «Sistema».
+                $current->update(['url' => $feedUrl]);
+                $url = $feedUrl;
+            }
         }
 
         if ($code === null) {
@@ -172,6 +188,20 @@ class NewsUpdater
         $items = NewsItem::query()->where('news_source_id', $sourceId);
         $newest = (clone $items)->orderByDesc('published_at')->orderByDesc('id')->limit($keep)->pluck('id');
         (clone $items)->whereNotIn('id', $newest)->delete();
+    }
+
+    /**
+     * Whether another source of the same company and tab already reads
+     * this feed (the comparison ignores case, as Admin's).
+     */
+    private function taken(NewsSource $source, string $feedUrl): bool
+    {
+        return NewsSource::query()
+            ->whereKeyNot($source->id)
+            ->where('company_id', $source->company_id)
+            ->where('tab', $source->tab)
+            ->whereRaw('LOWER(url) = ?', [mb_strtolower($feedUrl)])
+            ->exists();
     }
 
     private function unexpected(NewsSource $source, Throwable $exception): string

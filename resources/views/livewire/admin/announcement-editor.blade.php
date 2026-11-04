@@ -38,6 +38,12 @@
                             Retirar
                         </button>
                     @endif
+                    @can('delete', $announcement)
+                        <button type="button" wire:click="delete" wire:confirm="¿Eliminar este anuncio? Se borra para siempre, con sus lecturas, recordatorios, correos a las listas, avisos al celular y su imagen. Esta acción no se puede deshacer; para solo ocultarlo, usa Retirar."
+                                class="inline-flex h-11 items-center rounded-control border border-line-strong bg-surface px-4 text-[0.9375rem] font-semibold text-status-failure hover:bg-subtle">
+                            Eliminar
+                        </button>
+                    @endcan
                 @endunless
                 <button type="submit" form="announcement-form" wire:loading.attr="disabled" wire:target="save,image"
                         class="inline-flex h-11 items-center rounded-control bg-brand-button px-5 text-[0.9375rem] font-semibold text-white disabled:opacity-60">
@@ -93,7 +99,7 @@
                                     <input id="n-image" type="file" wire:model="image" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="sr-only">
                                 </label>
                                 @if ($imageUrl || $image)
-                                    <button type="button" wire:click="clearImage" class="inline-flex h-10 items-center rounded-[10px] px-3.5 text-sm font-semibold text-status-failure hover:bg-status-failure-bg">Quitar</button>
+                                    <button type="button" wire:click="clearImage" class="inline-flex h-10 items-center rounded-[10px] px-3.5 text-sm font-semibold text-status-failure hover:bg-subtle">Quitar</button>
                                 @endif
                             </div>
                             <span class="{{ $hint }}">PNG, JPG o WebP de hasta 2 MB. Se convierte a WebP en proporción 16:9.</span>
@@ -180,6 +186,13 @@
                         <input type="checkbox" role="switch" wire:model.live="emailLists" aria-describedby="n-lists-h"
                                class="relative h-[26px] w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-line-strong transition-colors before:absolute before:top-[3px] before:left-[3px] before:size-5 before:rounded-full before:bg-white before:transition-[left] checked:bg-status-active-dot checked:before:left-[21px]">
                     </label>
+                @endif
+                {{-- Companies of the audience whose list it cannot reach (odd/tasks/observaciones.md O1): never skipped in silence. --}}
+                @if ($emailLists && $listUnreachable->isNotEmpty())
+                    <p role="status" data-list-unreachable class="rounded-control bg-status-maintenance-bg px-4 py-3 text-sm text-status-maintenance">
+                        <span class="font-semibold">{{ \App\Announcements\AnnouncementListEmails::unreachableNotice($listUnreachable, 'el anuncio') }}</span>
+                        Revisa la lista de todo el personal y el buzón remitente en Admin › Empresas.
+                    </p>
                 @endif
                 {{-- Only with the VAPID settings (App\Push\PushSettings); the cron sends it (App\Push\AnnouncementPushes). --}}
                 @if ($pushAvailable)

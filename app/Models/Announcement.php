@@ -216,6 +216,21 @@ class Announcement extends Model
     }
 
     /**
+     * Its reads, reminders (with their deliveries), emails to the lists and
+     * phone notices go with it ({@see erase()}).
+     */
+    protected function deleteDependents(): void
+    {
+        AnnouncementReminderDelivery::query()
+            ->whereIn('announcement_reminder_id', $this->reminders()->select('id'))
+            ->delete();
+        $this->reminders()->delete();
+        $this->reads()->delete();
+        $this->listEmails()->delete();
+        $this->pushDeliveries()->delete();
+    }
+
+    /**
      * The companies it is addressed to now: every active company when it
      * is for all, its chosen ones otherwise (active or not).
      *

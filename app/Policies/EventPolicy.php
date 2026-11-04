@@ -10,7 +10,8 @@ use App\Policies\Rules\CompanyAddressedRules;
  * The same people and rules as announcements (App\Policies\Rules\CompanyAddressedRules),
  * with no role of its own: super and portal admins manage every event;
  * announcements editors write only for their own company (the audience
- * must be exactly that company). Nobody deletes an event: it is withdrawn.
+ * must be exactly that company). Whoever may edit an event may also
+ * withdraw it or delete it for good («Eliminar», odd/tasks/observaciones.md O2).
  */
 class EventPolicy
 {
@@ -29,9 +30,12 @@ class EventPolicy
         return CompanyAddressedRules::mayEdit($user, $event);
     }
 
+    /**
+     * «Eliminar»: the same people who may edit it.
+     */
     public function delete(User $user, Event $event): bool
     {
-        return false;
+        return $this->update($user, $event);
     }
 
     /**

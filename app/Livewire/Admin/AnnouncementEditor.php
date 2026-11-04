@@ -42,9 +42,12 @@ use Throwable;
  * (App\Announcements\AnnouncementReminders, at most once a day).
  *
  * «Enviar también por correo a la lista de cada empresa» shows up when a
- * company of the audience has an all-staff list (Admin › Empresas); the
- * cron sends it once (App\Announcements\AnnouncementListEmails), and the
- * editor shows how it went per company, with «Reintentar» for a failure.
+ * company of the audience has an all-staff list (Admin › Empresas) and is
+ * ticked for a new announcement (odd/tasks/observaciones.md O1); the cron
+ * sends it once (App\Announcements\AnnouncementListEmails), and the editor
+ * shows how it went per company, with «Reintentar» for a failure. A
+ * company of the audience without its list or sender mailbox is named
+ * above the box, and a save that leaves it out is audited.
  *
  * «Enviar al celular» shows up while the VAPID settings are present: the
  * cron sends a phone notice to the devices of the people who see it, once
@@ -84,8 +87,8 @@ class AnnouncementEditor extends Component
     /** «Lectura obligatoria»: each person who sees it confirms reading it. */
     public bool $requiresRead = false;
 
-    /** «Enviar también por correo a la lista de cada empresa». */
-    public bool $emailLists = false;
+    /** «Enviar también por correo a la lista de cada empresa»: on for a new one. */
+    public bool $emailLists = true;
 
     /** «Enviar al celular» (App\Push\AnnouncementPushes); only shown with the VAPID settings. */
     public bool $pushPhone = false;
@@ -155,6 +158,8 @@ class AnnouncementEditor extends Component
         $this->authorize('publishTo', [Announcement::class, $this->audience, $companyIds]);
 
         $creating = $this->announcement === null;
+        $audienceBefore = $creating ? null : $this->audienceOf($this->announcement);
+        $wasEmailing = ! $creating && $this->announcement->email_lists;
         $attributes = [
             'title' => $this->title,
             'body' => $this->body,
@@ -185,6 +190,14 @@ class AnnouncementEditor extends Component
         // have no email of it yet (App\Announcements\AnnouncementListEmails::queue()).
         app(AnnouncementListEmails::class)->queue($announcement);
 
+        // A company left out for lack of a list is named in Auditoría, when
+        // the announcement is new or its audience changed.
+        // A company left out for lack of a list is audited when the item is
+        // new, its audience changed or the box was just ticked.
+        if ($this->emailLists && ($creating || ! $wasEmailing || $audienceBefore !== $this->audienceOf($announcement))) {
+            AnnouncementListEmails::auditSkipped($announcement, $this->listUnreachable());
+        }
+
         session()->flash('status', $creating ? 'Anuncio creado.' : 'Cambios guardados.');
 
         return $this->redirectRoute('admin.announcements.edit', $announcement);
@@ -199,6 +212,31 @@ class AnnouncementEditor extends Component
 
         $this->announcement->withdraw();
         session()->flash('status', 'Anuncio retirado. Ya no se muestra en el inicio.');
+    }
+
+    /**
+     * «Eliminar» (odd/tasks/observaciones.md O2): gone for good with its
+     * reads, reminders, list emails, phone notices and image, after the
+     * button asks first; one line in Auditoría (Announcement::erase()).
+     */
+    public function delete(AnnouncementImageStore $images): mixed
+    {
+        abort_if($this->announcement === null, 404);
+        $this->authorize('delete', $this->announcement);
+
+        $id = (int) $this->announcement->id;
+        $title = $this->announcement->title;
+        $path = $this->announcement->image_path;
+
+        $this->announcement->erase();
+
+        // After the commit: a failed delete keeps its image.
+        $images->delete($path);
+        $images->deleteFolderOf($id);
+
+        session()->flash('status', "Se eliminó el anuncio «{$title}».");
+
+        return $this->redirectRoute('admin.announcements.index');
     }
 
     public function republish(): void
@@ -348,6 +386,7 @@ class AnnouncementEditor extends Component
             'newImageUrl' => $this->newImageUrl(),
             'reads' => $this->mayViewReads() ? $this->readReport : null,
             'listRecipients' => $this->listRecipients(),
+            'listUnreachable' => $this->listUnreachable(),
             'pushAvailable' => app(PushSettings::class)->enabled(),
             'listReport' => $this->announcement !== null && $this->user()->can('update', $this->announcement)
                 ? app(AnnouncementListEmails::class)->report($this->announcement)
@@ -366,6 +405,29 @@ class AnnouncementEditor extends Component
         return $this->restricted()
             ? app(AnnouncementListEmails::class)->recipients(Announcement::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
             : app(AnnouncementListEmails::class)->recipients($this->audience, $this->companyIds);
+    }
+
+    /**
+     * The active companies of the audience, as the form stands, whose list
+     * the announcement cannot reach (AnnouncementListEmails::unreachable()).
+     *
+     * @return Collection<int, Company>
+     */
+    private function listUnreachable(): Collection
+    {
+        return $this->restricted()
+            ? app(AnnouncementListEmails::class)->unreachable(Announcement::AUDIENCE_COMPANIES, [(int) $this->user()->company_id])
+            : app(AnnouncementListEmails::class)->unreachable($this->audience, $this->audience === Announcement::AUDIENCE_COMPANIES ? $this->companyIds : []);
+    }
+
+    /**
+     * The audience and the chosen companies, to tell whether a save changed them.
+     *
+     * @return array{string, list<int>}
+     */
+    private function audienceOf(Announcement $announcement): array
+    {
+        return [$announcement->audience, $announcement->companies()->orderBy('companies.id')->pluck('companies.id')->map(fn ($id) => (int) $id)->all()];
     }
 
     /**

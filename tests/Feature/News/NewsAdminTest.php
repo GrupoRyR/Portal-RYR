@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\NewsItem;
 use App\Models\NewsSource;
 use App\Models\User;
+use App\News\HostResolver;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +34,16 @@ class NewsAdminTest extends TestCase
         parent::setUp();
 
         Http::preventStrayRequests();
+        // Saving a new URL requests it once (odd/tasks/observaciones.md O3):
+        // every host is public and answers with a feed, never the network.
+        $this->app->instance(HostResolver::class, new class implements HostResolver
+        {
+            public function resolve(string $host): array
+            {
+                return ['93.184.216.34'];
+            }
+        });
+        Http::fake(['*' => Http::response('<?xml version="1.0"?><rss version="2.0"><channel><item><title>T</title><link>https://www.example.com/t</link></item></channel></rss>')]);
         $this->seed(RoleSeeder::class);
         $this->travelTo(CarbonImmutable::parse('2026-11-05 09:00', 'America/Bogota'));
 
@@ -186,7 +197,8 @@ class NewsAdminTest extends TestCase
         $this->assertSame('Seguridad al día', $source->name);
         $this->assertSame('https://www.seguridad.example.com/feed', $source->url);
         $this->assertTrue($source->active);
-        Http::assertNothingSent();
+        // The address is checked once, through the safe fetcher.
+        Http::assertSentCount(1);
 
         $entry = app(AuditPresenter::class)->activity(Activity::query()->where('log_name', NewsSource::AUDIT_LOG)->latest('id')->firstOrFail());
         $this->assertSame('Creó la fuente de noticias «Seguridad al día»', $entry->what);

@@ -94,13 +94,16 @@ class AnnouncementPolicyTest extends TestCase
         $this->assertFalse($this->canPublish($user, Announcement::AUDIENCE_COMPANIES, [$this->segurex->id]));
     }
 
-    public function test_nobody_deletes_announcements(): void
+    public function test_only_who_may_edit_an_announcement_deletes_it(): void
     {
         $announcement = Announcement::factory()->create();
 
-        foreach (['super_admin', 'portal_admin', 'announcements_editor'] as $role) {
-            $this->assertFalse(Gate::forUser($this->user($role, $this->segurex))->allows('delete', $announcement), $role);
+        foreach (['super_admin', 'portal_admin'] as $role) {
+            $this->assertTrue(Gate::forUser($this->user($role, $this->segurex))->allows('delete', $announcement), $role);
         }
+
+        // «Todas las empresas» is not the editor's own company alone.
+        $this->assertFalse(Gate::forUser($this->user('announcements_editor', $this->segurex))->allows('delete', $announcement));
     }
 
     public function test_the_admin_list_only_shows_what_an_editor_may_edit(): void

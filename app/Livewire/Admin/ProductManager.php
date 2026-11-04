@@ -31,6 +31,8 @@ use Throwable;
  *
  * Products are created hidden and published from the list. A category can
  * only be deleted when it has no products, so no photo is left behind.
+ * Each product says why it is not on the home page, when it is not
+ * ({@see homeHints()}, odd/tasks/observaciones.md O4).
  */
 class ProductManager extends Component
 {
@@ -377,6 +379,22 @@ class ProductManager extends Component
             'company' => $company,
             'categories' => $categories,
         ]);
+    }
+
+    /**
+     * Why the home page does not show the product, in the order to fix it;
+     * empty when it does (App\Products\ProductBoard: published, of an
+     * active company, seen by the people of that company). A photo is not
+     * required.
+     *
+     * @return list<string>
+     */
+    public static function homeHints(Product $product, Company $company): array
+    {
+        return array_values(array_filter([
+            $company->is_active ? null : 'No se muestra en el inicio: la empresa está inactiva.',
+            $product->published ? null : 'No se muestra en el inicio: está oculto. Pulsa «Publicar» para mostrarlo.',
+        ]));
     }
 
     /**

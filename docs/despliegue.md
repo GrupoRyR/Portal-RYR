@@ -575,13 +575,42 @@ Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cad
 | `timeout`, `connection_failed` | No respondió en 10 segundos o no se pudo conectar. |
 | `http_404`, `http_503`, … | El sitio respondió con ese estado. |
 | `too_large` | La respuesta pasa de 1 MB. |
-| `doctype` | El documento trae `<!DOCTYPE` o `<!ENTITY`. |
+| `html_page` | La dirección es una página web, no un canal RSS, y la página no anuncia ningún canal. Busque el RSS del sitio (suele estar en `/rss`). |
+| `duplicate_feed` | La dirección es una página web cuyo canal ya es otra fuente de la misma empresa y pestaña; la dirección no se cambia. Borre una de las dos fuentes. |
+| `doctype` | El documento XML trae `<!DOCTYPE` o `<!ENTITY`. |
 | `invalid_xml`, `unsupported_format` | No es XML válido, o no es RSS ni Atom. |
 | `no_entries` | Es RSS o Atom, pero ninguna noticia tiene título y enlace `https`. |
 | `unsupported_encoding` | La respuesta viene con una compresión distinta de gzip o deflate, o dañada. |
 | `unexpected` | Otro error. En `storage/logs` queda «News source could not be read.» con el número de la fuente y el tipo de error, sin el mensaje. |
 
 Si una fuente falla, las demás se leen igual y sus noticias anteriores se conservan.
+
+**Fuentes recomendadas.** Se comprobaron el 2026-11-04: todas responden en `https` con RSS sin `<!DOCTYPE` y con noticias del día. Se registran en Administración › Noticias.
+
+| Pestaña | Fuente | Dirección |
+|---|---|---|
+| Colombia | El Tiempo | `https://www.eltiempo.com/rss/colombia.xml` (Bogotá: `https://www.eltiempo.com/rss/bogota.xml`) |
+| Colombia | El Colombiano | `https://www.elcolombiano.com/rss/inicio.xml` |
+| Colombia | Portafolio, economía | `https://www.portafolio.co/rss/economia.xml` |
+| Colombia | La República, finanzas | `https://www.larepublica.co/rss/finanzas` |
+| Colombia | Valora Analitik | `https://www.valoraanalitik.com/feed/` |
+| Internacional | BBC Mundo | `https://feeds.bbci.co.uk/mundo/rss.xml` |
+| Internacional | DW Español | `https://rss.dw.com/xml/rss-sp-all` |
+| Internacional | France 24 | `https://www.france24.com/es/rss` |
+| Internacional | El País América | `https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/america/portada` |
+| Internacional | Euronews | `https://es.euronews.com/rss` |
+| Sector Segurex | Interempresas Ferretería | `https://www.interempresas.net/Ferreteria/RSS/` |
+| Sector Segurex | Interempresas Seguridad | `https://www.interempresas.net/Seguridad/RSS/` |
+| Sector Segurex | Locksmith Ledger | `https://www.locksmithledger.com/__rss/website-scheduled-content.xml?input=%7B%22sectionAlias%22%3A%22home%22%7D` |
+| Sector Segurex | SecurityInfoWatch, control de acceso | `https://www.securityinfowatch.com/__rss/website-scheduled-content.xml?input=%7B%22sectionAlias%22%3A%22access-identity%22%7D` |
+| Sector Segurex | Camacol | `https://camacol.co/rss.xml` |
+| Sector SDC | Interempresas Química | `https://www.interempresas.net/Quimica/RSS/` |
+| Sector SDC | Interempresas Agua | `https://www.interempresas.net/Agua/RSS/` |
+| Sector SDC | Interempresas Plástico | `https://www.interempresas.net/Plastico/RSS/` |
+| Sector SDC | C&EN (American Chemical Society) | `https://cen.acs.org/feeds/rss/latestnews.xml` |
+| Sector SDC | Cleaning Business Today | `https://cleaningbusinesstoday.com/feed/` |
+
+Descartadas: Semana (trae `<!DOCTYPE` dentro de las noticias), El Espectador (su RSS redirige a un canal vacío), CNN Español y EFE (no responden).
 
 ### 1.18 Catálogos
 

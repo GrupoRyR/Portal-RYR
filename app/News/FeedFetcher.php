@@ -2,6 +2,7 @@
 
 namespace App\News;
 
+use Carbon\CarbonImmutable;
 use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\HttpClientException;
@@ -39,11 +40,25 @@ class FeedFetcher
      */
     public function fetch(string $url): string
     {
+        return $this->download($url)->body;
+    }
+
+    /**
+     * The body with its declared Content-Type and the address it came
+     * from after the redirects, under the same rules as fetch(). With a
+     * $deadline, no request (nor redirect) starts after it, and each one
+     * gets at most the time left until it (`timeout` once it has passed).
+     *
+     * @throws FeedFailure
+     */
+    public function download(string $url, ?CarbonImmutable $deadline = null): FetchedPage
+    {
         $maxRedirects = (int) config('news.max_redirects');
 
         for ($hop = 0; ; $hop++) {
             $host = FeedUrlPolicy::hostOf($url) ?? throw new FeedFailure(FeedFailure::INVALID_URL);
-            $response = $this->request($url, $host, $this->checkedAddress($host));
+            $left = self::secondsLeft($deadline);
+            $response = $this->request($url, $host, $this->checkedAddress($host), $left);
 
             if ($response->redirect()) {
                 if ($hop >= $maxRedirects) {
@@ -66,7 +81,11 @@ class FeedFetcher
                 throw new FeedFailure(FeedFailure::TOO_LARGE);
             }
 
-            return self::decode($body, (string) $response->header('Content-Encoding'), $maxBytes);
+            return new FetchedPage(
+                self::decode($body, (string) $response->header('Content-Encoding'), $maxBytes),
+                (string) $response->header('Content-Type'),
+                $url,
+            );
         }
     }
 
@@ -146,8 +165,26 @@ class FeedFetcher
         return $addresses[0];
     }
 
-    private function request(string $url, string $host, string $ip): Response
+    /**
+     * Seconds until the deadline (null without one).
+     *
+     * @throws FeedFailure timeout, when it has passed
+     */
+    private static function secondsLeft(?CarbonImmutable $deadline): ?float
     {
+        if ($deadline === null) {
+            return null;
+        }
+
+        $left = (float) CarbonImmutable::now()->diffInMilliseconds($deadline, false) / 1000;
+
+        return $left > 0 ? $left : throw new FeedFailure(FeedFailure::TIMEOUT);
+    }
+
+    private function request(string $url, string $host, string $ip, ?float $left = null): Response
+    {
+        $timeout = (float) config('news.timeout');
+        $connectTimeout = (float) config('news.connect_timeout');
         $maxBytes = (int) config('news.max_bytes');
         $aborted = false;
         $pinned = str_contains($ip, ':') ? "[{$ip}]" : $ip;
@@ -167,8 +204,8 @@ class FeedFetcher
                     CURLOPT_FORBID_REUSE => true,
                 ],
             ])
-                ->timeout((int) config('news.timeout'))
-                ->connectTimeout((int) config('news.connect_timeout'))
+                ->timeout($left === null ? $timeout : min($timeout, $left))
+                ->connectTimeout($left === null ? $connectTimeout : min($connectTimeout, $left))
                 ->withUserAgent((string) config('news.user_agent'))
                 ->withHeaders(['Accept-Encoding' => 'identity'])
                 ->accept('application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.1')

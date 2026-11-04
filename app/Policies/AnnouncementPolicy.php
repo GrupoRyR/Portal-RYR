@@ -10,9 +10,10 @@ use App\Policies\Rules\CompanyAddressedRules;
  * Super and portal admins manage every announcement. Announcements editors
  * (assigned by hand) write only for their own company: the audience must be
  * exactly that company, never «Todas las empresas» nor another company
- * (App\Policies\Rules\CompanyAddressedRules, shared with events). Nobody
- * deletes an announcement: it is withdrawn instead. Whoever may edit one
- * also sees who read it, when it is mandatory (`viewReads`).
+ * (App\Policies\Rules\CompanyAddressedRules, shared with events). Whoever
+ * may edit one may also withdraw it, delete it for good («Eliminar»,
+ * odd/tasks/observaciones.md O2) and see who read it, when it is mandatory
+ * (`viewReads`).
  */
 class AnnouncementPolicy
 {
@@ -44,9 +45,12 @@ class AnnouncementPolicy
         return $this->update($user, $announcement);
     }
 
+    /**
+     * «Eliminar»: the same people who may edit it.
+     */
     public function delete(User $user, Announcement $announcement): bool
     {
-        return false;
+        return $this->update($user, $announcement);
     }
 
     /**
