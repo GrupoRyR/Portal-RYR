@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Negative sample: a dataflow answer with two series (the live _LATEST flows carry one). -->
+<message:GenericData xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic" xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message">
+    <message:Header><message:ID>DF_CBR_DAILY_LATEST</message:ID></message:Header>
+    <message:DataSet structureRef="OECD_STES_3_0">
+        <generic:Series>
+            <generic:SeriesKey><generic:Value id="SUBJECT" value="IRCBRM01"/></generic:SeriesKey>
+            <generic:Obs><generic:ObsDimension value="20261104"/><generic:ObsValue value="12.25"/></generic:Obs>
+        </generic:Series>
+        <generic:Series>
+            <generic:SeriesKey><generic:Value id="SUBJECT" value="OTHER"/></generic:SeriesKey>
+            <generic:Obs><generic:ObsDimension value="20261104"/><generic:ObsValue value="4.10"/></generic:Obs>
+        </generic:Series>
+    </message:DataSet>
+</message:GenericData>

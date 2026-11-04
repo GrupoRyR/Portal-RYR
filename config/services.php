@@ -49,6 +49,13 @@ return [
         'key' => env('ANTHROPIC_API_KEY'),
     ],
 
+    // FRED (St. Louis Fed) key for Brent and the input prices of the
+    // markets band (App\Markets\MarketSync). Free; set on the server only.
+    // Without it those series are skipped.
+    'fred' => [
+        'key' => env('FRED_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

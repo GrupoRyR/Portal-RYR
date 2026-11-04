@@ -53,7 +53,10 @@ Schedule::command('portal:sync-directory')
 // 13:10 run. Each euro row is TRM × ECB of the ECB's own date, so a run
 // that sees an old file rewrites nothing. A source that fails keeps its
 // last value. The overlap lock expires after 10 minutes, so a killed run
-// does not block it for a day.
+// does not block it for a day. The same runs read the Banco de la República
+// and FRED (odd/tasks/mercados-o5.md): daily series (Brent, the policy
+// rate) every run, monthly ones (COLCAP, the inputs) once a day, so the
+// 13:10 run only retries a monthly series the 07:10 run could not get.
 Schedule::command('portal:sync-markets')
     ->twiceDailyAt(7, 13, 10)
     ->timezone('America/Bogota')

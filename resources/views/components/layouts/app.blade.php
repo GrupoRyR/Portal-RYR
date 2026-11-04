@@ -13,6 +13,12 @@
     // everything (.g-canvas, resources/css/glass.css). Text on it must sit
     // inside a glass panel, never straight on the photo.
     'glass' => false,
+    // The floating «Asistente» button (components/assistant-fab): only on the
+    // pages that ask for it (home and the secondary pages with the portal
+    // header), never on the sign-in, the error pages or Administración, glass
+    // or not. The component itself checks the account, the assistant switch
+    // and /asistente.
+    'assistant' => false,
 ])
 @php
     $user = auth()->user();
@@ -38,16 +44,21 @@
     <x-brand-style />
     <x-pwa-head :brand-band="$brandBand" />
 
+    {{-- header.js: the theme choice and the header menus (a few hundred bytes). --}}
     @if ($livewire)
-        @vite(['resources/css/app.css', 'resources/js/livewire.js'])
+        @vite(['resources/css/app.css', 'resources/js/header.js', 'resources/js/livewire.js'])
         @livewireStyles
     @else
-        @vite('resources/css/app.css')
+        @vite(['resources/css/app.css', 'resources/js/header.js'])
     @endif
     {{ $head ?? '' }}
 </head>
 <body {{ $attributes->class(['min-h-dvh', 'g-canvas' => $glass]) }}>
     {{ $slot }}
+
+    @if ($assistant)
+        <x-assistant-fab />
+    @endif
 
     @if ($livewire)
         @livewireScriptConfig

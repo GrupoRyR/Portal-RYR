@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Markets\MarketSeries;
 use App\Observers\CompanyObserver;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -44,6 +45,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'color_ink_dark_mode',
     'color_text_dark_mode',
     'quick_links',
+    'market_codes',
     'is_active',
     'consent_verified_at',
 ])]
@@ -144,6 +146,7 @@ class Company extends Model
         return [
             'domains' => 'array',
             'quick_links' => 'array',
+            'market_codes' => 'array',
             'is_primary_for_tenant' => 'boolean',
             'is_active' => 'boolean',
             'weekly_digest_enabled' => 'boolean',
@@ -187,6 +190,30 @@ class Company extends Model
                     ->all()
             ),
         );
+    }
+
+    /**
+     * The input series of its markets band (App\Markets\MarketSeries,
+     * odd/tasks/mercados-o5.md M3): only known input codes are stored, once
+     * each, in catalogue order; an empty choice is stored as null (only the
+     * series for everyone).
+     */
+    public function setMarketCodesAttribute(mixed $value): void
+    {
+        $codes = MarketSeries::onlyInputs($value);
+
+        $this->attributes['market_codes'] = $codes === [] ? null : json_encode($codes);
+    }
+
+    /**
+     * The input codes its band shows, read again through the catalogue: a
+     * code stored before it left the catalogue is not shown.
+     *
+     * @return list<string>
+     */
+    public function marketCodes(): array
+    {
+        return MarketSeries::onlyInputs($this->market_codes);
     }
 
     /**

@@ -13,8 +13,9 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * Home screen on the official brand manual SGX/SDC: the logo on a band of
- * --brand-dark, labels in sentence case and brand colors by role.
+ * Home screen on the official brand manual SGX/SDC: the logo on its plate in
+ * the glass header (<x-portal-header>), labels in sentence case and brand
+ * colors by role.
  */
 class HomeBrandTest extends TestCase
 {
@@ -34,15 +35,16 @@ class HomeBrandTest extends TestCase
         $this->user = User::factory()->microsoft($this->company)->create(['name' => 'Ana María Pérez']);
     }
 
-    public function test_the_header_is_a_brand_dark_band_with_the_logo_on_it(): void
+    public function test_the_header_is_the_glass_bar_with_the_logo_on_its_plate(): void
     {
         Storage::disk('public')->put('brand/segurex/logo-dark.png', 'png');
 
         $this->home()
-            ->assertSee('<header class="brand-band', false)
+            ->assertSee('<header class="g-topbar', false)
             ->assertSee('alt="Segurex Latam"', false)
-            // The white logo sits straight on the band: no chip around it.
-            ->assertDontSee('bg-brand-dark px-3', false);
+            // The white logo needs its --brand-dark plate on the light glass.
+            ->assertSee('bg-brand-dark px-3', false)
+            ->assertDontSee('brand-band', false);
     }
 
     public function test_section_labels_are_in_sentence_case(): void
@@ -53,14 +55,13 @@ class HomeBrandTest extends TestCase
 
         $html = $this->home()
             ->assertSeeText('Favoritos')
-            ->assertSeeText('Microsoft 365')
+            ->assertSeeText('Accesos rápidos')
             ->getContent();
 
-        preg_match_all('/<h2 id="(favoritos-titulo|m365|categoria-[^"]+)" class="([^"]*)"/', $html, $headings);
-        $this->assertCount(3, $headings[0]);
-        foreach ($headings[2] as $classes) {
-            $this->assertStringNotContainsString('uppercase', $classes);
-            $this->assertStringContainsString('text-brand-text', $classes);
+        preg_match_all('/<h[23] id="(mis-aplicaciones-titulo|favoritos-titulo|accesos-titulo|categoria-[^"]+)"[^>]*>/', $html, $headings);
+        $this->assertCount(4, $headings[0]);
+        foreach ($headings[0] as $heading) {
+            $this->assertStringNotContainsString('uppercase', $heading);
         }
     }
 

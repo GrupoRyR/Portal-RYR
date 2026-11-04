@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE message:GenericData [<!ENTITY rate SYSTEM "file:///etc/passwd">]>
+<message:GenericData xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic" xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message">
+    <message:DataSet>
+        <generic:Series>
+            <generic:Obs><generic:ObsDimension value="20261104"/><generic:ObsValue value="&rate;"/></generic:Obs>
+        </generic:Series>
+    </message:DataSet>
+</message:GenericData>

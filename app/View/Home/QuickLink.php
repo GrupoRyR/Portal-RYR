@@ -3,7 +3,7 @@
 namespace App\View\Home;
 
 /**
- * A shortcut in the Microsoft 365 panel. `icon` is one of outlook, teams,
+ * A shortcut of «Accesos rápidos» on the home. `icon` is one of outlook, teams,
  * onedrive, sharepoint or link (resources/views/home/partials/icon).
  */
 final readonly class QuickLink

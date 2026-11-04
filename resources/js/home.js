@@ -14,8 +14,11 @@
 //   links to `?noticias=` and `?catalogo=`).
 // - «Completar»: one confirmation open at a time, sent once.
 // - Installable app: registers the service worker (/sw.js, see
-//   resources/js/sw.js), shows the offline notice and asks the worker to
-//   forget this user's saved page when signing out.
+//   resources/js/sw.js) and shows the offline notice.
+// The header menus, the theme choice and the purge of the saved pages on
+// signing out (every page) live in resources/js/header.js.
+
+import './header.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -353,33 +356,6 @@ document.addEventListener('click', (event) => {
         account.open = true;
         $('summary', account).focus();
         window.scrollTo({ top: 0 });
-    } else if (account?.open && !account.contains(event.target)) {
-        account.open = false;
-    }
-});
-
-account?.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && account.open) {
-        account.open = false;
-        $('summary', account).focus();
-    }
-});
-
-// «Secciones» (phones): a plain <details>; this only closes it after a
-// jump, on Escape and on a click elsewhere.
-const sectionsMenu = $('[data-sections]');
-
-document.addEventListener('click', (event) => {
-    if (!sectionsMenu?.open) return;
-    if (event.target.closest('[data-sections] a') || !sectionsMenu.contains(event.target)) {
-        sectionsMenu.open = false;
-    }
-});
-
-sectionsMenu?.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && sectionsMenu.open) {
-        sectionsMenu.open = false;
-        $('summary', sectionsMenu).focus();
     }
 });
 
@@ -524,8 +500,12 @@ function correctSavedDates() {
         );
     }
 
+    // The bell's events (components/notification-bell) are not «Próximas fechas».
     const dates = $('#fechas');
-    if (dates && rows.length > 0 && rows.every((row) => row.hidden)) dates.hidden = true;
+    const dateRows = rows.filter((row) => dates?.contains(row));
+    if (dates && dateRows.length > 0 && dateRows.every((row) => row.hidden)) dates.hidden = true;
+
+    correctSavedBell();
 
     // «Cumpleaños y aniversarios»: a past day goes, and «Hoy», «Mañana» or
     // the weekday (`data-celebration-day`) follow the real today.
@@ -541,6 +521,22 @@ function correctSavedDates() {
 
     const celebrationList = $('#celebraciones');
     if (celebrationList && celebrations.length > 0 && celebrations.every((row) => row.hidden)) celebrationList.hidden = true;
+}
+
+// The bell of the header (components/notification-bell) on the saved copy:
+// «Guardado sin conexión», and the empty state once every line is gone (the
+// events that are over went above; they never count in the badge).
+function correctSavedBell() {
+    const bell = $('[data-bell]');
+    if (!bell) return;
+
+    $('[data-bell-saved]', bell).hidden = false;
+
+    const items = $$('[data-bell-item]', bell);
+    if (items.length === 0 || !items.every((item) => item.hidden)) return;
+
+    for (const part of $$('[data-bell-list], [data-bell-footer]', bell)) part.hidden = true;
+    $('[data-bell-empty]', bell).hidden = false;
 }
 
 // The ISO date after an ISO date (noon UTC, so no zone shifts the day).
@@ -559,17 +555,5 @@ window.addEventListener('offline', showConnection);
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-    });
-
-    // Signing out also sends Clear-Site-Data; this covers browsers without it:
-    // the saved pages go, and so does this browser's phone notice subscription
-    // («Avisos en el celular»; the server forgets it on logout too).
-    document.addEventListener('submit', (event) => {
-        if (!event.target.matches('[data-logout]')) return;
-        navigator.serviceWorker.controller?.postMessage('purge');
-        navigator.serviceWorker.getRegistration('/')
-            .then((registration) => registration?.pushManager?.getSubscription())
-            .then((subscription) => subscription && subscription.unsubscribe())
-            .catch(() => {});
     });
 }

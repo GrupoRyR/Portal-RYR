@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 /**
  * The company switcher in the header of the home screen and of the
- * secondary pages (components/brand-bar): the person's other accounts
+ * secondary pages (components/portal-header): the person's other accounts
  * they may switch to (App\Auth\LinkedAccounts::canSwitch()), each a POST
  * to `account.switch`. Inline buttons up to three companies, a
  * <details> menu from four, no JavaScript.

@@ -20,6 +20,7 @@ use App\Products\ProductBoard;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
+use App\View\Notifications\NotificationList;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -52,7 +53,8 @@ use InvalidArgumentException;
  * - «Cumpleaños y aniversarios» (App\View\Home\Celebration) from the same
  *   directory query: the birthdays people chose to show and the work
  *   anniversaries of today and the next seven days (none on a server search);
- * - the «Mercados» band: TRM and euro (App\Markets\MarketBoard, one query);
+ * - the «Mercados» band: the series for everyone, the inputs the company
+ *   chose and its manual prices (App\Markets\MarketBoard, one query);
  * - «Noticias» of the user's company (App\News\NewsBoard, one query), the
  *   tab named in `?noticias=` selected (none on a server search);
  * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,
@@ -62,7 +64,10 @@ use InvalidArgumentException;
  * - «Tareas pendientes»: the account's own approvals and tasks
  *   (App\View\Home\WorkList, four queries);
  * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
- *   one query: it reuses the visible apps).
+ *   one query: it reuses the visible apps);
+ * - the bell of the header (App\View\Notifications\NotificationList): the
+ *   unread mandatory announcements (one query), the pending items above
+ *   and the events of the coming week.
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -153,6 +158,7 @@ final class HomePageBuilder
 
         // The apps already read above: one query of its own (the services).
         $itStatus = $this->itStatus->for($user, $visible);
+        $work = WorkList::for($user, CarbonImmutable::instance($now), $visible);
 
         return new HomePage(
             salutation: $greeting->salutation,
@@ -194,13 +200,14 @@ final class HomePageBuilder
             birthdayHref: $directoryCompanyId === null ? null : route('account.show').'#cumpleanos',
             celebrations: array_slice($celebrations, 0, Celebration::LIMIT),
             moreCelebrationsHref: count($celebrations) > Celebration::LIMIT ? route('people.index') : null,
-            markets: array_values(array_map(MarketFigure::from(...), $this->markets->current())),
+            markets: array_values(array_map(MarketFigure::from(...), $this->markets->current($company))),
             // A server search shows the cards only.
             news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
             catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
             management: $search->isActive() ? null : $this->managementCard($user, $today),
-            work: WorkList::for($user, CarbonImmutable::instance($now), $visible),
+            work: $work,
             itStatus: $itStatus->available ? $itStatus : null,
+            notifications: NotificationList::forHome(NotificationList::unreadAnnouncements($user), $work, $visibleEvents, $now),
         );
     }
 

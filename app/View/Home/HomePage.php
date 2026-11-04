@@ -4,6 +4,8 @@ namespace App\View\Home;
 
 use App\ItStatus\ItStatus;
 use App\Search\HomeSearchIndex;
+use App\View\Notifications\Notification;
+use App\View\Notifications\NotificationList;
 
 /**
  * The view model of the home screen (resources/views/home.blade.php). The
@@ -30,12 +32,13 @@ final readonly class HomePage
      * @param  string|null  $birthdayHref  «Mi cumpleaños» (`/cuenta#cumpleanos`) in the account menu; null hides it (no directory for this account).
      * @param  list<Celebration>  $celebrations  «Cumpleaños y aniversarios»: today and the next Celebration::DAYS days, at most Celebration::LIMIT; empty hides the block.
      * @param  string|null  $moreCelebrationsHref  «Ver directorio» when more fall in those days than the block shows.
-     * @param  list<MarketFigure>  $markets  The «Mercados» band (TRM, euro); empty hides it (before the first sync).
+     * @param  list<MarketFigure>  $markets  The «Mercados» band (the series for everyone, the company's inputs, then its manual prices); empty hides it (before the first sync).
      * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
      * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
      * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
      * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
      * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
+     * @param  NotificationList|null  $notifications  The bell of the header (HomePageBuilder always sets it); null hides it.
      */
     public function __construct(
         public string $salutation,
@@ -72,6 +75,7 @@ final readonly class HomePage
         public ?ManagementCard $management = null,
         public ?WorkList $work = null,
         public ?ItStatus $itStatus = null,
+        public ?NotificationList $notifications = null,
     ) {}
 
     /**
@@ -90,9 +94,10 @@ final readonly class HomePage
 
     /**
      * The «Secciones» menu of phones: only sections the view renders and
-     * shows, as anchors (home.blade.php keeps the same conditions). Empty, so
-     * no menu, without apps: that page is short, and the menu would crowd
-     * the company name off the logo row.
+     * shows, as anchors, in page order (home.blade.php keeps the same
+     * conditions): the main column, then «Mi día». Empty, so no menu,
+     * without apps: that page is short, and the menu would crowd the
+     * company name off the logo row.
      *
      * @return list<array{href: string, label: string, offline?: false}>
      */
@@ -123,6 +128,14 @@ final readonly class HomePage
             $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
         }
 
+        if ($this->quickLinks !== []) {
+            $sections[] = ['href' => '#accesos', 'label' => 'Accesos rápidos'];
+        }
+
+        if ($this->announcements !== []) {
+            $sections[] = ['href' => '#anuncios', 'label' => 'Anuncios'];
+        }
+
         if ($this->news !== []) {
             $sections[] = ['href' => '#noticias', 'label' => 'Noticias'];
         }
@@ -135,31 +148,43 @@ final readonly class HomePage
             $sections[] = ['href' => '#tareas', 'label' => 'Tareas'];
         }
 
-        if ($this->upcomingDates !== []) {
-            $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
-        }
-
         if ($this->celebrations !== []) {
             $sections[] = ['href' => '#celebraciones', 'label' => 'Cumpleaños'];
+        }
+
+        if ($this->upcomingDates !== []) {
+            $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
         }
 
         if ($this->itStatus !== null) {
             $sections[] = ['href' => '#estado-ti', 'label' => 'Estado de TI'];
         }
 
-        if ($this->quickLinks !== []) {
-            $sections[] = ['href' => '#m365', 'label' => 'Microsoft 365'];
-        }
-
         return $sections;
     }
 
     /**
-     * The announcement of the phone and tablet banner.
+     * «Por confirmar» of «Mi día»: the mandatory announcements the person
+     * has not confirmed, newest first, as the bell of the header lists
+     * them (NotificationList, no query of its own).
+     *
+     * @return list<Notification>
      */
-    public function topAnnouncement(): ?AnnouncementCard
+    public function toConfirm(): array
     {
-        return $this->announcements[0] ?? null;
+        return array_values(array_filter(
+            $this->notifications->items ?? [],
+            fn (Notification $item) => $item->kind === Notification::ANNOUNCEMENT,
+        ));
+    }
+
+    /**
+     * «Ver todos» under «Por confirmar»: the bell's list stops at
+     * NotificationList::LIMIT lines, so a full list may leave some out.
+     */
+    public function moreToConfirm(): bool
+    {
+        return count($this->toConfirm()) >= NotificationList::LIMIT;
     }
 
     public function hasApps(): bool

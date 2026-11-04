@@ -1,5 +1,6 @@
 {{--
-    One app card (docs/diseno/Main.dc.html). The whole card opens the app
+    One app card of «Mis aplicaciones», a glass tile (glass.css section 7,
+    .g-app; docs/diseno/Main.dc.html). The whole card opens the app
     through a stretched link; the star is a separate form so it works
     without JavaScript (resources/js/home.js submits it with fetch).
     The logo container (.app-logo) carries the motion of resources/css/app.css,
@@ -19,9 +20,8 @@
     data-status="{{ $card->status->value }}"
     @if ($query === '') data-enter style="--logo-order: {{ $order }}" @endif
     @class([
-        'relative flex min-h-[168px] flex-col gap-2.5 rounded-card border bg-surface p-4 transition-[border-color,box-shadow,translate] duration-200 hover:shadow-card md:min-h-[188px] md:w-[200px] md:gap-3 md:p-[18px] lg:w-52',
-        'border-status-failure-line' => $card->status === AppCardStatus::Failing,
-        'border-line hover:border-line-strong' => $card->status !== AppCardStatus::Failing,
+        'g-tile g-app min-w-0',
+        'g-app--failing' => $card->status === AppCardStatus::Failing,
     ])
 >
     <div class="flex items-start justify-between">
@@ -36,7 +36,7 @@
             <span aria-hidden="true" class="app-logo flex size-12 shrink-0 items-center justify-center rounded-icon bg-(--app-accent) font-display text-xl font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
         @endif
 
-        <form method="POST" action="{{ route($card->favorite ? 'favorites.destroy' : 'favorites.store', $card->slug) }}" class="relative z-10 -mt-2.5 -mr-2.5" data-favorite>
+        <form method="POST" action="{{ route($card->favorite ? 'favorites.destroy' : 'favorites.store', $card->slug) }}" class="relative z-10 -mt-2 -mr-2" data-favorite>
             @csrf
             <input type="hidden" name="_method" value="{{ $card->favorite ? 'DELETE' : 'POST' }}">
             @if ($query !== '')
@@ -49,7 +49,7 @@
     </div>
 
     <div class="flex flex-col gap-1">
-        <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="text-[0.9375rem] leading-tight font-bold after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-fg md:text-base">{{ $card->name }}</a>
+        <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="text-[0.9375rem] leading-tight font-bold break-words after:absolute after:inset-0 after:rounded-[18px] after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-fg">{{ $card->name }}</a>
         <p class="line-clamp-2 text-[0.8125rem] leading-snug text-fg-muted">{{ $card->description }}</p>
     </div>
 

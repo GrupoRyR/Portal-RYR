@@ -4,6 +4,7 @@ namespace App\View\Components\Layouts;
 
 use App\Models\Company;
 use App\Models\ItService;
+use App\Models\MarketInput;
 use App\Models\NewsSource;
 use App\Models\User;
 use App\Policies\AdminSections;
@@ -51,16 +52,19 @@ class Admin extends Component
         $announcements = ['label' => 'Anuncios', 'icon' => 'megaphone', 'route' => 'admin.announcements.index', 'active' => 'admin.announcements.*'];
         $events = ['label' => 'Eventos', 'icon' => 'calendar', 'route' => 'admin.events.index', 'active' => 'admin.events.*'];
         $itServices = ['label' => 'Estado de TI', 'icon' => 'pulse', 'route' => 'admin.it-services.index', 'active' => 'admin.it-services.*'];
+        $markets = ['label' => 'Mercados', 'icon' => 'trend', 'route' => 'admin.markets.index', 'active' => 'admin.markets.*'];
 
         // Announcements editors reach nothing else (events and their own
-        // company's Estado de TI are theirs too, App\Policies\EventPolicy and
-        // ItServicePolicy): the other sections are left out, not merely
-        // disabled. An editor without a company gets no Estado de TI.
+        // company's Estado de TI and Mercados are theirs too,
+        // App\Policies\EventPolicy, ItServicePolicy and MarketInputPolicy): the
+        // other sections are left out, not merely disabled. An editor
+        // without a company gets neither Estado de TI nor Mercados.
         if ($this->user === null || ! AnnouncementPolicy::manages($this->user)) {
             return [['label' => null, 'items' => array_values(array_filter([
                 $announcements,
                 $events,
                 $this->user?->can('create', ItService::class) ? $itServices : null,
+                $this->user?->can('create', MarketInput::class) ? $markets : null,
             ]))]];
         }
 
@@ -77,6 +81,8 @@ class Admin extends Component
                 $this->user->can('viewAny', NewsSource::class)
                     ? ['label' => 'Noticias', 'icon' => 'newspaper', 'route' => 'admin.news.index', 'active' => 'admin.news.*']
                     : null,
+                // Every company for admins (App\Policies\MarketInputPolicy).
+                $markets,
             ]))],
             ['label' => 'Organización', 'items' => array_values(array_filter([
                 // Only super admins manage companies (CompanyPolicy): nobody
