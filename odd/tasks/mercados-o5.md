@@ -53,9 +53,9 @@ La banda de Mercados del inicio muestra, además de la TRM y el euro:
 
 ## Tareas
 
-- [ ] M1. **Catálogo de series:** código, nombre, unidad (pesos, USD/barril, USD/t, %, puntos, índice), fuente, frecuencia y alcance (todos o insumo). La frase leída y el formato de la banda salen de la unidad. Las series mensuales muestran el mes («sep 2026»), y los índices muestran la variación en % en vez del valor en USD.
-- [ ] M2. **Clientes del Banco de la República (SDMX) y de FRED.** `MarketSync` los usa además de la TRM y el BCE, cada fuente por separado. Sin llave de FRED, el comando lo dice y sigue. `config('services.fred.key')`.
-- [ ] M3. **Qué ve cada empresa:** `companies.market_codes` (JSON, puede estar vacío). Si está vacío, la empresa ve solo las series para todos. `MarketBoard` arma la banda con las series para todos más los insumos elegidos, sin consultas de más en el inicio.
+- [x] M1. **Catálogo de series:** código, nombre, unidad (pesos, USD/barril, USD/t, %, puntos, índice), fuente, frecuencia y alcance (todos o insumo). La frase leída y el formato de la banda salen de la unidad. Las series mensuales muestran el mes («sep 2026»), y los índices muestran la variación en % en vez del valor en USD.
+- [x] M2. **Clientes del Banco de la República (SDMX) y de FRED.** `MarketSync` los usa además de la TRM y el BCE, cada fuente por separado. Sin llave de FRED, el comando lo dice y sigue. `config('services.fred.key')`.
+- [x] M3. **Qué ve cada empresa:** `companies.market_codes` (JSON, puede estar vacío). Si está vacío, la empresa ve solo las series para todos. `MarketBoard` arma la banda con las series para todos más los insumos elegidos, sin consultas de más en el inicio.
 - [ ] M4. **Admin › Mercados:**
   - por empresa, casillas para los insumos automáticos;
   - precios manuales en una tabla `market_inputs` (empresa, nombre, unidad, valor, fecha, fuente), con alta, edición y borrado;
@@ -75,3 +75,11 @@ La banda de Mercados del inicio muestra, además de la TRM y el euro:
 ## Avance
 
 - 2026-11-04: rama creada (`fc25037` = #111 + #108 fusionada). Ruta: escritor delegado por PR (2+ archivos no triviales).
+- PR A (M1–M3) hecho en `11ed2dd`, `870d8bd`, `e9f09ee`, `2283398` y `e75c878`, más `cbffd95` (compilación determinista: `@source not '../../public/build'`).
+  - Catálogo `App\Markets\MarketSeries` con 13 series: `trm`, `eur`, `brent`, `tpm` y `colcap` para todos, y `zinc`, `copper`, `aluminum`, `brass`, `steel`, `alkali`, `resins` y `bottles` como insumos. Formato y frase leída según la unidad; las series mensuales muestran el mes y los lectores de pantalla oyen la fecha completa.
+  - Banco de la República por los flujos `_HIST`. Respuesta real verificada el 2026-11-04: una sola serie, fechas `YYYYMMDD` diarias y `YYYY-MM` mensuales, y `startPeriod` ignorado en la tasa diaria (126 KB). De la tasa se guarda el valor de hoy y el último día antes de la última decisión, así que la banda muestra «▲ 0,25 pp» desde la primera sincronización. Del COLCAP se guardan los dos últimos meses.
+  - FRED con `FRED_API_KEY`; sin llave se omite con aviso. User-Agent `PortalRYR/1.0`. La llave nunca llega a registros ni a la salida (probado). Series mensuales consultadas una vez al día. Tiempos de espera de 5 s para conectar y 8 s en total.
+  - `companies.market_codes` (JSON, solo códigos de insumo). `MarketBoard` arma la banda por empresa en una consulta, con filas de los últimos 400 días.
+  - Revisión independiente de código y seguridad: nada grave; siete puntos corregidos en `e75c878`.
+  - Evidencia: `php artisan test` 3438 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` sin cambios; `node --test` 48 pasan. RED observado en cada commit.
+  - Para M4: etiqueta en español de `market_codes` en `AuditPresenter`. Para M5: `FRED_API_KEY` en `.env.example` y en la documentación.
