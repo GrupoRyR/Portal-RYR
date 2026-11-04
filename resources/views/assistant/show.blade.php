@@ -7,6 +7,7 @@
     may get a draft (App\Assistant\Tools\BorradorDeAnuncio), which only the
     form below, sent by them with the confirmation box, publishes.
 --}}
+@use('App\Http\Controllers\Assistant\AssistantController')
 @use('App\Models\Announcement')
 @use('App\View\Assistant\AnswerText')
 @php
@@ -58,7 +59,7 @@
         @endif
 
         @unless ($available)
-            <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">El asistente no está disponible en este momento. Vuelve a intentarlo más tarde.</p>
+            <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">{{ AssistantController::NOT_AVAILABLE }}</p>
         @else
             @if ($turns === [])
                 <section aria-labelledby="sugerencias" class="{{ $card }}">
