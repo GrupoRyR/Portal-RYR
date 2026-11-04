@@ -13,6 +13,7 @@
     logo only (not the portal header: no switcher, menus or assistant).
 --}}
 @use('App\Models\Company')
+@use('Illuminate\Support\Str')
 @php($offered ??= collect())
 @php($confirmed ??= [])
 @php($redirectHost = parse_url((string) $request->query('redirect_uri'), PHP_URL_HOST) ?: '—')
@@ -31,7 +32,7 @@
     <main id="contenido" class="g-page">
         <div class="g-banner g-page__hello">
             <h1>¿Conectar «{{ $client->name }}» con el portal?</h1>
-            <p class="g-page__lead">Después de aprobar, volverás a <span class="font-semibold text-(--g-ink)">{{ $redirectHost }}</span>.@if ($registeredAt) Registrado el {{ $registeredAt }}.@endif</p>
+            <p class="g-page__lead">Después de aprobar, volverás a <span class="font-semibold text-(--g-ink)">{{ $redirectHost }}</span>.@if ($registeredAt) Registrado el {{ Str::finish($registeredAt, '.') }}@endif</p>
         </div>
 
         {{-- Registering a client is public: anyone could send this link. --}}

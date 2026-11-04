@@ -22,12 +22,10 @@
         <section aria-labelledby="la-cuenta" class="g-card">
             <div class="g-card__head">
                 <span class="g-mark" aria-hidden="true"></span>
-                <h2 id="la-cuenta" class="g-page__who">
-                    <span>{{ $company }}</span>
-                    <span class="font-normal">{{ $account->email }}</span>
-                </h2>
+                <h2 id="la-cuenta">{{ $company }}</h2>
             </div>
             <div class="g-card__body">
+                <p class="g-page__fine -mt-1 break-all">{{ $account->email }}</p>
                 <ul role="list" class="g-page__bullets">
                     @if ($account->is($current))
                         <li>Es la cuenta con la que estás ahora. Sigues en ella, pero ya no podrás cambiar a tus otras cuentas desde el encabezado.</li>

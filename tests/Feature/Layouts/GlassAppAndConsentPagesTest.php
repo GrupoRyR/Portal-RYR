@@ -44,6 +44,8 @@ class GlassAppAndConsentPagesTest extends TestCase
         $this->assertSame(1, $page->query('//main//section['.self::hasClass('g-card').'][@aria-labelledby="como-abrirla"]//*['.self::hasClass('g-card__head').']/h2[@id="como-abrirla"]')->length);
         $this->assertSame(2, $page->query('//section[@aria-labelledby="como-abrirla"]//ol/li/*['.self::hasClass('g-page__step').'][@aria-hidden="true"]')->length);
         $this->assertSame(1, $page->query('//main//a[@href="https://descargas.segurex.com.co/camaras.msi"]['.self::hasClass('g-btn--primary').']')->length);
+        // The way home is the banner's back link only.
+        $this->assertSame(1, $page->query('//main//a[@href="'.route('home').'"]')->length);
         $this->assertSame(1, $page->query('//main//*['.self::hasClass('g-banner').']//a[@href="'.route('home').'"]')->length);
     }
 
@@ -57,6 +59,18 @@ class GlassAppAndConsentPagesTest extends TestCase
         $this->assertSame(1, $page->query('//main//*['.self::hasClass('g-pill').']['.self::hasClass('warn').'][normalize-space(.)="En mantenimiento"]')->length);
         $this->assertSame(1, $page->query('//main//*['.self::hasClass('g-card').']//p['.self::hasClass('g-page__callout').'][contains(., "Vuelve a estar disponible")]')->length);
         $this->assertSame(1, $page->query('//main//a[@href="'.route('home').'"]['.self::hasClass('g-btn--primary').']')->length);
+        $this->assertSame(1, $page->query('//body/a[@href="#contenido"][contains(., "Saltar al contenido")]')->length);
+    }
+
+    public function test_the_consent_screen_ends_the_registration_time_with_one_period(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 30)->setTime(13, 28));
+        $this->enableMcp();
+
+        $page = $this->xpathOf($this->actingAs($this->user)->get($this->authorizeUrl($this->registeredClientId()))->assertOk());
+
+        $this->assertStringContainsString('Registrado el 30 de octubre de 2026 a las 1:28 p. m. ', $this->mainText($page).' ');
+        $this->assertStringNotContainsString('m..', $this->mainText($page));
     }
 
     public function test_the_consent_screen_is_glass_with_its_forms_intact(): void

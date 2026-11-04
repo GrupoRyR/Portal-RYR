@@ -22,10 +22,12 @@
             <p role="status" class="g-card g-page__flash">{{ session('status') }}</p>
         @endif
 
-        @if ($cards->isEmpty())
-            <p class="g-card g-page__empty">No hay anuncios por ahora.</p>
-        @else
-            <div class="g-card">
+        {{-- The pager shows whenever there are pages, even on an empty one
+             (a stale ?page=N must still offer the way back). --}}
+        <div class="g-card">
+            @if ($cards->isEmpty())
+                <p class="g-page__empty">No hay anuncios por ahora.</p>
+            @else
                 <ol class="g-page__list">
                     @foreach ($cards as $card)
                         <li id="a-{{ $card->id }}" class="g-page__entry">
@@ -33,27 +35,27 @@
                         </li>
                     @endforeach
                 </ol>
+            @endif
 
-                @if ($announcements->hasPages())
-                    <nav aria-label="Páginas de anuncios" class="g-page__foot">
-                        @if ($announcements->previousPageUrl())
-                            <a href="{{ $announcements->previousPageUrl() }}" rel="prev" class="g-btn g-btn--small">
-                                <x-home.icon name="chevron-left" stroke-width="2" class="size-[18px]" />Más recientes
-                            </a>
-                        @else
-                            <span></span>
-                        @endif
-                        <span>Página {{ $announcements->currentPage() }} de {{ $announcements->lastPage() }}</span>
-                        @if ($announcements->nextPageUrl())
-                            <a href="{{ $announcements->nextPageUrl() }}" rel="next" class="g-btn g-btn--small">
-                                Anteriores<x-home.icon name="chevron-right" stroke-width="2" class="size-[18px]" />
-                            </a>
-                        @else
-                            <span></span>
-                        @endif
-                    </nav>
-                @endif
-            </div>
-        @endif
+            @if ($announcements->hasPages())
+                <nav aria-label="Páginas de anuncios" class="g-page__foot">
+                    @if ($announcements->previousPageUrl())
+                        <a href="{{ $announcements->previousPageUrl() }}" rel="prev" class="g-btn g-btn--small">
+                            <x-home.icon name="chevron-left" stroke-width="2" class="size-[18px]" />Más recientes
+                        </a>
+                    @else
+                        <span></span>
+                    @endif
+                    <span>Página {{ $announcements->currentPage() }} de {{ $announcements->lastPage() }}</span>
+                    @if ($announcements->nextPageUrl())
+                        <a href="{{ $announcements->nextPageUrl() }}" rel="next" class="g-btn g-btn--small">
+                            Anteriores<x-home.icon name="chevron-right" stroke-width="2" class="size-[18px]" />
+                        </a>
+                    @else
+                        <span></span>
+                    @endif
+                </nav>
+            @endif
+        </div>
     </main>
 </x-layouts.app>

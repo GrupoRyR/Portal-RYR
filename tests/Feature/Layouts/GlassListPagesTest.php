@@ -48,6 +48,18 @@ class GlassListPagesTest extends TestCase
         $this->assertSame(1, $page->query('//main//p[@role="status"]['.self::hasClass('g-card').']')->length);
     }
 
+    public function test_a_page_past_the_end_still_offers_the_way_back(): void
+    {
+        Announcement::factory()->forCompanies($this->segurex)->count(Announcement::PER_PAGE + 1)->create();
+        DirectoryEntry::factory()->forCompany($this->segurex)->count(PeopleController::PER_PAGE + 1)->create();
+
+        $announcements = $this->xpathOf($this->actingAs($this->ana)->get(route('announcements.index', ['page' => 3]))->assertOk());
+        $people = $this->xpathOf($this->actingAs($this->ana)->get(route('people.index', ['page' => 3]))->assertOk());
+
+        $this->assertSame(1, $announcements->query('//main//*['.self::hasClass('g-card').']//nav[@aria-label="Páginas de anuncios"]//a[@rel="prev"]['.self::hasClass('g-btn').']')->length);
+        $this->assertSame(1, $people->query('//main//*['.self::hasClass('g-card').']//nav[@aria-label="Páginas de personas"]//a[@rel="prev"]['.self::hasClass('g-btn').']')->length);
+    }
+
     public function test_an_empty_list_says_so_on_glass(): void
     {
         $announcements = $this->xpathOf($this->actingAs($this->ana)->get(route('announcements.index'))->assertOk());

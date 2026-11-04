@@ -2,6 +2,7 @@
     Info page of an app installed on the computer (docs/diseno/PhoneLocal.dc.html).
     Liquid Glass (odd/tasks/liquid-glass.md G9): the app in the title banner
     with its state as a g-pill, the steps in a g-card, then the actions.
+    The way home is the banner's back link.
 --}}
 @php($steps = collect(preg_split('/\R/u', (string) $app->local_instructions))->map(fn ($step) => trim($step))->filter()->values())
 @php($downloadUrl = is_string($app->download_url) && str_starts_with(strtolower($app->download_url), 'https://') ? $app->download_url : null)
@@ -60,7 +61,6 @@
                     Soporte TI
                 </a>
             @endif
-            <a href="{{ route('home') }}" class="g-btn px-5">Volver al inicio</a>
         </div>
     </main>
 </x-layouts.app>

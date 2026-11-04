@@ -118,10 +118,10 @@
         letter-spacing: normal;
     }
 
-    .g-page__note {
-        margin-left: auto;
-        font-size: 12px;
-        color: var(--g-ink-faint);
+    /* No sheen here: the kit's hover sweep would animate across tall
+       list cards that blur the photo behind them. */
+    .g-page .g-card::after {
+        content: none;
     }
 
     .g-page .g-card__body {
@@ -143,6 +143,11 @@
         color: var(--g-ink-soft);
     }
 
+    /* A pager alone in its card (a page past the end): no rule above it. */
+    .g-page__foot:first-child {
+        border-top: 0;
+    }
+
     @media (max-width: 639.98px) {
         .g-page .g-card__head,
         .g-page .g-card__body,
@@ -157,10 +162,6 @@
         padding: 14px 18px;
         font-size: 14px;
         font-weight: 600;
-    }
-
-    .g-page__flash--good {
-        color: var(--g-good);
     }
 
     /* An empty list: the sentence centered in its card. */
@@ -478,7 +479,10 @@
         font-size: 14px;
     }
 
-    /* A destructive action on glass: crit text, the glass button. */
+    /* A destructive action on glass: crit text, the glass button.
+       A kit-level modifier, kept here only to avoid touching glass.css
+       while the home slice (G6) edits it: move it next to .g-btn--primary
+       in glass.css later. */
     .g-btn--danger {
         color: var(--g-crit);
     }

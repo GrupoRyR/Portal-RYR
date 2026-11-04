@@ -4,9 +4,10 @@
     (guest, emergency account, no Microsoft identity or a company without
     access). No code is issued. Liquid Glass (odd/tasks/liquid-glass.md
     G9): one g-card on the photo, no header and no assistant (a consent page).
+    The column is exactly one screen tall (padding, no margins): no scrollbar.
 --}}
 <x-layouts.app title="No se puede conectar Claude" glass noindex>
-    <main id="contenido" class="g-page min-h-[calc(100dvh-60px)] max-w-[560px] justify-center">
+    <main id="contenido" class="g-page my-0 min-h-dvh max-w-[560px] justify-center py-6">
         <section class="g-card">
             <div class="g-card__body gap-5 md:px-8 md:py-8">
                 <p class="g-page__code" aria-hidden="true">403</p>

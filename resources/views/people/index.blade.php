@@ -57,30 +57,34 @@
                 </div>
             </div>
 
-            @if ($people->isNotEmpty())
+            {{-- The pager shows whenever there are pages, even on an empty one
+                 (a stale ?page=N must still offer the way back). --}}
+            @if ($people->isNotEmpty() || $people->hasPages())
                 <div class="g-card">
-                    <ul class="g-page__list">
-                        @foreach ($people as $person)
-                            <li id="p-{{ $person->id }}" class="g-page__entry gap-1">
-                                <h2 id="persona-{{ $person->id }}" class="g-page__entry-title text-base">{{ $person->display_name }}</h2>
-                                @if ($role = $person->roleLine())
-                                    <p class="g-page__text text-sm break-words">{{ $role }}</p>
-                                @endif
-                                @if ($person->office_location)
-                                    <p class="g-page__fine text-sm break-words"><span class="sr-only">Oficina: </span>{{ $person->office_location }}</p>
-                                @endif
-                                <p class="g-page__links">
-                                    @if ($phone = $person->phoneHref())
-                                        <a href="{{ $phone }}" class="g-page__link"><span class="sr-only">Teléfono: </span>{{ $person->business_phone }}</a>
+                    @if ($people->isNotEmpty())
+                        <ul class="g-page__list">
+                            @foreach ($people as $person)
+                                <li id="p-{{ $person->id }}" class="g-page__entry gap-1">
+                                    <h2 id="persona-{{ $person->id }}" class="g-page__entry-title text-base">{{ $person->display_name }}</h2>
+                                    @if ($role = $person->roleLine())
+                                        <p class="g-page__text text-sm break-words">{{ $role }}</p>
                                     @endif
-                                    <a href="{{ $person->mailtoHref() }}" class="g-page__link"><span class="sr-only">Correo: </span>{{ $person->email }}</a>
-                                    <a href="{{ $person->teamsChatUrl() }}" target="_blank" rel="noopener" aria-describedby="persona-{{ $person->id }}" class="g-page__link">
-                                        <x-home.icon name="teams" class="size-[18px]" />Chat en Teams
-                                    </a>
-                                </p>
-                            </li>
-                        @endforeach
-                    </ul>
+                                    @if ($person->office_location)
+                                        <p class="g-page__fine text-sm break-words"><span class="sr-only">Oficina: </span>{{ $person->office_location }}</p>
+                                    @endif
+                                    <p class="g-page__links">
+                                        @if ($phone = $person->phoneHref())
+                                            <a href="{{ $phone }}" class="g-page__link"><span class="sr-only">Teléfono: </span>{{ $person->business_phone }}</a>
+                                        @endif
+                                        <a href="{{ $person->mailtoHref() }}" class="g-page__link"><span class="sr-only">Correo: </span>{{ $person->email }}</a>
+                                        <a href="{{ $person->teamsChatUrl() }}" target="_blank" rel="noopener" aria-describedby="persona-{{ $person->id }}" class="g-page__link">
+                                            <x-home.icon name="teams" class="size-[18px]" />Chat en Teams
+                                        </a>
+                                    </p>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
 
                     @if ($people->hasPages())
                         <nav aria-label="Páginas de personas" class="g-page__foot">

@@ -120,6 +120,9 @@ class AccountGlassTest extends TestCase
 
         $this->assertSame(1, $page->query('//form[@action="'.route('account.unlink', $derivados).'"][@method="POST"][.//input[@name="_token"]]//button[@type="submit"]['.self::hasClass('g-btn--danger').']')->length);
         $this->assertSame(1, $page->query('//main//a[@href="'.route('account.show').'"]['.self::hasClass('g-btn').'][normalize-space(.)="Cancelar"]')->length);
+        // The card is named by the company; the e-mail is body text.
+        $this->assertSame('Soluciones y Derivados', trim($page->query('//h2[@id="la-cuenta"]')->item(0)->textContent));
+        $this->assertSame(1, $page->query('//section[@aria-labelledby="la-cuenta"]//*['.self::hasClass('g-card__body').']/p[normalize-space(.)="'.$derivados->email.'"]')->length);
     }
 
     private function link(User ...$others): void
