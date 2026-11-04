@@ -45,7 +45,9 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
 - [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
 - [ ] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*`, `errors/*` y `mcp/*`.
-- [ ] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR).
+- [x] G10. **Administración:** hecho en `c09653c` (ruta: escritor delegado). Rama `feat/glass-10-admin`, un solo PR.
+  - Barra lateral y barra del celular en vidrio sobre la foto; la página va en un panel casi opaco.
+  - Las clases de tarjetas, campos y botones viven en cada vista: un «skin» central en `glass.css` les da el acabado de vidrio sin tocar las vistas.
 
 ## Comprobaciones
 
@@ -62,3 +64,12 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Fotos webp en `public/images/glass/`: grande ≤ 186 KB y pequeña ≤ 90 KB (la pequeña bajo 768 px). Incluye las de la Vitrina (planta 2 y 3) para G8.
   - Evidencia: `php artisan test` 3227 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 8 pruebas nuevas o cambiadas antes del código.
   - Pendiente para G3: el `theme-color` sigue al sistema, no a `data-theme`; el botón de tema debe actualizarlo. Ninguna página usa aún `glass`.
+- G10 hecho en `c09653c` (`feat/glass-10-admin`, sobre `feat/glass-1-base`).
+  - Las cadenas `$card`, `$field`, `$primary`… están repetidas en el `@php` de 16 vistas y además hay unas 120 superficies escritas a mano. En vez de reescribirlas, `glass.css` §6 trae un «skin» en la capa `components`, dentro de `.g-admin-main`: solo agrega sombras y un tono más oscuro abajo en los botones llenos. Por la capa, ninguna utilidad de las vistas (color, borde, espacio) pierde.
+  - El panel de contenido es `--color-ground` al 97 %, el mismo fondo con el que se midieron las vistas. Así se conservan el texto, los estados y la tinta de marca (BrandPalette la mide contra #1C1D20). El `--g-solid` oscuro, más claro, dejaba la tinta de SDC (#4D8ABD) en 3,9:1.
+  - En la barra lateral y la del celular, `fg`, `fg-soft` y `fg-muted` pasan a `--g-ink*`, medidos sobre el vidrio. El `#5e6168` daba unos 4,4:1 en el peor caso.
+  - El panel no lleva `backdrop-filter`, `transform` ni `z-index`, porque atraparían los diálogos fijos de Integraciones.
+  - Logo sobre su placa (`bg-brand-dark` para el blanco de Segurex, placa blanca para SDC). Sin `brand-band`, la barra del navegador queda neutra.
+  - Evidencia: `php artisan test` 3230 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 4 pruebas nuevas o cambiadas con el layout anterior.
+  - Revisión visual de Anuncios (nuevo), Empresas y Auditoría con las dos marcas, en claro y oscuro: 375 px en el panel del navegador y 1440 px en Chrome sin cabeza.
+  - Hallazgos previos, sin tocar porque son de comportamiento o texto: en `company-editor` los placeholders `todos@{{ … }}` e `info@{{ … }}` salen literales, porque Blade escapa `@{{`. A 375 px, el selector «Todas las empresas» de Auditoría se sale unos pocos px por el nombre largo de SDC (ya pasaba antes).
