@@ -42,7 +42,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - `<x-portal-header>` reemplaza el encabezado del inicio y `brand-bar`, que se borró.
   - Cambio de tema Claro/Oscuro/Sistema en el menú de la persona.
   - Rama `feat/glass-3-header`.
-- [ ] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio.
+- [x] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio. Hecho en `4d9269d` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-4-bell`, sobre G3.
 - [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
@@ -89,3 +89,18 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - G9: las páginas secundarias y quitar el `g-sheet`.
     - `mcp/authorize` y Administración siguen con `brand-band` (G9 y G10).
     - En iPhone con muesca, la barra fija baja hasta `env(safe-area-inset-top)` sin un relleno propio; revisar en G6.
+- G4 hecho en `4d9269d` (`feat/glass-4-bell`).
+  - `App\View\Notifications\NotificationList` y `Notification`: hasta 8 avisos. Primero los anuncios obligatorios sin leer (los más nuevos primero), luego las aprobaciones, las tareas (como «Tareas pendientes») y los eventos de los próximos 7 días.
+  - La insignia cuenta solo lo que pide algo a la persona: anuncios sin leer más pendientes. Es exacta hasta 9 y luego dice «9+». El nombre accesible es «Avisos, 3 sin leer» y la insignia lleva `aria-hidden`.
+  - `<x-notification-bell>` es un `<details data-menu>` con `.g-pop`: funciona sin JavaScript y `header.js` lo cierra (comprobado: Escape y clic afuera). En celular la lista ocupa el ancho del encabezado. Pie «Ver todo» a `/#mi-dia`, o «No tienes avisos nuevos».
+  - Los enlaces: un anuncio va a `announcements.show`; un pendiente abre su app en otra pestaña solo con un enlace seguro (`WebLink`), y si no, va a `/#tareas`; un evento va a `/eventos#e-{id}`.
+  - Se quitó la ranura `bell` de G3: el encabezado pinta la campanita por sí solo, así que las 9 páginas secundarias no cambiaron.
+  - Consultas: en el inicio, +1 (los anuncios sin leer); reutiliza `WorkList` y los eventos que ya lee `HomePageBuilder`. `HomeQueryBudget` pasa de 17 a 18 y de 22 a 23. En las otras páginas, la campanita usa como máximo 3 (anuncios, pendientes, eventos) y ninguna para la cuenta de emergencia.
+  - `WorkRow::due()` comparte el texto del vencimiento con la campanita.
+  - Evidencia:
+    - `php artisan test`: 3253 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - RED observado antes del código: 11 pruebas (10 nuevas en `NotificationBellTest` y la del encabezado).
+    - Revisión visual en el inicio, `/anuncios` y el estado vacío, con las dos marcas, en claro y oscuro, a 375 px (panel del navegador) y a 1280 px (Chrome sin interfaz).
+  - Tamaño: unas 740 líneas, la mitad son pruebas.
