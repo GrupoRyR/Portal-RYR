@@ -3,11 +3,11 @@
 namespace App\Markets;
 
 use App\Models\Company;
+use App\Models\MarketInput;
 use App\Models\MarketRate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Read model of the markets band: for each code of the catalogue
@@ -34,6 +34,11 @@ use Illuminate\Support\Str;
  * by name, the latest price of each name compared with the previous price
  * of that name when both are in the same unit. Two prices of one day: the
  * last one entered is the latest. Their code is «input-<id>».
+ *
+ * Names are one name without case or accents (MarketInput::fold()): MariaDB
+ * already partitions them so, SQLite does not, and the board folds them
+ * again. At most MANUAL_LIMIT names show: those whose latest price was
+ * entered or changed most recently, still by name.
  */
 final class MarketBoard
 {
@@ -43,6 +48,9 @@ final class MarketBoard
      * policy rate up to about thirteen months old.
      */
     public const WINDOW_DAYS = 400;
+
+    /** Manual prices a company's band shows at most (one per name). */
+    public const MANUAL_LIMIT = 12;
 
     /** `kind` of a row of the catalogue (`market_rates`). */
     private const RATE = 'rate';
@@ -64,12 +72,12 @@ final class MarketBoard
         // The rows of both tables in one shape: a manual price's name is
         // its code, its day its start, and `kind` keeps the two apart.
         $rows = DB::table('market_rates')
-            ->selectRaw('id, code, value, valid_from, valid_until, ? AS kind, NULL AS unit', [self::RATE])
+            ->selectRaw("id, code, value, valid_from, valid_until, updated_at, '".self::RATE."' AS kind, NULL AS unit")
             ->whereIn('code', $codes)
             ->where('valid_from', '<=', $today)
             ->where('valid_from', '>=', $from)
             ->when($company !== null, fn ($query) => $query->unionAll(DB::table('market_inputs')
-                ->selectRaw('id, label AS code, value, valid_on AS valid_from, NULL AS valid_until, ? AS kind, unit', [self::INPUT])
+                ->selectRaw("id, label AS code, value, valid_on AS valid_from, NULL AS valid_until, updated_at, '".self::INPUT."' AS kind, unit")
                 ->where('company_id', $company->getKey())
                 ->where('valid_on', '<=', $today)
                 ->where('valid_on', '>=', $from)));
@@ -93,7 +101,7 @@ final class MarketBoard
             ->selectRaw("ROW_NUMBER() OVER ({$order}) AS kept_position")
             ->when($byDecision !== [], fn ($query) => $query->where(fn ($query) => $query
                 ->where('position', 1)
-                ->orWhere('kind', self::INPUT)
+                ->orWhereRaw("kind = '".self::INPUT."'")
                 ->orWhereNotIn('code', $byDecision)
                 ->orWhereColumn('value', '<>', 'latest_value')));
 
@@ -117,22 +125,37 @@ final class MarketBoard
             }
         }
 
-        return $board + $this->manualQuotes($all->where('kind', self::INPUT)->groupBy('code'));
+        return $board + $this->manualQuotes($all->where('kind', self::INPUT));
     }
 
     /**
-     * The latest manual price of each name, by name (without case or
-     * accents), compared with the previous one only in the same unit.
+     * The latest manual price of each name, by name, compared with the
+     * previous one only in the same unit. Each spelling brings its two
+     * newest rows, so the two newest of a folded name are among them.
      *
-     * @param  Collection<array-key, Collection<int, MarketRate>>  $byName
+     * @param  Collection<int, MarketRate>  $rows
      * @return array<string, MarketQuote>
      */
-    private function manualQuotes(Collection $byName): array
+    private function manualQuotes(Collection $rows): array
     {
+        $byName = $rows
+            ->groupBy(fn (MarketRate $row) => MarketInput::fold((string) $row->code))
+            ->map(fn (Collection $rows) => $rows
+                ->sortBy([
+                    fn (MarketRate $a, MarketRate $b) => $b->valid_from <=> $a->valid_from,
+                    fn (MarketRate $a, MarketRate $b) => $b->id <=> $a->id,
+                ])
+                ->values())
+            // The names changed most recently, then by name.
+            ->sortByDesc(fn (Collection $rows) => [$rows->first()->updated_at?->getTimestamp() ?? 0, $rows->first()->id])
+            ->take(self::MANUAL_LIMIT)
+            ->sortKeys(SORT_NATURAL);
+
         $quotes = [];
 
-        foreach ($byName->sortBy(fn ($rows, $name) => Str::lower(Str::ascii((string) $name)), SORT_NATURAL) as $name => $rows) {
+        foreach ($byName as $rows) {
             $latest = $rows->first();
+            $name = (string) $latest->code;
             $unit = MarketUnit::tryFrom((string) $latest->getAttribute('unit'));
             $previous = $rows->get(1);
 

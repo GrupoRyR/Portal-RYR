@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Markets\MarketBoard;
 use App\Markets\MarketSeries;
 use App\Markets\MarketUnit;
 use App\Models\Company;
@@ -13,8 +14,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -43,6 +45,9 @@ class MarketManager extends Component
 
     /** Prices listed, newest first. */
     public const LIST_LIMIT = 50;
+
+    /** A point that could be a decimal point is refused, not guessed. */
+    private const COMMA_MESSAGE = 'Usa coma para los decimales, por ejemplo 4.200,50.';
 
     #[Url(as: 'empresa')]
     public ?int $companyId = null;
@@ -138,10 +143,22 @@ class MarketManager extends Component
         $this->authorize($input === null ? 'create' : 'update', $input ?? MarketInput::class);
 
         $company = $this->company();
-        $this->label = self::squish($this->label);
-        $this->source = self::squish($this->source);
-        $this->value = self::decimal($this->value);
-        $data = $this->validate($this->rules(), $this->messages());
+
+        // Normalized copies are validated and saved; the fields keep what
+        // was typed, so an error never rewrites the form.
+        $value = self::decimal($this->value);
+
+        if ($value === null) {
+            throw ValidationException::withMessages(['value' => self::COMMA_MESSAGE]);
+        }
+
+        $data = Validator::make([
+            'label' => self::squish($this->label),
+            'unit' => $this->unit,
+            'value' => $value,
+            'validOn' => $this->validOn,
+            'source' => self::squish($this->source),
+        ], $this->rules(), $this->messages())->validate();
 
         $attributes = [
             'label' => $this->spellingInUse($company, $data['label'], $input?->id),
@@ -207,6 +224,7 @@ class MarketManager extends Component
             'globalSeries' => $series->where('scope', MarketSeries::SCOPE_ALL)->values(),
             'units' => MarketUnit::manualOptions(),
             'today' => self::today(),
+            'firstDay' => self::firstDay()->toDateString(),
         ]);
     }
 
@@ -219,7 +237,7 @@ class MarketManager extends Component
             'label' => ['required', 'string', 'max:'.MarketInput::LABEL_MAX],
             'unit' => ['required', 'string', Rule::in(MarketUnit::manualValues())],
             'value' => ['required', 'numeric', 'gt:0', 'max:'.MarketInput::VALUE_MAX, 'decimal:0,4'],
-            'validOn' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.self::today()],
+            'validOn' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.self::today(), 'after_or_equal:'.self::firstDay()->toDateString()],
             'source' => ['nullable', 'string', 'max:'.MarketInput::SOURCE_MAX],
         ];
     }
@@ -242,6 +260,8 @@ class MarketManager extends Component
             'validOn.required' => 'Escribe la fecha del precio.',
             'validOn.date_format' => 'Escribe una fecha válida.',
             'validOn.before_or_equal' => 'La fecha no puede ser futura.',
+            'validOn.after_or_equal' => 'El inicio solo muestra precios de los últimos '.MarketBoard::WINDOW_DAYS.' días: usa una fecha desde el '
+                .str_replace('.', '', self::firstDay()->locale('es')->isoFormat('D MMM YYYY')).'.',
             'source.max' => 'Usa como máximo '.MarketInput::SOURCE_MAX.' caracteres.',
         ];
     }
@@ -315,7 +335,7 @@ class MarketManager extends Component
             ->when($except !== null, fn ($query) => $query->whereKeyNot($except))
             ->distinct()
             ->pluck('label')
-            ->first(fn (string $existing) => self::fold($existing) === self::fold($label)) ?? $label;
+            ->first(fn (string $existing) => MarketInput::fold($existing) === MarketInput::fold($label)) ?? $label;
     }
 
     /** Today in Bogotá, the markets' day (MarketSeries::TZ). */
@@ -325,15 +345,34 @@ class MarketManager extends Component
     }
 
     /**
-     * Accepts the Colombian way of writing a number: «4.200,50» and
-     * «4200,5» become «4200.50» and «4200.5». A number with a point and no
-     * comma is left as typed.
+     * The first day the band still reads (MarketBoard::WINDOW_DAYS before
+     * today in Bogotá): an older price would be saved but never shown.
      */
-    private static function decimal(string $value): string
+    private static function firstDay(): CarbonImmutable
+    {
+        return CarbonImmutable::now(MarketSeries::TZ)->startOfDay()->subDays(MarketBoard::WINDOW_DAYS);
+    }
+
+    /**
+     * Reads a number the Colombian way: points group thousands, the comma
+     * is the decimal mark. «4.200» → «4200», «4.200,50» → «4200.50»,
+     * «4200,5» → «4200.5». Null for a point that could be a decimal point
+     * («4.2», «1.35», «1,234.5»): it is refused rather than guessed.
+     * Anything else (empty, words) is left for the rules to explain.
+     */
+    private static function decimal(string $value): ?string
     {
         $value = str_replace([' ', "\u{00A0}"], '', trim($value));
 
-        return str_contains($value, ',') ? str_replace(',', '.', str_replace('.', '', $value)) : $value;
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $value) === 1) {
+            return str_replace(',', '.', str_replace('.', '', $value));
+        }
+
+        if (str_contains($value, '.')) {
+            return null;
+        }
+
+        return str_replace(',', '.', $value);
     }
 
     /** «5100.0000» → «5100», «4200.5000» → «4200,5»: as a person would type it. */
@@ -345,11 +384,6 @@ class MarketManager extends Component
     private static function companyName(Company $company): string
     {
         return $company->short_name ?: $company->name;
-    }
-
-    private static function fold(string $name): string
-    {
-        return mb_strtolower(Str::ascii($name));
     }
 
     private static function squish(string $value): string

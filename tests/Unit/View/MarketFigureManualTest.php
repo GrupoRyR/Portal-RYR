@@ -106,5 +106,16 @@ class MarketFigureManualTest extends TestCase
         $zinc = MarketFigure::from(new MarketQuote('zinc', 2845.5, CarbonImmutable::parse('2026-09-01'), null, null, null));
 
         $this->assertSame('US$2.845,50', $zinc->value);
+
+        // The catalogue keeps two decimals, even with more stored.
+        $this->assertSame('$3.861,38', MarketFigure::from(new MarketQuote('trm', 3861.3812, CarbonImmutable::parse('2026-11-03'), null, null, null))->value);
+    }
+
+    public function test_a_manual_price_shows_the_precision_it_was_typed_with(): void
+    {
+        $this->assertSame('$0,1234/kg', $this->price('Cloro', MarketUnit::PesosPerKilo, 0.1234, null, null)->value);
+        $this->assertSame('$5.100,123/kg', $this->price('PET', MarketUnit::PesosPerKilo, 5100.123, null, null)->value);
+        $this->assertSame('US$7,50/kg', $this->price('Latón', MarketUnit::UsdPerKilo, 7.5, null, null)->value);
+        $this->assertSame('$4.200,00/kg', $this->price('Soda', MarketUnit::PesosPerKilo, 4200, null, null)->value);
     }
 }

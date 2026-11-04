@@ -1,9 +1,9 @@
 {{-- Mercados administration (App\Livewire\Admin\MarketManager): the inputs one company's band shows and its prices typed by hand. --}}
 @php
-    $field = 'h-11 w-full rounded-[10px] border border-line-strong bg-surface px-3 text-[0.9375rem] text-fg';
-    $label = 'text-[0.8125rem] font-semibold';
+    $fieldClass = 'h-11 w-full rounded-[10px] border border-line-strong bg-surface px-3 text-[0.9375rem] text-fg';
+    $labelClass = 'text-[0.8125rem] font-semibold';
     $hint = 'text-[0.8125rem] text-fg-muted';
-    $error = 'text-[0.8125rem] font-semibold text-status-failure';
+    $errorClass = 'text-[0.8125rem] font-semibold text-status-failure';
     $card = 'flex flex-col gap-4 rounded-card border border-line bg-surface p-4 sm:p-6';
     $iconButton = 'inline-flex size-touch shrink-0 items-center justify-center rounded-[10px] text-fg-soft hover:bg-subtle hover:text-fg disabled:pointer-events-none disabled:opacity-35';
     $secondary = 'inline-flex min-h-touch items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-subtle';
@@ -19,8 +19,8 @@
         <section class="{{ $card }}" aria-labelledby="mkt-company-title">
             <h2 id="mkt-company-title" class="font-sans text-lg font-bold tracking-normal">Empresa</h2>
             <div class="flex flex-col gap-1.5 sm:max-w-sm">
-                <label for="mkt-company" class="{{ $label }}">Mercados de</label>
-                <select id="mkt-company" wire:model.live="companyId" class="{{ $field }}">
+                <label for="mkt-company" class="{{ $labelClass }}">Mercados de</label>
+                <select id="mkt-company" wire:model.live="companyId" class="{{ $fieldClass }}">
                     @foreach ($companies as $option)
                         <option value="{{ $option->id }}">{{ $option->short_name ?: $option->name }}@unless ($option->is_active) (inactiva)@endunless</option>
                     @endforeach
@@ -73,36 +73,36 @@
                 <h2 id="mkt-form-title" class="font-sans text-lg font-bold tracking-normal">{{ $editingId === null ? 'Nuevo precio' : 'Editar precio' }}</h2>
                 <form wire:submit="saveInput" class="flex flex-col gap-[18px]">
                     <div class="flex flex-col gap-1.5">
-                        <label for="mkt-label" class="{{ $label }}">Insumo</label>
-                        <input id="mkt-label" type="text" maxlength="{{ \App\Models\MarketInput::LABEL_MAX }}" wire:model="label" placeholder="Por ejemplo, Soda cáustica" class="{{ $field }} placeholder:text-fg-muted" {!! $invalid('label', 'mkt-label-error') !!}>
+                        <label for="mkt-label" class="{{ $labelClass }}">Insumo</label>
+                        <input id="mkt-label" type="text" maxlength="{{ \App\Models\MarketInput::LABEL_MAX }}" wire:model="label" placeholder="Por ejemplo, Soda cáustica" class="{{ $fieldClass }} placeholder:text-fg-muted" {!! $invalid('label', 'mkt-label-error') !!}>
                         <p class="{{ $hint }}">El mismo nombre en cada precio, así la banda muestra el último y cuánto cambió.</p>
-                        @error('label') <p id="mkt-label-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                        @error('label') <p id="mkt-label-error" class="{{ $errorClass }}">{{ $message }}</p> @enderror
                     </div>
                     <div class="grid gap-[18px] sm:grid-cols-2">
                         <div class="flex flex-col gap-1.5">
-                            <label for="mkt-value" class="{{ $label }}">Valor</label>
-                            <input id="mkt-value" type="text" inputmode="decimal" autocomplete="off" wire:model="value" placeholder="Por ejemplo, 4200,50" class="{{ $field }} placeholder:text-fg-muted" {!! $invalid('value', 'mkt-value-error') !!}>
-                            @error('value') <p id="mkt-value-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                            <label for="mkt-value" class="{{ $labelClass }}">Valor</label>
+                            <input id="mkt-value" type="text" inputmode="decimal" autocomplete="off" wire:model="value" placeholder="Por ejemplo, 4.200,50" class="{{ $fieldClass }} placeholder:text-fg-muted" {!! $invalid('value', 'mkt-value-error') !!}>
+                            @error('value') <p id="mkt-value-error" class="{{ $errorClass }}">{{ $message }}</p> @enderror
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label for="mkt-unit" class="{{ $label }}">Unidad</label>
-                            <select id="mkt-unit" wire:model="unit" class="{{ $field }}" {!! $invalid('unit', 'mkt-unit-error') !!}>
+                            <label for="mkt-unit" class="{{ $labelClass }}">Unidad</label>
+                            <select id="mkt-unit" wire:model="unit" class="{{ $fieldClass }}" {!! $invalid('unit', 'mkt-unit-error') !!}>
                                 <option value="">Elige una unidad</option>
                                 @foreach ($units as $unitValue => $unitLabel)
                                     <option value="{{ $unitValue }}">{{ $unitLabel }}</option>
                                 @endforeach
                             </select>
-                            @error('unit') <p id="mkt-unit-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                            @error('unit') <p id="mkt-unit-error" class="{{ $errorClass }}">{{ $message }}</p> @enderror
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label for="mkt-date" class="{{ $label }}">Fecha del precio</label>
-                            <input id="mkt-date" type="date" max="{{ $today }}" wire:model="validOn" class="{{ $field }}" {!! $invalid('validOn', 'mkt-date-error') !!}>
-                            @error('validOn') <p id="mkt-date-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                            <label for="mkt-date" class="{{ $labelClass }}">Fecha del precio</label>
+                            <input id="mkt-date" type="date" min="{{ $firstDay }}" max="{{ $today }}" wire:model="validOn" class="{{ $fieldClass }}" {!! $invalid('validOn', 'mkt-date-error') !!}>
+                            @error('validOn') <p id="mkt-date-error" class="{{ $errorClass }}">{{ $message }}</p> @enderror
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label for="mkt-source" class="{{ $label }}">Fuente (opcional)</label>
-                            <input id="mkt-source" type="text" maxlength="{{ \App\Models\MarketInput::SOURCE_MAX }}" wire:model="source" placeholder="Por ejemplo, Cotización de proveedor" class="{{ $field }} placeholder:text-fg-muted" {!! $invalid('source', 'mkt-source-error') !!}>
-                            @error('source') <p id="mkt-source-error" class="{{ $error }}">{{ $message }}</p> @enderror
+                            <label for="mkt-source" class="{{ $labelClass }}">Fuente (opcional)</label>
+                            <input id="mkt-source" type="text" maxlength="{{ \App\Models\MarketInput::SOURCE_MAX }}" wire:model="source" placeholder="Por ejemplo, Cotización de proveedor" class="{{ $fieldClass }} placeholder:text-fg-muted" {!! $invalid('source', 'mkt-source-error') !!}>
+                            @error('source') <p id="mkt-source-error" class="{{ $errorClass }}">{{ $message }}</p> @enderror
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2.5">
@@ -120,7 +120,7 @@
                     <button type="button" wire:click="newInput" class="{{ $primary }}">Nuevo precio</button>
                 @endunless
             </div>
-            <p class="{{ $hint }}">Para precios reales que ninguna fuente gratuita publica, como las cotizaciones de proveedores. La banda muestra el último precio de cada insumo con su fecha.</p>
+            <p class="{{ $hint }}">Para precios reales que ninguna fuente gratuita publica, como las cotizaciones de proveedores. Cada insumo aparece en el inicio con su último precio y su fecha. La banda muestra hasta {{ \App\Markets\MarketBoard::MANUAL_LIMIT }} precios manuales: los de los insumos cargados o cambiados más recientemente.</p>
 
             @if ($inputs->isEmpty())
                 <p class="rounded-[14px] border border-line px-4 py-8 text-center text-[0.9375rem] text-fg-muted">{{ $companyName }} todavía no tiene precios ingresados a mano. Con «Nuevo precio» agrega el primero.</p>

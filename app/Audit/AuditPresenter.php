@@ -558,9 +558,7 @@ final class AuditPresenter
         return match ($field) {
             'unit' => MarketUnit::tryFrom((string) $value)?->label() ?? $value,
             // Two decimals at least, the other two only when they say something.
-            'value' => is_numeric($value)
-                ? preg_replace('/(,\d\d)0{1,2}$/', '$1', number_format((float) $value, 4, ',', '.'))
-                : $value,
+            'value' => is_numeric($value) ? MarketUnit::preciseNumber((float) $value) : $value,
             default => preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $value) === 1
                 ? str_replace('.', '', CarbonImmutable::parse(substr((string) $value, 0, 10))->locale('es')->isoFormat('D MMM YYYY'))
                 : $value,

@@ -111,6 +111,50 @@ class MarketInputBoardTest extends TestCase
 
         $this->assertCount(1, DB::getQueryLog());
         $this->assertCount(4, $board);
+
+        // The kinds are written in the SQL, not bound as values.
+        $query = DB::getQueryLog()[0];
+        $this->assertStringContainsString("'rate' AS kind", $query['query']);
+        $this->assertStringContainsString("'input' AS kind", $query['query']);
+        $this->assertNotContains('rate', $query['bindings']);
+        $this->assertNotContains('input', $query['bindings']);
+    }
+
+    public function test_two_spellings_of_one_name_make_one_figure(): void
+    {
+        // MariaDB groups them already (case and accent insensitive); SQLite
+        // does not, so the board folds the names itself.
+        $this->price('Soda Cáustica', '4000', '2026-10-01');
+        $newest = $this->price('soda caustica', '4100', '2026-11-01');
+
+        $board = (new MarketBoard)->current($this->company);
+
+        $this->assertSame(["input-{$newest->id}"], array_keys($board));
+        $this->assertSame('soda caustica', $board["input-{$newest->id}"]->label);
+        $this->assertEqualsWithDelta(4100, $board["input-{$newest->id}"]->value, 0.00001);
+        $this->assertEqualsWithDelta(100, $board["input-{$newest->id}"]->change, 0.00001);
+    }
+
+    public function test_the_band_shows_at_most_the_most_recently_updated_names(): void
+    {
+        $names = [];
+        foreach (range(1, MarketBoard::MANUAL_LIMIT + 2) as $i) {
+            $this->travelTo(Carbon::parse('2026-11-04 08:00', 'America/Bogota')->addMinutes($i));
+            $names[$i] = sprintf('Insumo %02d', $i);
+            $this->price($names[$i], '100', '2026-11-01');
+        }
+        $this->travelTo(Carbon::parse('2026-11-04 10:00', 'America/Bogota'));
+
+        // Editing the oldest one makes it recent again.
+        MarketInput::query()->where('label', $names[1])->sole()->update(['value' => '120']);
+
+        $labels = array_map(fn ($quote) => $quote->label, array_values((new MarketBoard)->current($this->company)));
+
+        $this->assertCount(MarketBoard::MANUAL_LIMIT, $labels);
+        $this->assertContains($names[1], $labels);
+        $this->assertNotContains($names[2], $labels);
+        $this->assertNotContains($names[3], $labels);
+        $this->assertSame($labels, collect($labels)->sort()->values()->all(), 'Still by name.');
     }
 
     private function price(string $label, string $value, string $on, MarketUnit $unit = MarketUnit::PesosPerKilo): MarketInput

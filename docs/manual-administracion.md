@@ -1028,14 +1028,15 @@ Para precios reales que ninguna fuente gratuita publica: soda cáustica, cloro, 
 | Campo | Qué poner |
 |---|---|
 | **Insumo** | Obligatorio, hasta 40 caracteres, por ejemplo «Soda cáustica». Use **siempre el mismo nombre** para el mismo insumo: así la banda compara cada precio con el anterior. Si escribe un nombre que ya existe con otras mayúsculas o tildes («soda caustica»), el portal usa el que ya estaba («Soda cáustica»). |
-| **Valor** | Obligatorio, mayor que cero, hasta cuatro decimales. Puede escribirlo como «4200,50» o «4.200,50». |
+| **Valor** | Obligatorio, mayor que cero, hasta cuatro decimales. Como se escribe en Colombia: el punto separa los miles y la coma los decimales. «4.200,50», «4200,50» y «4.200» valen. Un punto que podría ser decimal («4.2», «1,234.5») no se adivina: el portal pide «Usa coma para los decimales, por ejemplo 4.200,50.». La banda y la lista muestran los decimales que escribió (dos como mínimo), por ejemplo «$0,1234/kg». |
 | **Unidad** | Pesos por kilo, pesos por unidad, pesos por tonelada, dólares por kilo o dólares por tonelada. |
-| **Fecha del precio** | Obligatoria: el día de la cotización, hoy o antes, nunca futura. Al crear un precio, empieza con la fecha de hoy. |
+| **Fecha del precio** | Obligatoria: el día de la cotización, hoy o antes, nunca futura, y de los últimos 400 días como máximo (la banda no lee precios más viejos). Al crear un precio, empieza con la fecha de hoy. |
 | **Fuente** | Opcional, hasta 80 caracteres, por ejemplo «Cotización Brenntag». Se ve en esta pantalla, no en la banda. |
 
 - La lista muestra los 50 precios más recientes de la empresa, del más nuevo al más viejo.
 - **En la banda** aparece, después de los indicadores y los insumos, el **último precio de cada insumo** con su fecha («Soda cáustica $4.200,00/kg ▲ 2,44 % 3 nov»). La flecha compara con el precio anterior del mismo insumo: verde si subió, roja si bajó. Si el anterior estaba en otra unidad, no se compara. Los precios de más de 400 días no se muestran.
-- Dos precios del mismo insumo con la misma fecha: la banda muestra el que se cargó de último.
+- **La banda muestra hasta 12 precios manuales**, uno por insumo: los de los 12 insumos cuyo último precio se cargó o se cambió más recientemente, ordenados por nombre. Los demás siguen guardados y vuelven a la banda cuando se les carga un precio nuevo.
+- Dos precios del mismo insumo con la misma fecha: la banda muestra el que se cargó de último. Dos nombres que solo cambian en mayúsculas o tildes («Soda Cáustica» y «soda caustica») son el mismo insumo.
 - **Borrar** (papelera) pide confirmación y elimina ese precio. No se puede deshacer. Si borra el último precio de un insumo, la banda vuelve a mostrar el anterior.
 - Un precio cargado o cambiado se ve en el inicio en la siguiente carga de la página.
 

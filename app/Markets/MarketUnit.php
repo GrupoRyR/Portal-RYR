@@ -89,15 +89,18 @@ enum MarketUnit: string
 
     /**
      * The value in this unit without its «per»: «$3.861,38», «US$64,53»,
-     * «9,25 %» or «1.512,30».
+     * «9,25 %» or «1.512,30». `$precise` keeps up to four decimals
+     * (preciseNumber()), for a price typed by hand.
      */
-    public function format(float $value): string
+    public function format(float $value, bool $precise = false): string
     {
+        $number = $precise ? self::preciseNumber($value) : self::number($value);
+
         return match ($this) {
-            self::UsdPerBarrel, self::UsdPerTonne, self::UsdPerKilo => 'US$'.self::number($value),
-            self::Percent => self::number($value).' %',
-            self::Points, self::Index => self::number($value),
-            self::Pesos, self::PesosPerKilo, self::PesosPerUnit, self::PesosPerTonne => '$'.self::number($value),
+            self::UsdPerBarrel, self::UsdPerTonne, self::UsdPerKilo => 'US$'.$number,
+            self::Percent => $number.' %',
+            self::Points, self::Index => $number,
+            self::Pesos, self::PesosPerKilo, self::PesosPerUnit, self::PesosPerTonne => '$'.$number,
         };
     }
 
@@ -119,6 +122,17 @@ enum MarketUnit: string
     public static function number(float $value): string
     {
         return number_format($value, 2, ',', '.');
+    }
+
+    /**
+     * «4.200,50», «0,1234», «5.100,123»: two decimals at least and up to
+     * the four a manual price stores, without trailing zeros past two.
+     */
+    public static function preciseNumber(float $value): string
+    {
+        [$whole, $decimals] = explode(',', number_format($value, 4, ',', '.'));
+
+        return $whole.','.str_pad(rtrim($decimals, '0'), 2, '0');
     }
 
     /**

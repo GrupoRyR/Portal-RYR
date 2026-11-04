@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -79,11 +80,23 @@ class MarketInput extends Model
     }
 
     /**
-     * «$4.200,00/kg»: the value in its unit, as the band prints it.
+     * «$4.200,00/kg» or «$0,1234/kg»: the value in its unit with the
+     * decimals it was typed with, as the band prints it.
      */
     public function displayValue(): string
     {
-        return $this->unit->format((float) $this->value).$this->unit->suffix();
+        return $this->unit->format((float) $this->value, precise: true).$this->unit->suffix();
+    }
+
+    /**
+     * One name without case or accents («soda caustica» for «Soda
+     * Cáustica»), as MariaDB's utf8mb4_unicode_ci compares it. The admin
+     * screen reuses a spelling by it and the band groups names by it, so
+     * SQLite and production agree.
+     */
+    public static function fold(string $label): string
+    {
+        return mb_strtolower(Str::ascii($label));
     }
 
     /**

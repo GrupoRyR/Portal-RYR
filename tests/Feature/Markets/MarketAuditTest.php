@@ -49,6 +49,10 @@ class MarketAuditTest extends TestCase
             ['label' => 'Valor', 'old' => '4.200,00', 'new' => '4.350,1234'],
         ], $updated->changes);
 
+        // Trailing zeros past two decimals are dropped, the others kept.
+        $price->update(['value' => '4350.1230']);
+        $this->assertSame('4.350,123', collect($this->present($this->latest())->changes)->keyBy('label')['Valor']['new']);
+
         $price->delete();
         $this->assertSame('Borró el precio manual «Soda cáustica»', $this->present($this->latest())->what);
     }

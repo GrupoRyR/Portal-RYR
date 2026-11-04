@@ -73,7 +73,10 @@ final readonly class MarketFigure
         return new self(
             code: $quote->code,
             label: $quote->label ?? $series->label ?? strtoupper($quote->code),
-            value: self::value($quote->value, $unit).($quote->manual ? $unit?->suffix() : ''),
+            // A manual price keeps the decimals it was typed with («$0,1234/kg»).
+            value: $quote->manual && $unit !== null
+                ? $unit->format($quote->value, precise: true).$unit->suffix()
+                : self::value($quote->value, $unit),
             direction: $direction,
             // A rate moves in percentage points: a percent of a percent only confuses.
             percent: $quote->changePercent === null || $unit === MarketUnit::Percent ? null : self::number(abs($quote->changePercent)).' %',
