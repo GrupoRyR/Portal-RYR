@@ -105,7 +105,8 @@ class LoginStageTest extends TestCase
         $this->assertStringContainsString('© '.now()->year.' Segurex LATAM S.A.S. · Soluciones y Derivados de Colombia S.A.S.', $footer[0]);
         $this->assertStringContainsString('Acceso exclusivo para colaboradores autorizados.', $footer[0]);
         $this->assertStringContainsString('<a href="https://www.segurex.com"', $footer[0]);
-        // No URL is configured for the policy, the terms or the SDC site yet.
+        $this->assertStringContainsString('<a href="https://derivadoscol.com"', $footer[0]);
+        // No URL is configured for the policy or the terms yet.
         $this->assertStringNotContainsString('Política de tratamiento', $footer[0]);
         $this->assertStringNotContainsString('Términos de uso', $footer[0]);
     }

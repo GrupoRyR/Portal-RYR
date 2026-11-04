@@ -77,6 +77,7 @@
                 <a href="{{ $supportUrl }}" target="_blank" rel="noopener" class="underline underline-offset-2">Soporte TI</a>
             @endif
             <a href="https://www.segurex.com" class="underline underline-offset-2">segurex.com</a>
+            <a href="https://derivadoscol.com" class="underline underline-offset-2">derivadoscol.com</a>
         </nav>
     </footer>
 </x-layouts.app>
