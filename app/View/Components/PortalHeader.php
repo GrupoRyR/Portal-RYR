@@ -2,6 +2,7 @@
 
 namespace App\View\Components;
 
+use App\Catalog\AppCatalog;
 use App\Models\Company;
 use App\Models\DirectoryEntry;
 use App\Models\User;
@@ -26,9 +27,11 @@ use Illuminate\View\Component;
  * The home screen passes its HomePage, so the header asks for nothing more
  * (home query budget: its builder reads the bell too) and gets the
  * «Secciones» menu and the «Ctrl K» search of resources/js/home.js.
- * Elsewhere it reads the signed-in user, and the bell in at most
- * NotificationList::QUERIES queries: the search is then a server search
- * of the home screen (`/?q=`).
+ * Elsewhere it reads the signed-in user with the same rules as
+ * App\View\Home\HomePageBuilder (PortalHeaderTest covers each one on a
+ * secondary page), and the bell in at most NotificationList::QUERIES
+ * queries: the search is then a server search of the home screen (`/?q=`),
+ * shown only when the user has apps.
  */
 class PortalHeader extends Component
 {
@@ -99,7 +102,7 @@ class PortalHeader extends Component
         $this->birthdayHref = DirectoryEntry::companyIdFor($user) === null ? null : route('account.show').'#cumpleanos';
         $this->switcher = $user === null ? null : AccountSwitcher::for($user);
         $this->sections = [];
-        $this->hasSearch = true;
+        $this->hasSearch = $user !== null && app(AppCatalog::class)->visibleApps($user)->isNotEmpty();
         $this->hasSearchDialog = false;
         $this->query = '';
         $this->notifications = $user === null ? null : NotificationList::for($user, CarbonImmutable::now());

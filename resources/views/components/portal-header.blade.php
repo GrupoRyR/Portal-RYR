@@ -14,7 +14,7 @@
 @php($icon = 'size-[18px] shrink-0 text-(--g-ink-faint)')
 <header {{ $attributes->class(['g-topbar']) }} data-portal-header>
     <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 px-3 py-2 md:flex-nowrap md:gap-3 md:px-8 lg:px-10">
-        <a href="{{ route('home') }}" class="order-1 flex min-h-touch min-w-0 shrink-0 items-center gap-3 rounded-control">
+        <a href="{{ route('home') }}" aria-label="Ir al inicio" class="order-1 flex min-h-touch min-w-0 shrink-0 items-center gap-3 rounded-control">
             <x-brand-logo />
             <span class="hidden flex-col border-l border-(--g-line-strong) pl-3 text-xs leading-tight text-(--g-ink-soft) xl:flex">
                 <span class="text-sm font-bold text-(--g-ink)">Portal RYR</span>
@@ -45,7 +45,7 @@
             @endif
 
             @if ($hasSearch)
-                <form role="search" method="GET" action="{{ route('home') }}" class="min-w-0 flex-1 md:order-3 md:mx-auto md:max-w-[520px]" data-search-form>
+                <form role="search" aria-label="Buscar en el portal" method="GET" action="{{ route('home') }}" class="min-w-0 flex-1 md:order-3 md:mx-auto md:max-w-[520px]" data-search-form>
                     <label for="buscar" class="sr-only">Buscar aplicaciones</label>
                     <div class="g-input flex h-11 items-center gap-2.5 pr-2 pl-3.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-(--g-ink)">
                         <x-home.icon name="search" stroke-width="2" class="size-[18px] shrink-0 text-(--g-ink-faint)" />

@@ -14,9 +14,9 @@
 //   links to `?noticias=` and `?catalogo=`).
 // - «Completar»: one confirmation open at a time, sent once.
 // - Installable app: registers the service worker (/sw.js, see
-//   resources/js/sw.js), shows the offline notice and asks the worker to
-//   forget this user's saved page when signing out.
-// Closing the header menus and the theme choice live in resources/js/header.js.
+//   resources/js/sw.js) and shows the offline notice.
+// The header menus, the theme choice and the purge of the saved pages on
+// signing out (every page) live in resources/js/header.js.
 
 import './header.js';
 
@@ -555,17 +555,5 @@ window.addEventListener('offline', showConnection);
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-    });
-
-    // Signing out also sends Clear-Site-Data; this covers browsers without it:
-    // the saved pages go, and so does this browser's phone notice subscription
-    // («Avisos en el celular»; the server forgets it on logout too).
-    document.addEventListener('submit', (event) => {
-        if (!event.target.matches('[data-logout]')) return;
-        navigator.serviceWorker.controller?.postMessage('purge');
-        navigator.serviceWorker.getRegistration('/')
-            .then((registration) => registration?.pushManager?.getSubscription())
-            .then((subscription) => subscription && subscription.unsubscribe())
-            .catch(() => {});
     });
 }

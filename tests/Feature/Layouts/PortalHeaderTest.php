@@ -3,9 +3,14 @@
 namespace Tests\Feature\Layouts;
 
 use App\Assistant\AssistantSwitch;
+use App\Models\App;
+use App\Models\AppAccessRule;
 use App\Models\Company;
 use App\Models\Person;
 use App\Models\User;
+use App\Settings\PortalSettings;
+use App\View\Notifications\NotificationList;
+use Database\Seeders\RoleSeeder;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +27,13 @@ use Tests\TestCase;
 class PortalHeaderTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Queries of the header on a secondary page (6 on 2026-11-04: settings,
+     * roles, company, linked accounts and the app catalog), plus the bell's
+     * (NotificationList::QUERIES); the home screen passes its own data.
+     */
+    private const HEADER_QUERY_BUDGET = 8 + NotificationList::QUERIES;
 
     private Company $segurex;
 
@@ -68,8 +80,30 @@ class PortalHeaderTest extends TestCase
         $this->assertStringContainsString('Ana María Pérez', $page->query('//details[@data-account]')->item(0)->textContent);
     }
 
+    public function test_the_logo_links_back_to_the_home_screen_by_name(): void
+    {
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $this->assertSame(1, $this->page($path)->query('//header[@data-portal-header]//a[@href="'.route('home').'"][@aria-label="Ir al inicio"]')->length, $path);
+        }
+    }
+
+    public function test_the_header_search_is_a_named_search_landmark(): void
+    {
+        $this->openableApp();
+
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $this->assertSame(1, $this->page($path)->query('//header[@data-portal-header]//form[@role="search"][@aria-label="Buscar en el portal"]')->length, $path);
+        }
+    }
+
+    public function test_the_people_search_has_its_own_name(): void
+    {
+        $this->assertSame(1, $this->page(route('people.index', ['q' => 'ana'], false))->query('//main//form[@role="search"][@aria-label="Buscar personas"]')->length);
+    }
+
     public function test_the_search_of_a_secondary_page_is_a_search_of_the_home_screen(): void
     {
+        $this->openableApp();
         $page = $this->page(route('announcements.index', absolute: false));
 
         $form = $page->query('//header[@data-portal-header]//form[@role="search"]');
@@ -79,6 +113,67 @@ class PortalHeaderTest extends TestCase
         $this->assertSame(1, $page->query('//header[@data-portal-header]//form[@role="search"]//input[@name="q"]')->length);
         // «Ctrl K» needs the home screen's index and script.
         $this->assertSame(0, $page->query('//*[@data-search-open]')->length);
+    }
+
+    public function test_a_secondary_page_hides_the_search_without_apps(): void
+    {
+        // As the home screen: nothing to search for (HomePage::hasApps()).
+        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query('//header[@data-portal-header]//form[@role="search"]')->length);
+    }
+
+    public function test_a_secondary_page_offers_administration_to_administrators_only(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $link = '//details[@data-account]//a[@href="'.route('admin.index').'"]';
+
+        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query($link)->length);
+
+        foreach (['super_admin', 'portal_admin', 'announcements_editor'] as $role) {
+            $admin = User::factory()->microsoft($this->segurex)->create();
+            $admin->assignRole($role);
+
+            $this->assertSame(1, $this->page(route('announcements.index', absolute: false), $admin)->query($link)->length, $role);
+        }
+    }
+
+    public function test_a_secondary_page_offers_support_only_when_it_is_configured(): void
+    {
+        $support = '//header[@data-portal-header]//a[@href="'.route('support').'"][@target="_blank"][@rel="noopener"]';
+
+        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query($support)->length);
+
+        app(PortalSettings::class)->update(['support_url' => 'https://soporte.example.com/nuevo'], null);
+
+        $node = $this->page(route('announcements.index', absolute: false))->query($support);
+        $this->assertSame(1, $node->length);
+        $this->assertStringContainsString('Soporte TI', $node->item(0)->textContent);
+    }
+
+    public function test_a_secondary_page_links_my_birthday_only_with_a_directory(): void
+    {
+        $birthday = '//details[@data-account]//a[@href="'.route('account.show').'#cumpleanos"]';
+
+        $this->assertSame(1, $this->page(route('announcements.index', absolute: false))->query($birthday)->length);
+
+        $guest = User::factory()->microsoft($this->segurex)->create(['is_guest' => true]);
+        $this->assertSame(0, $this->page(route('announcements.index', absolute: false), $guest)->query($birthday)->length);
+
+        $this->segurex->forceFill(['is_active' => false])->save();
+        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query($birthday)->length);
+    }
+
+    public function test_the_secondary_page_header_runs_a_fixed_number_of_queries(): void
+    {
+        $this->openableApp();
+        $small = $this->headerQueries();
+
+        foreach (range(1, 12) as $i) {
+            $this->openableApp();
+        }
+        $large = $this->headerQueries();
+
+        $this->assertSame($small, $large);
+        $this->assertLessThanOrEqual(self::HEADER_QUERY_BUDGET, $large);
     }
 
     public function test_the_user_menu_offers_the_theme_choice(): void
@@ -176,6 +271,27 @@ class PortalHeaderTest extends TestCase
             $this->assertStringContainsString('<meta name="theme-color" content="#F5F5F2" media="(prefers-color-scheme: light)">', $html);
             $this->assertStringContainsString('<meta name="theme-color" content="#121315" media="(prefers-color-scheme: dark)">', $html);
         }
+    }
+
+    private function openableApp(): App
+    {
+        $app = App::factory()->forCompanies($this->segurex)->create();
+        AppAccessRule::forCompany($app, $this->segurex);
+
+        return $app;
+    }
+
+    private function headerQueries(): int
+    {
+        $this->actingAs($this->user->fresh());
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->blade('<x-portal-header />');
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
     }
 
     private function page(string $path, ?User $user = null): DOMXPath

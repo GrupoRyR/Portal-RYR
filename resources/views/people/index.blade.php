@@ -23,7 +23,7 @@
         @elseif (! $searching && $people->total() === 0)
             <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">El directorio de {{ $companyName }} aún no se ha copiado desde Microsoft. Vuelve a intentarlo mañana.</p>
         @else
-            <form role="search" method="GET" action="{{ route('people.index') }}" class="flex flex-col gap-2">
+            <form role="search" aria-label="Buscar personas" method="GET" action="{{ route('people.index') }}" class="flex flex-col gap-2">
                 <label for="buscar-personas" class="text-sm font-semibold">Buscar por nombre, cargo, área, oficina o correo</label>
                 <div class="flex gap-2">
                     <input id="buscar-personas" name="q" type="search" value="{{ $query }}" maxlength="{{ AppSearch::MAX_LENGTH }}" autocomplete="off" enterkeyhint="search" aria-describedby="personas-resultados"
