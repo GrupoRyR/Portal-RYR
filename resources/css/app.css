@@ -1,4 +1,24 @@
 @import 'tailwindcss';
+@import './glass.css';
+
+/*
+ * Dark mode: the system decides unless the person chose a theme. The layout
+ * sets data-theme on <html> from localStorage ("g-theme") before the
+ * stylesheet loads; without a choice, or without JavaScript, there is no
+ * attribute and prefers-color-scheme rules. Every `dark:` utility and every
+ * `@variant dark` block below follows this.
+ */
+@custom-variant dark {
+    @media (prefers-color-scheme: dark) {
+        &:not(:where([data-theme='light'], [data-theme='light'] *)) {
+            @slot;
+        }
+    }
+
+    &:where([data-theme='dark'], [data-theme='dark'] *) {
+        @slot;
+    }
+}
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 /* Compiled views (storage/framework/views) are not scanned: their content
@@ -78,8 +98,9 @@
     --color-brand-text: var(--brand-text, #17191c);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
+/* Never inverted: dark values of their own (see @custom-variant dark). */
+:root {
+    @variant dark {
         --color-ground: #121315;
         --color-surface: #1c1d20;
         --color-subtle: #26272b;
@@ -114,6 +135,15 @@
 @layer base {
     :root {
         color-scheme: light dark;
+    }
+
+    /* A chosen theme also sets the native controls and scrollbars. */
+    :root[data-theme='light'] {
+        color-scheme: light;
+    }
+
+    :root[data-theme='dark'] {
+        color-scheme: dark;
     }
 
     html {
@@ -317,8 +347,8 @@
             var(--stage);
     }
 
-    @media (prefers-color-scheme: dark) {
-        .signin-stage {
+    .signin-stage {
+        @variant dark {
             --stage: #0c0d0f;
             --stage-glow: rgb(255 255 255 / 0.07);
             --stage-dots: rgb(255 255 255 / 0.06);

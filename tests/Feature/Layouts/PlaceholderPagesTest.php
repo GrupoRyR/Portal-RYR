@@ -19,7 +19,7 @@ class PlaceholderPagesTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('<html lang="es">', false)
+            ->assertSee('<html lang="es" data-brand="neutral">', false)
             ->assertSee('<style>'.BrandPalette::neutral()->toCss().'</style>', false)
             ->assertSee('Todas tus aplicaciones en un solo lugar')
             ->assertSee('/build/assets/', false);
@@ -53,14 +53,14 @@ class PlaceholderPagesTest extends TestCase
     {
         $this->get(self::EMERGENCY_PATH)
             ->assertOk()
-            ->assertSee('<html lang="es">', false)
+            ->assertSee('<html lang="es" data-brand="neutral">', false)
             ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
 
         // The code step needs a pending sign-in; its flow is covered in
         // EmergencyLoginTest, so the view is rendered directly here.
         $this->withViewErrors([])
             ->view('auth.emergency-code')
-            ->assertSee('<html lang="es">', false)
+            ->assertSee('<html lang="es" data-brand="neutral">', false)
             ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
     }
 
@@ -76,7 +76,7 @@ class PlaceholderPagesTest extends TestCase
 
         $this->actingAs($user)->get('/')
             ->assertOk()
-            ->assertSee('<html lang="es">', false)
+            ->assertSee('<html lang="es" data-brand="'.$company->slug.'">', false)
             ->assertSee('<style>'.BrandPalette::forCompany($company)->toCss().'</style>', false)
             ->assertSee('Segurex Latam')
             ->assertSeeText('Ana Pérez');

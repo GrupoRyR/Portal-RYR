@@ -253,7 +253,18 @@ class BrandPaletteTest extends TestCase
         $css = BrandPalette::fromColors('#FF671F', '#666666', '#8F360B')->toCss();
 
         $this->assertStringStartsWith(':root{--brand-primary:#FF671F;', $css);
-        $this->assertStringContainsString('@media (prefers-color-scheme: dark){:root{--brand-tint:', $css);
+    }
+
+    public function test_the_dark_values_follow_the_system_unless_a_theme_is_chosen(): void
+    {
+        $palette = BrandPalette::fromColors('#FF671F', '#666666', '#8F360B');
+        $css = $palette->toCss();
+        $dark = '--brand-tint:'.$palette->darkTint.';--brand-ink:'.$palette->darkInk.';--brand-text:'.$palette->darkText.';';
+
+        // Without a choice (no data-theme, or no JavaScript) the system decides.
+        $this->assertStringContainsString('@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){'.$dark.'}}', $css);
+        // A chosen dark theme wins on a light system.
+        $this->assertStringContainsString(':root[data-theme="dark"]{'.$dark.'}', $css);
     }
 
     public function test_the_css_never_contains_injected_content(): void
@@ -261,7 +272,9 @@ class BrandPaletteTest extends TestCase
         $css = BrandPalette::fromColors('#FF671F', '#666666;}body{display:none', '</style><script>alert(1)</script>')->toCss();
 
         $this->assertMatchesRegularExpression(
-            '/\A:root\{(--brand-[a-z]+:#[0-9A-F]{6};)+\}@media \(prefers-color-scheme: dark\)\{:root\{(--brand-[a-z]+:#[0-9A-F]{6};)+\}\}\z/',
+            '/\A:root\{(--brand-[a-z]+:#[0-9A-F]{6};)+\}'
+            .'@media \(prefers-color-scheme: dark\)\{:root:not\(\[data-theme="light"\]\)\{(--brand-[a-z]+:#[0-9A-F]{6};)+\}\}'
+            .':root\[data-theme="dark"\]\{(--brand-[a-z]+:#[0-9A-F]{6};)+\}\z/',
             $css,
         );
     }
