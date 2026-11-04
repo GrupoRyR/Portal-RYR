@@ -110,7 +110,8 @@ class CompleteTaskTest extends TestCase
 
         $this->complete($item)
             ->assertRedirect(route('home').'#tareas')
-            ->assertSessionHas('status', 'Tarea completada.');
+            ->assertSessionHas('work_status', 'Tarea completada.')
+            ->assertSessionMissing('status');
 
         Http::assertSentCount(1);
         Http::assertSent(function (ClientRequest $request) {
@@ -161,7 +162,7 @@ class CompleteTaskTest extends TestCase
         $item = $this->task();
         $this->appAnswers(Http::response(['code' => 'already_done'], 409));
 
-        $this->complete($item)->assertSessionHas('status', 'Tarea completada.');
+        $this->complete($item)->assertSessionHas('work_status', 'Tarea completada.');
 
         $this->assertSame(WorkItem::STATUS_DONE, $item->fresh()->status);
         $this->assertSame(409, $this->entry('work_item.completed')->properties['attributes']['http_status']);
@@ -174,7 +175,7 @@ class CompleteTaskTest extends TestCase
 
         $this->complete($item)
             ->assertRedirect(route('home').'#tareas')
-            ->assertSessionHas('status', 'No puedes completar esta tarea desde el portal. Ábrela en la app.');
+            ->assertSessionHas('work_status', 'No puedes completar esta tarea desde el portal. Ábrela en la app.');
 
         $this->assertSame(WorkItem::STATUS_PENDING, $item->fresh()->status);
         $this->assertSame('forbidden', $this->entry('work_item.complete_failed')->properties['attributes']['reason']);
@@ -185,7 +186,7 @@ class CompleteTaskTest extends TestCase
         $item = $this->task();
         $this->appAnswers(Http::response(['code' => 'not_found'], 404));
 
-        $this->complete($item)->assertSessionHas('status', 'Esta tarea ya no existe en la app.');
+        $this->complete($item)->assertSessionHas('work_status', 'Esta tarea ya no existe en la app.');
 
         $trace = WorkItem::withTrashed()->sole();
         $this->assertTrue($trace->trashed());
@@ -229,7 +230,7 @@ class CompleteTaskTest extends TestCase
 
         $this->complete($item)
             ->assertRedirect(route('home').'#tareas')
-            ->assertSessionHas('status', 'No se pudo completar. Inténtalo de nuevo o ábrela en la app.');
+            ->assertSessionHas('work_status', 'No se pudo completar. Inténtalo de nuevo o ábrela en la app.');
 
         // Never retried, never redirected, never removed.
         Http::assertSentCount(1);
@@ -319,7 +320,7 @@ class CompleteTaskTest extends TestCase
         $this->appAnswers(Http::response(['code' => 'completed']));
 
         $this->assertTrue($item->fresh()->canBeCompletedFromPortal());
-        $this->complete($item)->assertSessionHas('status', 'Tarea completada.');
+        $this->complete($item)->assertSessionHas('work_status', 'Tarea completada.');
 
         // The HTTP client sends the host in lowercase and without the default
         // port; the signed path is the same.
@@ -384,13 +385,13 @@ class CompleteTaskTest extends TestCase
         $lock = Cache::lock(TaskCompleter::lockKey($item), 10);
         $this->assertTrue($lock->get());
 
-        $this->complete($item)->assertSessionHas('status', 'Ya estamos completando esta tarea. Espera un momento.');
+        $this->complete($item)->assertSessionHas('work_status', 'Ya estamos completando esta tarea. Espera un momento.');
 
         Http::assertNothingSent();
         $this->assertSame(WorkItem::STATUS_PENDING, $item->fresh()->status);
 
         $lock->release();
-        $this->complete($item)->assertSessionHas('status', 'Tarea completada.');
+        $this->complete($item)->assertSessionHas('work_status', 'Tarea completada.');
     }
 
     public function test_the_route_is_a_throttled_post(): void
@@ -503,7 +504,7 @@ class CompleteTaskTest extends TestCase
             return Http::response(['code' => 'completed']);
         });
 
-        $this->complete($item)->assertSessionHas('status', CompletionOutcome::Stale->message());
+        $this->complete($item)->assertSessionHas('work_status', CompletionOutcome::Stale->message());
 
         $item->refresh();
         $this->assertSame(WorkItem::STATUS_PENDING, $item->status);
@@ -520,7 +521,7 @@ class CompleteTaskTest extends TestCase
             return Http::response(['code' => 'not_found'], 404);
         });
 
-        $this->complete($item)->assertSessionHas('status', CompletionOutcome::Stale->message());
+        $this->complete($item)->assertSessionHas('work_status', CompletionOutcome::Stale->message());
 
         $item->refresh();
         $this->assertFalse($item->trashed());
@@ -557,7 +558,7 @@ class CompleteTaskTest extends TestCase
 
         $this->complete($item)
             ->assertRedirect(route('home').'#tareas')
-            ->assertSessionHas('status', CompletionOutcome::Failed->message());
+            ->assertSessionHas('work_status', CompletionOutcome::Failed->message());
 
         Http::assertNothingSent();
         $this->assertSame(WorkItem::STATUS_PENDING, $item->fresh()->status);

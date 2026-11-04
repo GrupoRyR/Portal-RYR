@@ -2,6 +2,7 @@
 
 namespace App\View\Home;
 
+use App\ItStatus\ItStatus;
 use App\Search\HomeSearchIndex;
 
 /**
@@ -29,6 +30,12 @@ final readonly class HomePage
      * @param  string|null  $birthdayHref  «Mi cumpleaños» (`/cuenta#cumpleanos`) in the account menu; null hides it (no directory for this account).
      * @param  list<Celebration>  $celebrations  «Cumpleaños y aniversarios»: today and the next Celebration::DAYS days, at most Celebration::LIMIT; empty hides the block.
      * @param  string|null  $moreCelebrationsHref  «Ver directorio» when more fall in those days than the block shows.
+     * @param  list<MarketFigure>  $markets  The «Mercados» band (TRM, euro); empty hides it (before the first sync).
+     * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
+     * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
+     * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
+     * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
+     * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
      */
     public function __construct(
         public string $salutation,
@@ -59,6 +66,12 @@ final readonly class HomePage
         public ?string $birthdayHref = null,
         public array $celebrations = [],
         public ?string $moreCelebrationsHref = null,
+        public array $markets = [],
+        public array $news = [],
+        public ?ProductShelf $catalog = null,
+        public ?ManagementCard $management = null,
+        public ?WorkList $work = null,
+        public ?ItStatus $itStatus = null,
     ) {}
 
     /**
@@ -81,7 +94,7 @@ final readonly class HomePage
      * no menu, without apps: that page is short, and the menu would crowd
      * the company name off the logo row.
      *
-     * @return list<array{href: string, label: string}>
+     * @return list<array{href: string, label: string, offline?: false}>
      */
     public function sections(): array
     {
@@ -90,6 +103,11 @@ final readonly class HomePage
         }
 
         $sections = [['href' => '#contenido', 'label' => 'Inicio']];
+
+        if ($this->management !== null) {
+            // Left out of the saved offline copy, like the panel (resources/js/sw.js).
+            $sections[] = ['href' => '#panel-gerencial', 'label' => 'Panel gerencial', 'offline' => false];
+        }
 
         // A search hides Favoritos without matches (home.blade.php).
         if (! $this->isSearching() || $this->favorites !== []) {
@@ -105,12 +123,28 @@ final readonly class HomePage
             $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
         }
 
+        if ($this->news !== []) {
+            $sections[] = ['href' => '#noticias', 'label' => 'Noticias'];
+        }
+
+        if ($this->catalog !== null) {
+            $sections[] = ['href' => '#catalogos', 'label' => 'Catálogos'];
+        }
+
+        if ($this->work !== null) {
+            $sections[] = ['href' => '#tareas', 'label' => 'Tareas'];
+        }
+
         if ($this->upcomingDates !== []) {
             $sections[] = ['href' => '#fechas', 'label' => 'Próximas fechas'];
         }
 
         if ($this->celebrations !== []) {
             $sections[] = ['href' => '#celebraciones', 'label' => 'Cumpleaños'];
+        }
+
+        if ($this->itStatus !== null) {
+            $sections[] = ['href' => '#estado-ti', 'label' => 'Estado de TI'];
         }
 
         if ($this->quickLinks !== []) {
