@@ -38,7 +38,10 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Foto de fondo optimizada (webp).
   - Rama `feat/glass-1-base`.
 - [ ] G2. **Respuestas JSON del asistente** para el panel flotante (`expectsJson()` en `ask` y `clear`, más un GET de la conversación). Rama `feat/assistant-json`, en paralelo a G1.
-- [ ] G3. **Encabezado común** `<x-portal-header>`, que reemplaza `brand-bar` y el encabezado del inicio, con el cambio de tema.
+- [x] G3. **Encabezado común.** Hecho en `aeb8827`, con `bf370d1` y la fusión de G1 en `271f787` (ruta: escritor delegado, 2+ archivos no triviales).
+  - `<x-portal-header>` reemplaza el encabezado del inicio y `brand-bar`, que se borró.
+  - Cambio de tema Claro/Oscuro/Sistema en el menú de la persona.
+  - Rama `feat/glass-3-header`.
 - [ ] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio.
 - [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
@@ -62,3 +65,27 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Fotos webp en `public/images/glass/`: grande ≤ 186 KB y pequeña ≤ 90 KB (la pequeña bajo 768 px). Incluye las de la Vitrina (planta 2 y 3) para G8.
   - Evidencia: `php artisan test` 3227 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 8 pruebas nuevas o cambiadas antes del código.
   - Pendiente para G3: el `theme-color` sigue al sistema, no a `data-theme`; el botón de tema debe actualizarlo. Ninguna página usa aún `glass`.
+- G3 hecho en `aeb8827` (`feat/glass-3-header`), más `bf370d1` (impresión de `g-sheet`) y la fusión de `feat/glass-1-base` (`271f787`).
+  - `App\View\Components\PortalHeader`: el inicio le pasa su `HomePage` (no agrega consultas); en las otras páginas lee a la persona. Allí la búsqueda es un GET a `/?q=` y no hay «Secciones» ni «Ctrl K».
+  - Menú de la persona: «Tus empresas» (`data-account-companies`), sus enlaces, «Tema» (`data-theme-switch`, oculto sin JavaScript) y «Cerrar sesión». En celular el selector de la barra se oculta y queda «Tus empresas». Los ids y `data-*` de `home.js` se mantienen.
+  - `resources/js/header.js` (0,68 kB gzip) carga en todas las páginas y `home.js` lo importa (queda en la copia sin conexión). Aplica el tema guardado, cierra los menús `<details data-menu>` (salió de `home.js`) y muestra el cambio de tema. `resources/js/theme.js` es la lógica pura: cambia `data-theme`, `g-theme` y el `media` de los `theme-color` y de los `<source>` de íconos oscuros (`all` / `not all`; «Sistema» devuelve el original). Sin JavaScript todo sigue al sistema.
+  - Ranura `bell` (`data-header-bell`) antes del menú de la persona, para G4.
+  - Las páginas con encabezado usan `glass` y dejaron `brand-band`: la barra del navegador queda con un color por esquema. El contenido va sobre un `g-sheet` provisional (inicio y `main` de las secundarias).
+  - `vite.config.js` suma la entrada `header.js` (autorizado por el coordinador).
+  - Evidencia:
+    - `php artisan test`: 3240 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - `node --test tests/js/theme.test.mjs` (6 pruebas) corre dentro de la suite con `ThemeScriptTest`.
+    - RED observado antes del código: 15 pruebas fallaron (nuevas y actualizadas).
+    - Revisión visual de inicio y `/anuncios`, con las dos marcas, en claro y oscuro, a 375 px (panel del navegador) y a 1280 px (Chrome sin interfaz), incluido el menú abierto.
+    - En el navegador: elegir Oscuro con el sistema claro cambia el atributo, `localStorage` y las metas; «Sistema» las restaura. El clic afuera y Escape cierran los menús, y «Perfil» de la barra inferior abre el menú.
+  - Sin medir: Lighthouse en celular (no está instalado aquí); la foto de fondo ya entra en el inicio.
+  - Pendiente:
+    - G4: la campanita dentro de `<x-slot:bell>`.
+    - G5: la banda de Mercados (sigue `bg-surface`).
+    - G6: los bloques del inicio y quitar el `g-sheet`.
+    - G7: el botón flotante del asistente (hoy está en el menú).
+    - G9: las páginas secundarias y quitar el `g-sheet`.
+    - `mcp/authorize` y Administración siguen con `brand-band` (G9 y G10).
+    - En iPhone con muesca, la barra fija baja hasta `env(safe-area-inset-top)` sin un relleno propio; revisar en G6.
