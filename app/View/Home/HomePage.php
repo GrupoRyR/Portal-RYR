@@ -4,6 +4,7 @@ namespace App\View\Home;
 
 use App\ItStatus\ItStatus;
 use App\Search\HomeSearchIndex;
+use App\View\Notifications\NotificationList;
 
 /**
  * The view model of the home screen (resources/views/home.blade.php). The
@@ -36,6 +37,7 @@ final readonly class HomePage
      * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
      * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
      * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
+     * @param  NotificationList|null  $notifications  The bell of the header (HomePageBuilder always sets it); null hides it.
      */
     public function __construct(
         public string $salutation,
@@ -72,6 +74,7 @@ final readonly class HomePage
         public ?ManagementCard $management = null,
         public ?WorkList $work = null,
         public ?ItStatus $itStatus = null,
+        public ?NotificationList $notifications = null,
     ) {}
 
     /**

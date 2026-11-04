@@ -42,7 +42,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - `<x-portal-header>` reemplaza el encabezado del inicio y `brand-bar`, que se borró.
   - Cambio de tema Claro/Oscuro/Sistema en el menú de la persona.
   - Rama `feat/glass-3-header`.
-- [ ] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio.
+- [x] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio. Hecho en `4d9269d` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-4-bell`, sobre G3.
 - [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
@@ -95,3 +95,30 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Accesibilidad: el logo lleva `aria-label="Ir al inicio"`. Los formularios de búsqueda se llaman «Buscar en el portal» y «Buscar personas».
   - Las páginas secundarias ocultan la búsqueda si la persona no tiene apps (`AppCatalog`). El encabezado allí hace 6 consultas, con un tope de 8 en la prueba.
   - No se extrajo un ayudante compartido con `HomePageBuilder`, porque `app/View/Home` queda fuera de la superficie de G3. En su lugar hay pruebas en páginas secundarias para Administración, «Soporte TI» y «Mi cumpleaños».
+- G4 hecho en `4d9269d` (`feat/glass-4-bell`).
+  - `App\View\Notifications\NotificationList` y `Notification`: hasta 8 avisos. Primero los anuncios obligatorios sin leer (los más nuevos primero), luego las aprobaciones, las tareas (como «Tareas pendientes») y los eventos de los próximos 7 días.
+  - La insignia cuenta solo lo que pide algo a la persona: anuncios sin leer más pendientes. Es exacta hasta 9 y luego dice «9+». El nombre accesible es «Avisos, 3 sin leer» y la insignia lleva `aria-hidden`.
+  - `<x-notification-bell>` es un `<details data-menu>` con `.g-pop`: funciona sin JavaScript y `header.js` lo cierra (comprobado: Escape y clic afuera). En celular la lista ocupa el ancho del encabezado. Pie «Ver todo» a `/#mi-dia`, o «No tienes avisos nuevos».
+  - Los enlaces: un anuncio va a `announcements.show`; un pendiente abre su app en otra pestaña solo con un enlace seguro (`WebLink`), y si no, va a `/#tareas`; un evento va a `/eventos#e-{id}`.
+  - Se quitó la ranura `bell` de G3: el encabezado pinta la campanita por sí solo, así que las 9 páginas secundarias no cambiaron.
+  - Consultas: en el inicio, +1 (los anuncios sin leer); reutiliza `WorkList` y los eventos que ya lee `HomePageBuilder`. `HomeQueryBudget` pasa de 17 a 18 y de 22 a 23. En las otras páginas, la campanita usa como máximo 3 (anuncios, pendientes, eventos) y ninguna para la cuenta de emergencia.
+  - `WorkRow::due()` comparte el texto del vencimiento con la campanita.
+  - Evidencia:
+    - `php artisan test`: 3253 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - RED observado antes del código: 11 pruebas (10 nuevas en `NotificationBellTest` y la del encabezado).
+    - Revisión visual en el inicio, `/anuncios` y el estado vacío, con las dos marcas, en claro y oscuro, a 375 px (panel del navegador) y a 1280 px (Chrome sin interfaz).
+  - Tamaño: unas 740 líneas, la mitad son pruebas.
+- Revisión independiente de G4: sin hallazgos graves. Se corrigió en `b9d8471` (`fix(glass): keep the cached bell honest and its ids unique`).
+  - El id del título pasó a `bell-titulo`: `avisos-titulo` ya estaba en «Avisos en el celular» de `/cuenta`. Una prueba revisa que el inicio, `/anuncios` y `/cuenta` no repitan ids.
+  - Copia guardada del inicio: las filas de eventos de la campanita llevan `data-event-date` y `data-event-end`, y `home.js` las oculta cuando terminan, como en «Próximas fechas». Muestra «Guardado sin conexión» y el estado vacío si no queda ninguna. Los eventos no cuentan en la insignia. Comprobado en el navegador con una copia `cache`.
+  - Los eventos nunca dicen «Hoy», porque la copia guardada puede tener un día. La ventana son 7 días contando hoy.
+  - Pruebas nuevas: lectura con una cuenta vinculada; anuncios retirados, programados y vencidos; pendientes borrados o de una integración revocada; un evento en curso y el borde de la ventana.
+  - RED antes del código: 3 pruebas (ids repetidos en `/cuenta`, borde de la ventana y marcas de la copia guardada). Las demás cubren reglas que ya se cumplían.
+- Fusión de `feat/glass-3-header` (`90c757b`) en `4c5cd31`. Se conservaron los dos lados del encabezado y se reconstruyó `public/build`. El tope de consultas del encabezado en páginas secundarias (prueba de G3) suma las de la campanita: `8 + NotificationList::QUERIES`.
+  - Evidencia después de la fusión:
+    - `php artisan test`: 3268 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - `node --test "tests/js/*.test.mjs"`: 19 pasan.
