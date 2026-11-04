@@ -675,6 +675,132 @@ Mientras falte cualquiera de las tres claves de abajo, la función está apagada
 
    Una falla general no hace perder avisos: si las llaves están mal («Phone notices could not start» en el registro), el cron no anota nada; si ningún aviso de un bloque recibe respuesta de los servicios (sin red, DNS), descarta ese bloque, se detiene y lo intenta de nuevo al minuto siguiente («got no answer from any push service»).
 
+### 1.23 Asistente
+
+La página **Asistente** (`/asistente`) responde preguntas sobre lo que cada cuenta ya ve en el portal (apps, anuncios, fechas, cumpleaños, directorio, tareas, aprobaciones y estado de TI) con Claude, de Anthropic, por la API de mensajes y el SDK oficial de PHP (`anthropic-ai/sdk`). Las herramientas son de solo lectura y usan las mismas consultas del conector de Claude (§1.15) con la cuenta activa. A los editores de anuncios les propone borradores que solo se publican si la persona los confirma en pantalla. No hay migraciones, tareas programadas ni colas. El diseño está en `odd/tasks/asistente.md`; el uso, en `docs/manual-administracion.md` §15.
+
+Está **apagado** hasta que se cumplan los tres puntos: `PORTAL_ASSISTANT_ENABLED=true`, el interruptor de **Administración › Configuración › Asistente del portal** encendido y `ANTHROPIC_API_KEY` en `.env`. Mientras falte la variable o el interruptor, `/asistente` responde 404 y el enlace no aparece. Si falta la llave, la página dice que el asistente no está disponible y no envía nada.
+
+1. **Dependencias.** El despliegue de rutina (paso 2.2) instala el SDK con `composer install`: el paquete `anthropic-ai/sdk` y sus dependencias (`open-telemetry/api`, `open-telemetry/context` y `standard-webhooks/standard-webhooks`) ya están en `composer.lock`. Usa Guzzle, que el portal ya tiene, y las extensiones `curl`, `json` y `mbstring` de PHP. Compruébelo con `php -m | grep -i -E "curl|json|mbstring"`.
+2. **Crear la llave de la API.** En la consola de Anthropic (https://platform.claude.com), en el espacio de trabajo de la organización, cree una llave de API para el portal (por ejemplo «Portal RYR · producción»). Es un secreto: entréguela a quien administra el servidor por el gestor de secretos, nunca por correo ni chat, y nunca la suba al repositorio.
+3. **Segunda barrera de gasto en la consola (Jhon).** Además del presupuesto del portal (punto 6), ponga un **límite de gasto** al espacio de trabajo de esa llave en la consola de Anthropic. Si el portal fallara o se configurara mal, la consola corta igual.
+4. **Variables en `.env` del servidor.** Solo las dos primeras son obligatorias; las demás tienen el valor por defecto que se muestra (`config/assistant.php`):
+
+   ```dotenv
+   ANTHROPIC_API_KEY=<llave de la API>
+   PORTAL_ASSISTANT_ENABLED=true
+
+   # Opcionales
+   PORTAL_ASSISTANT_MODEL=claude-haiku-5-5
+   PORTAL_ASSISTANT_EDITOR_MODEL=claude-sonnet-5-5
+   PORTAL_ASSISTANT_FALLBACK_MODEL=claude-opus-5-5
+   PORTAL_ASSISTANT_EFFORT=low
+   PORTAL_ASSISTANT_MAX_TOKENS_CHAT=2000
+   PORTAL_ASSISTANT_MAX_TOKENS_DRAFT=2000
+   PORTAL_ASSISTANT_TIMEOUT=60
+   PORTAL_ASSISTANT_DAILY_QUESTIONS=40
+   PORTAL_ASSISTANT_CONVERSATION_TURNS=10
+   ASSISTANT_MONTHLY_BUDGET_USD=20
+   ```
+
+   | Variable | Qué hace |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | Llave de la API (`services.anthropic.key`). Sin ella, el asistente dice que no está disponible. |
+   | `PORTAL_ASSISTANT_ENABLED` | Corte de fondo del servidor. Solo `true`, `1`, `on` o `yes` lo encienden. |
+   | `PORTAL_ASSISTANT_MODEL` (o `ASSISTANT_MODEL`) | Modelo de las personas que solo preguntan, como «proveedor:modelo» (punto 12). Por defecto `anthropic:claude-haiku-5-5`. |
+   | `PORTAL_ASSISTANT_EDITOR_MODEL` | Modelo de los editores de anuncios (quienes reciben borradores). Por defecto Claude Sonnet 5.5. Vacío: el mismo de `PORTAL_ASSISTANT_MODEL`. |
+   | `PORTAL_ASSISTANT_FALLBACK_MODEL` | Solo cuando el modelo de la conversación termina con `refusal` (no quiso responder): la pregunta se repite como una **petición nueva** a este modelo, con la conversación en texto, sin el razonamiento anterior. Por defecto Claude Opus 5.5. Haiku 5.5 no tiene respaldo en el servidor de Anthropic, por eso lo hace el portal. Vacío: sin segundo intento. |
+   | `PORTAL_ASSISTANT_EFFORT` | Esfuerzo del modelo: `low`, `medium`, `high`, `xhigh` o `max`. Más alto responde con más cuidado, tarda más y cuesta más. Cualquier otro valor cuenta como `low`. |
+   | `PORTAL_ASSISTANT_MAX_TOKENS_CHAT`, `PORTAL_ASSISTANT_MAX_TOKENS_DRAFT` | Tope de salida de cada llamada al modelo, para las personas y para los editores. Incluye el razonamiento del modelo, que no se puede apagar en estos modelos: no lo baje mucho. Mínimo 1024. |
+   | `PORTAL_ASSISTANT_TIMEOUT` | Segundos que el servidor espera cada llamada al modelo. Se reintenta una vez ante errores 429, 5xx o de conexión. |
+   | `ASSISTANT_DEADLINE_SECONDS` | Tiempo total de una pregunta (90 por defecto): todas sus llamadas, reintentos, rondas de herramientas, el secundario y el respaldo. Cada llamada recibe como máximo el tiempo que queda; al pasarlo, la página dice «La respuesta tardó demasiado; intenta de nuevo.» |
+   | `PORTAL_ASSISTANT_DAILY_QUESTIONS` | Preguntas por cuenta y día (hora de Bogotá). Se cuentan con las líneas de Auditoría del día. |
+   | `PORTAL_ASSISTANT_CONVERSATION_TURNS` | Preguntas de una conversación. Al llegar, la conversación está llena y la página ofrece **Nueva conversación** (nunca se recorta el historial). |
+   | `ASSISTANT_MONTHLY_BUDGET_USD` | Presupuesto del mes en dólares (punto 6). Por defecto 20. |
+
+   Después, `php artisan optimize`. **El portal guarda la configuración en caché:** cada vez que cambie una de estas variables (también el presupuesto), ejecute `php artisan optimize` (o `php artisan config:cache`); sin eso, el portal sigue usando el valor anterior. `deploy/deploy.sh` ya ejecuta `php artisan optimize` al final de cada despliegue, así que un despliegue también toma los valores nuevos. Para apagar el asistente desde el servidor, `PORTAL_ASSISTANT_ENABLED=false` y otra vez `php artisan optimize`.
+
+   **Modelos y precios** (dólares por millón de tokens, tomados de la guía de la API de Anthropic en 2026-10; confírmelos en la página de precios antes de cambiar el presupuesto):
+
+   | Rol | Modelo | Entrada | Salida | Caché leída |
+   |---|---|---|---|---|
+   | Personas que preguntan | Claude Haiku 5.5 (`claude-haiku-5-5`) | 0,10 | 0,50 | 0,01 (por verificar) |
+   | Editores de anuncios | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | 2,00 | 10,00 | 0,20 |
+   | Respaldo por `refusal` | Claude Opus 5.5 (`claude-opus-5-5`) | 4,00 | 20,00 | 0,20 |
+
+   Haiku 5.5 cobra 0,50 / 2,50 cuando la petición pasa de 100.000 tokens. Escribir en la caché cuesta 1,25 veces la entrada. La tabla completa está en `config/assistant.php` (`prices`): los valores marcados «verify» salen de los multiplicadores generales y conviene confirmarlos. Un modelo que no esté en la tabla se cobra con la tarifa más cara, para que el presupuesto no se quede corto.
+
+   Los tres modelos se llaman igual: razonamiento adaptativo con el esfuerzo configurado, sin `budget_tokens`, sin `temperature`, `top_p` ni `top_k`, sin `tool_choice` forzado y sin mensaje final del asistente (*prefill*). Cada una de esas cosas da error 400 en alguno de ellos.
+5. **Salida HTTPS a la API.** Cada pregunta sale del servidor hacia `https://api.anthropic.com` por el puerto 443, durante la petición de la persona (no hay cola). Si el hosting filtra las conexiones de salida, permita ese dominio. Compruebe desde el servidor, por SSH:
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" https://api.anthropic.com/v1/messages
+   ```
+
+   Debe responder un código HTTP (por ejemplo `401` o `405`, porque no lleva llave): eso confirma que hay salida. Un error de conexión o de DNS significa que el hosting bloquea la salida. No pegue la llave en la línea de comandos para probar: queda en el historial del shell.
+6. **Presupuesto mensual.** `ASSISTANT_MONTHLY_BUDGET_USD` (20 por defecto) es el tope de gasto del mes calendario en hora de Bogotá. El portal calcula el costo de cada pregunta con sus tokens y la tabla de precios, y lo guarda en su línea de Auditoría. Al llegar al tope, ninguna pregunta llega a la API: la página dice «El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.» y queda en Auditoría. El tope se revisa también antes de cada llamada de una misma pregunta (con lo que ya costó): una pregunta con varias rondas de herramientas se detiene después de la llamada que cruza el tope, sin dejar el historial a medias. El uso y el costo quedan en Auditoría aunque una llamada falle a mitad de la pregunta. Al 80 % y al 100 % los súper administradores reciben un correo, que sale después de enviar la respuesta a la persona (no hay trabajador de colas en el servidor; uno por umbral y mes; el envío queda en `portal_settings`, clave `assistant_budget_alert:AAAA-MM:80`). Se cambia solo en `.env`, con `php artisan optimize` después (punto 4). Configuración muestra el gasto del mes y el tope, sin poder editarlos.
+7. **Tiempo de las peticiones.** Una pregunta puede hacer varias llamadas al modelo; `ASSISTANT_DEADLINE_SECONDS` (90) es su tope total, porque en Linux `max_execution_time` no cuenta el tiempo de espera de la red. El portal sube además el límite de PHP a 180 segundos para esa petición cuando es menor (nunca lo baja). Si cPanel no deja cambiarlo, súbalo en **MultiPHP INI Editor** o baje `PORTAL_ASSISTANT_TIMEOUT`.
+8. **Encender el interruptor.** Un súper administrador entra a **Administración › Configuración › Asistente del portal** y enciende **Mostrar el asistente a las personas** (se guarda en `portal_settings`, clave `assistant_enabled`). A diferencia del conector de Claude, **empieza apagado**. Un valor guardado que no sea exactamente `true` cuenta como apagado. La tarjeta muestra el modelo de cada rol, el gasto del mes y avisa en rojo si falta la variable o la llave.
+9. **Consumo de tokens.** Lo que ahorra:
+   - **Caché del prompt.** Las herramientas y las instrucciones son siempre iguales (sin nombres, fechas ni empresa: esos datos van en el mensaje de la persona) y quedan en caché; un segundo punto de caché se mueve con el último mensaje, así lo anterior de la conversación se lee de la caché a una fracción del precio. Por debajo de 512 tokens la API no guarda caché, sin error.
+   - **Historial que solo crece.** Cada conversación guarda en la sesión todo lo que el modelo devolvió, con sus bloques de razonamiento y su firma, y lo reenvía igual. Nunca se recorta ni se resume: si se editara, la API rechazaría el razonamiento anterior (error 400 en cuentas nuevas) y se perdería la caché. Por eso, cuando la conversación se llena, hay que empezar una nueva.
+   - **Todo fijo por conversación.** El modelo, el esfuerzo, las instrucciones y las herramientas (que dependen del rol) se fijan al empezar. Si cambian (un rol nuevo, otra cuenta, otra configuración o un despliegue que cambia una herramienta), la conversación vuelve a empezar y la página lo avisa.
+   - **Resultados cortos.** Cada herramienta devuelve pocas filas para el asistente (`assistant.tool_limits` en `config/assistant.php`) y la consulta misma las limita: nunca se recorta un resultado después.
+   - **Lotes (Batch API).** No aplica: el asistente responde en el momento.
+   - **Reporte de consumo.** Por SSH: `php artisan portal:assistant-usage --days=7` muestra por día y por uso (`chat` o `borrador`) las preguntas, las llamadas al modelo, los tokens de entrada, de caché escrita y leída y de salida, el porcentaje de aciertos de caché y el costo, y al final el gasto del mes frente al presupuesto. Sirve para comparar antes y después de un cambio.
+   - **Perillas de costo:** el modelo de cada rol, `PORTAL_ASSISTANT_EFFORT`, los topes de salida, `PORTAL_ASSISTANT_DAILY_QUESTIONS`, `PORTAL_ASSISTANT_CONVERSATION_TURNS`, los límites de filas y el presupuesto.
+10. **Comprobar.** Entre a `/asistente`, pregunte «¿Qué apps tengo?» y compruebe que responde con sus apps. En **Auditoría › Seguridad** debe aparecer «Preguntó al asistente · usó mis_apps · claude-haiku-5-5 · …» con los tokens y el costo, nunca la pregunta. Si responde «El asistente no pudo responder en este momento», el motivo está al final de esa línea:
+
+    | Motivo | Qué revisar |
+    |---|---|
+    | `auth` | La llave es incorrecta, se revocó o no tiene permiso. |
+    | `connection`, `timeout` | Salida a `api.anthropic.com` (punto 5) o `PORTAL_ASSISTANT_TIMEOUT` muy bajo. |
+    | `rate_limited`, `overloaded` | Límite de la cuenta de Anthropic o API ocupada. Se pasa solo. |
+    | `http_400`, `http_404` | Modelo o parámetro que la API no acepta: revise los modelos y `PORTAL_ASSISTANT_EFFORT`. |
+    | `not_configured` | Falta `ANTHROPIC_API_KEY` o no se corrió `php artisan optimize`. |
+
+11. **Privacidad.** El portal no guarda las conversaciones (solo en la sesión de la persona) y Auditoría nunca guarda la pregunta ni la respuesta. Lo que el modelo necesita para responder (la pregunta, la conversación de la sesión y lo que devuelven las herramientas) sí viaja a la API de Anthropic.
+
+12. **Proveedores de modelos (DeepSeek u otro).** Cada rol apunta a «proveedor:modelo» de `config/assistant.php` (`providers`). Hay dos tipos (*drivers*): `anthropic` (el SDK oficial, por defecto) y `openai_compatible` (Chat Completions por HTTPS, con el cliente HTTP de Laravel), con DeepSeek ya preparado:
+
+    ```dotenv
+    ASSISTANT_MODEL=anthropic:claude-haiku-5-5
+    ASSISTANT_EDITOR_MODEL=anthropic:claude-sonnet-5-5
+    ASSISTANT_FALLBACK_MODEL=anthropic:claude-opus-5-5
+
+    # Para usar DeepSeek en un rol, por ejemplo:
+    # ASSISTANT_MODEL=deepseek:deepseek-chat
+    DEEPSEEK_API_KEY=<llave de DeepSeek>
+    DEEPSEEK_BASE_URL=https://api.deepseek.com
+    ```
+
+    Los nombres `PORTAL_ASSISTANT_MODEL`, `PORTAL_ASSISTANT_EDITOR_MODEL` y `PORTAL_ASSISTANT_FALLBACK_MODEL` siguen funcionando; `ASSISTANT_*` tiene prioridad. Un modelo sin proveedor es de Anthropic. Después, `php artisan optimize`. Cambiar el proveedor o el modelo de un rol empieza una conversación nueva para cada persona en su siguiente pregunta: el modelo nunca cambia a mitad de conversación.
+
+    - **Por verificar.** La dirección, los nombres de modelo (`deepseek-chat`, `deepseek-reasoner`), los campos de uso (`prompt_cache_hit_tokens`, `prompt_cache_miss_tokens`) y los precios de DeepSeek en `config/assistant.php` son provisionales: confírmelos en https://api-docs.deepseek.com antes de usarlos; el presupuesto depende de esos precios.
+    - **Ley 1581.** Se ha informado que la API propia de DeepSeek guarda los datos en China. Antes de usarla con datos de empleados hace falta una revisión legal de la transferencia internacional de datos (Ley 1581 de 2012). Configuración lo advierte en rojo cuando algún rol usa un proveedor que no es Anthropic. Una alternativa es el modelo de pesos abiertos alojado por la empresa o por un tercero con otra dirección (`DEEPSEEK_BASE_URL` o un proveedor nuevo con el mismo *driver*), que también requiere revisar dónde quedan los datos.
+    - **Solo en Anthropic.** La caché del prompt, el razonamiento adaptativo, el esfuerzo (`PORTAL_ASSISTANT_EFFORT`) y el historial con razonamiento preservado existen solo con el *driver* `anthropic`. El *driver* `openai_compatible` nunca los envía; DeepSeek tiene su propia caché automática, que el portal cuenta como «caché leída».
+    - **Igual en todos.** Las mismas herramientas, las mismas reglas de visibilidad y el mismo borrador que solo propone. Un `finish_reason` `content_filter` cuenta como `refusal` (pasa al modelo de respaldo). El uso se guarda en los mismos campos (`prompt_tokens` → entrada, `completion_tokens` → salida) y el presupuesto mensual suma todos los proveedores.
+    - Solo direcciones `https://`; espera `PORTAL_ASSISTANT_TIMEOUT` segundos y reintenta una vez ante 429, 5xx o errores de conexión. Sin la llave del proveedor de un rol, la página dice que el asistente no está disponible.
+13. **Proveedor secundario (respaldo por fallas).** Anthropic es el proveedor principal; DeepSeek puede ser el segundo. Es distinto del modelo de respaldo por `refusal` (`ASSISTANT_FALLBACK_MODEL`), que solo actúa cuando el modelo no quiere responder.
+
+    ```dotenv
+    ASSISTANT_SECONDARY_MODEL=deepseek:deepseek-chat
+    # Opcional, para los editores; vacío: el mismo de arriba.
+    ASSISTANT_SECONDARY_EDITOR_MODEL=
+    ASSISTANT_PRIMARY_COOLDOWN_MINUTES=30
+    ```
+
+    Vacío `ASSISTANT_SECONDARY_MODEL`: no hay respaldo y todo sigue como antes. Después, `php artisan optimize`.
+
+    - **Cuándo pasa al secundario.** Por el **tipo** de error (el `->type` del SDK de Anthropic, o el código HTTP del otro proveedor), nunca por el texto, y solo después de los reintentos del propio cliente: 402 `billing_error` (sin saldo), 401 `authentication_error` o falta la llave, 429 `rate_limit_error`, 529 `overloaded_error`, cualquier 5xx, y errores de conexión o de tiempo de espera. En DeepSeek: 402 (saldo insuficiente; verifique el código en https://api-docs.deepseek.com), 401, 429, 5xx, conexión y tiempo de espera.
+    - **Cuándo no.** Un 400 `invalid_request_error`, un 413 o un mensaje demasiado largo son errores del portal: no pasan al secundario, quedan en `storage/logs` («The assistant model rejected the request.», con el motivo) y la persona ve el error. El **presupuesto mensual** del portal es uno solo para todos los proveedores: al alcanzarlo el asistente se detiene, nunca pasa al secundario.
+    - **Límite de gasto de la consola de Anthropic.** Por confirmar: la guía de la API no documenta con qué error responde Anthropic cuando se alcanza el límite de gasto de un espacio de trabajo. Se espera un 402 `billing_error` o un 429; los dos pasan al secundario. Al configurarlo, compruebe en Auditoría el motivo con el que llegó.
+    - **Cómo pasa.** Un proveedor no puede leer el razonamiento ni las herramientas de otro, así que el secundario recibe la conversación como texto (preguntas y respuestas visibles). Solo cuando el secundario responde, la conversación queda en él el resto de su vida (si los dos fallan, el historial no cambia): nunca vuelve al principal a mitad de conversación. La página muestra «Respondiendo con el proveedor secundario.» La siguiente **Nueva conversación** prueba de nuevo el principal.
+    - **Espera (circuito).** Tras un error de saldo o de llave, el principal se marca como no disponible en la caché durante `ASSISTANT_PRIMARY_COOLDOWN_MINUTES` (30); tras un 429, 5xx o un tiempo de espera, 2 minutos. Mientras tanto, las conversaciones nuevas empiezan directo en el secundario, sin pagar primero una llamada fallida.
+    - **Aviso.** En el primer error de saldo o de llave, los súper administradores reciben un correo (sale después de la respuesta), una vez por cada espera: «Anthropic sin saldo o llave inválida; el asistente usa el proveedor secundario.» Cada cambio de proveedor queda en Auditoría con el de origen, el de destino y el tipo de error (nunca el mensaje).
+    - **Si los dos fallan**, la página dice «El asistente no está disponible en este momento.» y queda en Auditoría.
+    - El uso y el costo se guardan con el proveedor y el modelo que respondieron de verdad, y todos cuentan para el mismo presupuesto.
+    - **Ley 1581.** Con el secundario en DeepSeek, una falla de Anthropic envía a DeepSeek los datos del portal que la respuesta necesita (también datos de empleados). Aplica la misma revisión legal del punto 12 antes de configurarlo.
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

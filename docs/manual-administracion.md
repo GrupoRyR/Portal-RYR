@@ -232,6 +232,12 @@ Cada cambio de configuración, cada app abierta, cada inicio de sesión y lo que
   - «Claude usó la herramienta mis_apps · conexión #12»: una línea por cada consulta de Claude, a nombre de la cuenta que aprobó la conexión, con la hora. Nunca se guarda qué preguntó Claude ni qué le respondió el portal. Para ver solo las de una persona, búsquela por nombre o correo.
   - Si la consulta terminó mal (por ejemplo, un dato de entrada que no sirve), la línea termina en «· terminó con error».
   - «Claude pidió una herramienta que no existe («…»)» o «Claude pidió una herramienta sin nombre»: el portal rechazó la consulta. Se guarda solo el nombre pedido, cortado a 64 caracteres.
+- **Asistente del portal**, también en **Seguridad** (§15):
+  - «Preguntó al asistente · usó mis_tareas, anuncio · claude-haiku-5-5 · 120 tokens de entrada, 2.400 leídos de caché, 0 escritos en caché y 210 de salida · US$ 0,0004»: una línea por pregunta, a nombre de la cuenta que preguntó, con las herramientas que usó (o «sin herramientas»), el modelo que respondió, los tokens y el costo. «(borrador)» marca las preguntas que propusieron un anuncio. Nunca se guarda la pregunta ni la respuesta.
+  - Al final puede decir «· respondió el modelo de respaldo» (el modelo principal no quiso responder y respondió el segundo), «· el modelo no quiso responder», «· propuso un borrador de anuncio» o «· no pudo responder (timeout)» (con el motivo).
+  - «Publicó un anuncio propuesto por el asistente · anuncio #45»: un editor publicó un borrador del asistente. El anuncio tiene además su propia línea de **Cambios**, como si se hubiera creado en Administración.
+  - «El asistente no respondió: se alcanzó el presupuesto del mes · US$ 20,00 de US$ 20,00»: una pregunta que el presupuesto detuvo antes de llegar al modelo. «Aviso a los súper administradores: el asistente usó el 80 % del presupuesto de 2026-11 · …»: el correo del 80 % o del 100 %.
+  - «Encendió el asistente» o «Apagó el asistente»: el interruptor de **Configuración**, con avisos si en ese momento faltaba `PORTAL_ASSISTANT_ENABLED` o `ANTHROPIC_API_KEY` en el servidor.
 - Auditoría guarda un año: cada día, a las 4:30 a. m., se borran las líneas de más de 365 días (todas, no solo las de Claude).
 
 ### 2.9 Informe de uso
@@ -257,6 +263,7 @@ Ajustes que aplican a todo el portal y a todas las empresas. Se guardan con **Gu
   - Si el último intento falló, lo dice en rojo con su fecha. Los súper administradores reciben además un correo con el motivo. La copia buena anterior sigue guardada. Avise al equipo de TI: la solución está en la guía de despliegue (`docs/despliegue.md`, sección 5).
   - **Respaldar ahora** pide una copia inmediata, por ejemplo antes de un cambio grande. La copia no se hace en ese instante: queda **Programado** y empieza en el minuto siguiente; mientras tanto el botón dice «Programado…». La tarjeta se actualiza sola. Solo se permite una a la vez y hasta 3 por hora. Cada pedido queda en Auditoría como «Pidió un respaldo inmediato de la base de datos».
   - Las copias no se descargan ni se restauran desde el portal: lo hace TI en el servidor (guía de despliegue, sección 6).
+- **Asistente del portal:** el interruptor **Mostrar el asistente a las personas** enciende o apaga `/asistente` al instante, sin **Guardar cambios** (§15.4). Empieza apagado.
 - **Conector de Claude:** esta tarjeta tampoco depende de **Guardar cambios**: cada acción se aplica al instante y queda en Auditoría › Seguridad.
   - **Permitir que Claude se conecte al portal** enciende o apaga el conector para todo el portal. Apagado, todas sus direcciones responden 404 desde la siguiente consulta: ninguna conexión funciona y nadie puede conectar una nueva. Las conexiones no se borran: al encenderlo otra vez, vuelven a funcionar con sus mismos permisos. Mientras está apagado, cada persona sigue viendo sus conexiones en `/cuenta`, con un aviso, y puede desconectarlas, para que no vuelvan a funcionar solas cuando lo enciendan. Quien no tiene conexiones no ve la sección.
   - El interruptor manda solo si el servidor tiene el conector encendido (`PORTAL_MCP_ENABLED=true`, guía de despliegue, paso 1.15). Si no, la tarjeta lo avisa en rojo y el conector sigue apagado, esté como esté el interruptor. Mientras nadie lo toque, el interruptor está encendido. Si dos administradores tienen la página abierta, cada clic deja el conector como lo pidió quien hizo clic: si otra persona ya lo había cambiado, no se cambia otra vez y la tarjeta lo avisa.
@@ -855,3 +862,118 @@ En **Administración › Anuncios**, al crear o editar un anuncio, marque **Envi
 | En un iPhone dice que el navegador no puede recibir avisos. | Se abrió en Safari sin instalar, o el iOS es anterior a 16.4. | Instale el portal en la pantalla de inicio y actívelos desde ese ícono. |
 | Una persona no recibió el aviso. | No activó los avisos en ese dispositivo, su cuenta no ve el anuncio, el anuncio todavía no está publicado, o el dispositivo estuvo apagado o sin conexión más de 12 horas. | Revise que el anuncio esté publicado para su empresa y pídale que active los avisos en `/cuenta`. |
 | Dejaron de llegar avisos a todos. | TI cambió las llaves VAPID: las suscripciones anteriores dejan de servir. | Cada persona abre `/cuenta` en cada dispositivo: el portal los activa de nuevo solo. |
+
+## 15. Asistente del portal
+
+El **Asistente** (`/asistente`) responde preguntas en lenguaje natural sobre lo que la persona ya ve en el portal con su cuenta activa. Usa Claude, de Anthropic, a través de su API. Está apagado hasta que TI lo instale (`docs/despliegue.md` §1.23) y un súper administrador lo encienda (§15.4). El diseño está en `odd/tasks/asistente.md`.
+
+### 15.1 Qué puede hacer
+
+Lee, solo con la cuenta activa y su empresa, lo mismo que esa cuenta ve en el portal, con las mismas reglas de las páginas:
+
+- **Anuncios:** los recientes (como `/anuncios`), los que piden **Confirmar lectura** y aún no se han confirmado, y el texto completo de uno.
+- **Próximas fechas:** festivos de Colombia, eventos de la empresa y fechas que se repiten cada año.
+- **Cumpleaños y aniversarios:** como en **Mi día** (§9.6): solo los cumpleaños de quienes eligieron mostrarlos, sin el año.
+- **Personas:** el directorio de la empresa, como `/personas` (§9).
+- **Apps:** las que la cuenta puede abrir, con su enlace del portal.
+- **Tareas y aprobaciones:** las pendientes de la app de tareas y aprobaciones.
+- **Estado de TI:** si algo está fallando para la empresa (§13).
+
+Usa las mismas consultas del conector de Claude (§10), pero solo con la cuenta activa: no lee las cuentas vinculadas. Para preguntar por otra empresa, la persona cambia de empresa en el encabezado (§8).
+
+Las respuestas solo hacen clic en enlaces del propio portal. Cualquier otro enlace o marca que escriba el modelo se muestra como texto.
+
+### 15.2 Lo que no puede hacer
+
+- No publica, no confirma lecturas, no completa tareas, no aprueba ni cambia ningún dato. Para eso da el enlace del portal.
+- No ve nada que la cuenta no vea en el portal, ni el celular personal, el año de nacimiento o el cumpleaños de quien no lo muestra.
+- No guarda las conversaciones: viven solo en la sesión del navegador y se borran al cerrar sesión, al cambiar de empresa o con **Nueva conversación**.
+- Una conversación admite hasta 10 preguntas (`PORTAL_ASSISTANT_CONVERSATION_TURNS`). Al llegar, la página dice que está llena y ofrece **Nueva conversación**: el portal nunca borra ni resume preguntas anteriores (§15.7). Si cambian los permisos de la persona o la configuración del asistente, la conversación vuelve a empezar y la página lo avisa.
+- Cada persona tiene un límite de preguntas por día (40 por defecto, `PORTAL_ASSISTANT_DAILY_QUESTIONS`), contado desde la medianoche de Bogotá. Al llegar al límite, la página lo dice y no llama al modelo.
+- El portal tiene un presupuesto mensual en dólares para todos (§15.7). Al alcanzarlo, la página dice «El asistente alcanzó el límite de uso de este mes. Vuelve a estar disponible el 1.º del próximo mes.»
+
+Las respuestas las genera un modelo de lenguaje y pueden tener errores. La página lo recuerda: los datos importantes se revisan en el portal.
+
+### 15.3 Borradores de anuncios (editores)
+
+Quien hoy puede crear anuncios (súper administrador, administrador del portal y editor de anuncios, §2.4 y §2.6) puede pedirle al asistente que redacte uno, por ejemplo: «Redacta un anuncio sobre la pausa activa de hoy a las 3 p. m.».
+
+1. El asistente **solo propone**: el borrador aparece en la página, en un formulario con **Título**, **Texto** y **Lectura obligatoria**. No se guarda nada todavía.
+2. La persona lo revisa y lo corrige. Valen las mismas reglas del editor: título de una línea de hasta 120 caracteres y texto de hasta 280.
+3. Para publicarlo, marca **Revisé el anuncio y quiero publicarlo ahora para …** y pulsa **Publicar**. Sin esa casilla no se publica.
+4. Se publica para la empresa de la cuenta activa, desde ese minuto, sin fecha de fin, sin fijar, sin imagen, sin correo a la lista y sin aviso al celular. Para cambiar cualquiera de esas opciones, edítelo después en **Administración › Anuncios**.
+5. **Descartar borrador** lo borra de la sesión.
+
+Publicar pasa por las mismas reglas de permisos del editor de anuncios: si la persona perdió el rol, recibe un error y no se publica nada. El texto de los anuncios, eventos o tareas que lee el asistente nunca puede publicar nada por sí solo: como mucho, deja un borrador que la persona debe revisar y confirmar.
+
+### 15.4 Encenderlo y apagarlo (súper administrador)
+
+El asistente funciona solo si están encendidos los dos:
+
+- `PORTAL_ASSISTANT_ENABLED=true` en el servidor (TI, `docs/despliegue.md` §1.23). Apagado, el asistente está apagado aunque Administración diga otra cosa.
+- **Administración › Configuración › Asistente del portal › Mostrar el asistente a las personas.** Se aplica al instante, sin **Guardar cambios**. Empieza **apagado**: alguien tiene que encenderlo, porque cada pregunta tiene un costo y envía a Anthropic los datos del portal que la respuesta necesita.
+
+Mientras está apagado, `/asistente` responde 404 y el enlace **Asistente** no aparece. Encendido, aparece en la barra de las páginas secundarias (junto al logo) y en el menú de la cuenta del inicio.
+
+La tarjeta muestra el modelo de cada rol (personas que preguntan, editores de anuncios y respaldo), el gasto del mes frente al presupuesto y los límites, y avisa en rojo si falta `PORTAL_ASSISTANT_ENABLED` o `ANTHROPIC_API_KEY` en el servidor o si se alcanzó el presupuesto. Sin la llave, la página dice «El asistente no está disponible en este momento» y no envía nada. El presupuesto y los modelos no se cambian aquí: los cambia TI en el servidor (`docs/despliegue.md` §1.23).
+
+### 15.5 Auditoría y privacidad
+
+- Cada pregunta deja una línea en **Auditoría › Seguridad** (§2.8) con las herramientas que usó, el modelo, los tokens (de entrada, leídos y escritos en caché, y de salida), su costo en dólares y si el modelo no quiso responder, respondió el de respaldo, la respuesta se cortó o falló. **Nunca** la pregunta, la respuesta ni los datos que leyó (Ley 1581 de 2012: solo lo necesario).
+- Lo que el modelo necesita para responder (la pregunta, la conversación de la sesión y los resultados de las herramientas) viaja a la API de Anthropic. No pregunte por datos que no deban salir del portal.
+- Para ver el uso de una persona, filtre **Seguridad** por su nombre o correo.
+
+### 15.6 Problemas frecuentes
+
+| Qué pasa | Por qué | Qué hacer |
+|---|---|---|
+| No aparece **Asistente** y `/asistente` da 404. | Está apagado en Configuración o en el servidor. | Encienda el interruptor (§15.4) y revise con TI `PORTAL_ASSISTANT_ENABLED`. |
+| La página dice «El asistente no está disponible en este momento». | Falta `ANTHROPIC_API_KEY` en el servidor. | TI sigue `docs/despliegue.md` §1.23. |
+| «El asistente no pudo responder en este momento». | La API no respondió a tiempo, rechazó la llave o llegó a su límite. La línea de Auditoría dice el motivo (`timeout`, `auth`, `rate_limited`...). | Intente de nuevo en unos minutos. Si sigue con `auth` o `connection`, avise a TI. |
+| «El asistente alcanzó el límite de uso de este mes». | Se gastó el presupuesto mensual. | Vuelve el 1.º del mes siguiente (hora de Bogotá). TI puede subir `ASSISTANT_MONTHLY_BUDGET_USD`. |
+| «Esta conversación está llena». | Llegó a 10 preguntas. | Pulse **Nueva conversación**. |
+| «Llegaste al límite de 40 preguntas de hoy». | La persona usó sus preguntas del día. | Se renueva a medianoche (hora de Bogotá). TI puede cambiar el límite. |
+| El asistente dice que no encuentra algo que la persona ve. | Mira solo la cuenta activa, o el dato es de otra empresa. | Cambie de empresa en el encabezado y pregunte de nuevo. |
+
+### 15.7 Modelos, consumo de tokens y presupuesto
+
+**Un modelo por rol**, fijo durante toda la conversación:
+
+| Quién | Modelo | Precio por millón de tokens (entrada / salida) |
+|---|---|---|
+| Personas que solo preguntan | Claude Haiku 5.5 | US$ 0,10 / US$ 0,50 |
+| Editores de anuncios | Claude Sonnet 5.5 | US$ 2 / US$ 10 |
+| Respaldo, solo si el modelo no quiere responder | Claude Opus 5.5 | US$ 4 / US$ 20 |
+
+El respaldo repite la pregunta como una petición nueva, con la conversación en texto: no conoce el razonamiento anterior del primer modelo. La conversación sigue después con su modelo de siempre.
+
+**Cómo ahorra tokens:**
+
+- Las instrucciones y las herramientas son las mismas para todos y quedan en la caché de la API; leer de la caché cuesta una fracción de la entrada normal. El nombre, la empresa y la fecha van en cada pregunta, no en las instrucciones.
+- La conversación solo crece: el portal reenvía lo anterior tal cual, y la API lo lee de la caché. Por eso no se recorta: cuando se llena, se empieza una nueva.
+- Cada herramienta devuelve pocas filas (por ejemplo, 5 anuncios recientes o 30 apps) y se le pide al modelo que responda corto.
+- Las preguntas se responden en el momento: no se usan lotes.
+
+**Presupuesto del mes:** 20 dólares por defecto para todo el portal (`ASSISTANT_MONTHLY_BUDGET_USD`, en el servidor), contados desde el día 1 a la medianoche de Bogotá. Al 80 % y al 100 % los súper administradores reciben un correo, una vez por umbral y mes. Al 100 % el asistente deja de responder hasta el mes siguiente, también a mitad de una pregunta larga. Una pregunta tiene además un tiempo máximo (90 segundos): si se pasa, la página dice «La respuesta tardó demasiado; intenta de nuevo.» La consola de Anthropic tiene además su propio límite de gasto, como segunda barrera (TI, `docs/despliegue.md` §1.23).
+
+**Reporte:** TI puede ver el consumo por día con `php artisan portal:assistant-usage --days=7` (tokens, aciertos de caché y costo por día, separados entre preguntas y borradores, y el gasto del mes).
+
+### 15.8 Otros proveedores (DeepSeek)
+
+TI puede hacer que un rol use otro proveedor en lugar de Anthropic, por ejemplo DeepSeek (`docs/despliegue.md` §1.23, punto 12). Las herramientas, los permisos y la regla del borrador son los mismos.
+
+- **Antes de activarlo:** se ha informado que la API propia de DeepSeek guarda los datos en China. Usarla con datos de empleados necesita una revisión legal de la transferencia internacional (Ley 1581 de 2012). Mientras algún rol use un proveedor que no es Anthropic, **Configuración › Asistente del portal** lo advierte en rojo: «Este proveedor procesa los datos fuera de Anthropic; revisa la Ley 1581 (transferencia internacional) antes de activarlo.»
+- **Lo que se pierde:** la caché del prompt de Anthropic, el razonamiento adaptativo con esfuerzo y el historial con razonamiento preservado solo existen con Anthropic.
+- La tarjeta de Configuración muestra el proveedor y el modelo de cada rol. El presupuesto del mes suma todos los proveedores.
+
+### 15.9 Proveedor secundario
+
+Si Anthropic falla (sin saldo, llave inválida, límite de peticiones, sobrecarga o sin conexión) y TI configuró un proveedor secundario (por ejemplo DeepSeek, `docs/despliegue.md` §1.23, punto 13), la conversación sigue en el secundario:
+
+- La página muestra «Respondiendo con el proveedor secundario.» La conversación se queda allí hasta que la persona empiece una **Nueva conversación**.
+- El secundario recibe solo el texto de las preguntas y respuestas anteriores: no conoce el razonamiento del primer modelo.
+- Tras un error de saldo o de llave, el portal deja de probar Anthropic durante 30 minutos y avisa por correo a los súper administradores, una vez por espera: «Anthropic sin saldo o llave inválida; el asistente usa el proveedor secundario.»
+- Un error del propio portal (una petición mal formada) o el presupuesto del mes alcanzado nunca pasan al secundario.
+- Si los dos proveedores fallan, la página dice «El asistente no está disponible en este momento.»
+- En Auditoría › Seguridad: «El asistente pasó al proveedor secundario · de anthropic:claude-haiku-5-5 a deepseek:deepseek-chat · motivo: billing», y las preguntas respondidas allí terminan en «· respondió el proveedor secundario».
+- **Ley 1581:** con DeepSeek como secundario, una falla de Anthropic envía a DeepSeek los datos de empleados que la respuesta necesita. Necesita la misma revisión legal de §15.8 antes de configurarlo.

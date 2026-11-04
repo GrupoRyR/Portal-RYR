@@ -15,6 +15,8 @@ use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
+use App\Http\Controllers\Assistant\AssistantController;
+use App\Http\Controllers\Assistant\AssistantDraftController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MicrosoftLoginController;
@@ -169,6 +171,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/apps/{app:slug}', AppLaunchController::class)
         ->middleware('throttle:60,1')
         ->name('apps.open');
+
+    // «Asistente» (App\Http\Controllers\Assistant\AssistantController): a 404
+    // while it is off (App\Assistant\AssistantSwitch). Each question is a
+    // plain POST that waits for the model, in a bucket of its own
+    // (`assistant`, AppServiceProvider); the daily cap is checked inside.
+    // «Publicar» of a draft is the person's own POST, through the
+    // announcement policy (AssistantDraftController).
+    Route::get('/asistente', [AssistantController::class, 'show'])->name('assistant.show');
+    Route::post('/asistente', [AssistantController::class, 'ask'])
+        ->middleware('throttle:assistant')
+        ->name('assistant.ask');
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('/asistente/nueva', [AssistantController::class, 'clear'])->name('assistant.clear');
+        Route::post('/asistente/borrador/publicar', [AssistantDraftController::class, 'publish'])->name('assistant.draft.publish');
+        Route::post('/asistente/borrador/descartar', [AssistantDraftController::class, 'discard'])->name('assistant.draft.discard');
+    });
 
     // Soporte TI: redirect to the ticket platform of Configuración with
     // where the person comes from (404 when no support URL is set).

@@ -10,6 +10,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Tool;
 
 /**
@@ -31,13 +33,62 @@ abstract class PortalTool extends Tool
     public const NO_ACCOUNTS = 'No hay una cuenta del portal en esta conexión.';
 
     /**
+     * The accounts {@see readFor()} reads with, instead of the connection's.
+     *
+     * @var Collection<int, User>|null
+     */
+    private ?Collection $readingFor = null;
+
+    /** The row cap {@see readFor()} reads with, below the tool's own limit. */
+    private ?int $rowCap = null;
+
+    abstract public function handle(Request $request): Response|ResponseFactory;
+
+    /**
+     * Runs the tool, outside the connector, for exactly these accounts
+     * (the portal assistant passes the signed-in account alone): the same
+     * handle(), so the same visibility rules and input rules. `$rows` caps
+     * the rows it reads and returns (never above the tool's own limit), in
+     * the queries themselves: nothing is cut afterwards.
+     * Bad input throws the ValidationException of the input rules.
+     *
+     * @param  Collection<int, User>  $accounts
+     * @param  array<string, mixed>  $arguments
+     */
+    public function readFor(Collection $accounts, array $arguments = [], ?int $rows = null): Response|ResponseFactory
+    {
+        $this->readingFor = $accounts->values();
+        $this->rowCap = $rows;
+
+        try {
+            return $this->handle(new Request($arguments));
+        } finally {
+            $this->readingFor = null;
+            $this->rowCap = null;
+        }
+    }
+
+    /**
+     * The tool's row limit, or the lower cap of {@see readFor()}.
+     */
+    protected function rows(int $limit): int
+    {
+        return $this->rowCap === null ? $limit : max(1, min($limit, $this->rowCap));
+    }
+
+    /**
      * The accounts of the call, the approving one first; null when the
-     * request carries none (not a connector call).
+     * request carries none (not a connector call). Those of {@see readFor()}
+     * while it runs.
      *
      * @return Collection<int, User>|null
      */
     protected function accounts(Request $request): ?Collection
     {
+        if ($this->readingFor !== null) {
+            return $this->readingFor;
+        }
+
         $approver = $request->user();
         $accounts = request()->attributes->get(EnsureMcpConnection::ACCOUNTS);
 

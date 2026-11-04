@@ -103,8 +103,8 @@ class CumpleanosYAniversarios extends PortalTool
                 // Day and month: a birthday never shows a year.
                 'fecha_texto' => Str::ucfirst($entry['item']->longDate()),
                 'empresas' => $entry['companies'],
-            ], array_slice($entries, 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            ], array_slice($entries, 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

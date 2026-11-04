@@ -72,7 +72,7 @@ class BuscarPersonas extends PortalTool
                 ->matching($search)
                 ->orderBy('display_name')
                 ->orderBy('id')
-                ->limit(self::LIMIT)
+                ->limit($this->rows(self::LIMIT))
                 ->get();
 
             foreach ($people as $person) {
@@ -94,8 +94,8 @@ class BuscarPersonas extends PortalTool
                 'telefono_oficina' => self::blankToNull($entry['item']->business_phone),
                 // An entry belongs to one company's directory.
                 'empresa' => $entry['companies'][0],
-            ], array_slice($entries, 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            ], array_slice($entries, 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

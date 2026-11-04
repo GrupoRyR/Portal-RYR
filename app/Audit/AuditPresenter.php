@@ -3,6 +3,8 @@
 namespace App\Audit;
 
 use App\Api\StatusReporter;
+use App\Assistant\AssistantLog;
+use App\Assistant\AssistantSwitch;
 use App\Backups\BackupRequests;
 use App\Livewire\Admin\RoleManager;
 use App\Mcp\AccountConfirmation;
@@ -358,8 +360,60 @@ final class AuditPresenter
                 .($properties->get('error') === true && $properties->get('refused') !== true ? ' · terminó con error' : ''),
             McpSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el conector de Claude'
                 .($properties->get('deployed') === false ? ' · PORTAL_MCP_ENABLED está apagado en el servidor' : ''),
+            AssistantSwitch::SWITCHED => ($properties->get('enabled') ? 'Encendió' : 'Apagó').' el asistente'
+                .($properties->get('deployed') === false ? ' · PORTAL_ASSISTANT_ENABLED está apagado en el servidor' : '')
+                .($properties->get('configured') === false ? ' · falta ANTHROPIC_API_KEY en el servidor' : ''),
+            AssistantLog::ASKED => $this->assistantQuestion($properties->all()),
+            AssistantLog::DRAFT_PUBLISHED => 'Publicó un anuncio propuesto por el asistente · anuncio #'.$properties->get('announcement_id'),
+            AssistantLog::FAILOVER => 'El asistente pasó al proveedor secundario · de '.$properties->get('from').' a '.$properties->get('to').' · motivo: '.$properties->get('reason'),
+            AssistantLog::PRIMARY_DOWN_ALERT => 'Aviso a los súper administradores: el proveedor '.$properties->get('provider').' del asistente falló ('.$properties->get('reason').') y se usa el secundario',
+            AssistantLog::BUDGET_BLOCKED => 'El asistente no respondió: se alcanzó el presupuesto del mes · '.self::usd($properties->get('spent_usd')).' de '.self::usd($properties->get('budget_usd')),
+            AssistantLog::BUDGET_ALERT => 'Aviso a los súper administradores: el asistente usó el '.$properties->get('threshold').' % del presupuesto de '.$properties->get('month').' · '.self::usd($properties->get('spent_usd')).' de '.self::usd($properties->get('budget_usd')),
             default => (string) $activity->description,
         };
+    }
+
+    /**
+     * «Preguntó al asistente · usó mis_tareas, anuncio · claude-haiku-5-5 ·
+     * 120 tokens de entrada, 2.400 leídos de caché, 0 escritos en caché y
+     * 210 de salida · US$ 0,0004» (App\Assistant\AssistantLog::asked()):
+     * never the question nor the answer, which are not stored.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    private function assistantQuestion(array $properties): string
+    {
+        $tools = array_values(array_filter(is_array($properties['tools'] ?? null) ? $properties['tools'] : [], 'is_string'));
+        $number = fn (mixed $value) => number_format((int) $value, 0, ',', '.');
+
+        return 'Preguntó al asistente'
+            .(($properties['feature'] ?? null) === 'draft' ? ' (borrador)' : '')
+            .($tools === [] ? ' · sin herramientas' : ' · usó '.implode(', ', $tools))
+            .' · '.($properties['model'] ?? '')
+            .' · '.$number($properties['input_tokens'] ?? 0).' tokens de entrada, '
+            .$number($properties['cache_read_input_tokens'] ?? 0).' leídos de caché, '
+            .$number($properties['cache_creation_input_tokens'] ?? 0).' escritos en caché y '
+            .$number($properties['output_tokens'] ?? 0).' de salida'
+            .' · '.self::usd($properties['cost_usd'] ?? 0, 4)
+            .(($properties['fallback'] ?? false) === true ? ' · respondió el modelo de respaldo' : '')
+            .(($properties['failover'] ?? false) === true ? ' · respondió el proveedor secundario' : '')
+            .(($properties['refused'] ?? false) === true ? ' · el modelo no quiso responder' : '')
+            .(($properties['truncated'] ?? false) === true ? ' · la respuesta se cortó' : '')
+            .match ($properties['stopped'] ?? null) {
+                'budget' => ' · se detuvo al alcanzar el presupuesto del mes',
+                'deadline' => ' · se detuvo por tiempo',
+                default => '',
+            }
+        .(($properties['draft'] ?? false) === true ? ' · propuso un borrador de anuncio' : '')
+        .(is_string($properties['error'] ?? null) ? ' · no pudo responder ('.$properties['error'].')' : '');
+    }
+
+    /**
+     * «US$ 12,34».
+     */
+    private static function usd(mixed $value, int $decimals = 2): string
+    {
+        return 'US$ '.number_format((float) $value, $decimals, ',', '.');
     }
 
     /**

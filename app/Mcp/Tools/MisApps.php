@@ -62,8 +62,8 @@ class MisApps extends PortalTool
                 'en_mantenimiento' => AppCardStatus::of($entry['item']) === AppCardStatus::Maintenance,
                 'empresas' => $entry['companies'],
                 'nota' => self::note($openWith[$entry['item']->id]),
-            ], array_slice($seen->all(), 0, self::LIMIT)),
-            'limite' => self::LIMIT,
+            ], array_slice($seen->all(), 0, $this->rows(self::LIMIT))),
+            'limite' => $this->rows(self::LIMIT),
         ]);
     }
 

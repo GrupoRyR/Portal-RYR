@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Assistant\AssistantSettings;
+use App\Assistant\Console\AssistantUsageCommand;
+use App\Assistant\Model\AssistantModel;
+use App\Assistant\Model\ProviderRegistry;
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
 use App\Http\Controllers\Mcp\AuthorizeController;
@@ -62,6 +66,12 @@ class AppServiceProvider extends ServiceProvider
         // Holiday days are read in the portal's timezone.
         $this->app->singleton(ColombianHolidays::class, fn () => new ColombianHolidays(config('app.timezone')));
 
+        // Portal assistant (/asistente): the providers of config/assistant.php
+        // in production (the tests bind a fake model), read on use.
+        $this->app->bind(AssistantSettings::class, fn () => AssistantSettings::fromConfig());
+        // Every provider behind the one seam (App\Assistant\Model\ProviderRegistry).
+        $this->app->bind(AssistantModel::class, ProviderRegistry::class);
+
         // Claude connector: routes/ai.php declares only the Passport routes
         // it needs. The consent screen (a subclass of Passport's) signs in
         // with the portal's session guard, like Passport's own.
@@ -76,6 +86,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // `portal:assistant-usage` (App\Assistant\Console): the assistant's consumption report.
+        if ($this->app->runningInConsole()) {
+            $this->commands([AssistantUsageCommand::class]);
+        }
+
         // HTTPS is mandatory in production: generated URLs, redirects and
         // asset links must never fall back to plain http.
         if ($this->app->environment('production')) {
@@ -112,6 +127,12 @@ class AppServiceProvider extends ServiceProvider
         // app, so a bucket of its own, per account.
         RateLimiter::for(WorkItemCompletionController::LIMITER, fn (Request $request) => Limit::perMinute(WorkItemCompletionController::PER_MINUTE)
             ->by(WorkItemCompletionController::LIMITER.':'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        // The assistant (assistant.ask): each question waits for the model,
+        // so a bucket of its own, per account. The daily cap is separate
+        // (config assistant.daily_questions).
+        RateLimiter::for('assistant', fn (Request $request) => Limit::perMinute(10)
+            ->by('assistant:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
         $this->configureClaudeConnector();
 
