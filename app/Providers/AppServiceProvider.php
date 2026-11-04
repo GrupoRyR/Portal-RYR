@@ -8,6 +8,7 @@ use App\Assistant\Model\AssistantModel;
 use App\Assistant\Model\ProviderRegistry;
 use App\Backups\RecordBackupOutcome;
 use App\Calendar\ColombianHolidays;
+use App\Http\Controllers\Assistant\AssistantController;
 use App\Http\Controllers\Mcp\AuthorizeController;
 use App\Http\Controllers\WorkItemCompletionController;
 use App\Mail\GraphAccessToken;
@@ -33,6 +34,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Auth;
@@ -131,8 +133,18 @@ class AppServiceProvider extends ServiceProvider
         // The assistant (assistant.ask): each question waits for the model,
         // so a bucket of its own, per account. The daily cap is separate
         // (config assistant.daily_questions).
+        // Reading the conversation (assistant.conversation, the chat panel)
+        // has its own bucket too. Both answer the panel's fetch with the
+        // Spanish message as `{"error"}`; a page keeps Laravel's 429.
+        $tooFast = fn (Request $request, array $headers) => $request->expectsJson()
+            ? response()->json(['error' => AssistantController::TOO_FAST], 429, $headers)
+            : throw new ThrottleRequestsException('Too Many Attempts.', null, $headers);
         RateLimiter::for('assistant', fn (Request $request) => Limit::perMinute(10)
-            ->by('assistant:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+            ->by('assistant:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
+            ->response($tooFast));
+        RateLimiter::for('assistant-read', fn (Request $request) => Limit::perMinute(60)
+            ->by('assistant-read:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
+            ->response($tooFast));
 
         $this->configureClaudeConnector();
 

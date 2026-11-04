@@ -181,7 +181,7 @@ Route::middleware('auth')->group(function () {
     // panel sends the same POSTs as JSON and reads the conversation here.
     Route::get('/asistente', [AssistantController::class, 'show'])->name('assistant.show');
     Route::get('/asistente/conversacion', [AssistantController::class, 'conversation'])
-        ->middleware('throttle:60,1')
+        ->middleware('throttle:assistant-read')
         ->name('assistant.conversation');
     Route::post('/asistente', [AssistantController::class, 'ask'])
         ->middleware('throttle:assistant')

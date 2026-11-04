@@ -9,6 +9,7 @@ use App\Assistant\AssistantSwitch;
 use App\Assistant\Conversation;
 use App\Assistant\Model\AssistantModel;
 use App\Assistant\Tools\BorradorDeAnuncio;
+use App\Http\Controllers\Assistant\AssistantController;
 use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\User;
@@ -17,6 +18,8 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
@@ -76,6 +79,8 @@ class AssistantJsonTest extends TestCase
                 'draft' => null,
                 'remaining' => 39,
                 'error' => null,
+                'full' => false,
+                'budget_reached' => false,
             ])
             ->assertJsonPath('turns.1.html', fn (string $html) => str_contains($html, 'Tienes 2 tareas.<br>')
                 && str_contains($html, '<a href="https://portal.gruporyr.com/anuncios/5" class="')
@@ -121,7 +126,7 @@ class AssistantJsonTest extends TestCase
     {
         config(['assistant.conversation_turns' => 1]);
         $this->model->answers('R1');
-        $this->ask('P1')->assertOk();
+        $this->ask('P1')->assertOk()->assertJsonPath('full', true);
 
         $this->ask('P2')
             ->assertStatus(422)
@@ -217,6 +222,74 @@ class AssistantJsonTest extends TestCase
         $this->actingAs($this->user->fresh())->getJson(route('assistant.conversation'))->assertJsonPath('turns', []);
     }
 
+    public function test_at_the_monthly_budget_it_is_a_429_audited_before_the_model(): void
+    {
+        Notification::fake();
+        config(['assistant.monthly_budget_usd' => 1.0]);
+        activity('security')->event(AssistantLog::ASKED)->causedBy($this->user)
+            ->withProperties(['cost_usd' => 1.0, 'feature' => 'chat'])->log(AssistantLog::ASKED);
+
+        $this->ask('Hola')->assertStatus(429)->assertExactJson(['error' => AssistantController::BUDGET_REACHED]);
+
+        $this->assertSame([], $this->model->requests);
+        $line = Activity::query()->where('event', AssistantLog::BUDGET_BLOCKED)->sole();
+        $this->assertTrue($this->user->is($line->causer));
+        $this->assertEquals(['spent_usd' => 1.0, 'budget_usd' => 1.0], $line->properties->all());
+        $this->actingAs($this->user)->getJson(route('assistant.conversation'))->assertJsonPath('budget_reached', true);
+        $this->actingAs($this->user)->postJson(route('assistant.clear'))->assertOk()->assertJsonPath('budget_reached', true);
+    }
+
+    public function test_reading_the_conversation_leaves_the_restart_notice_to_the_page(): void
+    {
+        $this->model->answers('R1');
+        $this->ask('P1')->assertOk();
+        $this->user->assignRole('announcements_editor');
+        $editor = $this->user->fresh();
+
+        $this->actingAs($editor)->getJson(route('assistant.conversation'))
+            ->assertOk()
+            ->assertJsonPath('restarted', true)
+            ->assertJsonPath('turns', [])
+            ->assertJsonPath('draft', null);
+        $this->actingAs($editor)->getJson(route('assistant.conversation'))->assertJsonPath('restarted', true);
+
+        $this->actingAs($editor)->get(route('assistant.show'))
+            ->assertOk()
+            ->assertSeeText('Empezamos una conversación nueva porque cambió tu cuenta o la configuración del asistente.')
+            ->assertDontSeeText('R1');
+        $this->actingAs($editor)->getJson(route('assistant.conversation'))->assertJsonPath('restarted', false);
+    }
+
+    public function test_reading_the_conversation_has_its_own_bucket_and_a_spanish_429(): void
+    {
+        $this->assertContains('throttle:assistant-read', Route::getRoutes()->getByName('assistant.conversation')->gatherMiddleware());
+
+        for ($i = 0; $i < 60; $i++) {
+            $this->actingAs($this->user)->getJson(route('assistant.conversation'))->assertOk();
+        }
+
+        $this->actingAs($this->user)->getJson(route('assistant.conversation'))
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Estás preguntando muy rápido. Espera un momento.']);
+
+        // Another account has a bucket of its own.
+        $other = User::factory()->microsoft($this->user->company)->create();
+        $this->actingAs($other)->getJson(route('assistant.conversation'))->assertOk();
+    }
+
+    public function test_too_many_questions_a_minute_is_a_spanish_429_as_json_only(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->ask('')->assertStatus(422);
+        }
+
+        $this->ask('Hola')->assertStatus(429)->assertExactJson(['error' => 'Estás preguntando muy rápido. Espera un momento.']);
+        $this->actingAs($this->user)->post(route('assistant.ask'), ['pregunta' => 'Hola'])
+            ->assertStatus(429)
+            ->assertDontSee('{"error"', false);
+        $this->assertSame([], $this->model->requests);
+    }
+
     public function test_the_conversation_endpoint_names_the_role(): void
     {
         $this->user->assignRole('announcements_editor');
@@ -250,6 +323,8 @@ class AssistantJsonTest extends TestCase
                 'draft' => null,
                 'remaining' => 39,
                 'error' => null,
+                'full' => false,
+                'budget_reached' => false,
                 'status' => 'Empezaste una conversación nueva.',
             ]);
 

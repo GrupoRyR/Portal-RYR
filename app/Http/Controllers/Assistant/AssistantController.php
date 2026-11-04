@@ -52,6 +52,9 @@ class AssistantController extends Controller
 
     public const CLEARED = 'Empezaste una conversación nueva.';
 
+    /** A 429 of the assistant's limiters as JSON (AppServiceProvider). */
+    public const TOO_FAST = 'Estás preguntando muy rápido. Espera un momento.';
+
     public function show(Request $request, AssistantSwitch $switch, AssistantSettings $settings, Assistant $assistant, AssistantBudget $budget): View
     {
         abort_unless($switch->enabled(), 404);
@@ -81,6 +84,12 @@ class AssistantController extends Controller
     /**
      * The conversation as JSON for the floating chat panel, with what the
      * page would show around it.
+     *
+     * It only reads: sync() would start the new conversation here and
+     * /asistente would lose its one-time «Empezamos una conversación
+     * nueva» notice. A conversation frozen with another plan is reported
+     * as `restarted` with nothing in it; the next page view or question
+     * replaces it (and a question says so with a 409).
      */
     public function conversation(Request $request, AssistantSwitch $switch, AssistantSettings $settings, Assistant $assistant, AssistantBudget $budget): JsonResponse
     {
@@ -89,15 +98,20 @@ class AssistantController extends Controller
         /** @var User $user */
         $user = $request->user();
         $conversation = new Conversation($request->session(), $user);
-        $restarted = $assistant->sync($user, $conversation);
+        $plan = $assistant->plan($user);
+        $stale = $conversation->exists() && $conversation->fingerprint() !== $plan->fingerprint();
 
         return response()->json([
-            ...self::payload($assistant, $conversation, $settings, $user),
+            ...ConversationJson::payload(
+                $stale ? [] : $conversation->turns(),
+                ! $stale && $plan->editor ? $conversation->draft() : null,
+                self::remaining($settings, $user),
+                ! $stale && $conversation->isFull($settings->conversationTurns, $settings->conversationMaxBytes),
+                $budget->exceeded(),
+            ),
             'available' => $switch->configured(),
             'greeting' => ConversationJson::greeting($user),
-            'restarted' => $restarted,
-            'full' => $conversation->isFull($settings->conversationTurns, $settings->conversationMaxBytes),
-            'budget_reached' => $budget->exceeded(),
+            'restarted' => $stale,
             'daily_questions' => $settings->dailyQuestions,
             'max_length' => $settings->questionMaxLength,
         ]);
@@ -168,7 +182,7 @@ class AssistantController extends Controller
         }
 
         if ($request->expectsJson()) {
-            return response()->json(self::payload($assistant, $conversation, $settings, $user));
+            return response()->json(self::payload($assistant, $conversation, $settings, $budget, $user));
         }
 
         return redirect()->to(route('assistant.show').'#respuesta');
@@ -177,7 +191,7 @@ class AssistantController extends Controller
     /**
      * «Nueva conversación»: forgets the transcript, the turns and the draft.
      */
-    public function clear(Request $request, AssistantSwitch $switch, AssistantSettings $settings): RedirectResponse|JsonResponse
+    public function clear(Request $request, AssistantSwitch $switch, AssistantSettings $settings, AssistantBudget $budget): RedirectResponse|JsonResponse
     {
         abort_unless($switch->enabled(), 404);
 
@@ -187,7 +201,7 @@ class AssistantController extends Controller
 
         if ($request->expectsJson()) {
             return response()->json([
-                ...ConversationJson::payload([], null, self::remaining($settings, $user)),
+                ...ConversationJson::payload([], null, self::remaining($settings, $user), false, $budget->exceeded()),
                 'status' => self::CLEARED,
             ]);
         }
@@ -215,15 +229,17 @@ class AssistantController extends Controller
     }
 
     /**
-     * @return array{turns: list<array{role: string, html: string}>, draft: array{title: string, excerpt: string, review_url: string}|null, remaining: int, error: null}
+     * @return array{turns: list<array{role: string, html: string}>, draft: array{title: string, excerpt: string, review_url: string}|null, remaining: int, error: null, full: bool, budget_reached: bool}
      */
-    private static function payload(Assistant $assistant, Conversation $conversation, AssistantSettings $settings, User $user): array
+    private static function payload(Assistant $assistant, Conversation $conversation, AssistantSettings $settings, AssistantBudget $budget, User $user): array
     {
         return ConversationJson::payload(
             $conversation->turns(),
             // Only an editor's conversation shows a draft, as on the page.
             $assistant->plan($user)->editor ? $conversation->draft() : null,
             self::remaining($settings, $user),
+            $conversation->isFull($settings->conversationTurns, $settings->conversationMaxBytes),
+            $budget->exceeded(),
         );
     }
 

@@ -24,16 +24,21 @@ final class ConversationJson
     public const EXCERPT_LENGTH = 140;
 
     /**
+     * $full and $budgetReached let the panel close its input, as the page
+     * does, without reading the conversation again.
+     *
      * @param  list<array{question: string, answer: string}>  $turns
-     * @return array{turns: list<array{role: string, html: string}>, draft: array{title: string, excerpt: string, review_url: string}|null, remaining: int, error: null}
+     * @return array{turns: list<array{role: string, html: string}>, draft: array{title: string, excerpt: string, review_url: string}|null, remaining: int, error: null, full: bool, budget_reached: bool}
      */
-    public static function payload(array $turns, ?AnnouncementDraft $draft, int $remaining): array
+    public static function payload(array $turns, ?AnnouncementDraft $draft, int $remaining, bool $full, bool $budgetReached): array
     {
         return [
             'turns' => self::turns($turns),
             'draft' => $draft === null ? null : self::draft($draft),
             'remaining' => $remaining,
             'error' => null,
+            'full' => $full,
+            'budget_reached' => $budgetReached,
         ];
     }
 
