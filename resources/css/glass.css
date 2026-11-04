@@ -586,9 +586,9 @@
     }
 }
 
-/* ---------- 6. Administration (layouts.admin) ----------
+/* ---------- 7. Administration (layouts.admin) ----------
    Glass chrome (sidebar and phone top bar) over the photo; the page itself
-   sits on one nearly opaque panel of --color-ground, the ground every admin
+   sits on one opaque panel of --color-ground, the ground every admin
    view was measured on (brand ink included: BrandPalette checks it against
    white and #1C1D20), so its text and status colors keep their contrast.
    The views write their cards, fields and buttons as utility strings, in
@@ -614,11 +614,13 @@
         backdrop-filter: var(--g-blur);
     }
 
-    /* No backdrop-filter, transform or z-index here: they would trap the
-       views' fixed dialogs (integrations) inside the panel. */
+    /* No backdrop-filter, filter, transform or z-index here: they would
+       trap the views' fixed dialogs (integrations) inside the panel. A plain
+       variable, not color-mix(): the build gives color-mix() a static light
+       fallback, which browsers without it would show in dark mode too. */
     .g-admin-main {
         color: var(--color-fg);
-        background: color-mix(in srgb, var(--color-ground) 97%, transparent);
+        background-color: var(--color-ground);
         border-radius: var(--g-r-xl);
         box-shadow: var(--g-drop), var(--g-bevel);
     }
@@ -642,8 +644,10 @@
     }
 
     /* Filled buttons: only a darker lower stop (white text gains contrast)
-       and a light edge along the top, never under the text. */
-    .g-admin-main .bg-brand-button {
+       and a light edge along the top, never under the text. Controls only,
+       and only enabled ones: a disabled button, the wizard's current step
+       or a logo badge must not look pressable. */
+    .g-admin-main :is(a, button, summary).bg-brand-button:not(:disabled) {
         background-image: linear-gradient(170deg, transparent 35%, rgb(0 0 0 / 0.18));
         box-shadow:
             inset 0 1px 0 rgb(255 255 255 / 0.28),
@@ -656,10 +660,20 @@
         }
     }
 
+    /* Paper: no photo, so the chrome prints as plain white (the text
+       tokens turn light-theme below). */
     @media print {
         .g-admin-main {
             background: none;
             box-shadow: none;
+        }
+
+        .g-admin-side,
+        .g-topbar {
+            background: #fff;
+            box-shadow: none;
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
         }
     }
 }

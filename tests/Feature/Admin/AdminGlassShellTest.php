@@ -9,9 +9,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Administration in Liquid Glass (resources/css/glass.css, section 6): the
+ * Administration in Liquid Glass (resources/css/glass.css, section 7): the
  * company photo behind, a glass sidebar and phone top bar, and the page on
- * one nearly opaque panel. Only the style changed: the off-canvas menu
+ * one opaque panel. Only the style changed: the off-canvas menu
  * keeps its Alpine state, focus trap and accessible toggle.
  */
 class AdminGlassShellTest extends TestCase

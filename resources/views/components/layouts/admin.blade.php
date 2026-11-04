@@ -1,7 +1,7 @@
 {{--
     Administration shell (docs/diseno/AdminCompanies.dc.html) in Liquid Glass:
     the company photo behind, a glass sidebar and phone top bar, and the page
-    on one nearly opaque panel (.g-admin-*, resources/css/glass.css).
+    on one opaque panel (.g-admin-*, resources/css/glass.css).
     Desktop (≥1024px): fixed 248px sidebar. Below: off-canvas menu opened by
     a real button; Escape, the close button or the backdrop close it.
 --}}
