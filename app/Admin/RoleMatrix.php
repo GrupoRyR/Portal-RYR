@@ -8,6 +8,7 @@ use App\Models\AppCategory;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\ItService;
+use App\Models\MarketInput;
 use App\Models\User;
 use App\Policies\AdminSections;
 use Spatie\Permission\Models\Role;
@@ -74,6 +75,13 @@ final class RoleMatrix
                 'Estado de TI',
                 ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
                 fn (User $user) => $user->can('viewAny', ItService::class),
+            ),
+            // The inputs and manual prices of the markets band, like Estado
+            // de TI (App\Policies\MarketInputPolicy).
+            new RoleMatrixSection(
+                'Mercados',
+                ['super_admin' => true, 'portal_admin' => true, 'announcements_editor' => 'Solo de su empresa'],
+                fn (User $user) => $user->can('viewAny', MarketInput::class),
             ),
             // super_admin and portal_admin are assigned automatically at
             // sign-in, so nobody adds them by hand: both only manage editors.
