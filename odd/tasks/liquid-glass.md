@@ -45,7 +45,8 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [ ] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio.
 - [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
-- [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
+- [x] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`. Hecho en `1ceb56f` (ruta: escritor delegado, 2+ archivos no triviales).
+  - Rama `feat/glass-7-assistant`: G3 con `feat/assistant-json` (G2) fusionada.
 - [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
 - [ ] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*`, `errors/*` y `mcp/*`.
 - [ ] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR).
@@ -85,7 +86,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - G4: la campanita dentro de `<x-slot:bell>`.
     - G5: la banda de Mercados (sigue `bg-surface`).
     - G6: los bloques del inicio y quitar el `g-sheet`.
-    - G7: el botón flotante del asistente (hoy está en el menú).
+    - ~~G7: el botón flotante del asistente (hoy está en el menú).~~ Hecho; el enlace del menú se queda.
     - G9: las páginas secundarias y quitar el `g-sheet`.
     - `mcp/authorize` y Administración siguen con `brand-band` (G9 y G10).
     - En iPhone con muesca, la barra fija baja hasta `env(safe-area-inset-top)` sin un relleno propio; revisar en G6.
@@ -95,3 +96,33 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Accesibilidad: el logo lleva `aria-label="Ir al inicio"`. Los formularios de búsqueda se llaman «Buscar en el portal» y «Buscar personas».
   - Las páginas secundarias ocultan la búsqueda si la persona no tiene apps (`AppCatalog`). El encabezado allí hace 6 consultas, con un tope de 8 en la prueba.
   - No se extrajo un ayudante compartido con `HomePageBuilder`, porque `app/View/Home` queda fuera de la superficie de G3. En su lugar hay pruebas en páginas secundarias para Administración, «Soporte TI» y «Mi cumpleaños».
+- G7 hecho en `1ceb56f` (`feat/glass-7-assistant`).
+  - `<x-assistant-fab>` (`App\View\Components\AssistantFab`) usa la misma condición que el enlace del menú (`AssistantLink`) y no sale en `/asistente`.
+    - El layout lo pone en las páginas `glass` (prop `assistant`, que por defecto sigue a `glass`). Así no sale en el inicio de sesión, las páginas de error ni Administración, que no son de vidrio. G8 debe pasar `:assistant="false"` si vuelve de vidrio una página de error.
+    - Sin la clave de la API se muestra igual, y el panel dice «no disponible».
+    - Sin JavaScript es un enlace a `/asistente`. En el inicio sube por encima de la barra inferior (`g-fab--raised`). En celular queda solo el ícono, con el texto oculto para lectores de pantalla.
+  - `resources/js/assistant-panel.js` es una entrada de Vite (3,6 kB gzip).
+    - `header.js` lo carga en el primer clic con un `<script type="module">`, no con `import()`: Vite 8 agrega su ayudante de precarga (otra petición en cada página) a cualquier `import()`. Como el script no recibe exportaciones, el módulo deja `window.openPortalAssistant`.
+    - Si no carga (sin conexión o con otra compilación), se sigue el enlace. Un clic con Ctrl, Shift, Alt o Cmd abre el enlace.
+    - Solo lee la conversación al abrir el panel la primera vez: el inicio guardado sin conexión nunca muestra una conversación vieja.
+  - Panel (diálogo no modal):
+    - el foco entra al campo (o a «Cerrar» si está cerrado); Escape y «Cerrar» devuelven el foco al botón;
+    - la respuesta nueva se anuncia en una región `aria-live="polite"` y los errores en `role="alert"`;
+    - «Enviar» está deshabilitado mientras espera, con «Pensando…»;
+    - un 409 vuelve a leer la conversación; 422, 429 y 503 muestran el `{error}` del servidor; 419 pide recargar, 404 dice «no disponible» y un fallo de red da un mensaje general;
+    - el campo se cierra con `full`, `budget_reached` o sin preguntas del día;
+    - el borrador (título y extracto como texto) solo enlaza a «Revisar y publicar» en `/asistente#borrador`. Un `review_url` que no sea una ruta del portal vuelve a ese enlace.
+    - Las sugerencias son las cinco de `/asistente`.
+  - `/asistente` pasó a tarjetas `g-card`, con burbujas `g-msg` y campos `g-field`. Los formularios, los ids (`#respuesta`, `#borrador`), los mensajes y la publicación del borrador no cambiaron.
+  - Los enlaces de las respuestas llevan `text-brand-ink`. Sobre la burbuja de vidrio se usa `--g-accent-ink`, el color medido (con `!important`, porque la utilidad está en una capa posterior).
+  - `tests/js/fake-dom.mjs` ahora tiene nodos de texto, `innerHTML` (guarda el marcado, y su texto sin etiquetas), `createElement`, `replaceChildren`, `remove`, `head` y `body`.
+  - Evidencia:
+    - RED antes del código: 6 de 11 pruebas nuevas de PHP, 3 pruebas nuevas de `header.test.mjs`, y `assistant-panel.test.mjs` sin el módulo.
+    - `php artisan test`: 3281 pasan.
+    - `vendor/bin/pint --test`: sale en 0.
+    - `npm run build`: bien.
+    - `node --test "tests/js/*.test.mjs"`: 39 pasan (16 del panel y 4 del botón en `header.test.mjs`).
+    - Revisión visual de las dos marcas, en claro y oscuro: en escritorio (Chrome sin interfaz, 1280 px) y a 375 px (en un iframe de 375 px; el panel del navegador escala la vista).
+    - En el navegador: enviar deshabilita «Enviar», pone `aria-busy` y oculta el botón; la respuesta llega, se anuncia y el borrador sale como texto; un 429 muestra su mensaje y conserva la pregunta; Escape cierra y devuelve el foco.
+  - Sin medir: Lighthouse en celular. El inicio solo suma el enlace (unos 650 bytes) y unos 2 kB de CSS. Nada se pide hasta el primer clic.
+  - El botón lee `AssistantSwitch` una vez más (una consulta por clave primaria) cuando el interruptor de despliegue está encendido, porque `AssistantSwitch` no es singleton y queda fuera de la superficie de G7.
