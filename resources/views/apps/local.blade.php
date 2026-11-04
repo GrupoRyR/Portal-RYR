@@ -1,10 +1,10 @@
 {{-- Info page of an app installed on the computer (docs/diseno/PhoneLocal.dc.html). --}}
 @php($steps = collect(preg_split('/\R/u', (string) $app->local_instructions))->map(fn ($step) => trim($step))->filter()->values())
 @php($downloadUrl = is_string($app->download_url) && str_starts_with(strtolower($app->download_url), 'https://') ? $app->download_url : null)
-<x-layouts.app :title="$app->name" brand-band class="flex flex-col bg-ground">
-    <x-brand-bar />
+<x-layouts.app :title="$app->name" glass class="flex flex-col">
+    <x-portal-header />
 
-    <div class="mx-auto flex w-full max-w-lg flex-1 flex-col">
+    <div class="g-sheet mx-2 my-3 flex max-w-lg flex-1 flex-col md:my-8 min-[528px]:mx-auto min-[528px]:w-full">
         <header class="flex shrink-0 items-center px-2 pt-4 pb-2">
             <a href="{{ route('home') }}" aria-label="Volver al inicio" class="flex size-touch items-center justify-center rounded-control hover:bg-subtle">
                 <svg class="size-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>

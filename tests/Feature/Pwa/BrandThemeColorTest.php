@@ -11,8 +11,9 @@ use Tests\TestCase;
 /**
  * The browser and installed-app bars take --brand-dark only on pages that
  * open with the header band behind the company logo (brand manual
- * SGX/SDC), so the bar runs into the band. Every other page, and every
- * signed-out page, keeps the neutral grounds of each color scheme.
+ * SGX/SDC), so the bar runs into the band. Every other page, the glass ones
+ * (home) included, and every signed-out page, keeps the neutral grounds of
+ * each color scheme: resources/js/theme.js makes them follow a chosen theme.
  */
 class BrandThemeColorTest extends TestCase
 {
@@ -50,9 +51,9 @@ class BrandThemeColorTest extends TestCase
         $this->assertSame('#58595B', $manifest['theme_color']);
     }
 
-    public function test_the_home_band_paints_the_bar_with_the_dark_color(): void
+    public function test_the_glass_home_keeps_the_neutral_bars(): void
     {
-        $this->assertBrandBar($this->actingAs($this->user)->get('/')->assertOk()->getContent());
+        $this->assertNeutralBars($this->actingAs($this->user)->get('/')->assertOk()->getContent());
     }
 
     public function test_the_admin_band_paints_the_bar_with_the_dark_color(): void

@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-YceKyoFQ.css",
+    "file": "assets/app-Cu6GxfeJ.css",
     "name": "app",
     "names": [
       "app.css"
@@ -8,11 +8,21 @@
     "src": "resources/css/app.css",
     "isEntry": true
   },
+  "resources/js/header.js": {
+    "file": "assets/header-B7DxCpJH.js",
+    "name": "header",
+    "src": "resources/js/header.js",
+    "isEntry": true
+  },
   "resources/js/home.js": {
-    "file": "assets/home-B-oN09BN.js",
+    "file": "assets/home-AWJTFhHL.js",
     "name": "home",
     "src": "resources/js/home.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "resources/js/header.js",
+      "resources/js/header.js"
+    ]
   },
   "resources/js/livewire.js": {
     "file": "assets/livewire-CJm6V6pB.js",

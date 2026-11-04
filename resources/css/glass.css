@@ -212,6 +212,16 @@
     }
 }
 
+/* The sticky glass header covers the top of the page: jumps to an
+   anchor («Secciones», #contenido) land below it. */
+:root:has(.g-topbar) {
+    scroll-padding-top: 8rem;
+
+    @media (min-width: 768px) {
+        scroll-padding-top: 5.5rem;
+    }
+}
+
 /* ---------- 5. Glass components (the classes the sketch uses) ---------- */
 @layer components {
     .g-card,
@@ -558,6 +568,37 @@
         }
     }
 
+    /* Header menus (components/portal-header): a nearly opaque panel under
+       the top bar, so its rows read like the rest of the glass. */
+    .g-pop {
+        position: absolute;
+        top: calc(100% + 8px);
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        width: 18rem;
+        max-width: calc(100vw - 1.5rem);
+        max-height: calc(100dvh - 6rem);
+        overflow-y: auto;
+        padding: 8px;
+        border-radius: 20px;
+        color: var(--g-ink);
+        background: var(--g-solid);
+        box-shadow: var(--g-bevel), var(--g-drop-hi);
+    }
+
+    /* Temporary surface for page content that still sits on the photo
+       (G6 and G9 restyle those pages): the glass without its rim or sheen. */
+    .g-sheet {
+        color: var(--g-ink);
+        background: var(--g-glass);
+        border-radius: var(--g-r-xl);
+        box-shadow: var(--g-drop), var(--g-bevel);
+        -webkit-backdrop-filter: var(--g-blur);
+        backdrop-filter: var(--g-blur);
+    }
+
     /* Without backdrop-filter the glass would let the photo through:
        fall back to the nearly opaque surface. */
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -565,7 +606,8 @@
         .g-tile,
         .g-banner,
         .g-topbar,
-        .g-foot {
+        .g-foot,
+        .g-sheet {
             background: var(--g-solid);
         }
     }
@@ -577,7 +619,8 @@
 
         .g-card,
         .g-tile,
-        .g-banner {
+        .g-banner,
+        .g-sheet {
             background: #fff;
             box-shadow: 0 0 0 1px #d2d8e2;
             -webkit-backdrop-filter: none;

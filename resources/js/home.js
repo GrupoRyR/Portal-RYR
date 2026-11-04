@@ -14,8 +14,11 @@
 //   links to `?noticias=` and `?catalogo=`).
 // - «Completar»: one confirmation open at a time, sent once.
 // - Installable app: registers the service worker (/sw.js, see
-//   resources/js/sw.js), shows the offline notice and asks the worker to
-//   forget this user's saved page when signing out.
+//   resources/js/sw.js) and shows the offline notice.
+// The header menus, the theme choice and the purge of the saved pages on
+// signing out (every page) live in resources/js/header.js.
+
+import './header.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -353,33 +356,6 @@ document.addEventListener('click', (event) => {
         account.open = true;
         $('summary', account).focus();
         window.scrollTo({ top: 0 });
-    } else if (account?.open && !account.contains(event.target)) {
-        account.open = false;
-    }
-});
-
-account?.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && account.open) {
-        account.open = false;
-        $('summary', account).focus();
-    }
-});
-
-// «Secciones» (phones): a plain <details>; this only closes it after a
-// jump, on Escape and on a click elsewhere.
-const sectionsMenu = $('[data-sections]');
-
-document.addEventListener('click', (event) => {
-    if (!sectionsMenu?.open) return;
-    if (event.target.closest('[data-sections] a') || !sectionsMenu.contains(event.target)) {
-        sectionsMenu.open = false;
-    }
-});
-
-sectionsMenu?.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && sectionsMenu.open) {
-        sectionsMenu.open = false;
-        $('summary', sectionsMenu).focus();
     }
 });
 
@@ -559,17 +535,5 @@ window.addEventListener('offline', showConnection);
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-    });
-
-    // Signing out also sends Clear-Site-Data; this covers browsers without it:
-    // the saved pages go, and so does this browser's phone notice subscription
-    // («Avisos en el celular»; the server forgets it on logout too).
-    document.addEventListener('submit', (event) => {
-        if (!event.target.matches('[data-logout]')) return;
-        navigator.serviceWorker.controller?.postMessage('purge');
-        navigator.serviceWorker.getRegistration('/')
-            .then((registration) => registration?.pushManager?.getSubscription())
-            .then((subscription) => subscription && subscription.unsubscribe())
-            .catch(() => {});
     });
 }

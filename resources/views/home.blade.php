@@ -1,13 +1,13 @@
 {{--
     Home screen (docs/diseno/Main, Tablet, PhoneHome, PhoneDark, PhoneSearch
-    and PhoneEmpty), with «Cambiar de empresa» in the header for linked
-    accounts and the `status` message of the last account action. The «Mi día»
+    and PhoneEmpty) on the Liquid Glass photo, under the shared glass header
+    (x-portal-header: «Cambiar de empresa», search, «Secciones» on phones and
+    the account menu), with the `status` message of the last account action. The «Mi día»
     column (prototype of the new home, odd/tasks/inicio-fase-1.md WU3) holds the
     upcoming holidays, the announcements card (beside the apps only; phones and
     tablets get a banner with the top one), birthdays and work anniversaries of
     the week, the link to the company directory (/personas) and the Microsoft
-    365 links. Phones
-    also get a «Secciones» menu. $page is an App\View\Home\HomePage: no queries here.
+    365 links. $page is an App\View\Home\HomePage: no queries here.
     Works without JavaScript; resources/js/home.js adds instant search, the
     «Ctrl K» search dialog (x-home.search-dialog, not on a server search), the
     favorite toggle and the offline notice. No Livewire or Alpine on this page.
@@ -18,7 +18,7 @@
     /** @var \App\View\Home\HomePage $page */
     $searching = $page->isSearching();
 @endphp
-<x-layouts.app title="Inicio" viewport-fit brand-band :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
+<x-layouts.app title="Inicio" viewport-fit glass :data-server-search="$searching ? 'true' : 'false'" data-pwa-source="network">
     <x-slot:head>
         @vite('resources/js/home.js')
     </x-slot:head>
@@ -31,107 +31,14 @@
 
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
-    <header class="brand-band">
-        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 md:h-[72px] md:flex-nowrap md:gap-x-8 md:px-8 md:py-0 lg:px-10">
-            <a href="{{ route('home') }}" class="order-1 flex min-h-touch min-w-0 flex-1 items-center gap-3 md:flex-none md:shrink-0 xl:w-[300px]">
-                <x-brand-logo on-band>
-                    <span class="hidden text-xs text-white/80 md:block">Portal de aplicaciones</span>
-                </x-brand-logo>
-            </a>
-
-            {{-- Its own row on phones, between the search and the account on wider screens. --}}
-            @if ($page->switcher)
-                <x-account-switcher :switcher="$page->switcher" class="order-3 min-w-0 basis-full md:order-3 md:basis-auto md:shrink-0" />
-            @endif
-
-            {{-- Phones: jump to a section of this long page; a <details>, so it works without JavaScript. --}}
-            @if ($sections = $page->sections())
-                <details class="relative order-4 md:hidden" data-sections>
-                    <summary class="flex h-12 cursor-pointer list-none items-center gap-2 rounded-[14px] border border-white/40 px-3 text-sm font-semibold hover:bg-white/10 [&::-webkit-details-marker]:hidden">
-                        <x-home.icon name="menu" stroke-width="2" class="size-[18px]" />Secciones
-                    </summary>
-                    <nav aria-label="Secciones de la página" class="absolute top-full left-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
-                        <ul class="flex flex-col gap-0.5">
-                            @foreach ($sections as $section)
-                                <li @if (($section['offline'] ?? true) === false) data-offline-omit @endif><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
-                            @endforeach
-                        </ul>
-                    </nav>
-                </details>
-            @endif
-
-            @if ($page->hasApps())
-                <form role="search" method="GET" action="{{ route('home') }}" class="order-4 min-w-0 flex-1 basis-40 md:order-2 md:mx-auto md:max-w-[560px] md:basis-auto" data-search-form>
-                    <label for="buscar" class="sr-only">Buscar aplicaciones</label>
-                    <div class="flex h-12 items-center gap-2.5 rounded-[14px] bg-surface pr-2 pl-3.5 text-fg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white md:h-11 md:rounded-control">
-                        <x-home.icon name="search" stroke-width="2" class="size-[18px] text-fg-muted" />
-                        <input id="buscar" name="q" type="search" value="{{ $page->query }}" maxlength="{{ \App\Catalog\AppSearch::MAX_LENGTH }}" placeholder="Buscar aplicaciones" autocomplete="off" enterkeyhint="search" aria-describedby="resultados" class="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted md:text-[0.9375rem]">
-                        @if ($page->searchIndex)
-                            {{-- home.js shows it: the «Ctrl K» search over apps, announcements, dates and people. --}}
-                            <button type="button" data-search-open hidden class="hidden min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong px-2 text-xs font-semibold text-fg-muted hover:bg-subtle md:inline-flex">
-                                <span class="sr-only">Buscar en todo el portal</span><kbd class="font-sans" data-search-shortcut>Ctrl K</kbd>
-                            </button>
-                        @else
-                            {{-- A server search (?q=) has no dialog: «/» focuses this field (home.js). --}}
-                            <kbd class="hidden rounded-md border border-line-strong bg-surface px-2 py-0.5 font-sans text-xs text-fg-muted md:inline" title="Pulsa / para buscar">/</kbd>
-                        @endif
-                    </div>
-                </form>
-            @endif
-
-            <div class="order-2 ml-auto flex items-center gap-3 md:order-3 md:shrink-0 xl:w-[300px] xl:justify-end">
-                @if ($page->supportHref)
-                    {{-- Icon only on phones (docs/diseno/PhoneHome), labelled from tablets up (Main, Tablet). --}}
-                    <a href="{{ $page->supportHref }}" target="_blank" rel="noopener" class="inline-flex size-touch items-center justify-center gap-2 rounded-control border border-white/40 text-sm font-semibold hover:bg-white/10 md:w-auto md:px-4">
-                        <x-home.icon name="lifebuoy" class="size-5 md:size-[18px]" />
-                        <span class="sr-only md:not-sr-only">Soporte TI</span>
-                    </a>
-                @endif
-                <details id="cuenta" class="relative" data-account>
-                    <summary class="flex size-touch cursor-pointer list-none items-center justify-center rounded-full bg-brand-tint text-[0.9375rem] font-bold text-brand-ink [&::-webkit-details-marker]:hidden">
-                        <span aria-hidden="true">{{ $page->userInitials }}</span>
-                        <span class="sr-only">Cuenta de {{ $page->userName }}</span>
-                    </summary>
-                    <div class="absolute top-full right-0 z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
-                        <div class="flex flex-col px-3 py-2">
-                            <span class="font-semibold">{{ $page->userName }}</span>
-                            @if ($page->userEmail)
-                                <span class="truncate text-[0.8125rem] text-fg-muted">{{ $page->userEmail }}</span>
-                            @endif
-                        </div>
-                        @if ($page->accountsHref)
-                            <a href="{{ $page->accountsHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
-                                <x-home.icon name="link" class="size-[18px] text-fg-muted" />Cuentas vinculadas
-                            </a>
-                        @endif
-                        @if ($page->birthdayHref)
-                            <a href="{{ $page->birthdayHref }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
-                                <x-home.icon name="gift" class="size-[18px] text-fg-muted" />Mi cumpleaños
-                            </a>
-                        @endif
-                        <x-assistant-link variant="menu" />
-                        @if ($page->canAdminister)
-                            <a href="{{ route('admin.index') }}" class="flex min-h-touch items-center gap-3 rounded-control px-3 text-sm font-semibold hover:bg-subtle">
-                                <x-home.icon name="settings" class="size-[18px] text-fg-muted" />Administración
-                            </a>
-                        @endif
-                        <form method="POST" action="{{ route('logout') }}" data-logout>
-                            @csrf
-                            <button type="submit" class="flex min-h-touch w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-sm font-semibold hover:bg-subtle">
-                                <x-home.icon name="logout" class="size-[18px] text-fg-muted" />Cerrar sesión
-                            </button>
-                        </form>
-                    </div>
-                </details>
-            </div>
-        </div>
-    </header>
+    <x-portal-header :page="$page" />
 
     @if ($page->markets !== [])
         <x-home.markets :figures="$page->markets" />
     @endif
 
-    <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10">
+    {{-- g-sheet: a temporary glass surface over the photo until G6 restyles the blocks. --}}
+    <div class="g-sheet mx-2 mt-3 mb-[calc(5.5rem+env(safe-area-inset-bottom))] flex max-w-[1440px] flex-col gap-10 px-4 pt-5 pb-6 md:mx-6 md:mt-6 md:mb-10 md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10 min-[1488px]:mx-auto">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
             {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController).
                  «Completar»'s own message (work_status) goes in «Tareas pendientes», where its redirect lands (#tareas). --}}

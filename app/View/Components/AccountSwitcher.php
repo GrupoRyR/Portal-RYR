@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Component;
 
 /**
- * «Cambiar de empresa» in the header band: the company of the signed-in
+ * «Cambiar de empresa» in the portal header: the company of the signed-in
  * account and the person's other accounts it may switch to
  * (App\Auth\LinkedAccounts::switchTargets()). Each other company is a POST
  * to `account.switch`; the switch itself is a Microsoft sign-in with that
@@ -21,9 +21,8 @@ use Illuminate\View\Component;
  * Companies are named in text (their short name), never with their
  * logos: the band carries one company's brand only (brand manual).
  *
- * The home screen passes the data built by App\View\Home\HomePageBuilder;
- * without it (components/brand-bar) the component asks for the signed-in
- * user's.
+ * components/portal-header passes it (from App\View\Home\HomePageBuilder on
+ * the home screen); without it the component asks for the signed-in user's.
  */
 class AccountSwitcher extends Component
 {

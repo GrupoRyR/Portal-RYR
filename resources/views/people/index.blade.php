@@ -5,12 +5,12 @@
     directory. No Livewire or Alpine; each row has an anchor (#p-{id}).
 --}}
 @use('App\Catalog\AppSearch')
-<x-layouts.app title="Personas" brand-band>
+<x-layouts.app title="Personas" glass>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
-    <x-brand-bar />
+    <x-portal-header />
 
-    <main id="contenido" class="mx-auto flex max-w-[680px] flex-col gap-6 px-4 pt-4 pb-12 md:px-8 md:pt-8">
+    <main id="contenido" class="g-sheet mx-2 mt-3 mb-12 flex max-w-[680px] flex-col gap-6 px-4 pt-5 pb-8 md:mt-8 md:px-8 md:pt-8 min-[696px]:mx-auto">
         <div class="flex flex-col gap-2">
             <a href="{{ route('home') }}" class="-ml-1 inline-flex min-h-touch items-center gap-1.5 self-start pr-2 text-sm font-semibold text-fg-soft underline-offset-4 hover:underline">
                 <x-home.icon name="chevron-left" stroke-width="2" class="size-[18px]" />Volver al inicio
@@ -23,7 +23,7 @@
         @elseif (! $searching && $people->total() === 0)
             <p class="rounded-card border border-line bg-surface px-5 py-8 text-center text-[0.9375rem] text-fg-muted">El directorio de {{ $companyName }} aún no se ha copiado desde Microsoft. Vuelve a intentarlo mañana.</p>
         @else
-            <form role="search" method="GET" action="{{ route('people.index') }}" class="flex flex-col gap-2">
+            <form role="search" aria-label="Buscar personas" method="GET" action="{{ route('people.index') }}" class="flex flex-col gap-2">
                 <label for="buscar-personas" class="text-sm font-semibold">Buscar por nombre, cargo, área, oficina o correo</label>
                 <div class="flex gap-2">
                     <input id="buscar-personas" name="q" type="search" value="{{ $query }}" maxlength="{{ AppSearch::MAX_LENGTH }}" autocomplete="off" enterkeyhint="search" aria-describedby="personas-resultados"
