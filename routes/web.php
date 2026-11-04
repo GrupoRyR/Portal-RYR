@@ -177,8 +177,12 @@ Route::middleware('auth')->group(function () {
     // plain POST that waits for the model, in a bucket of its own
     // (`assistant`, AppServiceProvider); the daily cap is checked inside.
     // «Publicar» of a draft is the person's own POST, through the
-    // announcement policy (AssistantDraftController).
+    // announcement policy (AssistantDraftController). The floating chat
+    // panel sends the same POSTs as JSON and reads the conversation here.
     Route::get('/asistente', [AssistantController::class, 'show'])->name('assistant.show');
+    Route::get('/asistente/conversacion', [AssistantController::class, 'conversation'])
+        ->middleware('throttle:60,1')
+        ->name('assistant.conversation');
     Route::post('/asistente', [AssistantController::class, 'ask'])
         ->middleware('throttle:assistant')
         ->name('assistant.ask');
