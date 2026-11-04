@@ -3,6 +3,8 @@
 namespace Tests\Feature\Markets;
 
 use App\Markets\MarketBoard;
+use App\Markets\MarketSeries;
+use App\Models\Company;
 use App\Models\MarketRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -122,5 +124,55 @@ class MarketBoardTest extends TestCase
 
         $this->assertCount(2, $board);
         $this->assertCount(1, $queries, 'The board must read both codes in a single query.');
+    }
+
+    /**
+     * One row of every code of the catalogue, valid on 3 Nov.
+     */
+    private function everyCode(): void
+    {
+        foreach (MarketSeries::codes() as $code) {
+            MarketRate::factory()->create(['code' => $code, 'value' => '100', 'valid_from' => '2026-11-01']);
+        }
+    }
+
+    public function test_without_a_company_or_a_selection_only_the_series_for_everyone_show(): void
+    {
+        $this->everyCode();
+
+        $this->assertSame(['trm', 'eur', 'brent', 'tpm', 'colcap'], array_keys((new MarketBoard)->current()));
+        $this->assertSame(['trm', 'eur', 'brent', 'tpm', 'colcap'], array_keys((new MarketBoard)->current(Company::factory()->create())));
+        $this->assertSame(['trm', 'eur', 'brent', 'tpm', 'colcap'], array_keys((new MarketBoard)->current(Company::factory()->create(['market_codes' => []]))));
+    }
+
+    public function test_a_company_sees_its_chosen_inputs_after_the_series_for_everyone(): void
+    {
+        $this->everyCode();
+        $company = Company::factory()->withMarketCodes(['bottles', 'zinc'])->create();
+
+        $this->assertSame(['trm', 'eur', 'brent', 'tpm', 'colcap', 'zinc', 'bottles'], array_keys((new MarketBoard)->current($company)));
+    }
+
+    public function test_another_company_does_not_see_those_inputs(): void
+    {
+        $this->everyCode();
+        Company::factory()->withMarketCodes(['zinc', 'copper'])->create();
+        $other = Company::factory()->withMarketCodes(['resins'])->create();
+
+        $this->assertSame(['trm', 'eur', 'brent', 'tpm', 'colcap', 'resins'], array_keys((new MarketBoard)->current($other)));
+    }
+
+    public function test_a_selection_still_reads_the_table_in_one_query(): void
+    {
+        $this->everyCode();
+        $company = Company::factory()->withMarketCodes(['zinc', 'copper', 'aluminum', 'brass', 'steel', 'alkali', 'resins', 'bottles'])->create()->fresh();
+
+        DB::enableQueryLog();
+        $board = (new MarketBoard)->current($company);
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertCount(13, $board);
+        $this->assertCount(1, $queries);
     }
 }

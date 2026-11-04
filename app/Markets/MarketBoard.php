@@ -2,6 +2,7 @@
 
 namespace App\Markets;
 
+use App\Models\Company;
 use App\Models\MarketRate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
@@ -14,6 +15,11 @@ use Illuminate\Support\Carbon;
  * «Latest» is the newest value that already started today in Bogotá: the
  * dataset publishes the TRM ahead of its validity, and a figure must not
  * show before its day. A code that has no value yet is left out.
+ *
+ * A company sees the series for everyone, then the inputs it chose
+ * (`companies.market_codes`, read from the company already loaded: no query
+ * of its own). Without a company, or without a choice, only the series for
+ * everyone.
  */
 final class MarketBoard
 {
@@ -22,12 +28,12 @@ final class MarketBoard
     /**
      * @return array<string, MarketQuote> By code, in the order of the catalogue (MarketSeries).
      */
-    public function current(): array
+    public function current(?Company $company = null): array
     {
-        $codes = MarketSeries::codes();
+        $codes = MarketSeries::codesFor($company?->marketCodes() ?? []);
 
         // The two newest values of each code that already started. Window
-        // function: MySQL 8 (the production database) and SQLite have it.
+        // function: MariaDB 10.2+ / MySQL 8 (production) and SQLite have it.
         $ranked = MarketRate::query()
             ->select('*')
             ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS position')
