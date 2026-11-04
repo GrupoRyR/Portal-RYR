@@ -468,6 +468,13 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - Con **Reducir movimiento** activo, nada se mueve: los logos quedan fijos y el punto de fallas también.
 - **Mi día › Próximas fechas:** hasta 5 fechas de los próximos 60 días, festivos y eventos juntos y en orden («Festivo» o «Evento»). **Ver eventos** lleva a la página de eventos, con **Agregar a mi calendario**.
   - Un festivo en lunes o viernes dice «Puente festivo», en el inicio y en el buscador (Ctrl K). De martes a jueves, o en fin de semana, dice «Festivo».
+- **Mercados:** franja bajo el encabezado con el dólar (TRM) y el euro en pesos, la flecha del cambio frente al valor anterior y la fecha de vigencia. No aparece antes de la primera sincronización (`portal:sync-markets`); con una sola cifra, muestra solo esa.
+- **Panel gerencial** («Solo Gerencia», sección 12): antes de las apps, solo para la Gerencia de la empresa de la cuenta activa y solo cuando el robot ya publicó cifras. Una cifra con meta tiene un medidor («83 % de la meta»).
+- **Noticias:** después de las apps, una pestaña por cada tipo de fuente con titulares (**Colombia**, **Internacional**, **Sector**), de la empresa de la cuenta activa. Cada titular abre la nota en otra pestaña. Sin titulares no aparece.
+- **Catálogos y categorías** (sección 11): los productos publicados de la empresa, con un botón por categoría (**Todas** primero). Las fotos cargan a medida que se baja por la página. Sin productos publicados no aparece.
+- **Mi día › Tareas pendientes:** primero **Por aprobar** y después **Tareas**, solo de la cuenta activa (contrato de tareas, §4). Las vencidas van primero y dicen «Vencida»; las que no tienen fecha, al final. Hasta 20 por grupo, con **Ver todas en …** hacia la app cuando hay más. **Ver tarea** y **Ver aprobación** abren la app en otra pestaña. **Completar** aparece solo en las tareas que la app marcó como completables y cuya integración tiene secreto de firma y URL base en el host de la app: pide confirmar (**Sí, completar**) y al volver muestra el mensaje en el mismo bloque («Tarea completada.»). Las aprobaciones nunca se completan desde el portal. Sin pendientes, el bloque no aparece.
+- **Mi día › Estado de TI** (sección 13): «Todo funciona con normalidad» o lo que falla para la empresa de la cuenta activa (servicios y apps en mantenimiento o con fallas, lo peor primero), y **Reportar un problema** (lleva a Gestor TI por `/soporte`) cuando **Configuración › Soporte TI** tiene una dirección. La cuenta de emergencia no lo ve.
+- Una búsqueda sin JavaScript (`/?q=`) muestra solo las apps: sin panel, noticias ni catálogos. Sin JavaScript, las pestañas de Noticias y los botones de categoría cargan la página otra vez (`?noticias=`, `?catalogo=`).
 
 ---
 
@@ -680,7 +687,7 @@ Los menús de Claude pueden cambiar de nombre o de idioma. La guía vigente de A
 
 **Administración › Catálogos** reúne las categorías y los productos de cada empresa, con su foto. Por ejemplo, Segurex puede tener «Línea smart», «Residencial», «Comercial» y «Control de acceso», y SDC «Hipoclorito», «Aseo hogar», «Institucional» y «Fichas técnicas y FDS». Esta pantalla solo la usan el súper administrador y el administrador del portal: el editor de anuncios no la ve.
 
-> La sección «Catálogos y categorías» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+Lo que se publica aquí aparece en la sección «Catálogos y categorías» del inicio de las personas de esa empresa (sección 7.2).
 
 ### 11.1 Elegir la empresa
 
@@ -762,7 +769,7 @@ En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y 
 
 **Administración › Estado de TI** registra los servicios de cada empresa que TI reporta a mano, por ejemplo el correo, internet, la VPN o la telefonía. Junto con las apps que están en mantenimiento o con fallas, forman el bloque «Estado de TI» del inicio: de un vistazo, cada persona sabe si algo está fallando para **su** empresa y tiene el enlace «Reportar un problema». El súper administrador y el administrador del portal administran los servicios de todas las empresas. El **editor de anuncios** (decisión del 3 de noviembre de 2026) administra solo los de **su propia empresa**, igual que sus anuncios. Gerencia no ve esta pantalla. La instalación está en `docs/despliegue.md` §1.21.
 
-> El bloque «Estado de TI» del inicio se conecta en una entrega posterior. Mientras tanto, lo que cargue aquí queda guardado y listo, pero todavía no aparece en el inicio.
+El bloque aparece en **Mi día** del inicio de cada persona con empresa activa (sección 7.2).
 
 ### 13.1 De dónde sale el estado
 

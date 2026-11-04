@@ -297,7 +297,7 @@ class HomeScreenTest extends TestCase
         $large = $this->countQueries();
 
         $this->assertSame($small, $large);
-        $this->assertLessThanOrEqual(12, $large);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $large);
     }
 
     /**
@@ -315,7 +315,7 @@ class HomeScreenTest extends TestCase
         $large = $this->countQueries();
 
         $this->assertSame($small, $large);
-        $this->assertLessThanOrEqual(12, $large);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $large);
     }
 
     /**
@@ -344,7 +344,7 @@ class HomeScreenTest extends TestCase
         $large = $this->countQueries();
 
         $this->assertSame($small, $large);
-        $this->assertLessThanOrEqual(12, $large);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $large);
         $this->actingAs($this->user->fresh())->get('/')->assertSee('id="celebraciones"', false);
     }
 
@@ -364,7 +364,7 @@ class HomeScreenTest extends TestCase
         $many = $this->countQueries();
 
         $this->assertSame($one, $many);
-        $this->assertLessThanOrEqual(12, $many);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $many);
         $this->actingAs($this->user->fresh())->get('/')->assertSee('data-event-end', false);
     }
 

@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Feature\Home\HomeQueryBudget;
 use Tests\TestCase;
 
 /**
@@ -422,7 +423,7 @@ class HomeSearchIndexTest extends TestCase
         $many = $this->countQueries();
 
         $this->assertSame($few, $many);
-        $this->assertLessThanOrEqual(12, $many);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $many);
     }
 
     private function home(string $suffix = ''): TestResponse

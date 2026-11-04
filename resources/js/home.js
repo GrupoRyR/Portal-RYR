@@ -10,6 +10,9 @@
 //   "/" and «Buscar» focus the search field. The bottom bar also opens the
 //   account menu.
 // - Animated logos: ends the entrance, pops the star when it gets pressed.
+// - «Noticias» tabs and «Catálogos» filters in place (without it they are
+//   links to `?noticias=` and `?catalogo=`).
+// - «Completar»: one confirmation open at a time, sent once.
 // - Installable app: registers the service worker (/sw.js, see
 //   resources/js/sw.js), shows the offline notice and asks the worker to
 //   forget this user's saved page when signing out.
@@ -377,6 +380,110 @@ sectionsMenu?.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && sectionsMenu.open) {
         sectionsMenu.open = false;
         $('summary', sectionsMenu).focus();
+    }
+});
+
+// «Noticias»: without JavaScript each tab is a link (`?noticias=`, a new
+// page); here they switch in place and follow the ARIA tabs keys (arrows,
+// Home, End). A click with a modifier still opens the link.
+const newsTabs = $$('[data-news-tab]');
+
+function selectNewsTab(tab, focus = false) {
+    for (const other of newsTabs) {
+        const selected = other === tab;
+        other.setAttribute('aria-selected', String(selected));
+        other.tabIndex = selected ? 0 : -1;
+        document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
+    }
+    if (focus) tab.focus();
+}
+
+if (newsTabs.length > 0) {
+    for (const tab of newsTabs) tab.tabIndex = tab.getAttribute('aria-selected') === 'true' ? 0 : -1;
+
+    const tablist = $('[data-news-tabs]');
+    tablist.addEventListener('click', (event) => {
+        const tab = event.target.closest('[data-news-tab]');
+        if (!tab || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        selectNewsTab(tab);
+    });
+    tablist.addEventListener('keydown', (event) => {
+        const position = newsTabs.indexOf(event.target);
+        if (position < 0) return;
+
+        const next = {
+            ArrowRight: newsTabs[(position + 1) % newsTabs.length],
+            ArrowLeft: newsTabs[(position - 1 + newsTabs.length) % newsTabs.length],
+            Home: newsTabs[0],
+            End: newsTabs[newsTabs.length - 1],
+            ' ': event.target,
+        }[event.key];
+        if (!next) return;
+
+        event.preventDefault();
+        selectNewsTab(next, true);
+    });
+}
+
+// «Catálogos y categorías»: without JavaScript each filter is a link
+// (`?catalogo=`, a new page); here it shows that category's cards in place.
+const catalogFilters = $$('[data-catalog-filter]');
+
+catalogFilters[0]?.closest('nav').addEventListener('click', (event) => {
+    const filter = event.target.closest('[data-catalog-filter]');
+    if (!filter || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+
+    const category = filter.dataset.catalogFilter;
+    for (const other of catalogFilters) {
+        if (other === filter) other.setAttribute('aria-current', 'true');
+        else other.removeAttribute('aria-current');
+    }
+    for (const card of $$('[data-products] > [data-product]')) {
+        card.hidden = category !== 'todas' && card.dataset.category !== category;
+    }
+});
+
+// «Completar» (Tareas pendientes): a <details> asks first, with or without
+// JavaScript. Here only one stays open, Escape closes it, and the form is
+// sent once: the app may take up to five seconds to answer.
+const completions = $$('[data-complete]');
+
+for (const confirmation of completions) {
+    confirmation.addEventListener('toggle', () => {
+        if (!confirmation.open) return;
+        completions.forEach((other) => other !== confirmation && (other.open = false));
+    });
+    confirmation.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !confirmation.open) return;
+        confirmation.open = false;
+        $('summary', confirmation).focus();
+    });
+}
+
+document.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-complete-form]');
+    if (!form) return;
+    if (form.dataset.busy) {
+        event.preventDefault();
+        return;
+    }
+
+    form.dataset.busy = '1';
+    const button = $('button[type="submit"]', form);
+    button.disabled = true;
+    button.textContent = 'Completando…';
+});
+
+// Back to this page from the history cache: the press is over.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    for (const form of $$('[data-complete-form][data-busy]')) {
+        delete form.dataset.busy;
+        const button = $('button[type="submit"]', form);
+        button.disabled = false;
+        button.textContent = 'Sí, completar';
     }
 });
 

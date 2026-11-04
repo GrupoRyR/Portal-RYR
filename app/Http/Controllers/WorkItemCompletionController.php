@@ -12,7 +12,8 @@ use Illuminate\Http\Request;
  * «Completar» (`POST /tareas/{workItem}/completar`,
  * docs/contrato-tareas-aprobaciones.md §6): a plain form, so it works
  * without JavaScript; back to the home's task list with the portal's
- * message (§6.4).
+ * message (§6.4), flashed as FLASH_KEY so the home shows it in «Tareas
+ * pendientes» and never mixes it with an account message (`status`).
  *
  * - Not one of the active account's own visible items (another person's,
  *   another linked account's, done, cancelled, deleted, of a revoked
@@ -32,6 +33,9 @@ class WorkItemCompletionController extends Controller
 
     public const PER_MINUTE = 10;
 
+    /** The session key of «Completar»'s message (home.blade.php). */
+    public const FLASH_KEY = 'work_status';
+
     public function store(Request $request, int $workItem, TaskCompleter $completer): RedirectResponse
     {
         $user = $request->user();
@@ -46,6 +50,6 @@ class WorkItemCompletionController extends Controller
         abort_unless($item->canBeCompletedFromPortal(), 403, CompletionOutcome::Forbidden->message());
 
         return redirect()->to(route('home').'#tareas')
-            ->with('status', $completer->complete($user, $item)->message());
+            ->with(self::FLASH_KEY, $completer->complete($user, $item)->message());
     }
 }

@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Tests\Feature\Home\HomeQueryBudget;
 use Tests\TestCase;
 
 /**
@@ -152,7 +153,7 @@ class ReadPerPersonTest extends TestCase
         $mandatory = $this->homeQueries();
 
         $this->assertSame($plain, $mandatory);
-        $this->assertLessThanOrEqual(12, $mandatory);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $mandatory);
     }
 
     private function homeQueries(): int

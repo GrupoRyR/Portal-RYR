@@ -2,15 +2,21 @@
 
 namespace App\View\Home;
 
+use App\Auth\MicrosoftLogin;
 use App\Calendar\ColombianHolidays;
 use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
+use App\ItStatus\ItStatusBoard;
+use App\Management\ManagementPanel;
+use App\Markets\MarketBoard;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\Company;
 use App\Models\DirectoryEntry;
 use App\Models\Event;
 use App\Models\User;
+use App\News\NewsBoard;
+use App\Products\ProductBoard;
 use App\Search\HomeSearchIndex;
 use App\Settings\PortalSettings;
 use App\View\Components\AccountSwitcher;
@@ -45,7 +51,18 @@ use InvalidArgumentException;
  * - the «Personas» link (/personas) for users with a directory;
  * - «Cumpleaños y aniversarios» (App\View\Home\Celebration) from the same
  *   directory query: the birthdays people chose to show and the work
- *   anniversaries of today and the next seven days (none on a server search).
+ *   anniversaries of today and the next seven days (none on a server search);
+ * - the «Mercados» band: TRM and euro (App\Markets\MarketBoard, one query);
+ * - «Noticias» of the user's company (App\News\NewsBoard, one query), the
+ *   tab named in `?noticias=` selected (none on a server search);
+ * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,
+ *   two queries), the category of `?catalogo=` selected (none on a server search);
+ * - the «Panel gerencial» for a «Gerencia» account of the same company
+ *   (App\Management\ManagementPanel: two queries for them, none for others);
+ * - «Tareas pendientes»: the account's own approvals and tasks
+ *   (App\View\Home\WorkList, four queries);
+ * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
+ *   one query: it reuses the visible apps).
  *
  * A search (`?q=`) narrows favorites and categories and hides recents; that
  * page, the server search without JavaScript, carries no index.
@@ -76,9 +93,18 @@ final class HomePageBuilder
         private readonly AppCatalog $catalog,
         private readonly PortalSettings $settings,
         private readonly ColombianHolidays $holidays,
+        private readonly MarketBoard $markets,
+        private readonly NewsBoard $news,
+        private readonly ProductBoard $products,
+        private readonly ManagementPanel $management,
+        private readonly ItStatusBoard $itStatus,
     ) {}
 
-    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null): HomePage
+    /**
+     * @param  string|null  $newsTab  the «Noticias» tab of `?noticias=`
+     * @param  string|null  $catalogCategory  the «Catálogos» category of `?catalogo=`
+     */
+    public function build(User $user, ?string $query = null, ?CarbonInterface $now = null, ?string $newsTab = null, ?string $catalogCategory = null): HomePage
     {
         $search = new AppSearch($query);
         $visible = $this->catalog->visibleApps($user);
@@ -121,6 +147,13 @@ final class HomePageBuilder
         // A server search shows the cards only; the index wants more.
         $announcements = $this->announcements($user, $search->isActive() ? self::ANNOUNCEMENT_LIMIT : max(self::ANNOUNCEMENT_LIMIT, HomeSearchIndex::ANNOUNCEMENT_LIMIT));
 
+        // News and catalog follow the rule of the apps and «Estado de TI»
+        // (AppCatalog, ItStatusBoard): only an active company has them.
+        $companyBlocks = $company?->is_active === true ? $company : null;
+
+        // The apps already read above: one query of its own (the services).
+        $itStatus = $this->itStatus->for($user, $visible);
+
         return new HomePage(
             salutation: $greeting->salutation,
             firstName: Greeting::firstName($user->name),
@@ -161,7 +194,32 @@ final class HomePageBuilder
             birthdayHref: $directoryCompanyId === null ? null : route('account.show').'#cumpleanos',
             celebrations: array_slice($celebrations, 0, Celebration::LIMIT),
             moreCelebrationsHref: count($celebrations) > Celebration::LIMIT ? route('people.index') : null,
+            markets: array_values(array_map(MarketFigure::from(...), $this->markets->current())),
+            // A server search shows the cards only.
+            news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
+            catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
+            management: $search->isActive() ? null : $this->managementCard($user, $today),
+            work: WorkList::for($user, CarbonImmutable::instance($now), $visible),
+            itStatus: $itStatus->available ? $itStatus : null,
         );
+    }
+
+    /**
+     * The «Panel gerencial» when the account may see it and the robot has
+     * published figures (ManagementPanel::forViewer()).
+     */
+    private function managementCard(User $user, CarbonImmutable $today): ?ManagementCard
+    {
+        // Only an account with the role can pass the ability: the others skip
+        // the gate, and with it the permission lookup of its `before` hook
+        // (the roles are already loaded by canAdminister).
+        if (! $user->hasRole(MicrosoftLogin::MANAGEMENT)) {
+            return null;
+        }
+
+        $snapshot = $this->management->forViewer($user);
+
+        return $snapshot === null ? null : ManagementCard::from($snapshot, $today);
     }
 
     /**

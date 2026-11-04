@@ -53,7 +53,7 @@
                     <nav aria-label="Secciones de la página" class="absolute top-full left-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 text-fg shadow-card [&_:focus-visible]:outline-fg">
                         <ul class="flex flex-col gap-0.5">
                             @foreach ($sections as $section)
-                                <li><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
+                                <li @if (($section['offline'] ?? true) === false) data-offline-omit @endif><a href="{{ $section['href'] }}" class="flex min-h-touch items-center rounded-control px-3 text-sm font-semibold hover:bg-subtle">{{ $section['label'] }}</a></li>
                             @endforeach
                         </ul>
                     </nav>
@@ -127,9 +127,15 @@
         </div>
     </header>
 
+    @if ($page->markets !== [])
+        <x-home.markets :figures="$page->markets" />
+    @endif
+
     <div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-10 lg:flex-row lg:items-start lg:px-10 lg:pt-10">
         <main id="contenido" class="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
-            {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController). --}}
+            {{-- The result of linking or switching accounts (App\Http\Controllers\Auth\MicrosoftLoginController).
+                 «Completar»'s own message (work_status) goes in «Tareas pendientes», where its redirect lands (#tareas). --}}
+            @php($completionStatus = is_string($flashed = session(\App\Http\Controllers\WorkItemCompletionController::FLASH_KEY)) && $flashed !== '' ? $flashed : null)
             @if (is_string($status = session('status')) && $status !== '')
                 <p role="status" data-flash class="rounded-control border border-line bg-surface px-4 py-3 text-sm font-semibold">{{ $status }}</p>
             @endif
@@ -154,6 +160,10 @@
 
             @if ($top = $page->topAnnouncement())
                 <x-announcements.banner :card="$top" data-announcement-banner class="lg:hidden" />
+            @endif
+
+            @if ($page->management)
+                <x-home.management-panel :card="$page->management" />
             @endif
 
             @if (! $page->hasApps())
@@ -221,10 +231,22 @@
                     @endforeach
                 </div>
             @endif
+
+            @if ($page->news !== [])
+                <x-home.news :tabs="$page->news" />
+            @endif
+
+            @if ($page->catalog)
+                <x-home.catalog :shelf="$page->catalog" />
+            @endif
         </main>
 
         {{-- «Mi día»: beside the apps on wide screens, after them on phones and tablets. --}}
         <aside id="mi-dia" aria-label="Mi día" class="flex min-w-0 flex-col divide-y divide-line rounded-card border border-line bg-surface lg:w-[340px] lg:shrink-0 xl:w-[360px]">
+            @if ($page->work || $completionStatus)
+                <x-home.work-list :work="$page->work" :status="$completionStatus" />
+            @endif
+
             @if ($page->upcomingDates !== [])
                 <section id="fechas" aria-labelledby="fechas-titulo" class="flex scroll-mt-6 flex-col gap-3.5 p-5">
                     <div class="flex items-center justify-between gap-3">
@@ -332,6 +354,10 @@
                     </div>
                     <p class="text-sm text-fg-muted">Encuentra a tus compañeros por nombre, cargo o área.</p>
                 </section>
+            @endif
+
+            @if ($page->itStatus)
+                <x-home.it-status :status="$page->itStatus" />
             @endif
 
             @if ($page->quickLinks !== [])

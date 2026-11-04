@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Feature\Home\HomeQueryBudget;
 use Tests\TestCase;
 
 /**
@@ -299,7 +300,7 @@ class AnnouncementReadTest extends TestCase
         $mandatory = $this->homeQueries();
 
         $this->assertSame($plain, $mandatory);
-        $this->assertLessThanOrEqual(12, $mandatory);
+        $this->assertLessThanOrEqual(HomeQueryBudget::MAX, $mandatory);
     }
 
     private function bannerOf(string $html): string

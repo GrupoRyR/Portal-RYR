@@ -42,10 +42,16 @@ const NETWORK_TIMEOUT = 3000;
 const BYPASS = /^\/(api\/|auth\/|livewire)/;
 const IMAGE_PATHS = /^\/(storage|icons)\//;
 
-// The message of the last account action (`data-flash`, home.blade.php)
-// belongs to the response it came with: the saved copy never replays it.
-// Its text is escaped by Blade, so it holds no `<`.
+// The message of the last account action or of «Completar» (`data-flash`,
+// home.blade.php) belongs to the response it came with: the saved copy never
+// replays it. Its text is escaped by Blade, so it holds no `<`.
 const FLASH = /<p\b[^>]*\bdata-flash\b[^>]*>[^<]*<\/p>\s*/g;
+
+// What must never stay on the device, such as the «Panel gerencial» and its
+// «Secciones» entry (`data-offline-omit`): losing «Gerencia» then leaves no
+// figures offline. A marked <section> or <li> holds no element of its own
+// kind, so the first closing tag is its own.
+const OFFLINE_OMIT = /<(section|li)\b[^>]*\bdata-offline-omit\b[^>]*>[\s\S]*?<\/\1>\s*/g;
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -129,10 +135,11 @@ async function remember(response, isHome) {
     if (!isHome || !response.ok || user === GUEST) return;
 
     // Marked so the page knows it came from here (resources/js/home.js),
-    // without the message of that one response.
+    // without the message of that one response nor what must stay online.
     const html = (await response.text())
         .replace('data-pwa-source="network"', 'data-pwa-source="cache"')
-        .replace(FLASH, '');
+        .replace(FLASH, '')
+        .replace(OFFLINE_OMIT, '');
     const headers = new Headers(response.headers);
     headers.set(SAVED_AT_HEADER, String(Date.now()));
 
