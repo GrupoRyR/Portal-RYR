@@ -93,6 +93,25 @@ class HomeMarketsAndNewsTest extends TestCase
         $this->assertStringNotContainsString('Subió', $trm);
     }
 
+    public function test_the_band_shows_brent_and_the_monthly_colcap_for_everyone(): void
+    {
+        MarketRate::factory()->create(['code' => 'brent', 'value' => 65.73, 'valid_from' => '2026-10-26', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'brent', 'value' => 64.53, 'valid_from' => '2026-10-27', 'source' => 'fred.stlouisfed.org']);
+        MarketRate::factory()->create(['code' => 'colcap', 'value' => 1512.3, 'valid_from' => '2026-10-01', 'source' => 'banrep.gov.co']);
+
+        $response = $this->home();
+
+        $brent = $this->element($response, 'data-market', 'brent');
+        $this->assertStringContainsString('US$64,53', $brent);
+        $this->assertStringContainsString('Bajó 1,20 dólares por barril (1,83 %)', $brent);
+
+        $colcap = $this->element($response, 'data-market', 'colcap');
+        $this->assertStringContainsString('1.512,30', $colcap);
+        $this->assertStringContainsString('datetime="2026-10"', $colcap);
+        $this->assertStringContainsString('dato de', $colcap);
+        $this->assertStringContainsString('oct 2026', $colcap);
+    }
+
     // --- Noticias ------------------------------------------------------------
 
     public function test_there_is_no_news_block_without_headlines(): void

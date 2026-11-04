@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Home;
 
+use App\Markets\MarketSeries;
 use App\View\Home\MarketFigure;
 use Tests\TestCase;
 
@@ -173,7 +174,8 @@ class HomeMarketTickerTest extends TestCase
 
     public function test_the_spoken_change_says_dollars_for_dollar_priced_codes(): void
     {
-        $this->assertSame('Subió 12,40 dólares (0,32 %)', $this->figure('brent', 'up')->spokenChange());
+        $this->assertSame('Subió 12,40 dólares por barril (0,32 %)', $this->figure('brent', 'up')->spokenChange());
+        $this->assertSame('Bajó 12,40 dólares por tonelada (0,32 %)', $this->figure('zinc', 'down')->spokenChange());
     }
 
     public function test_the_spoken_change_says_points_for_an_unknown_code(): void
@@ -281,7 +283,7 @@ class HomeMarketTickerTest extends TestCase
     {
         return new MarketFigure(
             code: $code,
-            label: $label ?? (MarketFigure::LABELS[$code] ?? strtoupper($code)),
+            label: $label ?? (MarketSeries::find($code)->label ?? strtoupper($code)),
             value: '$3.861,38',
             direction: $direction,
             percent: $direction === 'flat' ? '0,00 %' : '0,32 %',

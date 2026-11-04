@@ -7,9 +7,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
 /**
- * Read model of the markets band: for each code (TRM, euro) the latest
- * value, its validity and the change against the previous one, absolute
- * and in percent, in ONE query.
+ * Read model of the markets band: for each code of the catalogue
+ * (App\Markets\MarketSeries) the latest value, its validity and the change
+ * against the previous one, absolute and in percent, in ONE query.
  *
  * «Latest» is the newest value that already started today in Bogotá: the
  * dataset publishes the TRM ahead of its validity, and a figure must not
@@ -20,16 +20,18 @@ final class MarketBoard
     private const TZ = 'America/Bogota';
 
     /**
-     * @return array<string, MarketQuote> By code, in the order of MarketRate::CODES.
+     * @return array<string, MarketQuote> By code, in the order of the catalogue (MarketSeries).
      */
     public function current(): array
     {
+        $codes = MarketSeries::codes();
+
         // The two newest values of each code that already started. Window
         // function: MySQL 8 (the production database) and SQLite have it.
         $ranked = MarketRate::query()
             ->select('*')
             ->selectRaw('ROW_NUMBER() OVER (PARTITION BY code ORDER BY valid_from DESC) AS position')
-            ->whereIn('code', MarketRate::CODES)
+            ->whereIn('code', $codes)
             ->where('valid_from', '<=', Carbon::now(self::TZ)->toDateString());
 
         $byCode = MarketRate::query()
@@ -42,7 +44,7 @@ final class MarketBoard
 
         $board = [];
 
-        foreach (MarketRate::CODES as $code) {
+        foreach ($codes as $code) {
             $rows = $byCode->get($code);
 
             if ($rows !== null) {
