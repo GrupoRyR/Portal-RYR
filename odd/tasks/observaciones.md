@@ -55,3 +55,7 @@ Corregir lo que Jhon encontró al probar el portal desplegado y completar lo que
 ## Avance
 
 - Documento creado. Espejo en Engram: `odd/observaciones/tasks`.
+- O1 a O4 hechos por un escritor delegado, un commit por tarea: O1 `70f292b`, O2 `bb37fdd`, O3 `b4e4ccf`, O4 `5e796ab`.
+- Comprobación al cerrar O4: `php artisan test` 3.204 pruebas pasan (main: 3.146); `vendor/bin/pint --test` sale en 0.
+- Pendiente de Jhon: si los borradores del asistente deben ir a la lista (hoy no; no se tocó el asistente); llenar «Lista de todo el personal» y «Buzón remitente» de cada empresa en Admin › Empresas; correr la migración `2026_11_06_100001` al desplegar.
+- Siguiente: O5, F1 y F2.
