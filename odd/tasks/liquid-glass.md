@@ -43,7 +43,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
 - [ ] G5. **Banda de Mercados** en movimiento, con flechas verde y roja.
 - [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
 - [ ] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`.
-- [ ] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia.
+- [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en `887f69a` (ruta: escritor delegado, 2+ archivos no triviales). Pendiente: una línea de `tests/Feature/Layouts/PlaceholderPagesTest.php`, fuera de la superficie autorizada (ver Avance).
 - [ ] G9. **Páginas secundarias:** `/cuenta`, `/anuncios`, `/eventos`, `/personas`, `apps/*`, `errors/*` y `mcp/*`.
 - [ ] G10. **Administración:** barra lateral, encabezado y clases compartidas de las vistas Livewire (posiblemente en dos PR).
 
@@ -62,3 +62,11 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Fotos webp en `public/images/glass/`: grande ≤ 186 KB y pequeña ≤ 90 KB (la pequeña bajo 768 px). Incluye las de la Vitrina (planta 2 y 3) para G8.
   - Evidencia: `php artisan test` 3227 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien. RED observado en 8 pruebas nuevas o cambiadas antes del código.
   - Pendiente para G3: el `theme-color` sigue al sistema, no a `data-theme`; el botón de tema debe actualizarlo. Ninguna página usa aún `glass`.
+- G8 hecho en `887f69a` (`feat/glass-8-login`).
+  - Vitrina en `auth/login`: la foto de planta 1 de fondo y tres fotos (stand, planta 2 y 3) que entran por turnos (CSS, ciclo de 28 s), con un velo neutro. Con movimiento reducido las tres quedan en `display: none` y no se descargan. En celular, las fotos pequeñas.
+  - Tarjeta de vidrio: logo One (`public/images/one/`, webp de 14 y 22 KB, color en claro y cristal en oscuro), «Bienvenido a One», «Iniciar sesión con Microsoft», el error, los logos de `companies` y la nota de soporte.
+  - Sin «grupo»: el texto de soporte dice «Solo para colaboradores de Segurex y Soluciones y Derivados». Se quitaron la franja naranja y azul del boceto y su velo de dos colores.
+  - Pie: los nombres legales con el año actual, y solo los enlaces con dirección conocida: «Soporte TI» (si hay URL de soporte) y segurex.com (del boceto). La política, los términos y el sitio de SDC no tienen URL todavía, así que no salen.
+  - Se borraron el cielo de cometas (`components/auth/sky`) y su CSS. Las páginas de emergencia, de consentimiento y de error ahora son tarjetas de vidrio sobre `glass`. Los botones sin empresa usan `.g-btn--ink` (17,6:1 en claro y 15,7:1 en oscuro).
+  - Sin botón de tema en la Vitrina: lo agrega G3.
+  - Evidencia: RED en 18 pruebas antes del código; `php artisan test` da 3236 de 3237. La que falla es `PlaceholderPagesTest::test_the_login_page_uses_the_neutral_layout`, que busca el título anterior: hay que cambiar `assertSee('Todas tus aplicaciones en un solo lugar')` por `assertSee('Bienvenido a One')`. `vendor/bin/pint --test` sale en 0 y `npm run build` funciona. Se revisó en Chrome sin interfaz, en claro y oscuro, a 375 px y 1440 px.
