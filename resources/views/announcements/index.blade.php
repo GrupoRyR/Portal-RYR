@@ -3,12 +3,12 @@
     first. Same card as the home aside (x-announcements.card). No Livewire
     or Alpine; each item has an anchor (#a-{id}) for the phone banner.
 --}}
-<x-layouts.app title="Anuncios" brand-band>
+<x-layouts.app title="Anuncios" glass>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold">Saltar al contenido</a>
 
-    <x-brand-bar />
+    <x-portal-header />
 
-    <main id="contenido" class="mx-auto flex max-w-[680px] flex-col gap-6 px-4 pt-4 pb-12 md:px-8 md:pt-8">
+    <main id="contenido" class="g-sheet mx-2 mt-3 mb-12 flex max-w-[680px] flex-col gap-6 px-4 pt-5 pb-8 md:mt-8 md:px-8 md:pt-8 min-[696px]:mx-auto">
         <div class="flex flex-col gap-2">
             <a href="{{ route('home') }}" class="-ml-1 inline-flex min-h-touch items-center gap-1.5 self-start pr-2 text-sm font-semibold text-fg-soft underline-offset-4 hover:underline">
                 <x-home.icon name="chevron-left" stroke-width="2" class="size-[18px]" />Volver al inicio

@@ -2,6 +2,7 @@
     {{-- Same color as the header band behind the company logo. --}}
     <meta name="theme-color" content="{{ $themeColor }}">
 @else
+    {{-- One per scheme; resources/js/theme.js switches their media to the theme the person chose. --}}
     <meta name="theme-color" content="{{ \App\Pwa\WebManifest::THEME_COLOR }}" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#121315" media="(prefers-color-scheme: dark)">
 @endif

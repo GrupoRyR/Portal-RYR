@@ -14,9 +14,9 @@ use Tests\TestCase;
 
 /**
  * Secondary pages of a signed-in user (announcements, local app,
- * maintenance) open with the company logo on a --brand-dark band and use
- * the brand colors; pages that may show without a company (errors,
- * emergency access) stay neutral.
+ * maintenance) open with the glass header of the portal (<x-portal-header>)
+ * and its company logo, and use the brand colors; pages that may show
+ * without a company (errors, emergency access) stay neutral.
  */
 class SecondaryPagesBrandTest extends TestCase
 {
@@ -37,27 +37,27 @@ class SecondaryPagesBrandTest extends TestCase
         $this->user = User::factory()->microsoft($this->company)->create();
     }
 
-    public function test_the_announcements_page_opens_with_the_brand_band(): void
+    public function test_the_announcements_page_opens_with_the_portal_header(): void
     {
-        $this->assertBand($this->actingAs($this->user)->get(route('announcements.index'))->assertOk());
+        $this->assertHeader($this->actingAs($this->user)->get(route('announcements.index'))->assertOk());
     }
 
-    public function test_the_local_app_page_opens_with_the_brand_band_and_brand_steps(): void
+    public function test_the_local_app_page_opens_with_the_portal_header_and_brand_steps(): void
     {
         $app = $this->app(['type' => App::TYPE_LOCAL, 'url' => null, 'local_instructions' => "Abre el menú Inicio\nBusca la app"]);
 
         $response = $this->actingAs($this->user)->get(route('apps.open', $app))->assertOk();
 
-        $this->assertBand($response);
+        $this->assertHeader($response);
         $response->assertSee('bg-brand-button text-[0.8125rem] font-bold text-white', false)
             ->assertDontSee('text-on-fg', false);
     }
 
-    public function test_the_maintenance_page_opens_with_the_brand_band(): void
+    public function test_the_maintenance_page_opens_with_the_portal_header(): void
     {
         $app = $this->app(['status' => App::STATUS_MAINTENANCE]);
 
-        $this->assertBand($this->actingAs($this->user)->get(route('apps.open', $app))->assertOk());
+        $this->assertHeader($this->actingAs($this->user)->get(route('apps.open', $app))->assertOk());
     }
 
     public function test_the_forbidden_page_uses_the_brand_button_without_a_band(): void
@@ -77,12 +77,15 @@ class SecondaryPagesBrandTest extends TestCase
             ->assertDontSee('uppercase', false);
     }
 
-    private function assertBand(TestResponse $response): void
+    private function assertHeader(TestResponse $response): void
     {
-        // The browser bar runs into the band.
-        $response->assertSee('<header class="brand-band', false)
+        // Glass in both themes: the browser bar keeps one color per scheme
+        // (resources/js/theme.js follows the theme the person chose).
+        $response->assertSee('<header class="g-topbar', false)
             ->assertSee('alt="Segurex Latam"', false)
-            ->assertSee('<meta name="theme-color" content="'.BrandPalette::forCompany($this->company)->dark.'">', false);
+            ->assertDontSee('brand-band', false)
+            ->assertSee('<meta name="theme-color" content="#F5F5F2" media="(prefers-color-scheme: light)">', false)
+            ->assertDontSee('<meta name="theme-color" content="'.BrandPalette::forCompany($this->company)->dark.'">', false);
     }
 
     /**

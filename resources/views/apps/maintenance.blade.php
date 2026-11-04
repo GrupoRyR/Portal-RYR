@@ -1,6 +1,6 @@
 {{-- Maintenance notice (docs/diseno/PhoneMaint.dc.html): shown instead of opening the app. --}}
-<x-layouts.app :title="$app->name" noindex brand-band class="flex flex-col bg-ground">
-    <x-brand-bar />
+<x-layouts.app :title="$app->name" noindex glass class="flex flex-col">
+    <x-portal-header />
 
     <main id="contenido" class="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <section aria-labelledby="titulo-mantenimiento" class="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 sm:p-6">

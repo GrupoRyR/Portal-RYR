@@ -38,11 +38,12 @@
     <x-brand-style />
     <x-pwa-head :brand-band="$brandBand" />
 
+    {{-- header.js: the theme choice and the header menus (a few hundred bytes). --}}
     @if ($livewire)
-        @vite(['resources/css/app.css', 'resources/js/livewire.js'])
+        @vite(['resources/css/app.css', 'resources/js/header.js', 'resources/js/livewire.js'])
         @livewireStyles
     @else
-        @vite('resources/css/app.css')
+        @vite(['resources/css/app.css', 'resources/js/header.js'])
     @endif
     {{ $head ?? '' }}
 </head>
