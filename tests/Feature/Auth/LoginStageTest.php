@@ -40,8 +40,16 @@ class LoginStageTest extends TestCase
     {
         $html = $this->get(route('login'))->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<img src="[^"]*\/images\/one\/one-color\.webp" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" class="[^"]*\bdark:hidden\b/', $html);
-        $this->assertMatchesRegularExpression('/<img src="[^"]*\/images\/one\/one-cristal\.webp" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" class="hidden [^"]*\bdark:block\b/', $html);
+        // One <picture>: only the variant for the scheme downloads. The
+        // dark source follows the system without JavaScript; the theme
+        // script rewrites the media of scheme-bound sources for a stored
+        // choice (data-scheme-media convention).
+        $this->assertMatchesRegularExpression(
+            '/<picture>\s*<source srcset="[^"]*\/images\/one\/one-cristal\.webp" media="\(prefers-color-scheme: dark\)" width="220" height="103">\s*'
+            .'<img src="[^"]*\/images\/one\/one-color\.webp" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" fetchpriority="high"[^>]*>\s*<\/picture>/',
+            $html,
+        );
+        $this->assertSame(1, substr_count($html, 'alt="One, portal'));
         $this->assertFileExists(public_path('images/one/one-color.webp'));
         $this->assertFileExists(public_path('images/one/one-cristal.webp'));
     }

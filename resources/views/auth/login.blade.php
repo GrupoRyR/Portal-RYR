@@ -17,9 +17,14 @@
 
     <main class="flex grow items-center justify-center px-4 py-12 max-sm:py-8">
         <section aria-labelledby="titulo" class="g-card flex w-full max-w-[460px] flex-col items-center gap-5 px-10 pt-11 pb-9 text-center max-sm:px-5.5 max-sm:pt-8 max-sm:pb-7">
-            {{-- One mark: color on light glass, crystal on dark glass. --}}
-            <img src="{{ asset('images/one/one-color.webp') }}" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" class="h-auto w-[220px] dark:hidden">
-            <img src="{{ asset('images/one/one-cristal.webp') }}" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" class="hidden h-auto w-[220px] dark:block">
+            {{-- One mark: color on light glass, crystal on dark glass. Only
+                 the variant for the scheme downloads. Without JavaScript it
+                 follows the system; the theme script rewrites the media of
+                 scheme-bound sources when a theme was chosen. --}}
+            <picture>
+                <source srcset="{{ asset('images/one/one-cristal.webp') }}" media="(prefers-color-scheme: dark)" width="220" height="103">
+                <img src="{{ asset('images/one/one-color.webp') }}" width="220" height="103" alt="One, portal de Segurex y Soluciones y Derivados" fetchpriority="high" class="h-auto w-[220px]">
+            </picture>
 
             <div class="flex flex-col gap-2.5">
                 <h1 id="titulo" class="text-[2.125rem] leading-[1.15] font-bold tracking-[-0.015em] text-balance max-sm:text-[1.75rem]">Bienvenido a One</h1>

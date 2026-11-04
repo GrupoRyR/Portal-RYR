@@ -328,9 +328,18 @@
  * Sign-in «Vitrina» (approved sketch, 2026-11-04): company photos fade one
  * into the next under a neutral veil, behind the glass card. CSS only. The
  * first photo is the still ground; the other three fade in over it in turn
- * (7 s each, 28 s cycle). With reduced motion they are display: none, so
- * they are never even downloaded. Phones get the small photos. Text never
- * sits on the photos: the card and the footer are glass (glass.css).
+ * (7 s each, 28 s cycle) for two cycles, then the ground rests (WCAG 2.2.2).
+ * Phones get the small photos. Text never sits on the photos: the card and
+ * the footer are glass (glass.css).
+ *
+ * Weight: only the ground photo loads with the page. Each slide gets its
+ * photo from a one-shot animation 4 s before its first fade, so the fetch
+ * waits until then; with reduced motion the slides are display: none and
+ * their photos never load.
+ *
+ * Cost: only opacity moves. While the slides run, the glass on this page is
+ * the near-opaque solid surface without backdrop-filter, so the browser
+ * never re-blurs a changing photo behind the card.
  */
 @layer components {
     .vitrina {
@@ -388,27 +397,42 @@
         background: center / cover no-repeat;
     }
 
+    /* --load: when the photo is fetched; --fade: its first turn. */
     .vitrina-slide:nth-child(1) {
-        background-image: var(--vitrina-1);
-        animation-delay: 7s;
+        --slide: var(--vitrina-1);
+        --load: 3s;
+        --fade: 7s;
     }
 
     .vitrina-slide:nth-child(2) {
-        background-image: var(--vitrina-2);
-        animation-delay: 14s;
+        --slide: var(--vitrina-2);
+        --load: 10s;
+        --fade: 14s;
     }
 
     .vitrina-slide:nth-child(3) {
-        background-image: var(--vitrina-3);
-        animation-delay: 21s;
+        --slide: var(--vitrina-3);
+        --load: 17s;
+        --fade: 21s;
     }
 
     @media (prefers-reduced-motion: no-preference) {
         .vitrina-slide {
             display: block;
-            animation-name: vitrina-fade;
-            animation-duration: 28s;
-            animation-iteration-count: infinite;
+            animation-name: vitrina-load, vitrina-fade;
+            animation-duration: 1ms, 28s;
+            animation-delay: var(--load), var(--fade);
+            animation-iteration-count: 1, 2;
+            animation-fill-mode: forwards, none;
+        }
+
+        .vitrina :is(.g-card, .g-foot, .g-btn) {
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
+        }
+
+        .vitrina :is(.g-card, .g-foot) {
+            background: var(--g-solid);
         }
     }
 
@@ -427,20 +451,24 @@
     }
 }
 
-/* In for a second, held, then out while the next one comes in. */
+/* Gives a slide its photo (and so starts the download) when it runs. */
+@keyframes vitrina-load {
+    to {
+        background-image: var(--slide);
+    }
+}
+
+/* In for a second, held, then out while the next one comes in. Opacity
+   only: nothing is scaled or repainted. */
 @keyframes vitrina-fade {
     0% {
         opacity: 0;
-        transform: scale(1.04);
     }
     4%,
     25% {
         opacity: 1;
     }
-    30% {
-        opacity: 0;
-        transform: scale(1);
-    }
+    30%,
     100% {
         opacity: 0;
     }
