@@ -44,7 +44,7 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
   - Rama `feat/glass-3-header`.
 - [x] G4. **Campanita:** anuncios obligatorios sin leer, aprobaciones y tareas pendientes, y próximos eventos, dentro del presupuesto de consultas del inicio. Hecho en `4d9269d` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-4-bell`, sobre G3.
 - [x] G5. **Banda de Mercados** en movimiento, con flechas verde y roja. Hecho en `6de88f0` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-5-markets`.
-- [ ] G6. **Bloques del inicio** (posiblemente en dos PR): Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día».
+- [x] G6. **Bloques del inicio:** Favoritos, categorías, noticias, catálogo, accesos rápidos y «Mi día». Hecho en `e1d39d5`, `b7af6db` y `bbca5c6` (ruta: escritor delegado, 2+ archivos no triviales). Rama `feat/glass-6-home`, sobre G4 con G5 y G7 fusionados.
 - [x] G7. **Botón flotante «Asistente» y su panel** en todas las páginas, más el restilo de `/asistente`. Hecho en `1ceb56f` (ruta: escritor delegado, 2+ archivos no triviales).
   - Rama `feat/glass-7-assistant`: G3 con `feat/assistant-json` (G2) fusionada.
 - [x] G8. **Inicio de sesión Vitrina** y las páginas de error y de emergencia. Hecho en la rama `feat/glass-8-login` (PR #106).
@@ -181,3 +181,11 @@ Pasar todo el portal a Liquid Glass y completar lo que falta del prototipo:
     - `vendor/bin/pint --test`: sale en 0.
     - `npm run build`: bien (`assistant-panel` 3,83 kB gzip).
     - En el navegador: Tab desde «Enviar» vuelve a «Nueva conversación»; el foco queda en el campo mientras espera; un 429 relee la conversación y conserva el texto nuevo.
+- G6 hecho en `e1d39d5` (`feat/glass-6-home`), más `b7af6db` (prueba de anuncios) y `bbca5c6` (correcciones de la revisión).
+  - Base: `feat/glass-4-bell` con `feat/glass-5-markets` y `feat/glass-7-assistant` fusionados (`147fb4c`); suite 3328 en verde antes de empezar.
+  - Inicio sin `.g-sheet`: `div.g-home` con `<main>` y `<aside id="mi-dia">` (al lado desde 1024 px, debajo en celular). Saludo en `g-banner`; bloques como `g-card` en el orden del prototipo: Panel gerencial, Mis aplicaciones (Favoritos, Recientes y categorías en `g-tile`), Accesos rápidos (chips, sin «Microsoft 365»), Anuncios (en todos los anchos; se quitó la franja del celular), Noticias, Catálogos y categorías.
+  - «Mi día»: Tareas pendientes, Por confirmar (anuncios obligatorios sin leer, de `NotificationList`; «Ver todos» al llegar al límite de 8), Cumpleaños y aniversarios, Próximas fechas, Personas (búsqueda GET a `/personas`) y Estado de TI. Sin consultas nuevas.
+  - CSS en la sección 7 de `glass.css`; dentro de `.g-home` los tokens de Tailwind apuntan a los `--g-*` medidos. Sin JS nuevo ni fuentes.
+  - Fuera por falta de datos: resumen semanal, «Instalar en tu celular», clima, «Agregar a mi calendario».
+  - Revisión independiente de código y seguridad: nada grave; 8 hallazgos menores corregidos en `bbca5c6`.
+  - Evidencia: `php artisan test` 3344 pasan; `vendor/bin/pint --test` sale en 0; `npm run build` bien; `node --test` 48 pasan. RED observado en 11 + 2 pruebas nuevas. Revisión visual en Chrome sin interfaz: dos marcas, claro y oscuro, 1280 px y 375 px sin desborde.
