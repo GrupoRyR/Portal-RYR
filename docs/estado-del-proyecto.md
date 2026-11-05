@@ -1,6 +1,6 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-04.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-05.
 
 ## 1. Qué es y dónde está
 
@@ -42,6 +42,27 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 - **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`), fusionada en `main`. Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) se fusionó en `main` desde la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
 - **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, fusionada en `main`): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Está en `main`; aún no está en producción.
 
+### 2026-11-05
+
+Producción está desplegada con `main` `dcd297d` (PRs #101 a #115), con las tres migraciones nuevas: `2026_11_06_100001`, `2026_11_07_100001` y `2026_11_07_100002`.
+
+**El problema del Banco de la República está resuelto y comprobado en producción** (PR #114: la petición envía `Accept: application/xml`). Las primeras líneas de `php artisan portal:sync-markets` fueron:
+
+```text
+TRM: 10 valores guardados.
+Euro: 1 valor guardado.
+Tasa de política (BanRep): 2 valores guardados.
+COLCAP: 2 valores guardados.
+```
+
+La quinta línea fue `Sin FRED_API_KEY: se omiten Brent y los insumos.`: falta la llave de FRED (ver pendientes).
+
+**Pendientes para Jhon:**
+
+- [x] Dar el OK para fusionar y desplegar el PR #114 (BanRep). Hecho: `main` ya lo incluye y está desplegado.
+- [ ] Brent y los insumos no aparecen hasta poner `FRED_API_KEY` en el `.env` del servidor y correr `php artisan config:cache` y `php artisan portal:sync-markets` (`docs/despliegue.md` §1.16).
+- [ ] Probar la banda de Mercados con un precio manual en la base de datos del servidor.
+
 ### 2026-11-04
 
 Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
@@ -58,7 +79,7 @@ Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
 2. Después del despliegue: `php artisan portal:sync-markets`.
 3. En Administración › Empresas, completar **Lista de todo el personal** y **Buzón remitente** de cada empresa.
 
-**Problema conocido:** Banco de la República responde HTTP 500 cuando la petición no trae cabecera `Accept`. **Corregido en el PR #114** (`fix/banrep-accept`, envía `Accept: application/xml`), pendiente de fusionar y desplegar.
+**Problema conocido (resuelto el 2026-11-05):** Banco de la República responde HTTP 500 cuando la petición no trae cabecera `Accept` (y 406 con `application/json`). Corregido en el PR #114 (`fix/banrep-accept`, envía `Accept: application/xml`), fusionado y desplegado; ver la sección 2026-11-05.
 
 **Pendientes para Jhon:**
 
@@ -69,7 +90,7 @@ Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
 - [ ] Configurar `PUSH_VAPID_*` y `ANTHROPIC_API_KEY` en el servidor.
 - [ ] Crear o confirmar el grupo `APP-PortalGerencia`.
 - [ ] Revisar el CI del PR #89.
-- [ ] Dar el OK para fusionar y desplegar el PR #114 (BanRep).
+- [x] Dar el OK para fusionar y desplegar el PR #114 (BanRep). Hecho el 2026-11-05.
 - [ ] Contrato de tareas v0.2.1: falta la lista del inicio con sus botones (`docs/contrato-tareas-aprobaciones.md`).
 - [ ] Robot del panel: en pausa hasta que Jhon lo indique.
 
