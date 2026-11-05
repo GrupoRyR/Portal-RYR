@@ -2,7 +2,7 @@
 
 Este documento dice cómo producir el video guía descrito en [guion.md](guion.md) y [storyboard.md](storyboard.md).
 
-**Estado:** la herramienta ya está elegida. Nada está instalado todavía. Cada instalación espera la aprobación de Jhon.
+**Estado:** Jhon eligió la herramienta, aprobó la preparación (sección 9) y confirmó la marca v2 el 2026-11-05. Todavía no hay nada instalado ni construido.
 
 **Fuentes:** las licencias y los precios se leyeron en la fuente primaria el 2026-11-05.
 
@@ -20,7 +20,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 | Música | Pixabay Music, sin atribución obligatoria |
 | Subtítulos | Archivo `.srt` por capítulo, generado con los tiempos de la voz |
 | Formatos | 1920×1080 (escritorio) y 1080×1920 (celular) |
-| Marca | Una empresa por pantalla; skills `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2` |
+| Marca | Una empresa por pantalla; skills `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2` (v2 confirmada por Jhon) |
 | Costo de herramientas | **US$0** |
 | Tiempo estimado | De 10 a 12 días hábiles de una persona |
 
@@ -204,7 +204,7 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 - **Tipografía de las capas:** Helvetica o Arial, la misma del portal.
 - **Colores de las capas:** solo los de `brand.ts`, copiados de los tokens de la skill (con contraste AA). Nunca texto blanco sobre `#F26522`.
 - **Vidrio:** lo pone la captura real. Las capas de texto son sólidas y opacas entre 84 y 92 %, nunca texto directo sobre la foto de fondo.
-- **Skills:** `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2`. La v2 figura «en evaluación» frente a la v1 desde el 2026-10-29. Hay que confirmar con Jhon que la v2 es la vigente antes de producir.
+- **Skills:** `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2`. Jhon confirmó el 2026-11-05 que la v2 es la vigente para el video.
 
 ---
 
@@ -239,7 +239,7 @@ El costo real es el tiempo del equipo: unas 2 semanas y media de una persona. El
 
 ## 9. Siguiente paso: preparar la producción
 
-Nada de esto está hecho. Cada punto espera aprobación.
+Jhon aprobó esta sección el 2026-11-05. Todavía no hay nada hecho.
 
 **Regla común:** nada de esto llega a producción.
 
@@ -313,7 +313,7 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 - `src/scenes/NN-*.tsx`, una escena por capítulo y formato;
 - `capturas/`, `audio/` y `subtitulos/`.
 
-**Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`, siempre con la aprobación de Jhon.
+**Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`. Jhon aprobó la instalación. Crear el repositorio en GitHub es su decisión.
 
 **Riesgos:**
 
@@ -325,10 +325,11 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 
 ---
 
-## 10. Decisiones pendientes de Jhon
+## 10. Decisiones de Jhon
 
-Se responden una por una, en este orden:
-
-1. ¿Aprobamos la sección 9 (rama `video/captura-local` sin fusionar y un repositorio aparte para Motion Canvas)?
-2. ¿Voz de Azure (Salomé o Gonzalo) o voz propia?
-3. ¿La marca vigente es la v2 (`frontend-marca-sgx-sydc-v2`) o la v1?
+| # | Decisión | Respuesta |
+|---|---|---|
+| 1 | Herramienta | Motion Canvas (gratis), 2026-11-05 |
+| 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y repositorio aparte para Motion Canvas | Aprobada, 2026-11-05 |
+| 3 | Marca | v2 (`frontend-marca-sgx-sydc-v2`), 2026-11-05 |
+| 4 | Voz: Azure (Salomé o Gonzalo) o voz propia | Pendiente |
