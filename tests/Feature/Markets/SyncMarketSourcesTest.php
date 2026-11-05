@@ -112,6 +112,18 @@ class SyncMarketSourcesTest extends TestCase
         }
     }
 
+    public function test_it_asks_banrep_for_xml_because_it_answers_500_without_an_accept_header(): void
+    {
+        $this->fakeSources();
+
+        $this->artisan('portal:sync-markets');
+
+        foreach ([self::TPM_URL, self::COLCAP_URL] as $url) {
+            Http::assertSent(fn (Request $request) => $request->url() === $url
+                && $request->header('Accept') === ['application/xml']);
+        }
+    }
+
     public function test_a_banrep_answer_with_a_doctype_is_refused_and_the_last_value_stays(): void
     {
         // Fetched yesterday: a monthly series already read today would not be asked again.
