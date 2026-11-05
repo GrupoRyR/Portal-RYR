@@ -11,8 +11,10 @@ Video de animación (motion graphics) sobre capturas reales del portal, en 8 cap
 | Una empresa por pantalla | Cada cuadro muestra una sola marca. Los capítulos alternan Segurex y SDC (tabla de abajo). La única excepción es el selector de empresa (escenas 2.6 y 2.7), donde el portal muestra el nombre de las dos empresas como texto. |
 | Sin sesión | El inicio de sesión («Vitrina») es neutro: sin color de empresa. |
 | Datos | **Todo lo que se ve es de muestra**: «Ana Prueba», `ana.prueba@ejemplo.test`, «Luis Demo», tasas como «4.123,45». Ninguna persona, correo ni cifra es real. Cada pantalla lleva el rótulo «Datos de muestra». |
-| Ritmo de locución | Unas 2,3 palabras por segundo. Ninguna escena supera ese tope. |
-| Voz | Español neutro, frases cortas, tuteo («tú»). |
+| Sin voz | El video no tiene locución: se lee una barra de texto y suena música de fondo. Decisión de Jhon del 2026-11-05. |
+| Ritmo de lectura | Máximo 84 caracteres por barra, en 2 líneas de 42, y máximo 15 caracteres por segundo. Hoy todas las barras caben en 2 líneas de 42 sin cortar palabras, y el promedio es de unos 8 caracteres por segundo. |
+| Primero el texto | La barra de texto aparece primero. La acción en pantalla (clic, acercamiento) empieza cerca de 1 s después, para que se lea antes de mirar. |
+| Estilo | Español neutro, frases cortas, tuteo («tú»). Texto para leer, no para oír. |
 | Textos del portal | Los botones y títulos entre «» son los reales del código. La fuente de cada uno está en [Fuentes de los textos](#fuentes-de-los-textos). |
 
 | Capítulo | Marca | Tema | Duración |
@@ -26,7 +28,7 @@ Video de animación (motion graphics) sobre capturas reales del portal, en 8 cap
 | 7. Tema, el portal en el celular y los avisos | SDC | Claro y oscuro | 70 s |
 | 8. Opcional: anuncios con correo y Mercados | Segurex | Claro | 90 s |
 
-Cada escena tiene seis campos: número, duración, qué se ve, texto en pantalla, locución y transición. El cuadro de cada escena está en `docs/video-guia/storyboard.md`, con el mismo número.
+Cada escena tiene seis campos: número, duración, qué se ve, texto en pantalla, barra de texto y transición. El «Texto en pantalla» es el rótulo corto sobre la captura. La «Barra de texto» es la frase que se lee en la barra inferior. El cuadro de cada escena está en `docs/video-guia/storyboard.md`, con el mismo número.
 
 ---
 
@@ -35,15 +37,15 @@ Cada escena tiene seis campos: número, duración, qué se ve, texto en pantalla
 - **Duración:** 60 s.
 - **Objetivo:** que la persona reconozca One y entre con su cuenta de Microsoft.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
 | 1.1 | 6 s | Animación: el logo One se arma sobre un fondo neutro. | «One · Portal RYR» | Este es One, el portal de Segurex y Soluciones y Derivados. | Fundido desde negro |
-| 1.2 | 9 s | Animación: íconos de apps, anuncios y tareas se juntan en una tarjeta de vidrio. | «Tus apps, anuncios y tareas, en un solo lugar» | Aquí encuentras tus aplicaciones, los anuncios de tu empresa y tus tareas, todo en un solo lugar. | La tarjeta se convierte en la de la Vitrina |
-| 1.3 | 9 s | Portal, `/login`: la Vitrina, con fotos que se funden detrás de la tarjeta, el logo One y el título «Bienvenido a One». | «Bienvenido a One» | Para entrar, abre el portal en tu navegador. Verás la pantalla de inicio de sesión. | Acercamiento al botón |
-| 1.4 | 10 s | Portal, `/login`: el cursor pulsa «Iniciar sesión con Microsoft». | «Iniciar sesión con Microsoft» | Pulsa «Iniciar sesión con Microsoft» y usa tu cuenta de trabajo, la misma de tu correo. | Barrido a la derecha |
-| 1.5 | 9 s | Animación: un selector de cuentas genérico (no la pantalla real de Microsoft) con `ana.prueba@ejemplo.test`. | «Tu cuenta de trabajo de Segurex o de SDC» | Si tienes cuenta en las dos empresas, entra con cualquiera. Luego puedes cambiar de empresa. | Barrido de regreso a la Vitrina |
+| 1.2 | 9 s | Animación: íconos de apps, anuncios y tareas se juntan en una tarjeta de vidrio. | «Tus apps, anuncios y tareas, en un solo lugar» | Tus aplicaciones, los anuncios de tu empresa y tus tareas, en un solo lugar. | La tarjeta se convierte en la de la Vitrina |
+| 1.3 | 9 s | Portal, `/login`: la Vitrina, con fotos que se funden detrás de la tarjeta, el logo One y el título «Bienvenido a One». | «Bienvenido a One» | Abre el portal en tu navegador. Verás la pantalla de inicio de sesión. | Acercamiento al botón |
+| 1.4 | 10 s | Portal, `/login`: el cursor pulsa «Iniciar sesión con Microsoft». | «Iniciar sesión con Microsoft» | Pulsa «Iniciar sesión con Microsoft» y usa tu cuenta de trabajo, la de tu correo. | Barrido a la derecha |
+| 1.5 | 9 s | Animación: un selector de cuentas genérico (no la pantalla real de Microsoft) con `ana.prueba@ejemplo.test`. | «Tu cuenta de trabajo de Segurex o de SDC» | ¿Tienes cuenta en las dos? Entra con cualquiera y luego cambia de empresa. | Barrido de regreso a la Vitrina |
 | 1.6 | 8 s | Portal, `/login`: se resalta la línea de ayuda «Escribe a soporte de TI». | «¿Problemas para entrar? Escribe a soporte de TI» | Si no puedes entrar, usa el enlace de soporte de TI que está debajo. | Fundido a blanco |
-| 1.7 | 9 s | Portal, `/`: el inicio de Segurex con el saludo «Buenos días, Ana». | «Buenos días, Ana» · «Datos de muestra» | Al entrar llegas al inicio, con los colores de tu empresa. Veamos qué hay en él. | Corte a la tarjeta de cierre |
+| 1.7 | 9 s | Portal, `/`: el inicio de Segurex con el saludo «Buenos días, Ana». | «Buenos días, Ana» · «Datos de muestra» | Al entrar llegas al inicio, con los colores de tu empresa. | Corte a la tarjeta de cierre |
 
 Suma: 6 + 9 + 9 + 10 + 9 + 8 + 9 = **60 s**.
 
@@ -52,16 +54,16 @@ Suma: 6 + 9 + 9 + 10 + 9 + 8 + 9 = **60 s**.
 - **Duración:** 80 s.
 - **Objetivo:** vincular la cuenta de la otra empresa desde `/cuenta` y cambiar de empresa en el encabezado.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
-| 2.1 | 8 s | Portal, `/` (Segurex): se abre el menú del avatar «AP» y se resalta «Cuentas vinculadas». | «Tu avatar › Cuentas vinculadas» | ¿Trabajas para las dos empresas? Abre el menú de tu avatar y elige «Cuentas vinculadas». | Clic que lleva a la página |
-| 2.2 | 9 s | Portal, `/cuenta`: título «Cuentas vinculadas», tarjeta «Tus cuentas» con «Aún no tienes cuentas vinculadas.». | «Cuentas vinculadas» | Esta página muestra tus cuentas. Cada una conserva sus propios permisos, aplicaciones y favoritos. | Acercamiento al botón |
-| 2.3 | 9 s | Portal, `/cuenta`: el cursor pulsa «Vincular otra empresa». Aparece una ilustración de la confirmación de Microsoft. | «Vincular otra empresa» | Pulsa «Vincular otra empresa». Microsoft te pide confirmar tu cuenta actual con tu contraseña. | Corte a la página siguiente |
-| 2.4 | 11 s | Portal, `/cuenta/vincular`: título «Vincular otra cuenta», lista «Cómo funciona» y botón «Continuar con Microsoft». | «Continuar con Microsoft» | Lee cómo funciona y pulsa «Continuar con Microsoft». Elige la cuenta de la otra empresa y entra con ella. | Barrido al inicio |
-| 2.5 | 9 s | Portal, `/`: aviso «Vinculaste tu cuenta de Soluciones y Derivados.» sobre el inicio de Segurex. | «Vinculaste tu cuenta de …» | Vuelves al inicio con un mensaje de confirmación. Tu sesión sigue en la misma empresa. | Acercamiento al encabezado |
-| 2.6 | 10 s | Portal, encabezado de `/`: el selector «Cambiar de empresa» con «Segurex» marcado y «Soluciones y Derivados» como botón. | «Cambiar de empresa» | Ahora el encabezado muestra el selector de empresa. La empresa actual aparece marcada. | Pulso sobre la otra empresa |
-| 2.7 | 10 s | Portal, `/`: el cursor pulsa «Soluciones y Derivados». Microsoft entra con esa cuenta y el inicio carga en azul con «Ahora estás en tu cuenta de Soluciones y Derivados.». | «Ahora estás en tu cuenta de …» | Toca la otra empresa. Microsoft entra con esa cuenta, casi siempre sin preguntarte nada. | Barrido de color hacia el azul de SDC |
-| 2.8 | 8 s | Portal, `/` (SDC): se resaltan el logo, los colores y las apps, que cambiaron. | «Otra empresa: otros colores y otras apps» | El portal cambia de colores, aplicaciones y anuncios. Todo corresponde a la empresa activa. | Corte al celular |
+| 2.1 | 8 s | Portal, `/` (Segurex): se abre el menú del avatar «AP» y se resalta «Cuentas vinculadas». | «Tu avatar › Cuentas vinculadas» | ¿Trabajas en las dos empresas? Abre tu avatar y elige «Cuentas vinculadas». | Clic que lleva a la página |
+| 2.2 | 9 s | Portal, `/cuenta`: título «Cuentas vinculadas», tarjeta «Tus cuentas» con «Aún no tienes cuentas vinculadas.». | «Cuentas vinculadas» | Cada cuenta conserva sus propios permisos, aplicaciones y favoritos. | Acercamiento al botón |
+| 2.3 | 9 s | Portal, `/cuenta`: el cursor pulsa «Vincular otra empresa». Aparece una ilustración de la confirmación de Microsoft. | «Vincular otra empresa» | Pulsa «Vincular otra empresa» y confirma tu cuenta con tu contraseña. | Corte a la página siguiente |
+| 2.4 | 11 s | Portal, `/cuenta/vincular`: título «Vincular otra cuenta», lista «Cómo funciona» y botón «Continuar con Microsoft». | «Continuar con Microsoft» | Pulsa «Continuar con Microsoft» y entra con la cuenta de la otra empresa. | Barrido al inicio |
+| 2.5 | 9 s | Portal, `/`: aviso «Vinculaste tu cuenta de Soluciones y Derivados.» sobre el inicio de Segurex. | «Vinculaste tu cuenta de …» | Vuelves al inicio con un mensaje de confirmación. Sigues en la misma empresa. | Acercamiento al encabezado |
+| 2.6 | 10 s | Portal, encabezado de `/`: el selector «Cambiar de empresa» con «Segurex» marcado y «Soluciones y Derivados» como botón. | «Cambiar de empresa» | El encabezado ahora muestra el selector de empresa. La actual aparece marcada. | Pulso sobre la otra empresa |
+| 2.7 | 10 s | Portal, `/`: el cursor pulsa «Soluciones y Derivados». Microsoft entra con esa cuenta y el inicio carga en azul con «Ahora estás en tu cuenta de Soluciones y Derivados.». | «Ahora estás en tu cuenta de …» | Toca la otra empresa. Microsoft entra con esa cuenta, casi sin preguntar. | Barrido de color hacia el azul de SDC |
+| 2.8 | 8 s | Portal, `/` (SDC): se resaltan el logo, los colores y las apps, que cambiaron. | «Otra empresa: otros colores y otras apps» | Cambian los colores, las apps y los anuncios: son de la empresa activa. | Corte al celular |
 | 2.9 | 6 s | Portal en celular, `/`: menú del avatar con «Tus empresas». | «En el celular: menú › Tus empresas» | En el celular, cambias de empresa desde «Tus empresas», en el menú. | Fundido a la tarjeta de cierre |
 
 Suma: 8 + 9 + 9 + 11 + 9 + 10 + 10 + 8 + 6 = **80 s**.
@@ -71,17 +73,17 @@ Suma: 8 + 9 + 9 + 11 + 9 + 10 + 10 + 8 + 6 = **80 s**.
 - **Duración:** 85 s.
 - **Objetivo:** ubicar «Mis aplicaciones», «Favoritos», «Recientes», el buscador, «Accesos rápidos» y la banda de Mercados.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
-| 3.1 | 8 s | Portal, `/` (SDC): vista completa con el saludo, las tarjetas y la columna «Mi día». | «El inicio» | Este es el inicio. A la izquierda están tus aplicaciones; a la derecha, «Mi día». | Acercamiento a la tarjeta de apps |
-| 3.2 | 10 s | Portal, `/`: tarjeta «Mis aplicaciones» con la nota «Tienes 12 aplicaciones disponibles en …» y sus categorías. | «Mis aplicaciones» | En «Mis aplicaciones» ves solo las aplicaciones a las que tienes acceso, ordenadas por categoría. | Seguimiento del cursor |
-| 3.3 | 10 s | Portal, `/`: el cursor pulsa la estrella de la app de muestra «Compras demo»; la tarjeta salta a «Favoritos». | «Toca la estrella para fijarla en Favoritos» | Toca la estrella de una aplicación para fijarla en «Favoritos». Así la tienes siempre arriba. | Desplazamiento corto hacia abajo |
+| 3.1 | 8 s | Portal, `/` (SDC): vista completa con el saludo, las tarjetas y la columna «Mi día». | «El inicio» | Este es el inicio. A la izquierda, tus aplicaciones; a la derecha, «Mi día». | Acercamiento a la tarjeta de apps |
+| 3.2 | 10 s | Portal, `/`: tarjeta «Mis aplicaciones» con la nota «Tienes 12 aplicaciones disponibles en …» y sus categorías. | «Mis aplicaciones» | «Mis aplicaciones» muestra solo las que puedes usar, por categoría. | Seguimiento del cursor |
+| 3.3 | 10 s | Portal, `/`: el cursor pulsa la estrella de la app de muestra «Compras demo»; la tarjeta salta a «Favoritos». | «Toca la estrella para fijarla en Favoritos» | Toca la estrella de una aplicación para fijarla en «Favoritos», siempre arriba. | Desplazamiento corto hacia abajo |
 | 3.4 | 7 s | Portal, `/`: se resalta la lista «Recientes». | «Recientes» | En «Recientes» aparecen las últimas aplicaciones que abriste. | Corte al buscador |
-| 3.5 | 11 s | Portal, `/`: se pulsa Ctrl K y se abre «Buscar en el portal»; al escribir «vaca» salen los grupos «Aplicaciones», «Anuncios», «Fechas» y «Personas». | «Ctrl K (⌘ K en Mac)» | Para buscar, pulsa Control K. Encuentras aplicaciones, anuncios, fechas y personas en un mismo buscador. | El diálogo se cierra con Esc |
-| 3.6 | 8 s | Portal, `/`: tarjeta «Accesos rápidos» con Outlook, Teams y OneDrive. | «Accesos rápidos» | En «Accesos rápidos» tienes Outlook, Teams, OneDrive y los enlaces propios de tu empresa. | Subida al encabezado |
-| 3.7 | 12 s | Portal, `/`: la banda «Mercados» corre bajo el encabezado con «Dólar (TRM) 4.123,45 ▲ 0,32 %» y «Euro 4.456,78 ▼ 0,15 %». | «Mercados» · «Datos de muestra» | Debajo del encabezado corre la banda de «Mercados»: el dólar, el euro y otros indicadores, con su fecha. | Acercamiento a las flechas |
-| 3.8 | 10 s | Portal, `/`: acercamiento a ▲ verde, ▼ rojo y ● neutro. | «Verde: subió · Rojo: bajó» | La flecha verde indica que el valor subió; la roja, que bajó, frente al dato anterior. | Paneo al control de pausa |
-| 3.9 | 9 s | Portal, `/`: el cursor pulsa «Pausar»; la banda se detiene y el control dice «Reanudar». | «Pausar · Reanudar» | Para leer con calma, pulsa «Pausar». La banda también se detiene al pasar el mouse. | Fundido a la tarjeta de cierre |
+| 3.5 | 11 s | Portal, `/`: se pulsa Ctrl K y se abre «Buscar en el portal»; al escribir «vaca» salen los grupos «Aplicaciones», «Anuncios», «Fechas» y «Personas». | «Ctrl K (⌘ K en Mac)» | Pulsa Ctrl K para buscar aplicaciones, anuncios, fechas y personas a la vez. | El diálogo se cierra con Esc |
+| 3.6 | 8 s | Portal, `/`: tarjeta «Accesos rápidos» con Outlook, Teams y OneDrive. | «Accesos rápidos» | «Accesos rápidos» tiene Outlook, Teams, OneDrive y los enlaces de tu empresa. | Subida al encabezado |
+| 3.7 | 12 s | Portal, `/`: la banda «Mercados» corre bajo el encabezado con «Dólar (TRM) 4.123,45 ▲ 0,32 %» y «Euro 4.456,78 ▼ 0,15 %». | «Mercados» · «Datos de muestra» | Bajo el encabezado corre «Mercados»: dólar, euro y otros indicadores. | Acercamiento a las flechas |
+| 3.8 | 10 s | Portal, `/`: acercamiento a ▲ verde, ▼ rojo y ● neutro. | «Verde: subió · Rojo: bajó» | La flecha verde indica que subió y la roja que bajó, frente al dato anterior. | Paneo al control de pausa |
+| 3.9 | 9 s | Portal, `/`: el cursor pulsa «Pausar»; la banda se detiene y el control dice «Reanudar». | «Pausar · Reanudar» | Pulsa «Pausar» para leer con calma. Al pasar el mouse, también se detiene. | Fundido a la tarjeta de cierre |
 
 Suma: 8 + 10 + 10 + 7 + 11 + 8 + 12 + 10 + 9 = **85 s**.
 
@@ -90,16 +92,16 @@ Suma: 8 + 10 + 10 + 7 + 11 + 8 + 12 + 10 + 9 = **85 s**.
 - **Duración:** 80 s.
 - **Objetivo:** recorrer los bloques de «Mi día»: «Tareas pendientes», «Por confirmar», «Cumpleaños y aniversarios», «Próximas fechas», «Personas» y «Estado de TI».
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
 | 4.1 | 7 s | Portal, `/#mi-dia` (Segurex, tema oscuro): acercamiento a la tarjeta «Mi día». | «Mi día» | «Mi día» reúne lo que necesita tu atención hoy. | Desplazamiento al primer bloque |
-| 4.2 | 12 s | Portal, `/#tareas`: «Tareas pendientes» con «Por aprobar» y «Tareas»; la fila «Revisar orden de compra 0001» lleva «Vencida». | «Tareas pendientes · Por aprobar · Tareas» | En «Tareas pendientes» ves primero lo que tienes por aprobar y después tus tareas. Las vencidas van arriba. | Acercamiento a los botones |
-| 4.3 | 10 s | Portal, `/#tareas`: se resaltan «Ver tarea» y «Completar»; al pulsar «Completar» aparece «Sí, completar». | «Ver tarea · Completar» | «Ver tarea» abre la aplicación. Algunas tareas se completan aquí mismo con «Completar». | Desplazamiento hacia abajo |
-| 4.4 | 9 s | Portal, `/#por-confirmar`: «Por confirmar» con un anuncio de muestra y «Confirma su lectura · 3 de noviembre». | «Por confirmar» | En «Por confirmar» están los anuncios obligatorios que todavía no has confirmado. | Desplazamiento hacia abajo |
-| 4.5 | 10 s | Portal, `/#celebraciones`: «Cumpleaños y aniversarios» con «Luis Demo · Hoy · Cumpleaños» y el botón «Felicitar». | «Cumpleaños y aniversarios» | En «Cumpleaños y aniversarios» ves las celebraciones de la semana. «Felicitar» abre un chat de Teams. | Desplazamiento hacia abajo |
+| 4.2 | 12 s | Portal, `/#tareas`: «Tareas pendientes» con «Por aprobar» y «Tareas»; la fila «Revisar orden de compra 0001» lleva «Vencida». | «Tareas pendientes · Por aprobar · Tareas» | Primero lo que debes aprobar y luego tus tareas. Las vencidas van arriba. | Acercamiento a los botones |
+| 4.3 | 10 s | Portal, `/#tareas`: se resaltan «Ver tarea» y «Completar»; al pulsar «Completar» aparece «Sí, completar». | «Ver tarea · Completar» | «Ver tarea» abre la app. Algunas se completan aquí con «Completar». | Desplazamiento hacia abajo |
+| 4.4 | 9 s | Portal, `/#por-confirmar`: «Por confirmar» con un anuncio de muestra y «Confirma su lectura · 3 de noviembre». | «Por confirmar» | En «Por confirmar» están los anuncios obligatorios que aún no confirmas. | Desplazamiento hacia abajo |
+| 4.5 | 10 s | Portal, `/#celebraciones`: «Cumpleaños y aniversarios» con «Luis Demo · Hoy · Cumpleaños» y el botón «Felicitar». | «Cumpleaños y aniversarios» | Ves las celebraciones de la semana. «Felicitar» abre un chat de Teams. | Desplazamiento hacia abajo |
 | 4.6 | 8 s | Portal, `/#fechas`: «Próximas fechas» con un festivo y un evento de muestra, y el enlace «Ver eventos». | «Próximas fechas» | «Próximas fechas» muestra los festivos y eventos que se acercan. | Desplazamiento hacia abajo |
-| 4.7 | 9 s | Portal, `/#personas`: «Personas»; se escribe «compras» en el campo «Nombre, cargo o área». Se ve «Ver directorio». | «Personas · Nombre, cargo o área» | En «Personas» buscas a un compañero de tu empresa por nombre, cargo o área. | Desplazamiento hacia abajo |
-| 4.8 | 10 s | Portal, `/#estado-ti`: «Estado de TI» con «Todo funciona con normalidad» y el botón «Reportar un problema». | «Estado de TI» | «Estado de TI» te dice si algo falla. Si tienes un problema, pulsa «Reportar un problema». | Alejamiento a toda la columna |
+| 4.7 | 9 s | Portal, `/#personas`: «Personas»; se escribe «compras» en el campo «Nombre, cargo o área». Se ve «Ver directorio». | «Personas · Nombre, cargo o área» | En «Personas» buscas a un compañero por nombre, cargo o área. | Desplazamiento hacia abajo |
+| 4.8 | 10 s | Portal, `/#estado-ti`: «Estado de TI» con «Todo funciona con normalidad» y el botón «Reportar un problema». | «Estado de TI» | Si algo falla, lo ves en «Estado de TI». Avísalo con «Reportar un problema». | Alejamiento a toda la columna |
 | 4.9 | 5 s | Portal, `/`: la columna «Mi día» completa, con un rótulo encima. | «Solo lo de tu cuenta activa» | Todo lo que ves aquí es de tu cuenta activa. | Fundido a la tarjeta de cierre |
 
 Suma: 7 + 12 + 10 + 9 + 10 + 8 + 9 + 10 + 5 = **80 s**.
@@ -109,16 +111,16 @@ Suma: 7 + 12 + 10 + 9 + 10 + 8 + 9 + 10 + 5 = **80 s**.
 - **Duración:** 75 s.
 - **Objetivo:** usar la campana «Avisos», confirmar la lectura de un anuncio y guardar un evento en el calendario.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
-| 5.1 | 8 s | Portal, encabezado de `/` (SDC): la campana con el número «3». | «Avisos» | La campana del encabezado muestra cuántos avisos tienes sin leer. | Clic en la campana |
-| 5.2 | 10 s | Portal, `/`: menú «Avisos» abierto con un anuncio, una aprobación, una tarea y un evento de muestra. | «Anuncios, aprobaciones, tareas y eventos» | Al abrirla ves anuncios, aprobaciones, tareas y eventos próximos. Toca uno para ir directo a él. | Acercamiento al pie del menú |
+| 5.1 | 8 s | Portal, encabezado de `/` (SDC): la campana con el número «3». | «Avisos» | La campana muestra cuántos avisos tienes sin leer. | Clic en la campana |
+| 5.2 | 10 s | Portal, `/`: menú «Avisos» abierto con un anuncio, una aprobación, una tarea y un evento de muestra. | «Anuncios, aprobaciones, tareas y eventos» | Ves anuncios, aprobaciones, tareas y eventos. Toca uno para abrirlo. | Acercamiento al pie del menú |
 | 5.3 | 7 s | Portal, `/`: el cursor pulsa «Ver todo» y la página baja a «Mi día». | «Ver todo» | «Ver todo» te lleva a «Mi día», en el inicio. | Desplazamiento a «Anuncios» |
-| 5.4 | 10 s | Portal, `/#anuncios`: tarjeta «Anuncios»; uno lleva «Fijado» y otro «Lectura obligatoria». | «Anuncios» | En la tarjeta «Anuncios» están las noticias de tu empresa. Los fijados aparecen primero. | Acercamiento al anuncio obligatorio |
-| 5.5 | 11 s | Portal, `/#anuncios`: el cursor pulsa «Confirmar lectura»; aparece «Leído el 5 de noviembre». | «Confirmar lectura» | Si un anuncio dice «Lectura obligatoria», léelo y pulsa «Confirmar lectura». Queda registrado que lo leíste. | Paneo a «Ver todos» |
+| 5.4 | 10 s | Portal, `/#anuncios`: tarjeta «Anuncios»; uno lleva «Fijado» y otro «Lectura obligatoria». | «Anuncios» | En «Anuncios» están las noticias de tu empresa. Los fijados van primero. | Acercamiento al anuncio obligatorio |
+| 5.5 | 11 s | Portal, `/#anuncios`: el cursor pulsa «Confirmar lectura»; aparece «Leído el 5 de noviembre». | «Confirmar lectura» | Si es de «Lectura obligatoria», léelo y pulsa «Confirmar lectura». | Paneo a «Ver todos» |
 | 5.6 | 7 s | Portal, `/anuncios`: la lista completa, título «Anuncios». | «Ver todos» | «Ver todos» abre la lista completa de anuncios. | Corte a «Próximas fechas» |
-| 5.7 | 9 s | Portal, `/#fechas` y luego `/eventos`: el cursor pulsa «Ver eventos» y abre la página «Eventos». | «Ver eventos» | Para ver los eventos de la empresa, entra a «Ver eventos» desde «Próximas fechas». | Acercamiento a un evento |
-| 5.8 | 13 s | Portal, `/eventos`: el evento de muestra «Jornada de bienestar» con fecha y lugar; el cursor pulsa «Agregar a mi calendario» y un ícono de calendario recibe el archivo. | «Agregar a mi calendario» | Cada evento trae fecha, lugar y descripción. Con «Agregar a mi calendario» lo descargas y lo guardas en tu calendario. | Fundido a la tarjeta de cierre |
+| 5.7 | 9 s | Portal, `/#fechas` y luego `/eventos`: el cursor pulsa «Ver eventos» y abre la página «Eventos». | «Ver eventos» | Para ver los eventos, pulsa «Ver eventos» en «Próximas fechas». | Acercamiento a un evento |
+| 5.8 | 13 s | Portal, `/eventos`: el evento de muestra «Jornada de bienestar» con fecha y lugar; el cursor pulsa «Agregar a mi calendario» y un ícono de calendario recibe el archivo. | «Agregar a mi calendario» | Cada evento trae fecha y lugar. Guárdalo con «Agregar a mi calendario». | Fundido a la tarjeta de cierre |
 
 Suma: 8 + 10 + 7 + 10 + 11 + 7 + 9 + 13 = **75 s**.
 
@@ -127,15 +129,15 @@ Suma: 8 + 10 + 7 + 10 + 11 + 7 + 9 + 13 = **75 s**.
 - **Duración:** 70 s.
 - **Objetivo:** abrir el «Asistente», saber qué puede responder y conocer sus límites reales.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
-| 6.1 | 8 s | Portal, `/` (Segurex): el botón flotante «Asistente», abajo a la derecha, con un pulso. | «Asistente» | Abajo a la derecha está el botón «Asistente». Púlsalo para abrir el chat. | El panel se abre desde el botón |
-| 6.2 | 9 s | Portal, `/`: panel «Asistente» con «Hola, Ana.», las sugerencias y el campo «Pregunta o pide algo…». | «Pregunta o pide algo…» | Puedes empezar con una sugerencia o escribir tu propia pregunta. | Clic en una sugerencia |
-| 6.3 | 11 s | Portal, `/`: se pulsa «¿Qué tareas y aprobaciones tengo pendientes?» y llega una respuesta de muestra. | «¿Qué tareas y aprobaciones tengo pendientes?» | Pregúntale por tus apps, anuncios, fechas, cumpleaños, personas, tareas o el estado de TI. | Corte a la página del asistente |
-| 6.4 | 10 s | Portal, `/asistente`: se resalta la nota del pie: «El asistente solo lee lo que tu cuenta ya ve en el portal y no puede cambiar nada.». | «Solo lee. No cambia nada.» | El asistente solo lee lo que tu cuenta ya ve. No publica, no aprueba y no completa nada. | Resaltado que baja a la frase siguiente |
-| 6.5 | 9 s | Portal, `/asistente`: se resalta «Las respuestas las genera Claude, de Anthropic, y pueden tener errores». | «Revisa los datos importantes en el portal» | Las respuestas las genera Claude, de Anthropic, y pueden tener errores. Revisa los datos importantes. | Paneo al contador |
-| 6.6 | 9 s | Portal, `/asistente`: bajo «Tu pregunta», el contador «Te quedan 38 preguntas de 40 por hoy.». | «Te quedan 38 preguntas de 40 por hoy.» · «Datos de muestra» | Tienes un número de preguntas por día. Debajo del campo ves cuántas te quedan. | Paneo al botón |
-| 6.7 | 8 s | Portal, `/asistente`: botón «Nueva conversación» y la frase «La conversación no se guarda». | «Nueva conversación» | La conversación no se guarda: se borra al cerrar sesión o al cambiar de empresa. | Corte al panel |
+| 6.1 | 8 s | Portal, `/` (Segurex): el botón flotante «Asistente», abajo a la derecha, con un pulso. | «Asistente» | Abajo a la derecha está «Asistente». Púlsalo para abrir el chat. | El panel se abre desde el botón |
+| 6.2 | 9 s | Portal, `/`: panel «Asistente» con «Hola, Ana.», las sugerencias y el campo «Pregunta o pide algo…». | «Pregunta o pide algo…» | Empieza con una sugerencia o escribe tu propia pregunta. | Clic en una sugerencia |
+| 6.3 | 11 s | Portal, `/`: se pulsa «¿Qué tareas y aprobaciones tengo pendientes?» y llega una respuesta de muestra. | «¿Qué tareas y aprobaciones tengo pendientes?» | Pregunta por apps, anuncios, fechas, personas, tareas o el estado de TI. | Corte a la página del asistente |
+| 6.4 | 10 s | Portal, `/asistente`: se resalta la nota del pie: «El asistente solo lee lo que tu cuenta ya ve en el portal y no puede cambiar nada.». | «Solo lee. No cambia nada.» | Solo lee lo que tu cuenta ya ve. No publica, no aprueba y no completa nada. | Resaltado que baja a la frase siguiente |
+| 6.5 | 9 s | Portal, `/asistente`: se resalta «Las respuestas las genera Claude, de Anthropic, y pueden tener errores». | «Revisa los datos importantes en el portal» | Las respuestas las genera Claude, de Anthropic, y pueden tener errores. | Paneo al contador |
+| 6.6 | 9 s | Portal, `/asistente`: bajo «Tu pregunta», el contador «Te quedan 38 preguntas de 40 por hoy.». | «Te quedan 38 preguntas de 40 por hoy.» · «Datos de muestra» | Tienes un número de preguntas por día. Bajo el campo ves cuántas te quedan. | Paneo al botón |
+| 6.7 | 8 s | Portal, `/asistente`: botón «Nueva conversación» y la frase «La conversación no se guarda». | «Nueva conversación» | No se guarda: se borra al cerrar sesión o al cambiar de empresa. | Corte al panel |
 | 6.8 | 6 s | Portal, `/`: en el panel, una pregunta ajena al trabajo y una respuesta amable de muestra. | «Solo temas del portal y del trabajo» | Si preguntas algo ajeno al portal, te lo dirá con amabilidad. | Fundido a la tarjeta de cierre |
 
 Suma: 8 + 9 + 11 + 10 + 9 + 9 + 8 + 6 = **70 s**.
@@ -145,15 +147,15 @@ Suma: 8 + 9 + 11 + 10 + 9 + 9 + 8 + 6 = **70 s**.
 - **Duración:** 70 s.
 - **Objetivo:** elegir el tema, instalar el portal en el celular y activar «Avisos en el celular».
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
 | 7.1 | 9 s | Portal, `/` (SDC, claro): menú del avatar abierto; se resalta «Tema» con «Claro», «Oscuro» y «Sistema». | «Tema: Claro · Oscuro · Sistema» | Para cambiar el tema, abre el menú de tu avatar y busca «Tema». | Clic en «Oscuro» |
-| 7.2 | 10 s | Portal, `/`: al pulsar «Oscuro», el inicio pasa a tema oscuro. | «Oscuro» | Elige «Claro», «Oscuro» o «Sistema», que sigue el ajuste de tu equipo. El portal recuerda tu elección. | Corte a un celular Android |
-| 7.3 | 10 s | Animación de un celular Android con Chrome: menú ⋮ y la opción «Instalar aplicación» (texto del navegador, no del portal). | «Android: menú ⋮ › Instalar aplicación» | También puedes instalar el portal en tu celular. En Android, abre el menú de Chrome y elige «Instalar aplicación». | Barrido a un iPhone |
+| 7.2 | 10 s | Portal, `/`: al pulsar «Oscuro», el inicio pasa a tema oscuro. | «Oscuro» | «Sistema» sigue el ajuste de tu equipo. El portal recuerda tu elección. | Corte a un celular Android |
+| 7.3 | 10 s | Animación de un celular Android con Chrome: menú ⋮ y la opción «Instalar aplicación» (texto del navegador, no del portal). | «Android: menú ⋮ › Instalar aplicación» | Instala el portal. En Android, elige «Instalar aplicación» en Chrome. | Barrido a un iPhone |
 | 7.4 | 9 s | Animación de un iPhone con Safari: «Compartir» y «Agregar a inicio» (texto del navegador). | «iPhone: Compartir › Agregar a inicio» | En iPhone, abre Safari, toca «Compartir» y luego «Agregar a inicio». | Acercamiento a la pantalla de inicio |
 | 7.5 | 7 s | Animación: el ícono de SDC en la pantalla de inicio del celular; al tocarlo, el portal abre sin barra del navegador. | «Se abre como una app» | Queda un ícono con el logo de tu empresa y se abre como una aplicación. | Corte a `/cuenta` |
-| 7.6 | 10 s | Portal en celular, `/cuenta#avisos`: tarjeta «Avisos en el celular»; el dedo pulsa «Activar en este dispositivo» y aparece el permiso del navegador. | «Avisos en el celular» | Para recibir avisos, entra a «Cuentas vinculadas» y en «Avisos en el celular» pulsa «Activar en este dispositivo». | Bloqueo de pantalla |
-| 7.7 | 9 s | Animación: la pantalla bloqueada recibe la notificación del anuncio de muestra «Simulacro de evacuación». | «Solo anuncios importantes» | Recibes una notificación solo de los anuncios importantes que tu empresa decida enviar al celular. | Rótulo sobre la notificación |
+| 7.6 | 10 s | Portal en celular, `/cuenta#avisos`: tarjeta «Avisos en el celular»; el dedo pulsa «Activar en este dispositivo» y aparece el permiso del navegador. | «Avisos en el celular» | En «Cuentas vinculadas», pulsa «Activar en este dispositivo». | Bloqueo de pantalla |
+| 7.7 | 9 s | Animación: la pantalla bloqueada recibe la notificación del anuncio de muestra «Simulacro de evacuación». | «Solo anuncios importantes» | Solo llegan los anuncios importantes que tu empresa decida enviar al celular. | Rótulo sobre la notificación |
 | 7.8 | 6 s | Animación: rótulo sobre un iPhone y otro celular. | «En iPhone: primero instala el portal» | En iPhone, primero instala el portal. Actívalo en cada dispositivo. | Fundido a la tarjeta de cierre |
 
 Suma: 9 + 10 + 10 + 9 + 7 + 10 + 9 + 6 = **70 s**.
@@ -163,17 +165,17 @@ Suma: 9 + 10 + 10 + 9 + 7 + 10 + 9 + 6 = **70 s**.
 - **Duración:** 90 s.
 - **Objetivo:** publicar un anuncio que también sale por correo a la lista de cada empresa, y administrar la banda de Mercados.
 
-| N.º | Duración | Qué se ve | Texto en pantalla | Locución | Transición |
+| N.º | Duración | Qué se ve | Texto en pantalla | Barra de texto | Transición |
 |---|---|---|---|---|---|
 | 8.1 | 7 s | Animación: tarjeta de vidrio con el título del capítulo. | «Opcional: editores y administradores» | Este capítulo es para quienes publican anuncios o administran el portal. | Fundido a Administración |
-| 8.2 | 8 s | Portal, menú del avatar › «Administración» y luego `/admin/anuncios`: el cursor pulsa «Nuevo anuncio». | «Administración › Anuncios › Nuevo anuncio» | En el menú de tu avatar, entra a «Administración», luego a «Anuncios» y pulsa «Nuevo anuncio». | Corte al formulario |
+| 8.2 | 8 s | Portal, menú del avatar › «Administración» y luego `/admin/anuncios`: el cursor pulsa «Nuevo anuncio». | «Administración › Anuncios › Nuevo anuncio» | En «Administración», abre «Anuncios» y pulsa «Nuevo anuncio». | Corte al formulario |
 | 8.3 | 10 s | Portal, `/admin/anuncios/nuevo`: sección «Contenido» con «Título», «Texto» e «Imagen (opcional)», llenos con datos de muestra. | «Contenido: Título · Texto · Imagen» | En «Contenido» escribe el título y el texto. La imagen es opcional. | Desplazamiento a «Publicación» |
-| 8.4 | 10 s | Portal, `/admin/anuncios/nuevo`: sección «Publicación» con «Para quién», «Desde», «Hasta (opcional)», «Fijar arriba» y «Lectura obligatoria». | «Para quién · Desde · Hasta» | En «Publicación» eliges para quién es, desde cuándo se muestra y si es de lectura obligatoria. | Acercamiento a la casilla de correo |
-| 8.5 | 12 s | Portal, `/admin/anuncios/nuevo`: se resalta «Enviar también por correo a la lista de cada empresa», ya marcada, con «Lo reciben: Segurex (todos@segurex.ejemplo.test)». | «Enviar también por correo a la lista de cada empresa» · «Datos de muestra» | En un anuncio nuevo viene marcada la casilla de correo. Debajo ves qué listas lo reciben. Sale una sola vez. | Paneo a la vista previa |
-| 8.6 | 8 s | Portal, `/admin/anuncios/nuevo`: «Vista previa» y el cursor pulsa «Guardar». | «Vista previa · Guardar» | Revisa la vista previa y pulsa «Guardar». El correo sale cuando el anuncio esté publicado. | Corte a Mercados |
-| 8.7 | 9 s | Portal, `/admin/mercados`: título «Mercados» y la lista «Mercados de» con Segurex elegida. | «Administración › Mercados» | En «Mercados» decides qué ve cada empresa en la banda. Primero elige la empresa en «Mercados de». | Desplazamiento a los insumos |
-| 8.8 | 9 s | Portal, `/admin/mercados`: «Insumos que ve esta empresa» con «Zinc (US$/t)» y «Cobre (US$/t)» marcados; el cursor pulsa «Guardar insumos». | «Insumos que ve esta empresa» | Marca los insumos automáticos que debe ver esa empresa y pulsa «Guardar insumos». | Desplazamiento a los precios |
-| 8.9 | 11 s | Portal, `/admin/mercados`: «Nuevo precio» con «Insumo» «Soda cáustica», «Valor» «4.123,45», «Unidad», «Fecha del precio» y «Fuente (opcional)»; el cursor pulsa «Guardar». | «Valor: coma para los decimales, por ejemplo 4.123,45» | Para un precio a mano, pulsa «Nuevo precio». Escribe el valor con coma para los decimales y guarda. | Corte al inicio |
+| 8.4 | 10 s | Portal, `/admin/anuncios/nuevo`: sección «Publicación» con «Para quién», «Desde», «Hasta (opcional)», «Fijar arriba» y «Lectura obligatoria». | «Para quién · Desde · Hasta» | En «Publicación» eliges para quién es, desde cuándo y si es obligatoria. | Acercamiento a la casilla de correo |
+| 8.5 | 12 s | Portal, `/admin/anuncios/nuevo`: se resalta «Enviar también por correo a la lista de cada empresa», ya marcada, con «Lo reciben: Segurex (todos@segurex.ejemplo.test)». | «Enviar también por correo a la lista de cada empresa» · «Datos de muestra» | El correo viene marcado. Debajo ves qué listas lo reciben. Sale una vez. | Paneo a la vista previa |
+| 8.6 | 8 s | Portal, `/admin/anuncios/nuevo`: «Vista previa» y el cursor pulsa «Guardar». | «Vista previa · Guardar» | Revisa la vista previa y pulsa «Guardar». El correo sale al publicarse. | Corte a Mercados |
+| 8.7 | 9 s | Portal, `/admin/mercados`: título «Mercados» y la lista «Mercados de» con Segurex elegida. | «Administración › Mercados» | En «Mercados» decides qué ve cada empresa. Primero elígela en «Mercados de». | Desplazamiento a los insumos |
+| 8.8 | 9 s | Portal, `/admin/mercados`: «Insumos que ve esta empresa» con «Zinc (US$/t)» y «Cobre (US$/t)» marcados; el cursor pulsa «Guardar insumos». | «Insumos que ve esta empresa» | Marca los insumos automáticos de esa empresa y pulsa «Guardar insumos». | Desplazamiento a los precios |
+| 8.9 | 11 s | Portal, `/admin/mercados`: «Nuevo precio» con «Insumo» «Soda cáustica», «Valor» «4.123,45», «Unidad», «Fecha del precio» y «Fuente (opcional)»; el cursor pulsa «Guardar». | «Valor: coma para los decimales, por ejemplo 4.123,45» | Para un precio a mano, usa «Nuevo precio» y escribe los decimales con coma. | Corte al inicio |
 | 8.10 | 6 s | Portal, `/` (Segurex): la banda muestra «Soda cáustica $4.123,45/kg ▲». | «Aparece en la banda» · «Datos de muestra» | El precio aparece en la banda en la siguiente carga. | Fundido a negro y logo One |
 
 Suma: 7 + 8 + 10 + 10 + 12 + 8 + 9 + 9 + 11 + 6 = **90 s**.
@@ -276,7 +278,7 @@ Lo que el pedido nombra de otra forma, o que en el portal funciona distinto. El 
 | «Pausar» en Mercados | Solo aparece cuando la banda se mueve. Con «Reducir movimiento» la banda queda quieta y sin control. La banda no aparece antes de la primera sincronización. | Grabar con el movimiento activo. |
 | Instalar el portal (PWA) | El portal no tiene un botón propio para instalarse: se instala desde el menú del navegador. Esos textos cambian según la versión del navegador. | Escenas 7.3 y 7.4 como animación, con el rótulo «texto del navegador». |
 | Avisos (push) | Se activan en `/cuenta`, en «Avisos en el celular», solo si TI configuró las llaves. Solo envían anuncios marcados con «Enviar al celular». | Escenas 7.6 a 7.8. |
-| Asistente: límites | La nota «solo lee… pueden tener errores» y el botón «Enviar» están en la página `/asistente`, no en el panel flotante. El botón flotante solo aparece si TI encendió el asistente. El límite diario (40 por defecto) lo puede cambiar TI. | Escenas 6.4 a 6.6 en `/asistente`; la locución no dice el número. |
+| Asistente: límites | La nota «solo lee… pueden tener errores» y el botón «Enviar» están en la página `/asistente`, no en el panel flotante. El botón flotante solo aparece si TI encendió el asistente. El límite diario (40 por defecto) lo puede cambiar TI. | Escenas 6.4 a 6.6 en `/asistente`; la barra de texto no dice el número. |
 | «Admin › Mercados» | El menú dice «Administración». La sección es «Mercados». Un editor de anuncios solo ve su empresa. | Escenas 8.2 y 8.7. |
 | «Correo a la lista» | La casilla se llama «Enviar también por correo a la lista de cada empresa». Solo aparece si la empresa tiene lista y buzón remitente. En un anuncio nuevo viene marcada. | Escena 8.5. |
 | Manual de administración | El §7.1 aún describe el inicio de sesión anterior («cometas», «Empresas del grupo»). El código actual es la Vitrina. | El guion sigue el código. Conviene actualizar el manual (fuera de este encargo). |

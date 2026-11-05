@@ -16,13 +16,12 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 | Exportar a MP4 | Plugin `@motion-canvas/ffmpeg` |
 | Vidrio | Capturas reales del portal como imágenes, con capas animadas encima. No se reproduce el CSS. |
 | Pantallas del portal | Capturas de un entorno local con datos de prueba, nunca de producción |
-| Voz | Azure AI Speech, voz neuronal `es-CO-GonzaloNeural` (elegida por Jhon) |
+| Sonido | Sin voz: barra de texto en pantalla y música de fondo (decisión de Jhon) |
 | Música | Pixabay Music, sin atribución obligatoria |
-| Subtítulos | Archivo `.srt` por capítulo, generado con los tiempos de la voz |
 | Formatos | 1920×1080 (escritorio) y 1080×1920 (celular) |
 | Marca | Una empresa por pantalla; skills `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2` (v2 confirmada por Jhon) |
 | Costo de herramientas | **US$0** |
-| Tiempo estimado | De 10 a 12 días hábiles de una persona |
+| Tiempo estimado | De 10 a 11 días hábiles de una persona |
 
 ---
 
@@ -38,7 +37,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 
 - Motion Canvas exporta cuadros sueltos por defecto. Para MP4 hace falta el plugin `@motion-canvas/ffmpeg` («Video (FFmpeg)»). Fuente: <https://motioncanvas.io/docs/rendering/video>.
 - El plugin trae FFmpeg como dependencia de npm, así que no hay que instalar FFmpeg aparte.
-- Cada proyecto lleva **una sola pista de audio**. Por eso la voz y la música se mezclan antes en un archivo por capítulo (sección 5).
+- Cada proyecto lleva **una sola pista de audio**. Como el video no tiene voz, esa pista es la música del capítulo (sección 5).
 
 ### Cómo se resuelve el vidrio
 
@@ -63,7 +62,7 @@ El vidrio del portal es CSS (`backdrop-filter`), y Motion Canvas dibuja en canva
 ### Dos formatos
 
 - **Un proyecto por formato:** `horizontal` (1920×1080) y `vertical` (1080×1920). El plugin de Vite acepta varios proyectos y el editor deja elegir cuál abrir.
-- **Lo que comparten:** los componentes (rótulo, resaltado, cursor, logo, `brand.ts`) y la locución.
+- **Lo que comparten:** los componentes (rótulo, barra de texto, resaltado, cursor, logo, `brand.ts`), los textos de las barras y la música.
 - **Lo que cambia:** el encuadre. El corte vertical usa las capturas de celular (390 px de ancho) y las reglas de zona segura del storyboard.
 
 ### Riesgo y cómo se cubre
@@ -116,67 +115,46 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 
 ---
 
-## 4. Voz en español de Colombia
+## 4. Sin voz
 
-### Opción elegida: Azure AI Speech, voz Gonzalo
+**Decisión:** Jhon decidió el 2026-11-05 que el video no lleva locución. Cada escena se lee en una barra de texto y suena música de fondo. Reemplaza la elección anterior de la voz Gonzalo.
 
-- **Por qué:** la empresa ya usa Microsoft 365 y Azure (Entra).
-- **Voces neuronales `es-CO` disponibles:**
-  - `es-CO-SalomeNeural`, voz femenina;
-  - `es-CO-GonzaloNeural`, voz masculina. **Es la elegida por Jhon el 2026-11-05.**
-  Ninguna de las dos tiene estilos ni roles. Fuente: <https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts>.
-- **Costo:**
-  - El nivel gratis (F0) incluye 0,5 millones de caracteres al mes.
-  - El nivel S1 cuesta US$15 por millón de caracteres (East US).
-  - La locución completa (8 capítulos, unos 10 minutos) tiene cerca de 6 000 caracteres, así que cabe en el nivel gratis aun con muchas regrabaciones.
-  - Fuentes: <https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/> y la API de precios de Azure.
-- **Cómo:**
-  - Escribe la locución de cada escena en SSML, con pausas (`<break>`) y la pronunciación de siglas como «SDC» o «TI».
-  - Genera un audio por escena. Así, si cambia una escena, solo se regraba esa.
-- **Requisito:** un recurso de Speech en la suscripción de Azure de la empresa. Lo crea Jhon. La clave nunca va al repositorio.
+**Por qué funciona:**
 
-### Alternativa descartada: voz propia
+- Las barras de texto promedian unos 8 caracteres por segundo, por debajo del tope de 15 (ver la ficha de [guion.md](guion.md)).
+- Mucha gente ve los videos sin sonido en el celular.
+- No hace falta un recurso de Azure ni instalar una voz en el equipo.
 
-- Una persona del equipo graba la locución con un micrófono USB en una sala silenciosa.
-- **Ventaja:** suena más cercana.
-- **Costos:**
-  - cada cambio obliga a regrabar con la misma voz y el mismo ambiente;
-  - hace falta la autorización escrita de esa persona para usar su voz.
+**Lo que cuesta y cómo se resuelve:**
+
+| Costo | Solución |
+|---|---|
+| La persona lee y mira a la vez | La barra aparece primero y la acción empieza cerca de 1 s después |
+| Es menos accesible para personas con baja visión | Barra sólida y opaca, letra grande y máximo 2 líneas (3 en el corte vertical; ver [storyboard.md](storyboard.md)) |
+
+### Si más adelante se agrega una voz
+
+Quedan documentadas dos opciones. Ninguna se usa hoy.
+
+- **Azure AI Speech, `es-CO-GonzaloNeural`** (voz masculina de Colombia; también existe `es-CO-SalomeNeural`, femenina). El nivel gratis (F0) incluye 0,5 millones de caracteres al mes. Fuentes: <https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts> y <https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/>.
+- **Piper** (`OHF-Voice/piper1-gpl`), que corre en el equipo, con la voz `es_MX` «ald» (licencia Unlicense). Habría que instalarlo, así que primero se pregunta. Fuentes: <https://github.com/OHF-Voice/piper1-gpl> y <https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/ald/medium/MODEL_CARD>.
 
 ---
 
-## 5. Música, mezcla y subtítulos
-
-### Música
+## 5. Música
 
 - **Fuente:** Pixabay Music.
   - Permite el uso comercial y no exige atribución.
   - Sirve fuera de cualquier plataforma, así que vale para la intranet.
   - Prohíbe vender la pista sola y usarla como marca.
   - Fuente: <https://pixabay.com/service/license-summary/>.
+- **Una pista por capítulo.** Motion Canvas acepta una sola pista de audio por proyecto, así que cada capítulo lleva un solo archivo de música (`NN-tema.wav`).
+- **Volumen bajo.** No hay voz que tapar, pero la música va baja, cerca de −18 dB, para que no canse.
 - **Registro:** guarda en `creditos.md` el enlace y la fecha de cada pista, aunque no se exija atribución.
 - **Evita:**
   - la biblioteca de música de CapCut (solo vale para TikTok y CapCut);
   - la biblioteca de audio de YouTube, porque su uso fuera de YouTube no está claro.
-
-### Mezcla
-
-- Motion Canvas acepta una sola pista de audio por proyecto. Por cada capítulo:
-  1. une los audios de las escenas en orden;
-  2. pon la música debajo, entre −20 y −24 dB bajo la voz;
-  3. exporta un solo archivo (`NN-tema.wav`).
-- Los tiempos de cada escena en Motion Canvas se ajustan a ese audio, con `waitFor` y las marcas de tiempo del editor.
-
-### Subtítulos (.srt)
-
-- **Un `.srt` por capítulo.** El texto es la locución exacta del guion. Los mismos tiempos sirven para los dos formatos.
-- **Cómo generarlos:**
-  - Azure no entrega `.srt` directamente. Su síntesis da los tiempos de cada palabra y cada frase (`WordBoundary`, o `sentenceBoundaryEnabled` en la síntesis por lotes), y con esos tiempos se arma el `.srt`.
-  - Si la voz es propia, usa Whisper (MIT, corre en el equipo; hay que instalarlo, así que primero se pregunta) con `--output_format srt`, y después corrige los textos contra el guion.
-- **Reglas:**
-  - máximo 2 líneas de 42 caracteres;
-  - entre 1 y 7 segundos en pantalla;
-  - en el formato vertical, por encima del tercio inferior.
+- **Sin archivo de subtítulos.** Los textos van dentro del video, en la barra de texto.
 
 ---
 
@@ -186,7 +164,6 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 |---|---|---|---|
 | 1920×1080, 30 fps, MP4 (H.264 + AAC) | `horizontal` | Portal, Teams y correo | Formato principal |
 | 1080×1920, 30 fps, MP4 | `vertical` | Celular | Reacomoda, no recorta a ciegas (ver la zona segura en el storyboard) |
-| `.srt` | Ambos | Subtítulos | Un archivo por capítulo |
 | Miniatura PNG, 1280×720 | `horizontal` | Portada en el portal | Un cuadro exportado por capítulo |
 
 **Nombres de archivo:** `NN-tema-formato-empresa.mp4`, por ejemplo `02-vincular-cuenta-1080x1920-derivados.mp4`.
@@ -204,6 +181,7 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 - **Tipografía de las capas:** Helvetica o Arial, la misma del portal.
 - **Colores de las capas:** solo los de `brand.ts`, copiados de los tokens de la skill (con contraste AA). Nunca texto blanco sobre `#F26522`.
 - **Vidrio:** lo pone la captura real. Las capas de texto son sólidas y opacas entre 84 y 92 %, nunca texto directo sobre la foto de fondo.
+- **Barra de texto:** sigue las mismas reglas de capa sólida (opaca entre 84 y 92 %, sin desenfoque, Helvetica o Arial). Su lugar en cada formato está en el storyboard.
 - **Skills:** `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2`. Jhon confirmó el 2026-11-05 que la v2 es la vigente para el video.
 
 ---
@@ -212,28 +190,26 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 
 | # | Paso | Responsable | Días hábiles |
 |---|---|---|---|
-| 1 | Aprobar el guion y la voz | Jhon | 1 |
+| 1 | Aprobar el guion | Jhon | 1 |
 | 2 | Datos de prueba y entrada local (sección 9) | Desarrollo | 1 |
-| 3 | Instalar Motion Canvas y armar la plantilla común (rótulo, resaltado, cursor, logo, `brand.ts`) | Desarrollo | 1,5 |
+| 3 | Instalar Motion Canvas y armar la plantilla común (rótulo, barra de texto, resaltado, cursor, logo, `brand.ts`) | Desarrollo | 1,5 |
 | 4 | Tomar las capturas de los 8 capítulos (escritorio y celular, empresa y tema de cada escena) | Desarrollo | 1,5 |
-| 5 | Generar la voz (SSML), revisar la pronunciación, mezclar con la música | Desarrollo + Jhon | 1 |
-| 6 | Animar los 8 capítulos en los dos formatos | Desarrollo | 3–4 |
-| 7 | Subtítulos `.srt` | Desarrollo | 0,5 |
-| 8 | Revisar con 2 o 3 colaboradores (uno de cada empresa) y corregir | Jhon + usuarios | 1 |
-| 9 | Exportar y publicar en el portal | Desarrollo + Jhon | 0,5 |
-| | **Total** | | **De 10 a 12 días** |
+| 5 | Elegir la música de cada capítulo y ajustar el volumen | Desarrollo + Jhon | 0,5 |
+| 6 | Animar los 8 capítulos en los dos formatos, con la barra de texto | Desarrollo | 3–4 |
+| 7 | Revisar con 2 o 3 colaboradores (uno de cada empresa) y corregir | Jhon + usuarios | 1 |
+| 8 | Exportar y publicar en el portal | Desarrollo + Jhon | 0,5 |
+| | **Total** | | **De 10 a 11 días** |
 
 ### Costos
 
 | Concepto | Costo |
 |---|---|
 | Motion Canvas y `@motion-canvas/ffmpeg` (MIT) | US$0 |
-| Azure AI Speech, nivel F0 | US$0 (la locución cabe en el cupo gratis) |
 | Música de Pixabay | US$0 |
 | Grabador (Barra de juegos de Windows) | US$0 |
 | **Total en efectivo** | **US$0** |
 
-El costo real es el tiempo del equipo: unas 2 semanas y media de una persona. Elegir Motion Canvas suma más o menos un día frente a Remotion, por las capturas y las capas.
+El costo real es el tiempo del equipo: unas 2 semanas de una persona. Elegir Motion Canvas suma más o menos un día frente a Remotion, por las capturas y las capas.
 
 ---
 
@@ -311,7 +287,7 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 - `src/brand.ts`, con los tokens de la sección 7;
 - `src/components/`, con el rótulo, el resaltado, el cursor y el logo;
 - `src/scenes/NN-*.tsx`, una escena por capítulo y formato;
-- `capturas/`, `audio/` y `subtitulos/`.
+- `capturas/` y `musica/`.
 
 **Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`. Jhon aprobó la instalación. Crear el repositorio en GitHub es su decisión.
 
@@ -332,4 +308,4 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 | 1 | Herramienta | Motion Canvas (gratis), 2026-11-05 |
 | 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y repositorio aparte para Motion Canvas | Aprobada, 2026-11-05 |
 | 3 | Marca | v2 (`frontend-marca-sgx-sydc-v2`), 2026-11-05 |
-| 4 | Voz | Azure AI Speech, `es-CO-GonzaloNeural`, 2026-11-05 |
+| 4 | Voz | Sin voz: barra de texto y música, 2026-11-05. Reemplaza la elección de Gonzalo (`es-CO-GonzaloNeural`). |
