@@ -159,6 +159,9 @@ final class MarketSync
             sprintf(self::BANREP_URL, self::sourceKey($series)),
             ['startPeriod' => now(MarketSeries::TZ)->subMonthsNoOverflow($months)->format('Y-m')],
             short: true,
+            // BanRep answers 500 to a request without an Accept header (and
+            // 406 to application/json); curl's */* hid it in the research.
+            accept: 'application/xml',
         ));
 
         return $this->store($series, self::needed($series, $observations));
@@ -299,10 +302,11 @@ final class MarketSync
      *
      * @param  array<string, mixed>  $query
      * @param  bool  $short  The time limits of BanRep and FRED (SOURCE_*), never over `markets.timeout`.
+     * @param  string|null  $accept  The Accept header, for a source that needs one.
      *
      * @throws MarketSourceException
      */
-    private function fetch(string $url, array $query = [], bool $short = false): string
+    private function fetch(string $url, array $query = [], bool $short = false, ?string $accept = null): string
     {
         $timeout = (int) config('markets.timeout', 10);
         $connectTimeout = $short ? min($timeout, self::SOURCE_CONNECT_TIMEOUT) : $timeout;
@@ -317,6 +321,7 @@ final class MarketSync
                 ->connectTimeout($connectTimeout)
                 ->withoutRedirecting()
                 ->withUserAgent(self::USER_AGENT)
+                ->when($accept !== null, fn ($request) => $request->accept($accept))
                 ->withOptions(['stream' => true, 'read_timeout' => $timeout])
                 ->get($url, $query);
         } catch (Throwable) {
