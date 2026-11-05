@@ -16,7 +16,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 | Exportar a MP4 | Plugin `@motion-canvas/ffmpeg` |
 | Vidrio | Capturas reales del portal como imágenes, con capas animadas encima. No se reproduce el CSS. |
 | Pantallas del portal | Capturas de un entorno local con datos de prueba, nunca de producción |
-| Voz | Azure AI Speech, voz neuronal `es-CO-SalomeNeural` o `es-CO-GonzaloNeural` |
+| Voz | Azure AI Speech, voz neuronal `es-CO-GonzaloNeural` (elegida por Jhon) |
 | Música | Pixabay Music, sin atribución obligatoria |
 | Subtítulos | Archivo `.srt` por capítulo, generado con los tiempos de la voz |
 | Formatos | 1920×1080 (escritorio) y 1080×1920 (celular) |
@@ -118,12 +118,12 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 
 ## 4. Voz en español de Colombia
 
-### Opción recomendada: Azure AI Speech
+### Opción elegida: Azure AI Speech, voz Gonzalo
 
 - **Por qué:** la empresa ya usa Microsoft 365 y Azure (Entra).
 - **Voces neuronales `es-CO` disponibles:**
   - `es-CO-SalomeNeural`, voz femenina;
-  - `es-CO-GonzaloNeural`, voz masculina.
+  - `es-CO-GonzaloNeural`, voz masculina. **Es la elegida por Jhon el 2026-11-05.**
   Ninguna de las dos tiene estilos ni roles. Fuente: <https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts>.
 - **Costo:**
   - El nivel gratis (F0) incluye 0,5 millones de caracteres al mes.
@@ -135,7 +135,7 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
   - Genera un audio por escena. Así, si cambia una escena, solo se regraba esa.
 - **Requisito:** un recurso de Speech en la suscripción de Azure de la empresa. Lo crea Jhon. La clave nunca va al repositorio.
 
-### Alternativa: voz propia
+### Alternativa descartada: voz propia
 
 - Una persona del equipo graba la locución con un micrófono USB en una sala silenciosa.
 - **Ventaja:** suena más cercana.
@@ -332,4 +332,4 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 | 1 | Herramienta | Motion Canvas (gratis), 2026-11-05 |
 | 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y repositorio aparte para Motion Canvas | Aprobada, 2026-11-05 |
 | 3 | Marca | v2 (`frontend-marca-sgx-sydc-v2`), 2026-11-05 |
-| 4 | Voz: Azure (Salomé o Gonzalo) o voz propia | Pendiente |
+| 4 | Voz | Azure AI Speech, `es-CO-GonzaloNeural`, 2026-11-05 |
