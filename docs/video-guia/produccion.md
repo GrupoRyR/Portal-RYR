@@ -273,14 +273,13 @@ Jhon aprobó esta sección el 2026-11-05. Todavía no hay nada hecho.
 
 ### 9.3 Instalar Motion Canvas
 
-**Dónde:** fuera de este repositorio. Opciones:
+**Dónde:** en una carpeta local, fuera del repositorio del portal y sin repositorio en GitHub. Lo decidió Jhon el 2026-11-05. Por ejemplo: `C:\Users\Claude\Documents\PROYECTOS_CLAUDE\VIDEO_GUIA_RYR`.
 
-- **Recomendada:** un repositorio aparte, por ejemplo `GrupoRyR/portal-ryr-video`.
-- **Alternativa:** una carpeta local sin Git.
+- **Por qué fuera del portal:** las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni llegar al servidor.
+- **Historial:** un `git init` local, sin remoto, para poder volver atrás. Nada sale del equipo.
+- **Copia de respaldo:** al cerrar cada capítulo, copia `src/`, `capturas/`, `musica/` y los MP4 a una carpeta de OneDrive o SharePoint de TI. Nunca copies `node_modules/`.
 
-Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni llegar al servidor.
-
-**Archivos (en el repositorio nuevo):**
+**Archivos (en la carpeta local):**
 
 - `package.json` y `package-lock.json`, con versiones exactas de `@motion-canvas/core`, `@motion-canvas/2d`, `@motion-canvas/ui`, `@motion-canvas/vite-plugin` y `@motion-canvas/ffmpeg`;
 - `vite.config.ts`, con los proyectos `horizontal` y `vertical`;
@@ -289,7 +288,7 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 - `src/scenes/NN-*.tsx`, una escena por capítulo y formato;
 - `capturas/` y `musica/`.
 
-**Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`. Jhon aprobó la instalación. Crear el repositorio en GitHub es su decisión.
+**Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`. Jhon aprobó la instalación.
 
 **Riesgos:**
 
@@ -297,7 +296,8 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 |---|---|
 | El proyecto casi no se mantiene (última versión estable: 2024-12-14) | Versiones fijas; el resultado es un MP4 normal; con la licencia MIT se puede mantener una versión propia |
 | Se descargan paquetes de npm, incluido un binario de FFmpeg | Instalar solo los paquetes oficiales `@motion-canvas/*`, revisar `npm audit` y no ejecutar scripts de paquetes desconocidos |
-| Capturas con datos reales en un repositorio | El repositorio es privado y solo guarda capturas del entorno local; se revisan antes de cada commit |
+| Se pierde el trabajo si falla el equipo | Copia de respaldo en OneDrive o SharePoint de TI al cerrar cada capítulo |
+| Una captura con datos reales llega al respaldo | Solo se guardan capturas del entorno local, revisadas antes de copiarlas |
 
 ---
 
@@ -306,6 +306,6 @@ Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni 
 | # | Decisión | Respuesta |
 |---|---|---|
 | 1 | Herramienta | Motion Canvas (gratis), 2026-11-05 |
-| 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y repositorio aparte para Motion Canvas | Aprobada, 2026-11-05 |
+| 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y Motion Canvas en una carpeta local, sin repositorio en GitHub | Aprobada, 2026-11-05 |
 | 3 | Marca | v2 (`frontend-marca-sgx-sydc-v2`), 2026-11-05 |
 | 4 | Voz | Sin voz: barra de texto y música, 2026-11-05. Reemplaza la elección de Gonzalo (`es-CO-GonzaloNeural`). |
