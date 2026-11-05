@@ -1,6 +1,6 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-10-30.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-04.
 
 ## 1. Qué es y dónde está
 
@@ -41,6 +41,36 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 - **Asistente del portal** (`odd/tasks/asistente.md`, ola 3), aprobado por Jhon como líder de IA. Página `/asistente` que responde con lo que la cuenta activa ya ve, con Claude Haiku 5.5 (personas) y Sonnet 5.5 (editores) por el SDK oficial de PHP, las mismas herramientas de solo lectura del conector, presupuesto mensual de US$ 20, proveedores enchufables (DeepSeek por verificar) y un proveedor secundario opcional. Los editores reciben borradores de anuncios que solo se publican con su confirmación. Rama `feat/asistente`, sin PR todavía. Apagado por defecto (`PORTAL_ASSISTANT_ENABLED`, interruptor de Configuración y `ANTHROPIC_API_KEY`, `docs/despliegue.md` §1.23; manual §15).
 - **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR abiertas: #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`). Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) está en la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
 - **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, sin PR): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Aún no está en `main` ni en producción.
+
+### 2026-11-04
+
+Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
+
+| Bloque | Qué quedó | Dónde se documenta |
+|---|---|---|
+| **Observaciones** (#101) | Anuncios y eventos se envían por correo a la lista de todo el personal de cada empresa, desde su buzón (casilla marcada por defecto). Se pueden eliminar anuncios y eventos. Noticias: una página web busca su canal RSS (código `html_page`) y hay 20 fuentes verificadas. Los borradores del asistente **no** envían correo (decisión de Jhon, 2026-11-04). | `docs/manual-administracion.md` §2.4, §2.5, §2.11; `docs/despliegue.md` §1.13, §1.17 |
+| **Liquid Glass** (#102 a #111) | Kit `resources/css/glass.css` y `glass-pages.css`; tema claro, oscuro o del sistema; encabezado con cambio de empresa, búsqueda y avisos; banda de mercados con pausa; inicio con «Mi día»; botón «Asistente»; inicio de sesión «Vitrina»; páginas secundarias y Administración en vidrio. Lighthouse móvil ≥ 90 en inicio e inicio de sesión. | Skill `liquid-glass-ryr` (para otras apps) |
+| **Mercados O5** (#112, #113) | Brent, tasa de política del Banco de la República y COLCAP para todas las empresas. Insumos por empresa desde FRED (Segurex: zinc, cobre, aluminio, latón, acero; SDC: cloro y soda, resinas, envases). Precios manuales de proveedores en Administración › Mercados (máximo 12 en la banda). | `docs/despliegue.md` §1.16; `docs/manual-administracion.md` §16 |
+
+**Para desplegar:**
+
+1. Migraciones nuevas: `2026_11_06_100001`, `2026_11_07_100001` y `2026_11_07_100002` (`php artisan migrate --force`, paso 2.2 de `docs/despliegue.md`).
+2. Después del despliegue: `php artisan portal:sync-markets`.
+3. En Administración › Empresas, completar **Lista de todo el personal** y **Buzón remitente** de cada empresa.
+
+**Problema conocido:** Banco de la República responde HTTP 500 cuando la petición no trae cabecera `Accept`. La corrección está en la rama `fix/banrep-accept`; **todavía no está hecha**.
+
+**Pendientes para Jhon:**
+
+- [ ] Agregar `FRED_API_KEY` al `.env` del servidor y a `.env.example`.
+- [ ] Comprobar en MariaDB la banda de Mercados con un precio manual.
+- [ ] Completar la lista de correo y el buzón remitente de cada empresa.
+- [ ] Revisar las fuentes RSS de `docs/despliegue.md` §1.17 en Administración › Noticias.
+- [ ] Configurar `PUSH_VAPID_*` y `ANTHROPIC_API_KEY` en el servidor.
+- [ ] Crear o confirmar el grupo `APP-PortalGerencia`.
+- [ ] Revisar el CI del PR #89.
+- [ ] Contrato de tareas v0.2.1: falta la lista del inicio con sus botones (`docs/contrato-tareas-aprobaciones.md`).
+- [ ] Robot del panel: en pausa hasta que Jhon lo indique.
 
 ## 3. Pendientes
 
