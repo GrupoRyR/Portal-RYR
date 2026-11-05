@@ -581,6 +581,22 @@ La banda también muestra, para todos, el **petróleo Brent**, la **tasa de pol�
 - **Si una fuente falla**, el motivo queda en `storage/logs` igual que arriba, con `source` igual al código de la serie (`brent`, `tpm`, `colcap`, `zinc`…). Las demás series se actualizan igual.
 - **Precios a mano.** No tienen fuente ni cron: se ven en la banda en la siguiente carga del inicio, sin limpiar nada. La banda los lee en la misma consulta que las demás cifras.
 
+#### Si falla
+
+Cuando una serie no se puede actualizar, la salida de `php artisan portal:sync-markets` dice `no se pudo actualizar (motivo); conserva el último valor. El motivo está en el log.` El motivo es un código corto:
+
+- `http_500` (o `http_` seguido de otro código): la fuente respondió con ese error HTTP. El Banco de la República respondía 500 cuando la petición no traía cabecera `Accept`, y 406 si pedía `application/json`; eso quedó corregido en el PR #114. Si vuelve a aparecer, la fuente cambió: revise el log.
+- `connection`: el servidor no pudo conectarse, o la fuente dejó de responder. Repita los `curl` del paso 3.
+- `invalid_data`: la fuente respondió, pero el formato no es el esperado.
+
+El detalle está en `storage/logs/laravel-AAAA-MM-DD.log`, en el aviso «Market rates could not be updated; the last value is kept.», con `source` (el código de la serie, por ejemplo `trm` o `eur`) y `code` (el motivo). Ese aviso no incluye el contenido de la respuesta. Mientras tanto, la banda conserva el último valor guardado y las demás series se actualizan igual.
+
+**Comprobar todo después de poner la llave de FRED:**
+
+1. `php artisan config:cache`
+2. `php artisan portal:sync-markets`: debe haber una línea por serie con valores guardados, ninguna `no se pudo actualizar` y ya no debe aparecer `Sin FRED_API_KEY: se omiten Brent y los insumos.`
+3. Si aparece `no se pudo actualizar`, busque ese `source` en el log del día.
+
 ### 1.17 Noticias
 
 Los titulares de **Noticias** (pestañas Colombia, Internacional y Sector de cada empresa) salen de fuentes RSS o Atom que el súper administrador registra en **Administración › Noticias** (`docs/manual-administracion.md` §2.11). El servidor las lee cada hora y guarda solo el título, el enlace y la fecha de cada noticia. No hay claves nuevas en `.env`: los límites están en `config/news.php`.
