@@ -6,11 +6,12 @@ Un cuadro clave por escena, con el mismo número que `docs/video-guia/guion.md` 
 
 | Tema | Regla |
 |---|---|
-| Formato maestro | 1920×1080 (16:9), capturas del portal en escritorio a 1440 px de ancho. |
+| Herramienta | Motion Canvas (ver `produccion.md`). Cada cuadro es una captura PNG real del portal local, con capas animadas encima: rótulos, resaltados, cursor y acercamientos. El vidrio lo pone la captura; las capas no imitan `backdrop-filter`. Un cuadro que cambia de estado (menú abierto, banda en pausa) es otra captura. |
+| Formato maestro | 1920×1080 (16:9), capturas del portal en escritorio a 1440 px de ancho, a 2× para que los acercamientos no se pixelen. |
 | Corte vertical | 1080×1920 (9:16). Se graba aparte, en el modo celular del navegador (390 px de ancho), salvo que el cuadro diga otra cosa. Zona segura: 90 px a cada lado, 220 px arriba y 320 px abajo libres para la interfaz de la red social. Los rótulos van en el tercio medio. |
 | Marca | Una empresa por cuadro, con `data-brand` en `<html>`: `segurex` (naranja), `derivados` (azul) o `neutral` (sin sesión). Colores solo con tokens: `--brand-button`, `--brand-tint`, `--brand-ink`, `--brand-dark` y los `--g-*` del vidrio. Nunca un hex nuevo. |
 | Vidrio | El texto va siempre sobre vidrio (`g-card`, `g-sheet`, `g-banner`, `g-topbar`, `g-pop`, `g-foot`), nunca sobre la foto de `g-canvas`. Los rótulos del video usan el mismo vidrio, opaco entre 84 y 92 %. |
-| Rótulos animados | Un rótulo que se mueve sobre vidrio usa la superficie sólida `--g-solid`, sin desenfoque, como hace el portal. Solo se animan opacidad y posición. |
+| Rótulos animados | Un rótulo es una capa sólida con el color de `--g-solid` (desde `brand.ts`), sin desenfoque, como hace el portal. Solo se animan opacidad y posición. |
 | Resaltado | Anillo de 2 px en `--g-ink` (el mismo del foco del portal) y pulso suave de 600 ms, dos veces. El cursor es el del sistema, a 150 %. |
 | Flechas de mercado | ▲ en `--g-good`, ▼ en `--g-crit`, ● en `--g-ink-faint`. |
 | Rótulo «Datos de muestra» | Píldora `g-pill` abajo a la izquierda en cada captura del portal; en el corte vertical, arriba del tercio inferior. |

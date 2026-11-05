@@ -2,69 +2,93 @@
 
 Este documento dice cómo producir el video guía descrito en [guion.md](guion.md) y [storyboard.md](storyboard.md).
 
-**Estado:** plan. Nada está instalado ni comprado. Cada compra o instalación espera la aprobación de Jhon.
+**Estado:** la herramienta ya está elegida. Nada está instalado todavía. Cada instalación espera la aprobación de Jhon.
 
-**Fuentes:** las licencias y los precios se leyeron en la fuente primaria el 2026-11-05. Revísalos antes de comprar: cambian.
+**Fuentes:** las licencias y los precios se leyeron en la fuente primaria el 2026-11-05.
 
 ---
 
 ## 1. Resumen
 
-| Tema | Decisión propuesta |
+| Tema | Decisión |
 |---|---|
-| Herramienta | **Remotion** (React + TypeScript), con una licencia de empresa de un puesto |
+| Herramienta | **Motion Canvas** (MIT, TypeScript), elegida por Jhon el 2026-11-05 |
+| Exportar a MP4 | Plugin `@motion-canvas/ffmpeg` |
+| Vidrio | Capturas reales del portal como imágenes, con capas animadas encima. No se reproduce el CSS. |
 | Pantallas del portal | Capturas de un entorno local con datos de prueba, nunca de producción |
 | Voz | Azure AI Speech, voz neuronal `es-CO-SalomeNeural` o `es-CO-GonzaloNeural` |
 | Música | Pixabay Music, sin atribución obligatoria |
 | Subtítulos | Archivo `.srt` por capítulo, generado con los tiempos de la voz |
 | Formatos | 1920×1080 (escritorio) y 1080×1920 (celular) |
 | Marca | Una empresa por pantalla; skills `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2` |
-| Costo estimado | Unos US$25–50 en total (uno o dos meses de licencia de Remotion) |
-| Tiempo estimado | De 9 a 11 días hábiles de una persona |
+| Costo de herramientas | **US$0** |
+| Tiempo estimado | De 10 a 12 días hábiles de una persona |
 
 ---
 
-## 2. Herramienta
+## 2. Herramienta: Motion Canvas
 
-### Comparación
+### Qué es
 
-| | Remotion | Motion Canvas | Canva (sin código) | CapCut (sin código) |
-|---|---|---|---|---|
-| Lenguaje | React + TypeScript | TypeScript (canvas 2D) | Editor web | Editor de escritorio |
-| Licencia | Gratis solo para empresas de hasta 3 empleados. Si son más, licencia de empresa | MIT, gratis | Cuenta gratis o Pro | Gratis |
-| Costo para Segurex y SDC | US$25 al mes por puesto («Remotion for Creators») | US$0 | Pro: unos US$144 al año (sin confirmar) | US$0 |
-| Exporta MP4 | Sí, incluido | Solo con el plugin `@motion-canvas/ffmpeg` | Sí | Sí |
-| Vidrio (`backdrop-filter`, tokens CSS) | Sí: es HTML y CSS real | Difícil: dibuja en canvas, no en CSS | Aproximado, a mano | Aproximado, a mano |
-| Dos formatos desde una fuente | Sí: dos composiciones con el mismo código | Sí, con código | A mano, por cada formato | A mano, por cada formato |
-| Mantenimiento | Activo | Sin versión estable desde diciembre de 2024 | Activo | Activo |
-| Riesgo principal | Pago mensual | Proyecto casi detenido | Marca inexacta y trabajo manual | La música de su biblioteca no sirve para la intranet |
+- Una librería MIT para animar con código TypeScript. Licencia: <https://github.com/motion-canvas/motion-canvas/blob/main/LICENSE>.
+- Cada escena es una función que mueve nodos (`Img`, `Rect`, `Txt`, `Layout`) sobre un canvas 2D.
+- El editor corre en el navegador sobre Vite. Muestra la línea de tiempo y permite ajustar los tiempos.
 
-### Recomendación: Remotion
+### Exportar a MP4
 
-- **El portal ya es HTML y CSS.** Remotion anima componentes React, así que el vidrio, los tokens de marca y el modo oscuro se reproducen con el mismo CSS del portal, sin redibujar nada.
-- **Un solo código, dos formatos.** Cada capítulo es una composición de 1920×1080 y otra de 1080×1920 que comparten escenas.
-- **Cambios baratos.** Si un botón del portal cambia de nombre, se corrige un texto y se vuelve a exportar.
-- **Costo bajo y acotado.** Un puesto a US$25 al mes. Se activa solo mientras dura la producción y se cancela al terminar. Según la FAQ de Remotion, el puesto cubre a la persona que escribe el código, también cuando usa herramientas con IA.
+- Motion Canvas exporta cuadros sueltos por defecto. Para MP4 hace falta el plugin `@motion-canvas/ffmpeg` («Video (FFmpeg)»). Fuente: <https://motioncanvas.io/docs/rendering/video>.
+- El plugin trae FFmpeg como dependencia de npm, así que no hay que instalar FFmpeg aparte.
+- Cada proyecto lleva **una sola pista de audio**. Por eso la voz y la música se mezclan antes en un archivo por capítulo (sección 5).
 
-**Por qué no las otras:**
+### Cómo se resuelve el vidrio
 
-- **Motion Canvas** es gratis (MIT), pero no publica una versión estable desde el 2024-12-14 y dibuja en canvas, así que el vidrio se tendría que imitar.
-- **Canva** sirve como plan B sin código. Su música «Popular Music» permite videos de capacitación interna. Pero cada pantalla y cada formato se arman a mano, y la marca queda aproximada.
-- **CapCut** queda descartado: su música comercial solo se puede publicar en CapCut, TikTok y TikTok for Business. Para la intranet hace falta un permiso escrito.
+El vidrio del portal es CSS (`backdrop-filter`), y Motion Canvas dibuja en canvas: no puede aplicarlo. La solución es no reproducir el CSS:
 
-### Fuentes de licencias
+1. **El portal real pone el vidrio.** Cada pantalla es una captura PNG del portal local, con el tema y la empresa que pide el storyboard. El vidrio, las sombras y los colores salen exactos porque son los del portal.
+2. **Las capas van encima de la captura.** Todo lo que se anima son nodos encima de la imagen:
+   - rótulos: `Rect` con relleno sólido opaco entre 84 y 92 % y texto `Txt`, el mismo criterio de `--g-solid`;
+   - resaltados: `Rect` sin relleno, con borde de 2 px en el color de `--g-ink` y un pulso de opacidad;
+   - cursor y clic: un `Img` del cursor y un círculo que se expande;
+   - acercamientos: `scale` y `position` sobre el nodo de la captura.
+3. **Sin desenfoque animado.** Ninguna capa intenta imitar `backdrop-filter`. Esto también respeta la regla de `liquid-glass-ryr`: nada se mueve detrás de un vidrio con desenfoque.
+4. **Capturas al doble de resolución.** Se capturan a 2× para que los acercamientos de hasta 200 % no se pixelen.
+5. **Una pantalla que cambia es otra captura.** Por ejemplo: el menú abierto, la banda en pausa, o antes y después de «Confirmar lectura». Se pasa de una a otra con un fundido corto o un barrido.
 
-- Remotion, licencia: <https://github.com/remotion-dev/remotion/blob/main/LICENSE.md> («a for-profit organization with up to 3 employees»).
-- Remotion, precios: <https://www.remotion.pro/license> y <https://www.remotion.dev/docs/license/faq>.
-- Motion Canvas, licencia MIT: <https://github.com/motion-canvas/motion-canvas/blob/main/LICENSE>. Versiones: <https://github.com/motion-canvas/motion-canvas/releases>. Exportar video: <https://motioncanvas.io/docs/rendering/video>.
-- Canva, «Popular Music»: <https://canva.com/policies/popular-music-license>. La página no se pudo abrir directamente (403), así que este punto queda **sin confirmar**.
-- CapCut, licencia de materiales: <https://www.capcut.com/material-license-agreement>.
+### Colores en las capas
+
+- Los tokens de la skill (`--brand-button`, `--brand-ink`, `--g-ink`, `--g-good`, `--g-crit`…) se copian una sola vez a un archivo `brand.ts`, con su valor de modo claro y de modo oscuro, por empresa.
+- Ese es el único lugar con valores hex. Las escenas usan los nombres, nunca un hex suelto.
+- Si cambia un token del portal, se actualiza `brand.ts` y se vuelve a exportar.
+
+### Dos formatos
+
+- **Un proyecto por formato:** `horizontal` (1920×1080) y `vertical` (1080×1920). El plugin de Vite acepta varios proyectos y el editor deja elegir cuál abrir.
+- **Lo que comparten:** los componentes (rótulo, resaltado, cursor, logo, `brand.ts`) y la locución.
+- **Lo que cambia:** el encuadre. El corte vertical usa las capturas de celular (390 px de ancho) y las reglas de zona segura del storyboard.
+
+### Riesgo y cómo se cubre
+
+**El riesgo:** Motion Canvas casi no se mantiene. Su última versión estable es la v3.17.2, del 2024-12-14 (<https://github.com/motion-canvas/motion-canvas/releases>).
+
+**Cómo se cubre:**
+
+- **Versiones fijas.** Se fijan las versiones exactas en `package.json` y se sube `package-lock.json`, sin `^`.
+- **El resultado no depende de la herramienta.** Es un MP4 normal: si la herramienta deja de funcionar, los videos ya hechos siguen sirviendo.
+- **Se puede mantener la propia.** La licencia MIT permite copiar y mantener una versión propia si hiciera falta.
+
+### Alternativas descartadas
+
+| Herramienta | Motivo |
+|---|---|
+| Remotion | Su licencia gratis cubre solo empresas de hasta 3 empleados (<https://github.com/remotion-dev/remotion/blob/main/LICENSE.md>). Segurex y SDC necesitarían una licencia de empresa: US$25 al mes por puesto (<https://www.remotion.pro/license>). Jhon eligió una herramienta gratis. |
+| Canva | Sin código, pero cada pantalla y cada formato se arman a mano, y la marca queda aproximada. |
+| CapCut | Su música comercial solo se puede publicar en CapCut, TikTok y TikTok for Business (<https://www.capcut.com/material-license-agreement>). |
 
 ---
 
 ## 3. Capturar el portal sin datos reales
 
-**Regla:** las capturas y grabaciones salen de un entorno local (`http://localhost` o `*.test`) con datos de prueba.
+**Regla:** las capturas salen de un entorno local (`http://localhost` o `*.test`) con datos de prueba.
 
 **Nunca:**
 
@@ -75,27 +99,20 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 ### Lo que falta hoy
 
 - `DatabaseSeeder` carga empresas, roles, categorías y el catálogo de aplicaciones, pero **no carga usuarios ni contenido**. Lo hace a propósito, porque también corre en producción.
-- La única forma de entrar sin Microsoft es el acceso de emergencia (`portal:emergency-account`). Ese acceso crea un `super_admin`, que ve el menú de administración, así que no muestra lo que ve un colaborador.
+- La única forma de entrar sin Microsoft es el acceso de emergencia (`portal:emergency-account`). Ese acceso crea un `super_admin`, que ve el menú «Administración», así que no muestra lo que ve un colaborador.
 - Para el capítulo 2 hacen falta dos cuentas vinculadas, una en cada empresa.
 
-### Propuesta (es un PR aparte, pendiente de aprobación)
+La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 
-1. **`VideoDemoSeeder`, solo para entorno local.** Usa las factories que ya existen (`UserFactory`, `CompanyFactory`, `AppFactory`, `AnnouncementFactory`, `EventFactory`, `WorkItemFactory`, `DirectoryEntryFactory`, `MarketRateFactory`, `ItServiceFactory`). Crea:
-   - una colaboradora ficticia («Ana Prueba») con una cuenta en Segurex y otra en SDC, ya vinculadas;
-   - un editor de anuncios ficticio;
-   - anuncios, eventos, tareas, aprobaciones, cumpleaños y estados de TI de ejemplo;
-   - tasas de mercado de ejemplo, unas que suben y otras que bajan.
-   Si `app()->isProduction()`, el seeder no corre.
-2. **Entrada local para grabar.** Una ruta que solo existe cuando `app()->isLocal()` y que inicia sesión como una cuenta de prueba. Así no hace falta Microsoft.
-3. **Correos de prueba.** Todos terminan en `@ejemplo.test`. El correo local va al log (`MAIL_MAILER=log`), nunca a un buzón real.
+### Cómo capturar
 
-### Cómo grabar
-
-- **Ventana del navegador:** 1920×1080 con zoom al 100 %. Para los acercamientos, captura a 2× (por ejemplo, con la emulación de dispositivo del navegador) y así el zoom no se pixela.
-- **Una toma por empresa.** Graba cada escena con la empresa que pide el guion (`data-brand="segurex"` o `"sdc"`) y con el tema que pide el storyboard.
-- **Grabador.** En Windows 10, la Barra de juegos (Win + Alt + R) graba la ventana sin instalar nada. OBS Studio (GPL) es más preciso, pero hay que instalarlo, así que primero se pregunta.
-- **Banda de Mercados.** Grábala con la animación en marcha y también en pausa. El guion muestra el botón «Pausar».
-- **Revisión.** Antes de usar cada captura, revisa cuadro por cuadro que no haya un dato real, una URL de producción ni una notificación del sistema operativo.
+- **Capturas fijas en PNG.** Motion Canvas anima imágenes, así que la mayoría de las escenas son capturas fijas, no grabaciones de video.
+- **Escritorio:** ventana de 1440 px de ancho, a 2× (en el navegador, con la emulación de dispositivo y factor de escala 2).
+- **Celular:** 390 px de ancho, a 2× o 3×, para el corte vertical.
+- **Empresa y tema.** Haz una captura por empresa y por tema, según el storyboard (`data-brand="segurex"` o `"derivados"`).
+- **Animaciones reales del portal.** Para las pocas escenas que necesitan el movimiento real (el fundido de la Vitrina, la banda de Mercados en marcha), graba un clip corto con la Barra de juegos de Windows (Win + Alt + R) y ponlo en la escena con el nodo `Video`.
+- **Nombres de archivo:** cada captura se guarda con el número de su escena, por ejemplo `3.8-sdc-claro-escritorio.png`.
+- **Revisión.** Antes de usar una captura, revisa que no haya un dato real, una URL de producción ni una notificación del sistema operativo.
 
 ---
 
@@ -115,7 +132,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
   - Fuentes: <https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/> y la API de precios de Azure.
 - **Cómo:**
   - Escribe la locución de cada escena en SSML, con pausas (`<break>`) y la pronunciación de siglas como «SDC» o «TI».
-  - Genera un archivo de audio por escena. Así, si cambia una escena, solo se regraba esa.
+  - Genera un audio por escena. Así, si cambia una escena, solo se regraba esa.
 - **Requisito:** un recurso de Speech en la suscripción de Azure de la empresa. Lo crea Jhon. La clave nunca va al repositorio.
 
 ### Alternativa: voz propia
@@ -128,7 +145,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 
 ---
 
-## 5. Música y subtítulos
+## 5. Música, mezcla y subtítulos
 
 ### Música
 
@@ -137,49 +154,56 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
   - Sirve fuera de cualquier plataforma, así que vale para la intranet.
   - Prohíbe vender la pista sola y usarla como marca.
   - Fuente: <https://pixabay.com/service/license-summary/>.
-- **Registro:** guarda en `docs/video-guia/creditos.md` el enlace y la fecha de cada pista, aunque no se exija atribución.
-- **Volumen:** música de fondo entre −20 y −24 dB bajo la voz. Baja aún más mientras habla la locución.
+- **Registro:** guarda en `creditos.md` el enlace y la fecha de cada pista, aunque no se exija atribución.
 - **Evita:**
   - la biblioteca de música de CapCut (solo vale para TikTok y CapCut);
   - la biblioteca de audio de YouTube, porque su uso fuera de YouTube no está claro.
 
+### Mezcla
+
+- Motion Canvas acepta una sola pista de audio por proyecto. Por cada capítulo:
+  1. une los audios de las escenas en orden;
+  2. pon la música debajo, entre −20 y −24 dB bajo la voz;
+  3. exporta un solo archivo (`NN-tema.wav`).
+- Los tiempos de cada escena en Motion Canvas se ajustan a ese audio, con `waitFor` y las marcas de tiempo del editor.
+
 ### Subtítulos (.srt)
 
-- **Un `.srt` por capítulo y por formato.** El texto es la locución exacta del guion.
+- **Un `.srt` por capítulo.** El texto es la locución exacta del guion. Los mismos tiempos sirven para los dos formatos.
 - **Cómo generarlos:**
   - Azure no entrega `.srt` directamente. Su síntesis da los tiempos de cada palabra y cada frase (`WordBoundary`, o `sentenceBoundaryEnabled` en la síntesis por lotes), y con esos tiempos se arma el `.srt`.
   - Si la voz es propia, usa Whisper (MIT, corre en el equipo; hay que instalarlo, así que primero se pregunta) con `--output_format srt`, y después corrige los textos contra el guion.
 - **Reglas:**
   - máximo 2 líneas de 42 caracteres;
   - entre 1 y 7 segundos en pantalla;
-  - en el formato vertical, por encima del tercio inferior para no tapar los controles del reproductor.
+  - en el formato vertical, por encima del tercio inferior.
 
 ---
 
 ## 6. Formatos y exportación
 
-| Formato | Uso | Notas |
-|---|---|---|
-| 1920×1080, 30 fps, MP4 (H.264 + AAC) | Portal, Teams y correo | Formato principal |
-| 1080×1920, 30 fps, MP4 | Celular | Reacomoda, no recorta a ciegas (ver la zona segura en el storyboard) |
-| `.srt` | Ambos | Un archivo por capítulo y formato |
-| Miniatura PNG, 1280×720 | Portada en el portal | Una por capítulo |
+| Formato | Proyecto | Uso | Notas |
+|---|---|---|---|
+| 1920×1080, 30 fps, MP4 (H.264 + AAC) | `horizontal` | Portal, Teams y correo | Formato principal |
+| 1080×1920, 30 fps, MP4 | `vertical` | Celular | Reacomoda, no recorta a ciegas (ver la zona segura en el storyboard) |
+| `.srt` | Ambos | Subtítulos | Un archivo por capítulo |
+| Miniatura PNG, 1280×720 | `horizontal` | Portada en el portal | Un cuadro exportado por capítulo |
 
-**Nombres de archivo:** `NN-tema-formato-empresa.mp4`, por ejemplo `02-vincular-cuenta-1080x1920-sdc.mp4`.
+**Nombres de archivo:** `NN-tema-formato-empresa.mp4`, por ejemplo `02-vincular-cuenta-1080x1920-derivados.mp4`.
 
-**Peso:** apunta a menos de 25 MB por capítulo horizontal, para que se pueda adjuntar o subir sin problemas.
+**Peso:** apunta a menos de 25 MB por capítulo horizontal.
 
 ---
 
 ## 7. Marca
 
-- **Una empresa por pantalla.** La marca sale de la empresa activa (`data-brand`). Nunca van el naranja de Segurex y el azul de SDC en el mismo cuadro. La única excepción es el selector de empresa del capítulo 2 (escenas 2.6 y 2.7), que muestra los nombres de las dos empresas como texto. La Vitrina (`/login`) muestra los logos de las dos empresas en una fila: el storyboard la deja fuera de cuadro en las escenas 1.3, 1.4 y 1.6.
+- **Una empresa por pantalla.** La marca sale de la empresa activa (`data-brand="segurex"` o `"derivados"`). Nunca van el naranja de Segurex y el azul de SDC en el mismo cuadro.
+  - La única excepción es el selector de empresa del capítulo 2 (escenas 2.6 y 2.7), que muestra los nombres de las dos empresas como texto.
+  - La Vitrina (`/login`) muestra los logos de las dos empresas en una fila. El storyboard la deja fuera de cuadro en las escenas 1.3, 1.4 y 1.6.
 - **Logos reales como imagen**, nunca el nombre escrito como texto. El logo de Segurex en blanco va solo sobre fondo oscuro.
-- **Tipografía:** Helvetica o Arial, la misma del portal.
-- **Colores:** solo los tokens de la skill (claro y oscuro, con contraste AA). Ningún hex suelto en una escena. Nunca texto blanco sobre `#F26522`.
-- **Vidrio (`liquid-glass-ryr`):**
-  - El texto va siempre sobre un panel de vidrio (`g-card`, `g-sheet`, `g-pop`…), nunca directo sobre el fondo.
-  - **Mientras algo se mueve detrás de un panel, ese panel deja de usar `backdrop-filter` y usa `--g-solid`.** Es una regla de la skill, y en video también evita parpadeos y exportaciones lentas.
+- **Tipografía de las capas:** Helvetica o Arial, la misma del portal.
+- **Colores de las capas:** solo los de `brand.ts`, copiados de los tokens de la skill (con contraste AA). Nunca texto blanco sobre `#F26522`.
+- **Vidrio:** lo pone la captura real. Las capas de texto son sólidas y opacas entre 84 y 92 %, nunca texto directo sobre la foto de fondo.
 - **Skills:** `liquid-glass-ryr` y `frontend-marca-sgx-sydc-v2`. La v2 figura «en evaluación» frente a la v1 desde el 2026-10-29. Hay que confirmar con Jhon que la v2 es la vigente antes de producir.
 
 ---
@@ -188,37 +212,123 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 
 | # | Paso | Responsable | Días hábiles |
 |---|---|---|---|
-| 1 | Aprobar el guion, la herramienta y la voz | Jhon | 1 |
-| 2 | PR con `VideoDemoSeeder` y la entrada local | Desarrollo | 1 |
-| 3 | Grabar las capturas de los 8 capítulos (Segurex y SDC, claro y oscuro) | Desarrollo | 1–2 |
-| 4 | Generar la voz (SSML) y revisar la pronunciación | Desarrollo + Jhon | 1 |
-| 5 | Animar en Remotion: plantilla común (títulos, resaltados, flechas, transiciones) y luego cada capítulo | Desarrollo | 3–4 |
-| 6 | Música, mezcla y `.srt` | Desarrollo | 0,5 |
-| 7 | Revisar con 2 o 3 colaboradores (uno de cada empresa) y corregir | Jhon + usuarios | 1 |
-| 8 | Exportar los dos formatos y publicar en el portal | Desarrollo + Jhon | 0,5 |
-| | **Total** | | **De 9 a 11 días** (unas 2 semanas) |
+| 1 | Aprobar el guion y la voz | Jhon | 1 |
+| 2 | Datos de prueba y entrada local (sección 9) | Desarrollo | 1 |
+| 3 | Instalar Motion Canvas y armar la plantilla común (rótulo, resaltado, cursor, logo, `brand.ts`) | Desarrollo | 1,5 |
+| 4 | Tomar las capturas de los 8 capítulos (escritorio y celular, empresa y tema de cada escena) | Desarrollo | 1,5 |
+| 5 | Generar la voz (SSML), revisar la pronunciación, mezclar con la música | Desarrollo + Jhon | 1 |
+| 6 | Animar los 8 capítulos en los dos formatos | Desarrollo | 3–4 |
+| 7 | Subtítulos `.srt` | Desarrollo | 0,5 |
+| 8 | Revisar con 2 o 3 colaboradores (uno de cada empresa) y corregir | Jhon + usuarios | 1 |
+| 9 | Exportar y publicar en el portal | Desarrollo + Jhon | 0,5 |
+| | **Total** | | **De 10 a 12 días** |
 
 ### Costos
 
 | Concepto | Costo |
 |---|---|
-| Remotion, 1 puesto «Creators», 1 o 2 meses | US$25–50 |
-| Azure AI Speech, nivel F0 | US$0 (el guion cabe en el cupo gratis) |
+| Motion Canvas y `@motion-canvas/ffmpeg` (MIT) | US$0 |
+| Azure AI Speech, nivel F0 | US$0 (la locución cabe en el cupo gratis) |
 | Música de Pixabay | US$0 |
 | Grabador (Barra de juegos de Windows) | US$0 |
-| **Total en efectivo** | **US$25–50** |
+| **Total en efectivo** | **US$0** |
 
-El costo real es el tiempo del equipo: unas 2 semanas de una persona.
-
-**Plan B sin código (Canva Pro):** unos US$144 al año (precio sin confirmar), con más horas de trabajo manual por formato.
+El costo real es el tiempo del equipo: unas 2 semanas y media de una persona. Elegir Motion Canvas suma más o menos un día frente a Remotion, por las capturas y las capas.
 
 ---
 
-## 9. Decisiones pendientes de Jhon
+## 9. Siguiente paso: preparar la producción
+
+Nada de esto está hecho. Cada punto espera aprobación.
+
+**Regla común:** nada de esto llega a producción.
+
+- El servidor despliega `main` con `git pull`, así que **todo archivo que entre a `main` termina en el servidor**, aunque no se use.
+- Por eso las piezas 1 y 2 viven en una rama local que **nunca se fusiona**: `video/captura-local`.
+- Además, cada pieza se protege sola si alguna vez corre fuera de local.
+
+### 9.1 Datos de demostración sin personas reales
+
+**Archivos (en la rama `video/captura-local`):**
+
+- `database/seeders/VideoDemoSeeder.php`. Usa las factories que ya existen y crea:
+  - «Ana Prueba», con una cuenta en Segurex y otra en Soluciones y Derivados, ya vinculadas;
+  - «Luis Demo», editor de anuncios;
+  - anuncios (uno por confirmar), eventos, tareas y aprobaciones, cumpleaños, personas del directorio y servicios de TI;
+  - tasas de mercado, unas que suben y otras que bajan.
+- Si hace falta, estados nuevos en `database/factories/UserFactory.php` y `WorkItemFactory.php`.
+- `tests/Feature/VideoDemoSeederTest.php`. Comprueba que los correos terminan en `@ejemplo.test` y que el seeder no corre en producción.
+
+**Protecciones:**
+
+- Si `app()->isProduction()`, el seeder se detiene con un error.
+- Usa Faker, que en producción no existe (`composer install --no-dev`).
+- Todos los correos son `@ejemplo.test`. El correo local va al log (`MAIL_MAILER=log`, lo pone Jhon en su `.env` local).
+
+**Riesgos:**
+
+| Riesgo | Mitigación |
+|---|---|
+| Correr el seeder en una base real | La guarda de producción, más una base local aparte (SQLite) solo para el video |
+| Un nombre generado por Faker se parece al de una persona real | Los nombres visibles en pantalla son fijos y ficticios («Ana Prueba», «Luis Demo»); Faker solo llena lo que no sale en cuadro |
+| La rama se queda atrás de `main` | Fusionar `main` en la rama antes de cada sesión de capturas |
+
+### 9.2 Entrar al portal solo en local
+
+**Archivos (en la misma rama):**
+
+- `routes/local.php`, con una ruta `GET /_local/entrar/{user}` que inicia sesión como una cuenta de prueba y redirige al inicio.
+- `bootstrap/app.php`, para cargar `routes/local.php` solo si `app()->environment('local')`.
+- `tests/Feature/LocalLoginTest.php`, que comprueba que la ruta da 404 fuera de local y que solo acepta cuentas `@ejemplo.test`.
+
+**Protecciones:**
+
+- La ruta no se registra fuera de local.
+- Solo acepta usuarios con correo `@ejemplo.test`.
+- Vive en una rama que no se fusiona.
+
+**Riesgos:**
+
+| Riesgo | Mitigación |
+|---|---|
+| Es una puerta sin contraseña | Solo existe con `APP_ENV=local`, solo para cuentas `@ejemplo.test`, y nunca en `main` |
+| La ruta se fusiona a `main` por error | La rama se llama `video/captura-local` y su PR, si se abre, queda en borrador con «NO FUSIONAR». Una prueba en `main` puede comprobar que `/_local/entrar` no existe |
+| Cambiar de empresa normalmente pide Microsoft | La ruta entra directo a la cuenta de cada empresa. El capítulo 2 muestra la confirmación de Microsoft como ilustración, no como pantalla real |
+
+### 9.3 Instalar Motion Canvas
+
+**Dónde:** fuera de este repositorio. Opciones:
+
+- **Recomendada:** un repositorio aparte, por ejemplo `GrupoRyR/portal-ryr-video`.
+- **Alternativa:** una carpeta local sin Git.
+
+Las capturas pesan cientos de MB y no deben inflar el repositorio del portal ni llegar al servidor.
+
+**Archivos (en el repositorio nuevo):**
+
+- `package.json` y `package-lock.json`, con versiones exactas de `@motion-canvas/core`, `@motion-canvas/2d`, `@motion-canvas/ui`, `@motion-canvas/vite-plugin` y `@motion-canvas/ffmpeg`;
+- `vite.config.ts`, con los proyectos `horizontal` y `vertical`;
+- `src/brand.ts`, con los tokens de la sección 7;
+- `src/components/`, con el rótulo, el resaltado, el cursor y el logo;
+- `src/scenes/NN-*.tsx`, una escena por capítulo y formato;
+- `capturas/`, `audio/` y `subtitulos/`.
+
+**Cómo:** con `npm init @motion-canvas@latest` y después `npm install @motion-canvas/ffmpeg`, siempre con la aprobación de Jhon.
+
+**Riesgos:**
+
+| Riesgo | Mitigación |
+|---|---|
+| El proyecto casi no se mantiene (última versión estable: 2024-12-14) | Versiones fijas; el resultado es un MP4 normal; con la licencia MIT se puede mantener una versión propia |
+| Se descargan paquetes de npm, incluido un binario de FFmpeg | Instalar solo los paquetes oficiales `@motion-canvas/*`, revisar `npm audit` y no ejecutar scripts de paquetes desconocidos |
+| Capturas con datos reales en un repositorio | El repositorio es privado y solo guarda capturas del entorno local; se revisan antes de cada commit |
+
+---
+
+## 10. Decisiones pendientes de Jhon
 
 Se responden una por una, en este orden:
 
-1. ¿Aprobamos Remotion con un puesto de US$25 al mes durante la producción?
+1. ¿Aprobamos la sección 9 (rama `video/captura-local` sin fusionar y un repositorio aparte para Motion Canvas)?
 2. ¿Voz de Azure (Salomé o Gonzalo) o voz propia?
-3. ¿Aprobamos el PR del `VideoDemoSeeder` con la entrada solo local?
-4. ¿La marca vigente es la v2 (`frontend-marca-sgx-sydc-v2`) o la v1?
+3. ¿La marca vigente es la v2 (`frontend-marca-sgx-sydc-v2`) o la v1?
