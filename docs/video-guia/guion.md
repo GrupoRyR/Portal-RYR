@@ -10,7 +10,7 @@ Video de animación (motion graphics) sobre capturas reales del portal, en 8 cap
 | Duración total | 610 s (10 min 10 s). Cada capítulo dura entre 60 y 90 s y se puede publicar suelto. |
 | Una empresa por pantalla | Cada cuadro muestra una sola marca. Los capítulos alternan Segurex y SDC (tabla de abajo). La única excepción es el selector de empresa (escenas 2.6 y 2.7), donde el portal muestra el nombre de las dos empresas como texto. |
 | Sin sesión | El inicio de sesión («Vitrina») es neutro: sin color de empresa. |
-| Datos | **Todo lo que se ve es de muestra**: «Ana Prueba», `ana.prueba@ejemplo.test`, «Luis Demo», tasas como «4.123,45». Ninguna persona, correo ni cifra es real. Cada pantalla lleva el rótulo «Datos de muestra». |
+| Datos | Las capturas salen de producción, con datos reales (decisión de Jhon del 2026-11-05). Los nombres y cifras de este guion («Ana», «Compras demo», «4.123,45»…) son ejemplos: en el video sale lo que haya en el portal ese día. |
 | Sin voz | El video no tiene locución: se lee una barra de texto y suena música de fondo. Decisión de Jhon del 2026-11-05. |
 | Ritmo de lectura | Máximo 84 caracteres por barra, en 2 líneas de 42, y máximo 15 caracteres por segundo. Hoy todas las barras caben en 2 líneas de 42 sin cortar palabras, y el promedio es de unos 8 caracteres por segundo. |
 | Primero el texto | La barra de texto aparece primero. La acción en pantalla (clic, acercamiento) empieza cerca de 1 s después, para que se lea antes de mirar. |
@@ -45,7 +45,7 @@ Cada escena tiene seis campos: número, duración, qué se ve, texto en pantalla
 | 1.4 | 10 s | Portal, `/login`: el cursor pulsa «Iniciar sesión con Microsoft». | «Iniciar sesión con Microsoft» | Pulsa «Iniciar sesión con Microsoft» y usa tu cuenta de trabajo, la de tu correo. | Barrido a la derecha |
 | 1.5 | 9 s | Animación: un selector de cuentas genérico (no la pantalla real de Microsoft) con `ana.prueba@ejemplo.test`. | «Tu cuenta de trabajo de Segurex o de SDC» | ¿Tienes cuenta en las dos? Entra con cualquiera y luego cambia de empresa. | Barrido de regreso a la Vitrina |
 | 1.6 | 8 s | Portal, `/login`: se resalta la línea de ayuda «Escribe a soporte de TI». | «¿Problemas para entrar? Escribe a soporte de TI» | Si no puedes entrar, usa el enlace de soporte de TI que está debajo. | Fundido a blanco |
-| 1.7 | 9 s | Portal, `/`: el inicio de Segurex con el saludo «Buenos días, Ana». | «Buenos días, Ana» · «Datos de muestra» | Al entrar llegas al inicio, con los colores de tu empresa. | Corte a la tarjeta de cierre |
+| 1.7 | 9 s | Portal, `/`: el inicio de Segurex con el saludo «Buenos días, Ana». | «Buenos días, Ana» | Al entrar llegas al inicio, con los colores de tu empresa. | Corte a la tarjeta de cierre |
 
 Suma: 6 + 9 + 9 + 10 + 9 + 8 + 9 = **60 s**.
 
@@ -81,7 +81,7 @@ Suma: 8 + 9 + 9 + 11 + 9 + 10 + 10 + 8 + 6 = **80 s**.
 | 3.4 | 7 s | Portal, `/`: se resalta la lista «Recientes». | «Recientes» | En «Recientes» aparecen las últimas aplicaciones que abriste. | Corte al buscador |
 | 3.5 | 11 s | Portal, `/`: se pulsa Ctrl K y se abre «Buscar en el portal»; al escribir «vaca» salen los grupos «Aplicaciones», «Anuncios», «Fechas» y «Personas». | «Ctrl K (⌘ K en Mac)» | Pulsa Ctrl K para buscar aplicaciones, anuncios, fechas y personas a la vez. | El diálogo se cierra con Esc |
 | 3.6 | 8 s | Portal, `/`: tarjeta «Accesos rápidos» con Outlook, Teams y OneDrive. | «Accesos rápidos» | «Accesos rápidos» tiene Outlook, Teams, OneDrive y los enlaces de tu empresa. | Subida al encabezado |
-| 3.7 | 12 s | Portal, `/`: la banda «Mercados» corre bajo el encabezado con «Dólar (TRM) 4.123,45 ▲ 0,32 %» y «Euro 4.456,78 ▼ 0,15 %». | «Mercados» · «Datos de muestra» | Bajo el encabezado corre «Mercados»: dólar, euro y otros indicadores. | Acercamiento a las flechas |
+| 3.7 | 12 s | Portal, `/`: la banda «Mercados» corre bajo el encabezado con «Dólar (TRM) 4.123,45 ▲ 0,32 %» y «Euro 4.456,78 ▼ 0,15 %». | «Mercados» | Bajo el encabezado corre «Mercados»: dólar, euro y otros indicadores. | Acercamiento a las flechas |
 | 3.8 | 10 s | Portal, `/`: acercamiento a ▲ verde, ▼ rojo y ● neutro. | «Verde: subió · Rojo: bajó» | La flecha verde indica que subió y la roja que bajó, frente al dato anterior. | Paneo al control de pausa |
 | 3.9 | 9 s | Portal, `/`: el cursor pulsa «Pausar»; la banda se detiene y el control dice «Reanudar». | «Pausar · Reanudar» | Pulsa «Pausar» para leer con calma. Al pasar el mouse, también se detiene. | Fundido a la tarjeta de cierre |
 
@@ -136,7 +136,7 @@ Suma: 8 + 10 + 7 + 10 + 11 + 7 + 9 + 13 = **75 s**.
 | 6.3 | 11 s | Portal, `/`: se pulsa «¿Qué tareas y aprobaciones tengo pendientes?» y llega una respuesta de muestra. | «¿Qué tareas y aprobaciones tengo pendientes?» | Pregunta por apps, anuncios, fechas, personas, tareas o el estado de TI. | Corte a la página del asistente |
 | 6.4 | 10 s | Portal, `/asistente`: se resalta la nota del pie: «El asistente solo lee lo que tu cuenta ya ve en el portal y no puede cambiar nada.». | «Solo lee. No cambia nada.» | Solo lee lo que tu cuenta ya ve. No publica, no aprueba y no completa nada. | Resaltado que baja a la frase siguiente |
 | 6.5 | 9 s | Portal, `/asistente`: se resalta «Las respuestas las genera Claude, de Anthropic, y pueden tener errores». | «Revisa los datos importantes en el portal» | Las respuestas las genera Claude, de Anthropic, y pueden tener errores. | Paneo al contador |
-| 6.6 | 9 s | Portal, `/asistente`: bajo «Tu pregunta», el contador «Te quedan 38 preguntas de 40 por hoy.». | «Te quedan 38 preguntas de 40 por hoy.» · «Datos de muestra» | Tienes un número de preguntas por día. Bajo el campo ves cuántas te quedan. | Paneo al botón |
+| 6.6 | 9 s | Portal, `/asistente`: bajo «Tu pregunta», el contador «Te quedan 38 preguntas de 40 por hoy.». | «Te quedan 38 preguntas de 40 por hoy.» | Tienes un número de preguntas por día. Bajo el campo ves cuántas te quedan. | Paneo al botón |
 | 6.7 | 8 s | Portal, `/asistente`: botón «Nueva conversación» y la frase «La conversación no se guarda». | «Nueva conversación» | No se guarda: se borra al cerrar sesión o al cambiar de empresa. | Corte al panel |
 | 6.8 | 6 s | Portal, `/`: en el panel, una pregunta ajena al trabajo y una respuesta amable de muestra. | «Solo temas del portal y del trabajo» | Si preguntas algo ajeno al portal, te lo dirá con amabilidad. | Fundido a la tarjeta de cierre |
 
@@ -171,12 +171,12 @@ Suma: 9 + 10 + 10 + 9 + 7 + 10 + 9 + 6 = **70 s**.
 | 8.2 | 8 s | Portal, menú del avatar › «Administración» y luego `/admin/anuncios`: el cursor pulsa «Nuevo anuncio». | «Administración › Anuncios › Nuevo anuncio» | En «Administración», abre «Anuncios» y pulsa «Nuevo anuncio». | Corte al formulario |
 | 8.3 | 10 s | Portal, `/admin/anuncios/nuevo`: sección «Contenido» con «Título», «Texto» e «Imagen (opcional)», llenos con datos de muestra. | «Contenido: Título · Texto · Imagen» | En «Contenido» escribe el título y el texto. La imagen es opcional. | Desplazamiento a «Publicación» |
 | 8.4 | 10 s | Portal, `/admin/anuncios/nuevo`: sección «Publicación» con «Para quién», «Desde», «Hasta (opcional)», «Fijar arriba» y «Lectura obligatoria». | «Para quién · Desde · Hasta» | En «Publicación» eliges para quién es, desde cuándo y si es obligatoria. | Acercamiento a la casilla de correo |
-| 8.5 | 12 s | Portal, `/admin/anuncios/nuevo`: se resalta «Enviar también por correo a la lista de cada empresa», ya marcada, con «Lo reciben: Segurex (todos@segurex.ejemplo.test)». | «Enviar también por correo a la lista de cada empresa» · «Datos de muestra» | El correo viene marcado. Debajo ves qué listas lo reciben. Sale una vez. | Paneo a la vista previa |
+| 8.5 | 12 s | Portal, `/admin/anuncios/nuevo`: se resalta «Enviar también por correo a la lista de cada empresa», ya marcada, con «Lo reciben: Segurex (todos@segurex.ejemplo.test)». | «Enviar también por correo a la lista de cada empresa» | El correo viene marcado. Debajo ves qué listas lo reciben. Sale una vez. | Paneo a la vista previa |
 | 8.6 | 8 s | Portal, `/admin/anuncios/nuevo`: «Vista previa» y el cursor pulsa «Guardar». | «Vista previa · Guardar» | Revisa la vista previa y pulsa «Guardar». El correo sale al publicarse. | Corte a Mercados |
 | 8.7 | 9 s | Portal, `/admin/mercados`: título «Mercados» y la lista «Mercados de» con Segurex elegida. | «Administración › Mercados» | En «Mercados» decides qué ve cada empresa. Primero elígela en «Mercados de». | Desplazamiento a los insumos |
 | 8.8 | 9 s | Portal, `/admin/mercados`: «Insumos que ve esta empresa» con «Zinc (US$/t)» y «Cobre (US$/t)» marcados; el cursor pulsa «Guardar insumos». | «Insumos que ve esta empresa» | Marca los insumos automáticos de esa empresa y pulsa «Guardar insumos». | Desplazamiento a los precios |
 | 8.9 | 11 s | Portal, `/admin/mercados`: «Nuevo precio» con «Insumo» «Soda cáustica», «Valor» «4.123,45», «Unidad», «Fecha del precio» y «Fuente (opcional)»; el cursor pulsa «Guardar». | «Valor: coma para los decimales, por ejemplo 4.123,45» | Para un precio a mano, usa «Nuevo precio» y escribe los decimales con coma. | Corte al inicio |
-| 8.10 | 6 s | Portal, `/` (Segurex): la banda muestra «Soda cáustica $4.123,45/kg ▲». | «Aparece en la banda» · «Datos de muestra» | El precio aparece en la banda en la siguiente carga. | Fundido a negro y logo One |
+| 8.10 | 6 s | Portal, `/` (Segurex): la banda muestra «Soda cáustica $4.123,45/kg ▲». | «Aparece en la banda» | El precio aparece en la banda en la siguiente carga. | Fundido a negro y logo One |
 
 Suma: 7 + 8 + 10 + 10 + 12 + 8 + 9 + 9 + 11 + 6 = **90 s**.
 

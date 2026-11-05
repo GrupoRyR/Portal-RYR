@@ -15,7 +15,7 @@ Un cuadro clave por escena, con el mismo número que `docs/video-guia/guion.md` 
 | Barra de texto | El video no tiene voz: la frase de cada escena («Barra de texto» en el guion) se lee en una barra sólida, con el criterio de `--g-solid` (opaca entre 84 y 92 %, sin desenfoque). Texto en Helvetica o Arial, máximo 2 líneas. **Horizontal 1920×1080:** a lo largo del borde inferior, dentro de un margen de 60 px. **Vertical 1080×1920:** encima de los 320 px libres de abajo, en la parte baja del tercio medio, 2 líneas de unos 28 caracteres con letra más grande; si la frase no cabe, se permiten 3 líneas, solo en vertical. Hoy 61 de las 68 frases ocupan 3 líneas en vertical y ninguna pasa de 3. La barra aparece primero y la acción empieza cerca de 1 s después. Nunca tapa el elemento resaltado: si lo taparía, en esa escena la barra sube al borde superior. |
 | Resaltado | Anillo de 2 px en `--g-ink` (el mismo del foco del portal) y pulso suave de 600 ms, dos veces. El cursor es el del sistema, a 150 %. |
 | Flechas de mercado | ▲ en `--g-good`, ▼ en `--g-crit`, ● en `--g-ink-faint`. |
-| Rótulo «Datos de muestra» | Píldora `g-pill` abajo a la izquierda en cada captura del portal, justo encima de la barra de texto; en el corte vertical, también encima de la barra de texto. |
+| Datos reales | Las capturas salen de producción con datos reales, sin tapar (decisión de Jhon del 2026-11-05). No se pone el rótulo «Datos de muestra». Los nombres y cifras de los cuadros son ejemplos. |
 | Logos | Los reales: Segurex blanco sobre su placa `--brand-dark`; SDC a color sobre su placa blanca. One en color (claro) o cristal (oscuro). |
 
 ## 1. Qué es el portal y cómo entrar

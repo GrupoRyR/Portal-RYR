@@ -15,7 +15,7 @@ Este documento dice cómo producir el video guía descrito en [guion.md](guion.m
 | Herramienta | **Motion Canvas** (MIT, TypeScript), elegida por Jhon el 2026-11-05 |
 | Exportar a MP4 | Plugin `@motion-canvas/ffmpeg` |
 | Vidrio | Capturas reales del portal como imágenes, con capas animadas encima. No se reproduce el CSS. |
-| Pantallas del portal | Capturas de un entorno local con datos de prueba, nunca de producción |
+| Pantallas del portal | Capturas de producción con datos reales (decisión de Jhon del 2026-11-05) |
 | Sonido | Sin voz: barra de texto en pantalla y música de fondo (decisión de Jhon) |
 | Música | Pixabay Music, sin atribución obligatoria |
 | Formatos | 1920×1080 (escritorio) y 1080×1920 (celular) |
@@ -85,23 +85,16 @@ El vidrio del portal es CSS (`backdrop-filter`), y Motion Canvas dibuja en canva
 
 ---
 
-## 3. Capturar el portal sin datos reales
+## 3. Capturar el portal
 
-**Regla:** las capturas salen de un entorno local (`http://localhost` o `*.test`) con datos de prueba.
+**Decisión de Jhon del 2026-11-05:** las capturas salen de **producción** (<https://apps.segurexlatam.net>), con datos reales y sin tapar. Motivo: así no hay que montar nada local; las personas de Segurex y SDC se conocen entre ellas, y la mayoría no tiene foto ni datos personales en el portal.
 
-**Nunca:**
-
-- de producción;
-- con nombres, correos, fotos, cumpleaños o cifras de personas reales;
-- con el tablero de Microsoft o un correo real visible.
-
-### Lo que falta hoy
-
-- `DatabaseSeeder` carga empresas, roles, categorías y el catálogo de aplicaciones, pero **no carga usuarios ni contenido**. Lo hace a propósito, porque también corre en producción.
-- La única forma de entrar sin Microsoft es el acceso de emergencia (`portal:emergency-account`). Ese acceso crea un `super_admin`, que ve el menú «Administración», así que no muestra lo que ve un colaborador.
-- Para el capítulo 2 hacen falta dos cuentas vinculadas, una en cada empresa.
-
-La sección 9 propone cómo resolverlo sin que nada llegue a producción.
+- **Quién inicia sesión:** Jhon, con su propia cuenta de Microsoft, en su navegador o en el panel del navegador de Claude. Claude nunca escribe contraseñas.
+- **El capítulo 2** necesita una cuenta vinculada en cada empresa. Se captura con la cuenta de Jhon si ya tiene las dos vinculadas.
+- **El capítulo 8** (Administración) solo se ve con un rol de editor o administrador.
+- **Se ven datos reales:** nombres, cumpleaños, anuncios, tareas y tasas tal como están en producción. Las tasas de Mercados son públicas.
+- **No se hacen cambios en producción para el video.** Los botones que cambian datos («Confirmar lectura», «Completar», «Vincular otra empresa», «Publicar») se capturan antes del clic. El resultado se anima encima, salvo que Jhon quiera hacer el cambio real.
+- **Alternativa local:** la rama `video/captura-local` (sección 9) queda de respaldo, con datos de muestra, por si más adelante se quiere un video sin datos reales.
 
 ### Cómo capturar
 
@@ -111,7 +104,7 @@ La sección 9 propone cómo resolverlo sin que nada llegue a producción.
 - **Empresa y tema.** Haz una captura por empresa y por tema, según el storyboard (`data-brand="segurex"` o `"derivados"`).
 - **Animaciones reales del portal.** Para las pocas escenas que necesitan el movimiento real (el fundido de la Vitrina, la banda de Mercados en marcha), graba un clip corto con la Barra de juegos de Windows (Win + Alt + R) y ponlo en la escena con el nodo `Video`.
 - **Nombres de archivo:** cada captura se guarda con el número de su escena, por ejemplo `3.8-sdc-claro-escritorio.png`.
-- **Revisión.** Antes de usar una captura, revisa que no haya un dato real, una URL de producción ni una notificación del sistema operativo.
+- **Revisión.** Antes de usar una captura, revisa que no haya una notificación del sistema operativo, otra pestaña ni información de una conversación privada (correo, Teams).
 
 ---
 
@@ -215,7 +208,7 @@ El costo real es el tiempo del equipo: unas 2 semanas de una persona. Elegir Mot
 
 ## 9. Siguiente paso: preparar la producción
 
-Jhon aprobó esta sección el 2026-11-05. Todavía no hay nada hecho.
+Jhon aprobó esta sección el 2026-11-05 y quedó hecha ese día (rama local `video/captura-local` y carpeta `VIDEO_GUIA_RYR`). Después, Jhon decidió capturar desde producción (sección 3), así que la rama queda solo de respaldo.
 
 **Regla común:** nada de esto llega a producción.
 
@@ -309,3 +302,4 @@ Jhon aprobó esta sección el 2026-11-05. Todavía no hay nada hecho.
 | 2 | Preparación de la sección 9: rama `video/captura-local` sin fusionar y Motion Canvas en una carpeta local, sin repositorio en GitHub | Aprobada, 2026-11-05 |
 | 3 | Marca | v2 (`frontend-marca-sgx-sydc-v2`), 2026-11-05 |
 | 4 | Voz | Sin voz: barra de texto y música, 2026-11-05. Reemplaza la elección de Gonzalo (`es-CO-GonzaloNeural`). |
+| 5 | Capturas | Producción, con datos reales y sin tapar, 2026-11-05 |
