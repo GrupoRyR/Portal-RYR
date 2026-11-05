@@ -36,11 +36,11 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
   - #55: nuevo inicio de sesión de escritorio (cometas detrás de una tarjeta).
 - **Cuentas vinculadas** (fase 1 del nuevo inicio, `odd/tasks/cuentas-vinculadas.md`). Una persona con una cuenta de Microsoft en cada empresa cambia de empresa desde el encabezado. Aún no está en producción:
   - T1 y T2 (#61 a #65), fusionadas en `main` el 2026-10-29: confirmación reciente ligada a la cuenta, personas, vincular y desvincular automático.
-  - T3 (#67, abierta): cambiar de empresa con un inicio de sesión de Microsoft con la cuenta de destino.
-  - T4 (rama `feat/cuentas-vinculadas-4-interfaz`, sobre #67): selector en el encabezado, página `/cuenta`, desvincular, comando `portal:unlink-account` y manual (§8 de `docs/manual-administracion.md`).
-- **Asistente del portal** (`odd/tasks/asistente.md`, ola 3), aprobado por Jhon como líder de IA. Página `/asistente` que responde con lo que la cuenta activa ya ve, con Claude Haiku 5.5 (personas) y Sonnet 5.5 (editores) por el SDK oficial de PHP, las mismas herramientas de solo lectura del conector, presupuesto mensual de US$ 20, proveedores enchufables (DeepSeek por verificar) y un proveedor secundario opcional. Los editores reciben borradores de anuncios que solo se publican con su confirmación. Rama `feat/asistente`, sin PR todavía. Apagado por defecto (`PORTAL_ASSISTANT_ENABLED`, interruptor de Configuración y `ANTHROPIC_API_KEY`, `docs/despliegue.md` §1.23; manual §15).
-- **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR abiertas: #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`). Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) está en la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
-- **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, sin PR): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Aún no está en `main` ni en producción.
+  - T3 (#67, fusionada en `main`): cambiar de empresa con un inicio de sesión de Microsoft con la cuenta de destino.
+  - T4 (rama `feat/cuentas-vinculadas-4-interfaz`, fusionada en `main`): selector en el encabezado, página `/cuenta`, desvincular, comando `portal:unlink-account` y manual (§8 de `docs/manual-administracion.md`).
+- **Asistente del portal** (`odd/tasks/asistente.md`, ola 3), aprobado por Jhon como líder de IA. Página `/asistente` que responde con lo que la cuenta activa ya ve, con Claude Haiku 5.5 (personas) y Sonnet 5.5 (editores) por el SDK oficial de PHP, las mismas herramientas de solo lectura del conector, presupuesto mensual de US$ 20, proveedores enchufables (DeepSeek por verificar) y un proveedor secundario opcional. Los editores reciben borradores de anuncios que solo se publican con su confirmación. Fusionado en `main` (rama `feat/asistente`). Apagado por defecto (`PORTAL_ASSISTANT_ENABLED`, interruptor de Configuración y `ANTHROPIC_API_KEY`, `docs/despliegue.md` §1.23; manual §15).
+- **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`), fusionada en `main`. Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) se fusionó en `main` desde la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
+- **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, fusionada en `main`): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Está en `main`; aún no está en producción.
 
 ### 2026-11-04
 
@@ -58,7 +58,7 @@ Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
 2. Después del despliegue: `php artisan portal:sync-markets`.
 3. En Administración › Empresas, completar **Lista de todo el personal** y **Buzón remitente** de cada empresa.
 
-**Problema conocido:** Banco de la República responde HTTP 500 cuando la petición no trae cabecera `Accept`. La corrección está en la rama `fix/banrep-accept`; **todavía no está hecha**.
+**Problema conocido:** Banco de la República responde HTTP 500 cuando la petición no trae cabecera `Accept`. **Corregido en el PR #114** (`fix/banrep-accept`, envía `Accept: application/xml`), pendiente de fusionar y desplegar.
 
 **Pendientes para Jhon:**
 
@@ -69,6 +69,7 @@ Se fusionaron en `main` los PRs #101 a #113 (`main` = `c9698ce`). Tres bloques:
 - [ ] Configurar `PUSH_VAPID_*` y `ANTHROPIC_API_KEY` en el servidor.
 - [ ] Crear o confirmar el grupo `APP-PortalGerencia`.
 - [ ] Revisar el CI del PR #89.
+- [ ] Dar el OK para fusionar y desplegar el PR #114 (BanRep).
 - [ ] Contrato de tareas v0.2.1: falta la lista del inicio con sus botones (`docs/contrato-tareas-aprobaciones.md`).
 - [ ] Robot del panel: en pausa hasta que Jhon lo indique.
 
