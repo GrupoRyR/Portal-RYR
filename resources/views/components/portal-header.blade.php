@@ -1,7 +1,7 @@
 {{--
     Glass top bar of the portal (App\View\Components\PortalHeader), approved
     sketch of 2026-11-04: the logo on its plate (the white Segurex logo on
-    --brand-dark, SDC on white), «Portal RYR», «Cambiar de empresa», the
+    --brand-dark, SDC on white), the One logo, «Cambiar de empresa», the
     search, «Soporte TI», the bell (x-notification-bell) and the user menu. Phones get a
     second row with «Secciones» (home screen) and the search.
 
@@ -16,9 +16,10 @@
     <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 px-3 py-2 md:flex-nowrap md:gap-3 md:px-8 lg:px-10">
         <a href="{{ route('home') }}" aria-label="Ir al inicio" class="order-1 flex min-h-touch min-w-0 shrink-0 items-center gap-3 rounded-control">
             <x-brand-logo />
-            <span class="hidden flex-col border-l border-(--g-line-strong) pl-3 text-xs leading-tight text-(--g-ink-soft) xl:flex">
-                <span class="text-sm font-bold text-(--g-ink)">Portal RYR</span>
-                <span aria-hidden="true">{{ $companyName }}</span>
+            {{-- The portal's own mark, «One»: color on the light theme, crystal on the dark one (as on the sign-in page). --}}
+            <span class="hidden items-center border-l border-(--g-line-strong) pl-3 xl:flex">
+                <img src="{{ asset('images/one/one-color.webp') }}" width="440" height="205" alt="One" decoding="async" class="h-9 w-auto dark:hidden">
+                <img src="{{ asset('images/one/one-cristal.webp') }}" width="440" height="205" alt="One" decoding="async" class="hidden h-9 w-auto dark:block">
             </span>
         </a>
 

@@ -87,6 +87,19 @@ class PortalHeaderTest extends TestCase
         }
     }
 
+    public function test_the_header_shows_the_one_logo_instead_of_the_portal_name(): void
+    {
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $page = $this->page($path);
+            $link = '//header[@data-portal-header]//a[@href="'.route('home').'"]';
+
+            // The color logo for the light theme and the crystal one for the dark theme.
+            $this->assertSame(1, $page->query($link.'//img[@alt="One"][contains(@src, "images/one/one-color.webp")][contains(@class, "dark:hidden")]')->length, $path);
+            $this->assertSame(1, $page->query($link.'//img[@alt="One"][contains(@src, "images/one/one-cristal.webp")][contains(@class, "dark:block")]')->length, $path);
+            $this->assertStringNotContainsString('Portal RYR', $page->query('//header[@data-portal-header]')->item(0)->textContent, $path);
+        }
+    }
+
     public function test_the_header_search_is_a_named_search_landmark(): void
     {
         $this->openableApp();
