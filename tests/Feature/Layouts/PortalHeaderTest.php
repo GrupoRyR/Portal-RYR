@@ -93,9 +93,14 @@ class PortalHeaderTest extends TestCase
             $page = $this->page($path);
             $link = '//header[@data-portal-header]//a[@href="'.route('home').'"]';
 
-            // The color logo for the light theme and the crystal one for the dark theme.
-            $this->assertSame(1, $page->query($link.'//img[@alt="One"][contains(@src, "images/one/one-color.webp")][contains(@class, "dark:hidden")]')->length, $path);
-            $this->assertSame(1, $page->query($link.'//img[@alt="One"][contains(@src, "images/one/one-cristal.webp")][contains(@class, "dark:block")]')->length, $path);
+            $logo = $link.'//*[contains(concat(" ", normalize-space(@class), " "), " xl:flex ")]/picture';
+
+            // One image, shown from xl up: the color logo, swapped for the crystal one by a
+            // dark-scheme <source> that resources/js/theme.js points at the chosen theme.
+            $this->assertSame(1, $page->query($link.'//picture')->length, $path);
+            $this->assertSame(1, $page->query($logo.'/source[@media="(prefers-color-scheme: dark)"][contains(@srcset, "images/one/one-cristal.webp")]')->length, $path);
+            // «//img»: libxml's HTML 4 parser nests the <img> inside the void <source>.
+            $this->assertSame(1, $page->query($logo.'//img[@alt="One"][contains(@src, "images/one/one-color.webp")][@loading="lazy"]')->length, $path);
             $this->assertStringNotContainsString('Portal RYR', $page->query('//header[@data-portal-header]')->item(0)->textContent, $path);
         }
     }

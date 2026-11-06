@@ -16,10 +16,15 @@
     <div class="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 px-3 py-2 md:flex-nowrap md:gap-3 md:px-8 lg:px-10">
         <a href="{{ route('home') }}" aria-label="Ir al inicio" class="order-1 flex min-h-touch min-w-0 shrink-0 items-center gap-3 rounded-control">
             <x-brand-logo />
-            {{-- The portal's own mark, «One»: color on the light theme, crystal on the dark one (as on the sign-in page). --}}
+            {{-- The portal's own mark, «One», as on the sign-in page: color on light,
+                 crystal on dark. resources/js/theme.js points the dark <source> at
+                 the theme chosen in the user menu, so only one image downloads;
+                 lazy, so phones (wrapper hidden below xl) download none. --}}
             <span class="hidden items-center border-l border-(--g-line-strong) pl-3 xl:flex">
-                <img src="{{ asset('images/one/one-color.webp') }}" width="440" height="205" alt="One" decoding="async" class="h-9 w-auto dark:hidden">
-                <img src="{{ asset('images/one/one-cristal.webp') }}" width="440" height="205" alt="One" decoding="async" class="hidden h-9 w-auto dark:block">
+                <picture>
+                    <source srcset="{{ asset('images/one/one-cristal.webp') }}" media="(prefers-color-scheme: dark)" width="440" height="205">
+                    <img src="{{ asset('images/one/one-color.webp') }}" width="440" height="205" alt="One" loading="lazy" decoding="async" class="h-9 w-auto">
+                </picture>
             </span>
         </a>
 
