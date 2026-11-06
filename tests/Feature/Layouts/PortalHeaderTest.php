@@ -87,6 +87,24 @@ class PortalHeaderTest extends TestCase
         }
     }
 
+    public function test_the_header_shows_the_one_logo_instead_of_the_portal_name(): void
+    {
+        foreach (['/', route('announcements.index', absolute: false)] as $path) {
+            $page = $this->page($path);
+            $link = '//header[@data-portal-header]//a[@href="'.route('home').'"]';
+
+            $logo = $link.'//*[contains(concat(" ", normalize-space(@class), " "), " xl:flex ")]/picture';
+
+            // One image, shown from xl up: the color logo, swapped for the crystal one by a
+            // dark-scheme <source> that resources/js/theme.js points at the chosen theme.
+            $this->assertSame(1, $page->query($link.'//picture')->length, $path);
+            $this->assertSame(1, $page->query($logo.'/source[@media="(prefers-color-scheme: dark)"][contains(@srcset, "images/one/one-cristal.webp")]')->length, $path);
+            // «//img»: libxml's HTML 4 parser nests the <img> inside the void <source>.
+            $this->assertSame(1, $page->query($logo.'//img[@alt="One"][contains(@src, "images/one/one-color.webp")][@loading="lazy"]')->length, $path);
+            $this->assertStringNotContainsString('Portal RYR', $page->query('//header[@data-portal-header]')->item(0)->textContent, $path);
+        }
+    }
+
     public function test_the_header_search_is_a_named_search_landmark(): void
     {
         $this->openableApp();

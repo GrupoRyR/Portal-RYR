@@ -19,7 +19,7 @@ use Illuminate\View\Component;
 /**
  * The glass top bar of the portal (odd/tasks/liquid-glass.md G3), shared by
  * the home screen and the secondary pages of a signed-in account: the
- * company logo on its plate, «Portal RYR», «Cambiar de empresa»
+ * company logo on its plate, the One logo, «Cambiar de empresa»
  * (AccountSwitcher), the search, «Soporte TI», the bell (G4,
  * NotificationList) and the user menu (its links, «Tus empresas», the
  * theme choice and «Cerrar sesión»).
@@ -40,8 +40,6 @@ class PortalHeader extends Component
     public readonly string $userInitials;
 
     public readonly ?string $userEmail;
-
-    public readonly string $companyName;
 
     public readonly bool $canAdminister;
 
@@ -74,7 +72,6 @@ class PortalHeader extends Component
             $this->userName = $page->userName;
             $this->userInitials = $page->userInitials;
             $this->userEmail = $page->userEmail;
-            $this->companyName = $page->companyName;
             $this->canAdminister = $page->canAdminister;
             $this->supportHref = $page->supportHref;
             $this->accountsHref = $page->accountsHref;
@@ -95,7 +92,6 @@ class PortalHeader extends Component
         $this->userName = (string) $user?->name;
         $this->userInitials = self::initials($this->userName);
         $this->userEmail = $user?->email;
-        $this->companyName = Company::displayName($user?->company);
         $this->canAdminister = $user?->hasAnyRole(HomePageBuilder::ADMIN_ROLES) ?? false;
         $this->supportHref = app(PortalSettings::class)->supportUrl() === null ? null : route('support');
         $this->accountsHref = $user === null || $user->is_emergency ? null : route('account.show');
