@@ -14,10 +14,12 @@ use JsonException;
  *
  * - `empresa` is the company of the account in session (each company has
  *   its own tenant and account), never `*`;
- * - `sub` is the account's address in lower case (see {@see subject()}), and
- *   only when it is at one of the account's company domains: the address is
- *   an attribute the tenant's admins control, so an address at someone
- *   else's domain is never signed as an identity;
+ * - `sub` is the account's own sign-in name (UPN) in lower case, kept at
+ *   every Microsoft sign-in in `users.upn` (see {@see subject()}), and only
+ *   when it is at one of the account's company domains: it is an attribute
+ *   the tenant's admins control, so a name at someone else's domain is never
+ *   signed as an identity. `mail` (`users.email`) is never used; an account
+ *   with no UPN yet gets no token until it signs in again;
  * - `rol` is `gerencia` only while the Portal's own management check passes
  *   (the same policy as the management panel, group included), else
  *   `empleado`: a token can only describe a role the Portal gives right now;
@@ -89,7 +91,7 @@ final class PanelToken
 
     /**
      * A signed-in Microsoft account of an active company the agent knows,
-     * with an address at one of that company's domains. Not the emergency
+     * with a UPN at one of that company's domains. Not the emergency
      * accounts, not guests (B2B), not an account without a company, and not
      * a company outside config('agent.companies').
      */
@@ -120,14 +122,14 @@ final class PanelToken
     }
 
     /**
-     * Who the agent sees: the account's address in lower case. It is the
-     * address the Portal stored at sign-in (`mail`, else the sign-in name);
-     * the agent's assignment is made with the same address. The Portal does
-     * not keep the sign-in name separately (docs/agente-conexion.md §9).
+     * Who the agent sees: the account's UPN in lower case, as the Portal
+     * stored it at the last Microsoft sign-in (empty until then, and for a
+     * guest UPN). The agent matches it with the address it holds for the
+     * person.
      */
     public static function subject(User $user): string
     {
-        return strtolower(trim((string) $user->email));
+        return mb_strtolower(trim((string) $user->upn));
     }
 
     public static function role(User $user): string

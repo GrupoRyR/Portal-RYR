@@ -41,7 +41,7 @@ class AgentPanelTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-11-12 10:00:00', 'America/Bogota'));
 
         $this->segurex = Company::factory()->create(['slug' => 'segurex', 'domains' => ['segurex.com']]);
-        $this->user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana@segurex.com']);
+        $this->user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana.mail@segurex.com', 'upn' => 'ana@segurex.com']);
     }
 
     private function page(string $path, ?User $user = null): DOMXPath
@@ -123,7 +123,7 @@ class AgentPanelTest extends TestCase
     public function test_the_brand_follows_the_company(): void
     {
         $derivados = Company::factory()->create(['slug' => 'derivados', 'domains' => ['derivados.com']]);
-        $other = User::factory()->microsoft($derivados)->create(['email' => 'luis@derivados.com']);
+        $other = User::factory()->microsoft($derivados)->create(['email' => 'luis.mail@derivados.com', 'upn' => 'luis@derivados.com']);
 
         $this->assertSame('derivados', $this->page('/', $other)->query(self::LINK)->item(0)->getAttribute('data-agente-marca'));
     }

@@ -45,8 +45,11 @@ class PanelTokenTest extends TestCase
     {
         $company ??= $this->segurex;
 
-        // The address is at one of the company's own domains, in mixed case on purpose.
-        return User::factory()->microsoft($company)->create($attributes + ['email' => 'Ana.Perez@'.ucfirst($company->domains[0])]);
+        // The mail and the sign-in name differ on purpose; both are at the company's own domain, the UPN in mixed case.
+        return User::factory()->microsoft($company)->create($attributes + [
+            'email' => 'ana.perez@'.$company->domains[0],
+            'upn' => 'AEPerez@'.ucfirst($company->domains[0]),
+        ]);
     }
 
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: string} header, claims, raw signature */
@@ -71,7 +74,8 @@ class PanelTokenTest extends TestCase
         $this->assertSame(['iss', 'aud', 'sub', 'empresa', 'rol', 'iat', 'exp', 'jti'], array_keys($claims));
         $this->assertSame('portal-ryr', $claims['iss']);
         $this->assertSame('agente-ryr', $claims['aud']);
-        $this->assertSame('ana.perez@segurex.com', $claims['sub']);
+        $this->assertSame('aeperez@segurex.com', $claims['sub']);
+        $this->assertNotSame($claims['sub'], 'ana.perez@segurex.com', 'the sub is the sign-in name, not the mail');
         $this->assertSame('SGX', $claims['empresa']);
         $this->assertSame('empleado', $claims['rol']);
         $this->assertSame(now()->getTimestamp(), $claims['iat']);
@@ -126,8 +130,8 @@ class PanelTokenTest extends TestCase
         $sgx = $this->decode((string) PanelToken::for($this->user($this->segurex)))[1];
         $sdc = $this->decode((string) PanelToken::for($this->user($this->derivados)))[1];
 
-        $this->assertSame(['SGX', 'ana.perez@segurex.com'], [$sgx['empresa'], $sgx['sub']]);
-        $this->assertSame(['SDC', 'ana.perez@derivados.com'], [$sdc['empresa'], $sdc['sub']]);
+        $this->assertSame(['SGX', 'aeperez@segurex.com'], [$sgx['empresa'], $sgx['sub']]);
+        $this->assertSame(['SDC', 'aeperez@derivados.com'], [$sdc['empresa'], $sdc['sub']]);
     }
 
     private const GROUP = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -145,9 +149,9 @@ class PanelTokenTest extends TestCase
     public function test_the_management_group_gets_gerencia_and_everyone_else_empleado(): void
     {
         $manager = $this->manager();
-        $admin = $this->user(null, ['email' => 'admin@segurex.com']);
+        $admin = $this->user(null, ['upn' => 'admin@segurex.com']);
         $admin->assignRole('portal_admin');
-        $editor = $this->user(null, ['email' => 'editor@segurex.com']);
+        $editor = $this->user(null, ['upn' => 'editor@segurex.com']);
         $editor->assignRole('announcements_editor');
 
         $this->assertSame('gerencia', $this->decode((string) PanelToken::for($manager))[1]['rol']);
@@ -174,12 +178,12 @@ class PanelTokenTest extends TestCase
     public function test_an_address_at_another_companys_domain_is_never_signed_as_an_identity(): void
     {
         // The address is an attribute the tenant's admins control: an SDC account claiming a Segurex mailbox.
-        $forged = $this->user($this->derivados, ['email' => 'ceo@segurex.com']);
+        $forged = $this->user($this->derivados, ['upn' => 'ceo@segurex.com']);
 
         $this->assertNull(PanelToken::for($forged));
-        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'x@segurex.com.evil.test'])));
-        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'x@sub.segurex.com'])));
-        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'no-at-sign'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['upn' => 'x@segurex.com.evil.test'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['upn' => 'x@sub.segurex.com'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['upn' => 'no-at-sign'])));
     }
 
     public function test_emergency_and_guest_accounts_get_no_token(): void
@@ -204,9 +208,20 @@ class PanelTokenTest extends TestCase
         $this->assertNull(PanelToken::for($this->user($this->segurex->fresh(), ['email' => 'b@segurex.com'])));
     }
 
-    public function test_an_account_without_an_address_gets_no_token(): void
+    public function test_an_account_without_a_sign_in_name_gets_no_token_even_with_a_mail(): void
     {
-        $this->assertNull(PanelToken::for($this->user(null, ['email' => ''])));
+        // An account that has not signed in since the UPN was kept: no token until it does.
+        $this->assertNull(PanelToken::for($this->user(null, ['upn' => null])));
+        $this->assertNull(PanelToken::for($this->user(null, ['upn' => ''])));
+        $this->assertNull(PanelToken::for($this->user(null, ['upn' => '  '])));
+    }
+
+    public function test_the_mail_is_never_used_for_the_subject(): void
+    {
+        // Same domain, different mail: only the UPN counts, and a mail at a foreign domain does not matter.
+        $user = $this->user(null, ['email' => 'someone.else@elsewhere.test']);
+
+        $this->assertSame('aeperez@segurex.com', $this->decode((string) PanelToken::for($user))[1]['sub']);
     }
 
     public function test_without_a_valid_key_or_origin_nothing_is_signed(): void

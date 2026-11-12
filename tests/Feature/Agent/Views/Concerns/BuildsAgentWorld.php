@@ -63,7 +63,7 @@ trait BuildsAgentWorld
 
     protected function microsoftUser(?Company $company, string $email, array $attributes = []): User
     {
-        $user = User::factory()->microsoft($company ?? $this->other)->create(array_merge(['email' => $email], $attributes));
+        $user = User::factory()->microsoft($company ?? $this->other)->create(array_merge(['email' => $email, 'upn' => $email], $attributes));
 
         if ($company === null) {
             $user->forceFill(['company_id' => null])->save();

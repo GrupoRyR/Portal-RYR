@@ -233,7 +233,10 @@ SQL;
      * Same rule as WorkItem::scopeVisibleTo() (the account's own pending
      * items of a live integration with `work:write` and a catalog app), for
      * the accounts that may use the panel: not a guest, not an emergency
-     * account, with an active mapped company.
+     * account, with an active mapped company and a UPN. `usuario_correo` is
+     * the account's UPN (`users.upn`, kept at each Microsoft sign-in), the
+     * same value the panel token carries in `sub`; an account without one
+     * is left out, never matched by its mail.
      */
     private static function tasks(Dialect $d): string
     {
@@ -242,7 +245,7 @@ SQL;
 
         return <<<SQL
 SELECT ae.empresa AS empresa,
-       LOWER(u.email) AS usuario_correo,
+       LOWER(u.upn) AS usuario_correo,
        CASE w.kind WHEN 'task' THEN 'tarea' WHEN 'approval' THEN 'aprobacion' END AS tipo,
        w.title AS titulo,
        w.due_at AS vence,
@@ -259,7 +262,7 @@ WHERE w.deleted_at IS NULL
   AND w.status = 'pending'
   AND COALESCE(u.is_guest, 0) = 0
   AND COALESCE(u.is_emergency, 0) = 0
-  AND u.email IS NOT NULL AND u.email <> ''
+  AND u.upn IS NOT NULL AND TRIM(u.upn) <> ''
   AND i.revoked_at IS NULL
   AND i.app_id IS NOT NULL
   AND {$writes}

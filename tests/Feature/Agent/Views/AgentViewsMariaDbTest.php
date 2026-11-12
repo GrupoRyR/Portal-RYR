@@ -135,7 +135,7 @@ class AgentViewsMariaDbTest extends TestCase
 
     public function test_tasks_are_per_person_and_only_for_live_integrations(): void
     {
-        $ana = $this->microsoftUser($this->sgx, 'Ana.Perez@Example.test');
+        $ana = $this->microsoftUser($this->sgx, 'ana.mail@example.test', ['upn' => 'Ana.Perez@Example.test']);
         $beto = $this->microsoftUser($this->sgx, 'beto@example.test');
         $guest = $this->microsoftUser($this->sgx, 'invitado@example.test', ['is_guest' => true]);
         $tasks = App::factory()->create(['slug' => 'tareas', 'name' => 'Tareas', 'url' => 'https://tareas.segurex.com.co']);

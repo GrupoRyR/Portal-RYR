@@ -35,6 +35,10 @@ class TasksParityTest extends TestCase
 
     private User $noCompany;
 
+    private User $noUpn;
+
+    private User $emptyUpn;
+
     private Integration $live;
 
     /** @var array<string, Integration> */
@@ -46,16 +50,20 @@ class TasksParityTest extends TestCase
 
         $this->makeCompanies();
 
-        // One person, two accounts (one per company) with the same email in mixed case.
-        $this->anaSgx = $this->microsoftUser($this->sgx, 'Ana.Perez@Example.test');
-        $this->anaSdc = $this->microsoftUser($this->sdc, 'ana.perez@example.test');
+        // One person, two accounts (one per company) with the same sign-in name (UPN) in mixed case.
+        // The mail differs from the UPN on purpose: the view is keyed by the UPN, never by the mail.
+        $this->anaSgx = $this->microsoftUser($this->sgx, 'ana.mail@example.test', ['upn' => 'Ana.Perez@Example.test']);
+        $this->anaSdc = $this->microsoftUser($this->sdc, 'ana.mail.sdc@example.test', ['upn' => 'ana.perez@example.test']);
         // A tenant and object ID stored in upper case still match the lower-case ones of the item.
-        $this->beto = $this->microsoftUser($this->sgx, 'beto@example.test');
+        $this->beto = $this->microsoftUser($this->sgx, 'beto.mail@example.test', ['upn' => 'beto@example.test']);
         $this->beto->forceFill(['azure_oid' => strtoupper($this->beto->azure_oid), 'tenant_id' => strtoupper($this->beto->tenant_id)])->save();
         $this->carla = $this->microsoftUser($this->other, 'carla@example.test');
         $this->guest = $this->microsoftUser($this->sgx, 'invitado@example.test', ['is_guest' => true]);
         $this->emergency = $this->microsoftUser($this->sgx, 'emergencia@example.test', ['is_emergency' => true]);
         $this->noCompany = $this->microsoftUser(null, 'sin.empresa@example.test');
+        // Accounts that have not signed in since the UPN is kept: a mail, no UPN.
+        $this->noUpn = $this->microsoftUser($this->sgx, 'sin.upn@example.test', ['upn' => null]);
+        $this->emptyUpn = $this->microsoftUser($this->sgx, 'upn.vacio@example.test', ['upn' => '']);
 
         $tasks = App::factory()->create(['slug' => 'tareas', 'name' => 'Tareas', 'url' => 'https://tareas.segurex.com.co']);
         $this->live = $this->workIntegration('Tareas', $tasks);
@@ -67,7 +75,7 @@ class TasksParityTest extends TestCase
             'no-ability' => $this->workIntegration('Sin habilidad', $tasks, ['abilities' => [Integration::CATALOG_READ]]),
         ];
 
-        foreach ([$this->anaSgx, $this->anaSdc, $this->beto, $this->carla, $this->guest, $this->emergency, $this->noCompany] as $user) {
+        foreach ([$this->anaSgx, $this->anaSdc, $this->beto, $this->carla, $this->guest, $this->emergency, $this->noCompany, $this->noUpn, $this->emptyUpn] as $user) {
             $this->seedItemsOf($user);
         }
 
@@ -125,7 +133,7 @@ class TasksParityTest extends TestCase
             $expected = $this->expectedTitles($user);
 
             $this->assertNotEmpty($expected);
-            $this->assertSame($expected, $this->titlesOf($code, strtolower($user->email)), $user->email.' '.$code);
+            $this->assertSame($expected, $this->titlesOf($code, strtolower($user->upn)), $user->upn.' '.$code);
         }
     }
 
@@ -145,7 +153,7 @@ class TasksParityTest extends TestCase
     {
         $owners = [];
         foreach ([[$this->anaSgx, 'SGX'], [$this->anaSdc, 'SDC'], [$this->beto, 'SGX']] as [$user, $code]) {
-            $owners[$this->who($user)] = [$code, strtolower($user->email)];
+            $owners[$this->who($user)] = [$code, strtolower($user->upn)];
         }
 
         $rows = DB::table('v_tareas_pendientes')->get();
@@ -159,7 +167,7 @@ class TasksParityTest extends TestCase
         $this->assertSame([], array_filter($this->titlesOf('SGX', 'beto@example.test'), fn (string $title) => str_starts_with($title, $this->who($this->anaSgx).':')));
     }
 
-    public function test_the_email_comes_out_in_lower_case_and_nothing_else_about_the_person(): void
+    public function test_the_sign_in_name_comes_out_in_lower_case_and_nothing_else_about_the_person(): void
     {
         $this->assertSame('ana.perez@example.test', DB::table('v_tareas_pendientes')->where('titulo', 'like', $this->who($this->anaSgx).':%')->value('usuario_correo'));
         $this->assertSame(
@@ -174,10 +182,29 @@ class TasksParityTest extends TestCase
         $this->assertNotEmpty($this->expectedTitles($this->guest));
 
         foreach ([$this->guest, $this->emergency, $this->noCompany, $this->carla] as $user) {
-            $this->assertSame(0, DB::table('v_tareas_pendientes')->where('usuario_correo', strtolower($user->email))->count(), $user->email);
+            $this->assertSame(0, DB::table('v_tareas_pendientes')->where('usuario_correo', strtolower($user->upn))->count(), $user->upn);
         }
 
         $this->assertEqualsCanonicalizing(['SGX', 'SDC'], DB::table('v_tareas_pendientes')->distinct()->pluck('empresa')->all());
+    }
+
+    public function test_an_assignee_without_a_upn_is_excluded_and_never_matched_by_the_mail(): void
+    {
+        $this->assertNotEmpty($this->expectedTitles($this->noUpn));
+        $this->assertNotEmpty($this->expectedTitles($this->emptyUpn));
+
+        $rows = DB::table('v_tareas_pendientes')->get();
+        $this->assertNotEmpty($rows);
+        foreach ($rows as $row) {
+            $this->assertNotSame('', trim((string) $row->usuario_correo));
+            $this->assertStringNotContainsString($this->who($this->noUpn).':', $row->titulo);
+            $this->assertStringNotContainsString($this->who($this->emptyUpn).':', $row->titulo);
+        }
+
+        // The mail of those accounts (or anybody's mail) finds nothing.
+        foreach (['sin.upn@example.test', 'upn.vacio@example.test', 'ana.mail@example.test', 'beto.mail@example.test', ''] as $address) {
+            $this->assertSame(0, DB::table('v_tareas_pendientes')->where('usuario_correo', $address)->count(), $address);
+        }
     }
 
     public function test_an_inactive_company_gets_no_rows(): void

@@ -9,7 +9,8 @@ Contrato de referencia: `CONTRATO_CONEXION_AGENTE.md` v0.4 del proyecto del agen
 - **La empresa sigue a la cuenta.** Cada empresa tiene su propio inquilino y su cuenta; el token lleva la empresa (`SGX` o `SDC`) de la cuenta en sesión, nunca `*`. Una persona con una cuenta en cada empresa abre el agente con la empresa de la cuenta con la que entró.
 - **Dos roles**, de menor a mayor: `empleado` y `gerencia`. `gerencia` se firma solo mientras pasa la misma comprobación del panel de gerencia del Portal (`ManagementPanel::ABILITY`: rol `management` y pertenencia al grupo de gerencia de su empresa, revisada en cada página); todos los demás son `empleado`. Si se vacía el grupo en Administración, el token deja de decir `gerencia` al instante. El token nunca sube el rol: la asignación por persona la hace TI en el agente.
 - **`roles_por_persona` = empleado y gerencia.** Solo cambia lo que ve quien usa una herramienta con filtro `usuario` (`mis_pendientes`): siempre sus propias filas, también `gerencia`. Las otras cuatro herramientas son de la empresa y abren desde su rol mínimo.
-- **Sin token ni botón** para cuentas de emergencia o invitadas, cuentas sin empresa, empresas fuera del mapa SGX/SDC o inactivas, cuentas cuya dirección no está en un dominio de su empresa, ni cuando faltan la llave o el origen del agente. El botón tampoco entra en la copia del inicio guardada sin conexión.
+- **Identidad = UPN.** El token lleva en `sub` el UPN de la cuenta en minúsculas, que el Portal guarda en `users.upn` en **cada inicio de sesión con Microsoft** (el perfil de Graph `userPrincipalName`, o el reclamo `upn`; nunca `preferred_username` ni `email`). `users.email` no cambia (sigue siendo `mail` primero) y ya no se usa para el agente. Un UPN de invitado (`#EXT#`) no se guarda.
+- **Sin token ni botón** para cuentas de emergencia o invitadas, cuentas que aún no tienen UPN, cuentas sin empresa, empresas fuera del mapa SGX/SDC o inactivas, cuentas cuyo UPN no está en un dominio de su empresa, ni cuando faltan la llave o el origen del agente. El botón tampoco entra en la copia del inicio guardada sin conexión.
 - Sin acciones en el primer manifiesto. Tampoco rol `editor`.
 
 ## 2. Variables de entorno
@@ -38,7 +39,7 @@ Una migración (`2026_11_12_000001_create_agent_views.php`) crea la vista auxili
 |---|---|---|
 | `v_anuncios_vigentes` | Anuncios publicados ahora para la empresa | no |
 | `v_eventos_proximos` | Eventos publicados que aún no terminan; los anuales con su próxima fecha | no |
-| `v_tareas_pendientes` | Tareas y aprobaciones pendientes de cada persona | `usuario_correo` (en minúsculas) |
+| `v_tareas_pendientes` | Tareas y aprobaciones pendientes de cada persona | `usuario_correo` = el UPN de la cuenta (`users.upn`), en minúsculas |
 | `v_estado_ti` | Servicios de TI y apps con falla o en mantenimiento | no |
 | `v_kpis_empresa` | Cifras del panel gerencial (rol `gerencia`) | no |
 
@@ -115,13 +116,13 @@ Si alguna lectura de tablas funciona, revoque (`REVOKE ALL PRIVILEGES, GRANT OPT
 Orden importante: primero la base, al final el botón.
 
 1. **Usuario de solo lectura.** Siga la sección 4. Si no se pueden otorgar permisos por vista, pare.
-2. **Código.** Despliegue la rama como siempre (`docs/despliegue.md`) y ejecute las migraciones. Compruebe con el usuario de la aplicación que existen las vistas: `SHOW FULL TABLES WHERE Table_type = 'VIEW';` debe listar `aux_empresa` y las cinco `v_*`.
+2. **Código.** Despliegue la rama como siempre (`docs/despliegue.md`) y ejecute las migraciones (incluida `2026_11_12_000002_add_upn_to_users_table`, que agrega `users.upn`). **Las cuentas existentes no tienen UPN hasta que vuelven a iniciar sesión con Microsoft:** hasta entonces no ven el botón y no aparecen en `mis_pendientes`. Pídales que cierren sesión y entren de nuevo; el botón aparece en ese primer inicio. Compruebe con el usuario de la aplicación que existen las vistas: `SHOW FULL TABLES WHERE Table_type = 'VIEW';` debe listar `aux_empresa` y las cinco `v_*`.
 3. **Variables.** Agregue `AGENT_URL`, `AGENT_PANEL_KEY` y, si hace falta, `AGENT_APP_URL` al `.env` (sección 2). Recargue la configuración (`php artisan config:cache` si el despliegue la usa).
 4. **Llave de panel.** La entrega el equipo del agente por un canal seguro; el mismo valor se registra allí con el slug `portal-ryr`. No viaja por correo ni chat en claro.
 5. **Alta en el agente.** App **normal** (no se habilita «todas las empresas»): slug `portal-ryr`, empresas SGX y SDC, URL del Portal, los dos roles. Un token cuya empresa no coincide con el inquilino de la cuenta se rechaza.
 6. **Manifiesto.** Compruebe que `https://<portal>/.well-known/agente-ryr.json` responde 200 sin iniciar sesión y sin cookies, con `version` igual a `Manifest::VERSION`. Impórtelo en el agente.
 7. **Conexión del agente** a la base con `agente_portal_ro` (`APPDB_PORTAL_RYR_*` en el agente).
-8. **Asignaciones.** Una por persona, con su rol. El agente identifica a la persona por la dirección que el Portal guardó al iniciar sesión (ver la sección 9, «Identidad»).
+8. **Asignaciones.** Una por persona, con su rol. El agente identifica a la persona por el UPN (en minúsculas) que el Portal guarda al iniciar sesión: el mismo que usa el agente como correo del usuario.
 9. **Prueba de aceptación** (sección 7). Si algo falla, quite `AGENT_URL` del `.env`: el botón desaparece y la cabecera del micrófono vuelve a la de antes, sin tocar código.
 
 Reversa: `AGENT_URL` vacío apaga el botón y el token; `php artisan migrate:rollback --path=database/migrations/2026_11_12_000001_create_agent_views.php` quita las vistas (el rollback solo ejecuta `DROP VIEW`).
@@ -140,7 +141,8 @@ Con usuarios de prueba, uno por rol y dos personas distintas para el filtro `usu
 - [ ] El botón abre el panel, una pregunta responde y una gráfica abre el cajón.
 - [ ] Un token reusado, vencido (más de 5 minutos) o con un rol inexistente no abre sesión.
 - [ ] Una persona sin asignación, o que nunca entró al agente, no abre sesión.
-- [ ] Una cuenta de emergencia y una invitada **no** ven el botón.
+- [ ] Una cuenta de emergencia y una invitada **no** ven el botón; una cuenta que todavía no volvió a iniciar sesión (sin `users.upn`) tampoco, y lo ve tras su siguiente inicio de sesión.
+- [ ] Una persona cuyo `mail` difiere de su UPN abre el agente y `mis_pendientes` trae sus tareas.
 - [ ] Las vistas no exponen columnas de más: `SELECT *` sobre cada `v_*` como `agente_portal_ro` solo trae las columnas de la sección 3.
 
 ## 8. Cómo actualizar la copia del lanzador
@@ -151,7 +153,7 @@ Para actualizarla: 1) pida al equipo del agente el archivo nuevo y su versión; 
 
 ## 9. Pendientes, riesgos y decisiones abiertas
 
-- **Identidad (UPN o correo).** El token lleva en `sub` y la vista en `usuario_correo` la dirección que el Portal guardó (`users.email`: el atributo `mail` y, si falta, el nombre de inicio de sesión). El Portal **no guarda el UPN** por separado, y el contrato (§3.2) pide el UPN. Dos consecuencias: (1) si el agente asigna personas por UPN y el `mail` de alguien es distinto, esa persona no coincide y no abre sesión (falla cerrado); (2) como `mail` lo controlan los administradores del inquilino, el token **solo se firma si la dirección está en un dominio de la empresa de la cuenta** (`Company::ownsEmailDomain`): una cuenta de SDC con `mail = alguien@segurex.com` no recibe token. Para cerrar la diferencia con el contrato hace falta una columna `users.upn` llenada al iniciar sesión (`app/Auth/**`); queda como tarea aparte.
+- **Identidad (UPN).** `users.upn` se llena en cada inicio de sesión desde el perfil de Graph o el reclamo `upn`, y lo controlan los administradores del inquilino (igual que `mail`): por eso el token solo se firma si el UPN está en un dominio de la empresa de la cuenta (`Company::ownsEmailDomain`). Una cuenta nueva o que no ha vuelto a entrar no tiene UPN y no recibe token hasta su siguiente inicio de sesión. Una cuenta cuyo UPN esté en un dominio que no figura en `companies.domains` tampoco: agregue el dominio en Administración › Empresas.
 - **Una persona, dos cuentas.** `mis_pendientes` muestra solo las tareas de la cuenta con la que se entró, no las de la otra empresa (el conector MCP sí junta cuentas).
 - **Barra inferior del inicio en teléfono (N8).** El lanzador (derecha 16 px, abajo 16 px, `z-index` 2147483000) queda encima de la barra `.g-dock` (`z-30`) del inicio en teléfono. El botón anterior se subía con `.g-fab--raised`; el lanzador no tiene esa opción hasta que el agente la agregue (necesidad N8, desplazamiento vertical). No hay otro elemento fijo en la esquina inferior derecha con `z-index` mayor a 9000.
 - **Token y páginas guardadas.** El inicio se guarda para uso sin conexión y el token dibujado caduca a los 5 minutos y es de un solo uso. Mientras el lanzador no pida el token al hacer clic (necesidad N5), una página vieja abre el agente con un token vencido: recargar lo renueva.

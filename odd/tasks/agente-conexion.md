@@ -33,7 +33,7 @@ Fuera de alcance: P7 (retirar `app/Assistant/**`), `resources/js/assistant-panel
 - **Lanzador propio** (`public/js/agente-lanzador.js`, versión 2, SHA-256 `a480f3a7…835eeb`) fijado por prueba; el agente no entra en `script-src`. El Portal solo envía `frame-ancestors 'none'` en su CSP, así que no se agrega `frame-src`.
 - **Micrófono:** `Permissions-Policy: camera=(), microphone=("<agente>"), geolocation=()` solo mientras la conexión está configurada; nunca `self`.
 - **Hora de las vistas:** la base guarda hora local de Bogotá (UTC-5, sin horario de verano) y el agente abre su propia sesión, así que las vistas no usan `NOW()` sino `UTC_TIMESTAMP() - INTERVAL 5 HOUR`.
-- **`sub` y `usuario_correo`:** el Portal guarda `mail` (o el UPN si falta) en `users.email`; no guarda el UPN. Se usa `LOWER(users.email)` en el token y en la vista, con la misma fuente. Abierto: ver «Pendiente».
+- **`sub` y `usuario_correo` = UPN** (decisión del coordinador y del usuario, 2026-11-12, reemplaza la primera versión que usaba `users.email`): columna `users.upn` (migración `2026_11_12_000002`), llenada en cada inicio de sesión con Microsoft desde el perfil de Graph (`userPrincipalName`) o el reclamo `upn`, en minúsculas; nunca un UPN de invitado (`#EXT#`) ni un valor que no sea una dirección simple. `users.email` no cambia. Sin UPN no hay token ni botón (la cuenta lo obtiene en su siguiente inicio de sesión) y la vista excluye sus filas; se mantiene la comprobación de dominio de MEDIO-1, aplicada al UPN.
 
 ## Tareas
 
@@ -59,7 +59,15 @@ Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y 
 
 ## Pendiente
 
-- Identidad: el Portal no guarda el UPN. Si la identidad del agente se fija por UPN y el `mail` de alguien difiere, esa persona no coincidiría (falla cerrado). Para cerrarlo hace falta una columna `users.upn` llenada al iniciar sesión (`app/Auth/**`, fuera de las superficies de esta tarea).
+- Cuentas existentes: reciben el botón en su siguiente inicio de sesión con Microsoft.
 - `v_estado_ti` no aplica `app_access_rules`: puede listar el nombre y el estado de una app que ningún grupo abre para esa persona (baja).
 - Zona horaria de la conexión del agente: debe coincidir con la del Portal para `due_at` y las columnas `updated_at` (`TIMESTAMP`).
 - La consulta de las vistas nunca se ejecutó en MariaDB aquí.
+- Barra inferior del inicio en teléfono (N8): el lanzador queda encima; documentado, sin resolver.
+
+## Seguimiento UPN (2026-11-12)
+
+- [x] U1. Pruebas primero (RED): UPN guardado, `sub` del token, sin UPN. Ruta: directa.
+- [x] U2. Migración `users.upn`, lectura en `MicrosoftIdentity`, escritura en `MicrosoftLogin::applyIdentity`, `User` (sin asignación masiva). Ruta: directa.
+- [x] U3. `PanelToken::subject` = UPN, sin UPN no hay token; vista `usuario_correo` = `LOWER(users.upn)`, filas sin UPN excluidas; pruebas de paridad actualizadas. Ruta: directa.
+- [x] U4. Docs. Revisión corta de solo lectura del cambio de inicio de sesión.
