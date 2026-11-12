@@ -37,13 +37,16 @@ class PanelTokenTest extends TestCase
         ]);
         $this->travelTo(CarbonImmutable::parse('2026-11-12 10:00:00', 'America/Bogota'));
 
-        $this->segurex = Company::factory()->create(['slug' => 'segurex']);
-        $this->derivados = Company::factory()->create(['slug' => 'derivados']);
+        $this->segurex = Company::factory()->create(['slug' => 'segurex', 'domains' => ['segurex.com']]);
+        $this->derivados = Company::factory()->create(['slug' => 'derivados', 'domains' => ['derivados.com']]);
     }
 
     private function user(?Company $company = null, array $attributes = []): User
     {
-        return User::factory()->microsoft($company ?? $this->segurex)->create($attributes + ['email' => 'Ana.Perez@Example.test']);
+        $company ??= $this->segurex;
+
+        // The address is at one of the company's own domains, in mixed case on purpose.
+        return User::factory()->microsoft($company)->create($attributes + ['email' => 'Ana.Perez@'.ucfirst($company->domains[0])]);
     }
 
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: string} header, claims, raw signature */
@@ -68,7 +71,7 @@ class PanelTokenTest extends TestCase
         $this->assertSame(['iss', 'aud', 'sub', 'empresa', 'rol', 'iat', 'exp', 'jti'], array_keys($claims));
         $this->assertSame('portal-ryr', $claims['iss']);
         $this->assertSame('agente-ryr', $claims['aud']);
-        $this->assertSame('ana.perez@example.test', $claims['sub']);
+        $this->assertSame('ana.perez@segurex.com', $claims['sub']);
         $this->assertSame('SGX', $claims['empresa']);
         $this->assertSame('empleado', $claims['rol']);
         $this->assertSame(now()->getTimestamp(), $claims['iat']);
@@ -120,26 +123,63 @@ class PanelTokenTest extends TestCase
 
     public function test_the_company_follows_the_account_and_is_never_all_companies(): void
     {
-        $sgx = $this->decode((string) PanelToken::for($this->user($this->segurex, ['email' => 'a@example.test'])))[1];
-        $sdc = $this->decode((string) PanelToken::for($this->user($this->derivados, ['email' => 'a@example.test'])))[1];
+        $sgx = $this->decode((string) PanelToken::for($this->user($this->segurex)))[1];
+        $sdc = $this->decode((string) PanelToken::for($this->user($this->derivados)))[1];
 
-        $this->assertSame('SGX', $sgx['empresa']);
-        $this->assertSame('SDC', $sdc['empresa']);
-        $this->assertSame($sgx['sub'], $sdc['sub'], 'the same person has one subject and a token per account');
+        $this->assertSame(['SGX', 'ana.perez@segurex.com'], [$sgx['empresa'], $sgx['sub']]);
+        $this->assertSame(['SDC', 'ana.perez@derivados.com'], [$sdc['empresa'], $sdc['sub']]);
+    }
+
+    private const GROUP = 'aaaaaaaa-0000-4000-8000-000000000001';
+
+    private function manager(): User
+    {
+        $this->segurex->forceFill(['management_group_id' => self::GROUP])->save();
+        $user = $this->user($this->segurex->fresh());
+        $user->assignRole('management');
+        $user->syncGroups([['id' => self::GROUP, 'display_name' => 'APP-PortalGerencia', 'security_group' => true]]);
+
+        return $user->fresh();
     }
 
     public function test_the_management_group_gets_gerencia_and_everyone_else_empleado(): void
     {
-        $manager = $this->user();
-        $manager->assignRole('management');
-        $admin = $this->user(null, ['email' => 'admin@example.test']);
+        $manager = $this->manager();
+        $admin = $this->user(null, ['email' => 'admin@segurex.com']);
         $admin->assignRole('portal_admin');
-        $editor = $this->user(null, ['email' => 'editor@example.test']);
+        $editor = $this->user(null, ['email' => 'editor@segurex.com']);
         $editor->assignRole('announcements_editor');
 
         $this->assertSame('gerencia', $this->decode((string) PanelToken::for($manager))[1]['rol']);
         $this->assertSame('empleado', $this->decode((string) PanelToken::for($admin))[1]['rol']);
         $this->assertSame('empleado', $this->decode((string) PanelToken::for($editor))[1]['rol']);
+    }
+
+    public function test_gerencia_follows_the_live_management_check_not_just_the_cached_role(): void
+    {
+        $manager = $this->manager();
+        $this->assertSame('gerencia', $this->decode((string) PanelToken::for($manager))[1]['rol']);
+
+        // Clearing the group closes the management panel at once; the token follows.
+        $this->segurex->forceFill(['management_group_id' => null])->save();
+        $this->assertTrue($manager->fresh()->hasRole('management'), 'the cached role is still there');
+        $this->assertSame('empleado', $this->decode((string) PanelToken::for($manager->fresh()))[1]['rol']);
+
+        // The role without membership of the group is not enough either.
+        $this->segurex->forceFill(['management_group_id' => self::GROUP])->save();
+        $manager->groups()->delete();
+        $this->assertSame('empleado', $this->decode((string) PanelToken::for($manager->fresh()))[1]['rol']);
+    }
+
+    public function test_an_address_at_another_companys_domain_is_never_signed_as_an_identity(): void
+    {
+        // The address is an attribute the tenant's admins control: an SDC account claiming a Segurex mailbox.
+        $forged = $this->user($this->derivados, ['email' => 'ceo@segurex.com']);
+
+        $this->assertNull(PanelToken::for($forged));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'x@segurex.com.evil.test'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'x@sub.segurex.com'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex, ['email' => 'no-at-sign'])));
     }
 
     public function test_emergency_and_guest_accounts_get_no_token(): void
@@ -150,7 +190,7 @@ class PanelTokenTest extends TestCase
 
     public function test_an_account_without_company_or_with_an_unknown_company_gets_no_token(): void
     {
-        $this->assertNull(PanelToken::for(User::factory()->create(['company_id' => null, 'email' => 'x@example.test'])));
+        $this->assertNull(PanelToken::for(User::factory()->create(['company_id' => null, 'email' => 'x@segurex.com'])));
 
         $other = Company::factory()->create(['slug' => 'tercera']);
         $this->assertNull(PanelToken::for($this->user($other)));
@@ -161,7 +201,7 @@ class PanelTokenTest extends TestCase
         $this->assertNull(PanelToken::for($this->user(Company::factory()->inactive()->create(['slug' => 'segurex-vieja']))));
 
         $this->segurex->forceFill(['is_active' => false])->save();
-        $this->assertNull(PanelToken::for($this->user($this->segurex->fresh(), ['email' => 'b@example.test'])));
+        $this->assertNull(PanelToken::for($this->user($this->segurex->fresh(), ['email' => 'b@segurex.com'])));
     }
 
     public function test_an_account_without_an_address_gets_no_token(): void

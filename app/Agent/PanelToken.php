@@ -2,8 +2,10 @@
 
 namespace App\Agent;
 
+use App\Management\ManagementPanel;
 use App\Models\User;
 use DateTimeInterface;
+use Illuminate\Support\Facades\Gate;
 use JsonException;
 
 /**
@@ -12,9 +14,13 @@ use JsonException;
  *
  * - `empresa` is the company of the account in session (each company has
  *   its own tenant and account), never `*`;
- * - `sub` is the account's address in lower case (see {@see subject()});
- * - `rol` is `gerencia` for the management group of the company, else
- *   `empleado`: a token can only describe a role the Portal already gave;
+ * - `sub` is the account's address in lower case (see {@see subject()}), and
+ *   only when it is at one of the account's company domains: the address is
+ *   an attribute the tenant's admins control, so an address at someone
+ *   else's domain is never signed as an identity;
+ * - `rol` is `gerencia` only while the Portal's own management check passes
+ *   (the same policy as the management panel, group included), else
+ *   `empleado`: a token can only describe a role the Portal gives right now;
  * - it lives {@see LIFETIME} seconds and has a random single-use `jti`.
  *
  * Header: only `alg` and `typ`. Nothing is signed for an account that may
@@ -83,16 +89,17 @@ final class PanelToken
 
     /**
      * A signed-in Microsoft account of an active company the agent knows,
-     * with an address. Not the emergency accounts, not guests (B2B), not an
-     * account without a company, and not a company outside
-     * config('agent.companies').
+     * with an address at one of that company's domains. Not the emergency
+     * accounts, not guests (B2B), not an account without a company, and not
+     * a company outside config('agent.companies').
      */
     public static function eligible(User $user): bool
     {
         return ! $user->is_emergency
             && ! $user->is_guest
             && self::subject($user) !== ''
-            && self::company($user) !== null;
+            && self::company($user) !== null
+            && $user->company->ownsEmailDomain(self::subject($user));
     }
 
     /**
@@ -125,7 +132,7 @@ final class PanelToken
 
     public static function role(User $user): string
     {
-        return $user->hasRole((string) config('agent.management_role'))
+        return Gate::forUser($user)->allows(ManagementPanel::ABILITY, $user->company)
             ? (string) config('agent.management_agent_role')
             : (string) config('agent.default_role');
     }

@@ -37,12 +37,12 @@ Fuera de alcance: P7 (retirar `app/Assistant/**`), `resources/js/assistant-panel
 
 ## Tareas
 
-- [ ] P1. Migración con las vistas y pruebas de paridad. Ruta: delegada (escritor).
-- [ ] P3. `config/agent.php`, `PanelToken`, elegibilidad y pruebas. Ruta: directa (este escritor).
-- [ ] P4. Componente, layout, cabeceras, lanzador y pruebas. Ruta: directa.
-- [ ] P5. Manifiesto público y pruebas. Ruta: directa.
-- [ ] P2/P6. `docs/agente-conexion.md` (procedimiento del usuario RO, aceptación, despliegue). Ruta: directa.
-- [ ] Revisión independiente de solo lectura y correcciones de hallazgos altos y medios.
+- [x] P1. Migración con las vistas y pruebas de paridad. Ruta: delegada (escritor). Commit `545cc74`.
+- [x] P3. `config/agent.php`, `PanelToken`, elegibilidad y pruebas. Ruta: directa. Commit `65908c2`.
+- [x] P4. Componente, layout, cabeceras, lanzador y pruebas. Ruta: directa. Commit `c52c1ea`.
+- [x] P5. Manifiesto público y pruebas. Ruta: directa. Commit `105bd35`.
+- [x] P2/P6. `docs/agente-conexion.md` (usuario RO, aceptación, despliegue). Ruta: directa. Commit `ad97c74`.
+- [x] Revisión independiente de solo lectura y correcciones de hallazgos altos y medios (ver Progreso).
 
 ## Declaración de ruta
 
@@ -50,8 +50,16 @@ Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y 
 
 ## Progreso
 
-(se llena con cada unidad)
+- P3: 12 pruebas de token (claims, firma HS256, caducidad 300 s, `jti`, elegibilidad, llave y origen).
+- P4: 13 pruebas de componente y cabeceras; `AssistantFabTest` se reescribió (el botón viejo ya no se dibuja). `LauncherCopyTest` fija versión 2 y SHA-256 `a480f3a7…835eeb`.
+- P1: 82 pruebas (78 pasan, 4 omitidas: MariaDB opcional). El dialecto MariaDB se renderizó y se leyó, nunca se ejecutó.
+- P5: 15 pruebas del manifiesto; hash fijado `54deba2d…0bed` para la versión `2026-11-12.1`. Comprobación aparte: las 5 herramientas seleccionan, ordenan y filtran por las columnas declaradas contra las vistas reales (SQLite).
+- Suite completa antes de la revisión: 3635 pruebas, 3627 pasan, 8 omitidas, 0 fallas.
+- Revisión independiente: sin hallazgos altos. MEDIO-1 (`sub` es `mail`, sin comprobar propiedad del dominio): corregido, el token exige que la dirección esté en un dominio de la empresa de la cuenta. MEDIO-2 (`gerencia` ignoraba la comprobación viva de gerencia): corregido, usa `ManagementPanel::ABILITY`. BAJO-3 (token en la copia sin conexión): corregido con `data-offline-omit`. BAJO-1 (`v_estado_ti` lista apps sin regla de acceso por empresa) y BAJO-2 (zona horaria de las columnas `TIMESTAMP`) quedan documentados.
 
 ## Pendiente
 
 - Identidad: el Portal no guarda el UPN. Si la identidad del agente se fija por UPN y el `mail` de alguien difiere, esa persona no coincidiría (falla cerrado). Para cerrarlo hace falta una columna `users.upn` llenada al iniciar sesión (`app/Auth/**`, fuera de las superficies de esta tarea).
+- `v_estado_ti` no aplica `app_access_rules`: puede listar el nombre y el estado de una app que ningún grupo abre para esa persona (baja).
+- Zona horaria de la conexión del agente: debe coincidir con la del Portal para `due_at` y las columnas `updated_at` (`TIMESTAMP`).
+- La consulta de las vistas nunca se ejecutó en MariaDB aquí.

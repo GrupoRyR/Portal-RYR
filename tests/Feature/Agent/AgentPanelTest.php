@@ -40,8 +40,8 @@ class AgentPanelTest extends TestCase
         config(['agent.origin' => self::ORIGIN, 'agent.panel_key' => base64_encode($this->key)]);
         $this->travelTo(CarbonImmutable::parse('2026-11-12 10:00:00', 'America/Bogota'));
 
-        $this->segurex = Company::factory()->create(['slug' => 'segurex']);
-        $this->user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana@example.test']);
+        $this->segurex = Company::factory()->create(['slug' => 'segurex', 'domains' => ['segurex.com']]);
+        $this->user = User::factory()->microsoft($this->segurex)->create(['email' => 'ana@segurex.com']);
     }
 
     private function page(string $path, ?User $user = null): DOMXPath
@@ -75,12 +75,12 @@ class AgentPanelTest extends TestCase
             $s,
         );
         $claims = json_decode(base64_decode(strtr($p, '-_', '+/')), true);
-        $this->assertSame(['ana@example.test', 'SGX', 'empleado'], [$claims['sub'], $claims['empresa'], $claims['rol']]);
+        $this->assertSame(['ana@segurex.com', 'SGX', 'empleado'], [$claims['sub'], $claims['empresa'], $claims['rol']]);
     }
 
     public function test_the_launcher_is_our_own_copy_and_takes_the_origin_from_an_attribute(): void
     {
-        $script = $this->page('/')->query('//div[@data-agent-present]/script')->item(0);
+        $script = $this->page('/')->query('//section[@data-agent-present]/script')->item(0);
 
         $this->assertStringStartsWith('http://localhost/js/agente-lanzador.js?v=', $script->getAttribute('src'));
         $this->assertSame(self::ORIGIN, $script->getAttribute('data-agente-origen'));
@@ -90,6 +90,18 @@ class AgentPanelTest extends TestCase
         $this->assertSame('_blank', $link->getAttribute('target'));
         $this->assertSame('noopener', $link->getAttribute('rel'));
         $this->assertSame('segurex', $link->getAttribute('data-agente-marca'));
+    }
+
+    public function test_the_service_worker_leaves_it_out_of_the_saved_home_page(): void
+    {
+        $anchor = $this->page('/')->query('//section[@data-agent-present]')->item(0);
+
+        $this->assertTrue($anchor->hasAttribute('data-offline-omit'));
+        // The service worker's own pattern (resources/js/sw.js) removes the whole block.
+        $html = $this->actingAs($this->user)->get('/')->getContent();
+        $stripped = preg_replace('~<(section|li)\b[^>]*\bdata-offline-omit\b[^>]*>[\s\S]*?</\1>\s*~', '', $html);
+        $this->assertStringNotContainsString('#t=', $stripped);
+        $this->assertStringNotContainsString('data-agente-panel', $stripped);
     }
 
     public function test_the_page_never_loads_a_script_from_the_agent(): void
@@ -110,8 +122,8 @@ class AgentPanelTest extends TestCase
 
     public function test_the_brand_follows_the_company(): void
     {
-        $derivados = Company::factory()->create(['slug' => 'derivados']);
-        $other = User::factory()->microsoft($derivados)->create(['email' => 'luis@example.test']);
+        $derivados = Company::factory()->create(['slug' => 'derivados', 'domains' => ['derivados.com']]);
+        $other = User::factory()->microsoft($derivados)->create(['email' => 'luis@derivados.com']);
 
         $this->assertSame('derivados', $this->page('/', $other)->query(self::LINK)->item(0)->getAttribute('data-agente-marca'));
     }

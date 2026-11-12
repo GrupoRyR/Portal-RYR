@@ -52,11 +52,11 @@ return [
         'derivados' => 'SDC',
     ],
 
-    // The role every account gets in the token unless it belongs to the
-    // management group of its company (Spatie role below).
+    // The role every account gets in the token unless the Portal's own
+    // management check passes for it (ManagementPanel::ABILITY: the
+    // management role and current membership of its company's «Gerencia»
+    // group).
     'default_role' => 'empleado',
-
-    'management_role' => 'management',
 
     'management_agent_role' => 'gerencia',
 
