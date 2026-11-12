@@ -15,13 +15,14 @@
 |   AGENT_URL        https origin of the agent, with no path and no trailing
 |                    slash, e.g. https://agente.example.com
 |   AGENT_PANEL_KEY  the panel key of this app, base64 text of at least 32
-|                    random bytes (the agent decodes it and signs nothing
-|                    with it: only the Portal signs panel tokens)
+|                    random bytes; the Portal signs panel tokens with it and
+|                    the agent verifies them with the same value
 |   AGENT_APP_URL    https origin of this Portal as the agent reaches it;
 |                    defaults to APP_URL (used by /.well-known/agente-ryr.json)
 |
-| Without a valid AGENT_URL and AGENT_PANEL_KEY the button is not drawn,
-| no token is signed and the manifest answers 503 (App\Agent\AgentSettings).
+| Without a valid AGENT_URL and AGENT_PANEL_KEY the button is not drawn and
+| no token is signed (App\Agent\AgentSettings). The manifest needs only
+| AGENT_APP_URL or APP_URL (an https origin) and answers 503 without one.
 |
 */
 
