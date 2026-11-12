@@ -4,6 +4,7 @@ namespace Tests\Feature\Agent\Views;
 
 use App\Agent\Views\AgentViews;
 use App\Models\App;
+use App\Models\AppAccessRule;
 use App\Models\Event;
 use App\Models\ItService;
 use App\Models\WorkItem;
@@ -174,6 +175,14 @@ class AgentViewsMariaDbTest extends TestCase
         App::factory()->create(['slug' => 'en-mantenimiento', 'name' => 'En mantenimiento', 'url' => 'https://a.segurex.com.co', 'status' => App::STATUS_MAINTENANCE, 'available_to_all_companies' => true]);
         App::factory()->create(['slug' => 'con-falla', 'name' => 'Con falla', 'url' => 'https://b.segurex.com.co', 'external_status' => 'down', 'external_status_at' => $local->subHour()->format('Y-m-d H:i:s'), 'available_to_all_companies' => true]);
         App::factory()->create(['slug' => 'falla-vieja', 'name' => 'Falla vieja', 'url' => 'https://c.segurex.com.co', 'external_status' => 'down', 'external_status_at' => $local->subHours(3)->format('Y-m-d H:i:s'), 'available_to_all_companies' => true]);
+        $onlyGroup = App::factory()->create(['slug' => 'solo-grupo', 'name' => 'Solo grupo', 'url' => 'https://d.segurex.com.co', 'external_status' => 'down', 'external_status_at' => $local->subHour()->format('Y-m-d H:i:s'), 'available_to_all_companies' => true]);
+        // Every app is opened by a whole-company rule, except the one a group opens (left out: fail closed).
+        foreach (App::query()->whereKeyNot($onlyGroup->id)->get() as $app) {
+            foreach ([$this->sgx, $this->sdc] as $company) {
+                AppAccessRule::forCompany($app, $company);
+            }
+        }
+        AppAccessRule::forGroup($onlyGroup, $this->sgx, 'APP-Contabilidad');
         $this->seedKpis();
 
         $this->assertSame(['Con falla', 'Correo', 'En mantenimiento'], $this->titles('v_estado_ti', 'SGX', 'nombre'));

@@ -21,8 +21,8 @@ class ItStatusParityTest extends TestCase
     use BuildsAgentWorld;
     use RefreshDatabase;
 
-    /** The only app the company gets that no access rule lets a person open (PHP-only rule). */
-    private const WITHOUT_RULE = 'down-without-rule';
+    /** Apps a company gets that no «whole company» rule opens for everybody (see test_apps_that_not_everybody_opens_are_left_out). */
+    private const NOT_FOR_EVERYBODY = ['down-without-rule', 'down-group-rule-only', 'down-user-rule-only', 'maintenance-group-rule-only', 'down-rule-of-sdc-only', 'down-rule-of-unlinked-company'];
 
     protected function setUp(): void
     {
@@ -59,7 +59,7 @@ class ItStatusParityTest extends TestCase
         $status = app(ItStatusBoard::class)->for($this->userOf($this->{$property}));
         $rows = $this->rows('v_estado_ti', $code);
 
-        $apps = $rows->where('tipo', 'app')->reject(fn ($row) => $row->nombre === self::WITHOUT_RULE)->keyBy('nombre');
+        $apps = $rows->where('tipo', 'app')->keyBy('nombre');
         $expectedApps = collect($status->apps)->keyBy('name');
 
         $this->assertSame($expectedApps->keys()->sort()->values()->all(), $apps->keys()->sort()->values()->all(), "{$hours}h {$code}");
@@ -120,12 +120,45 @@ class ItStatusParityTest extends TestCase
         $this->assertSame(['VPN' => 'operational', 'Correo' => 'down'], $this->rows('v_estado_ti', 'SDC')->where('tipo', 'servicio')->pluck('estado', 'nombre')->all());
     }
 
-    public function test_an_app_the_company_gets_but_no_rule_opens_is_listed_by_the_view_only(): void
+    public function test_apps_that_not_everybody_opens_are_left_out(): void
     {
-        $this->assertContains(self::WITHOUT_RULE, $this->rows('v_estado_ti', 'SGX')->pluck('nombre')->all());
+        $names = $this->rows('v_estado_ti', 'SGX')->pluck('nombre')->all();
 
-        $status = app(ItStatusBoard::class)->for($this->userOf($this->sgx));
-        $this->assertNotContains(self::WITHOUT_RULE, array_map(fn (ItStatusItem $item) => $item->slug, $status->apps));
+        // Fail closed: a rule by Entra group or by person depends on who asks, and SQL
+        // sees neither; an app with no rule, or with the rule of another company, opens for nobody.
+        foreach (['down-without-rule', 'down-group-rule-only', 'down-user-rule-only', 'maintenance-group-rule-only', 'down-rule-of-sdc-only', 'down-rule-of-unlinked-company'] as $slug) {
+            $this->assertNotContains($slug, $names, $slug);
+        }
+
+        // The whole-company rule of Derivados opens it for Derivados only.
+        $this->assertContains('down-rule-of-sdc-only', $this->rows('v_estado_ti', 'SDC')->pluck('nombre')->all());
+        $this->assertNotContains('down-rule-of-unlinked-company', $this->rows('v_estado_ti', 'SDC')->pluck('nombre')->all());
+    }
+
+    public function test_the_view_never_lists_an_app_the_board_hides_from_a_person_with_no_group_or_direct_rule(): void
+    {
+        foreach (self::companies() as [$property, $code]) {
+            $board = array_map(fn (ItStatusItem $item) => $item->slug, app(ItStatusBoard::class)->for($this->userOf($this->{$property}))->apps);
+            $listed = $this->rows('v_estado_ti', $code)->where('tipo', 'app')->pluck('nombre')->all();
+
+            $this->assertEqualsCanonicalizing($board, $listed, $code);
+        }
+    }
+
+    public function test_a_member_of_the_group_sees_more_on_the_board_than_the_view_lists(): void
+    {
+        $member = $this->userOf($this->sgx);
+        $member->syncGroups([['id' => '11111111-1111-4111-8111-111111111111', 'display_name' => self::IT_STATUS_GROUP, 'security_group' => true]]);
+        $member = $member->refresh();
+
+        $board = array_map(fn (ItStatusItem $item) => $item->slug, app(ItStatusBoard::class)->for($member)->apps);
+        $listed = $this->rows('v_estado_ti', 'SGX')->where('tipo', 'app')->pluck('nombre')->all();
+
+        $this->assertContains('down-group-rule-only', $board);
+        $this->assertContains('maintenance-group-rule-only', $board);
+        // The view is a subset of what any member sees: the shared part is the same.
+        $this->assertEqualsCanonicalizing([], array_values(array_diff($listed, $board)));
+        $this->assertNotContains('down-group-rule-only', $listed);
     }
 
     public function test_maintenance_wins_over_a_report_and_hidden_or_unrelated_apps_stay_out(): void

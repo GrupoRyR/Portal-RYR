@@ -272,9 +272,12 @@ SQL;
     /**
      * The manual services of the company (ItService, every status) and the
      * apps the company gets that ItStatusBoard lists: in maintenance, or with
-     * a degraded/down report newer than the hours of Configuración. The access
-     * rules by group are PHP-only and not replicated: an app the company gets
-     * but a person may not open is still listed.
+     * a degraded/down report newer than the hours of Configuración. An app is
+     * listed only when a «whole company» access rule (app_access_rules, type
+     * `company`, of that company) opens it for everybody: the view holds one
+     * set of rows per company, so a rule by Entra group or by person, which
+     * depends on who asks, cannot be applied here, and fails closed (the
+     * app is left out). ItStatusBoard is the exact, per-person answer.
      */
     private static function itStatus(Dialect $d): string
     {
@@ -305,6 +308,7 @@ FROM aux_empresa ae
 JOIN apps p ON p.status <> 'hidden'
     AND (p.available_to_all_companies = 1
         OR EXISTS (SELECT 1 FROM app_companies pc WHERE pc.app_id = p.id AND pc.company_id = ae.company_id))
+    AND EXISTS (SELECT 1 FROM app_access_rules r WHERE r.app_id = p.id AND r.company_id = ae.company_id AND r.type = 'company')
 WHERE p.status = 'maintenance'
    OR (p.external_status IN ('degraded', 'down') AND p.external_status_at > {$cutoff})
 SQL;

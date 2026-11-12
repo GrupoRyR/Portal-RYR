@@ -13,6 +13,7 @@ use App\Models\Integration;
 use App\Models\ItService;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -24,6 +25,9 @@ use Illuminate\Support\Facades\DB;
  */
 trait BuildsAgentWorld
 {
+    /** Security group of the apps that only a group opens (see seedItStatus). */
+    protected const IT_STATUS_GROUP = 'APP-Contabilidad';
+
     protected Company $sgx;
 
     protected Company $sdc;
@@ -191,12 +195,16 @@ trait BuildsAgentWorld
         }
 
         $apps = [];
-        $app = function (string $slug, array $attributes, array $companies, bool $rule = true) use (&$apps): void {
+        // $rules: true = a «whole company» rule for each company that gets the
+        // app; false = no rule at all; a closure = the rules the test wants.
+        $app = function (string $slug, array $attributes, array $companies, bool|Closure $rules = true) use (&$apps): void {
             $factory = App::factory();
             $apps[$slug] = $factory->create(array_merge(['slug' => $slug, 'name' => $slug, 'url' => "https://{$slug}.segurex.com.co"], $attributes));
             $apps[$slug]->companies()->attach(collect($companies)->pluck('id'));
 
-            if ($rule) {
+            if ($rules instanceof Closure) {
+                $rules($apps[$slug]);
+            } elseif ($rules) {
                 $granted = ($attributes['available_to_all_companies'] ?? false) ? [$this->sgx, $this->sdc, $this->other] : $companies;
                 foreach ($granted as $company) {
                     AppAccessRule::forCompany($apps[$slug], $company);
@@ -222,8 +230,16 @@ trait BuildsAgentWorld
         $app('maintenance-and-down', ['status' => App::STATUS_MAINTENANCE, 'maintenance_message' => 'Gana'] + $report('down', '2026-11-12 09:55:00'), [$this->sgx]);
         $app('maintenance-nobody', ['status' => App::STATUS_MAINTENANCE, 'maintenance_message' => 'Nadie'], []);
         $app('maintenance-other-only', ['status' => App::STATUS_MAINTENANCE, 'maintenance_message' => 'Otra'], [$this->other]);
-        // The company gets it, but no access rule lets a person open it: PHP hides it, the view cannot.
-        $app('down-without-rule', $report('down', '2026-11-12 09:55:00'), [$this->sgx], rule: false);
+        // The company gets them, but no «whole company» rule opens them for everybody: PHP decides
+        // per person, the view (one row set per company) cannot, so it leaves them out.
+        $app('down-without-rule', $report('down', '2026-11-12 09:55:00'), [$this->sgx], rules: false);
+        $app('down-group-rule-only', $report('down', '2026-11-12 09:55:00'), [$this->sgx], rules: fn (App $app) => AppAccessRule::forGroup($app, $this->sgx, self::IT_STATUS_GROUP));
+        $app('down-user-rule-only', $report('down', '2026-11-12 09:55:00'), [$this->sgx], rules: fn (App $app) => AppAccessRule::forUser($app, $this->microsoftUser($this->sgx, 'asignado.directo@example.test')));
+        $app('maintenance-group-rule-only', ['status' => App::STATUS_MAINTENANCE, 'maintenance_message' => 'Solo grupo'], [$this->sgx], rules: fn (App $app) => AppAccessRule::forGroup($app, $this->sgx, self::IT_STATUS_GROUP));
+        // Both companies get it, but only Derivados has the «whole company» rule.
+        $app('down-rule-of-sdc-only', $report('down', '2026-11-12 09:55:00'), [$this->sgx, $this->sdc], rules: fn (App $app) => AppAccessRule::forCompany($app, $this->sdc));
+        // A «whole company» rule filed under a company that is not linked to the app grants nothing.
+        $app('down-rule-of-unlinked-company', $report('down', '2026-11-12 09:55:00'), [$this->sdc], rules: fn (App $app) => AppAccessRule::forCompany($app, $this->sgx));
 
         return $apps;
     }
