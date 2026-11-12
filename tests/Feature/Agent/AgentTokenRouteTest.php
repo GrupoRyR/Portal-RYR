@@ -127,6 +127,8 @@ class AgentTokenRouteTest extends TestCase
             User::factory()->microsoft($this->segurex)->create(['email' => 'n@segurex.com', 'upn' => null]),
             User::factory()->microsoft($other)->create(['email' => 't@tercera.com', 'upn' => 't@tercera.com']),
             User::factory()->microsoft($this->segurex)->create(['email' => 'f@segurex.com', 'upn' => 'f@otro.example']),
+            User::factory()->microsoft($this->segurex)->create(['email' => 'e@segurex.com', 'upn' => 'e@segurex.com', 'is_emergency' => true]),
+            User::factory()->microsoft(Company::factory()->create(['slug' => 'derivados', 'domains' => ['derivados.com'], 'is_active' => false]))->create(['email' => 'i@derivados.com', 'upn' => 'i@derivados.com']),
         ];
 
         $bodies = [];
