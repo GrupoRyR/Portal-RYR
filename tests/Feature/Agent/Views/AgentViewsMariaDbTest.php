@@ -42,6 +42,13 @@ class AgentViewsMariaDbTest extends TestCase
     {
         parent::setUp();
 
+        // The seeded integrations encrypt their signing secret: a throwaway key when the run has none,
+        // so the documented command works as written.
+        if (! config('app.key')) {
+            config(['app.key' => 'base64:'.base64_encode(random_bytes(32))]);
+            $this->app->forgetInstance('encrypter');
+        }
+
         $host = getenv('AGENT_TEST_MARIADB_HOST');
         $database = getenv('AGENT_TEST_MARIADB_DATABASE');
         $user = getenv('AGENT_TEST_MARIADB_USER');
