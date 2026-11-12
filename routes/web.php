@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\Agent\ManifestController as AgentManifestController;
+use App\Http\Controllers\Agent\TokenController as AgentTokenController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
@@ -94,6 +95,14 @@ Route::get('/auth/microsoft/callback', [MicrosoftLoginController::class, 'callba
 
 Route::middleware('auth')->group(function () {
     Route::get('/', HomeController::class)->name('home');
+
+    // The agent's launcher asks for a fresh panel token when the person clicks
+    // (docs/agente-conexion.md). `auth` and CSRF as any POST; the third
+    // `throttle` argument is a key prefix: ten a minute per account in a
+    // bucket of its own, not shared with the other `throttle:N,1` routes.
+    Route::post('/agente/token', AgentTokenController::class)
+        ->middleware('throttle:'.AgentTokenController::PER_MINUTE.',1,agent-token:')
+        ->name('agent.token');
 
     // Re-authentication before sensitive actions (middleware microsoft.recent).
     Route::get('/auth/microsoft/confirm', [MicrosoftLoginController::class, 'confirm'])
