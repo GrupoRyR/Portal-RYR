@@ -11,6 +11,7 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -190,15 +191,41 @@ class AgentPanelTest extends TestCase
         }
     }
 
-    public function test_a_configured_connection_replaces_the_old_button_even_for_an_account_it_does_not_accept(): void
+    public function test_an_account_the_agent_accepts_sees_only_the_agent_button_even_with_the_assistant_on(): void
     {
         $this->turnTheAssistantOn();
-        $guest = User::factory()->microsoft($this->segurex)->create(['email' => 'g@example.test', 'is_guest' => true]);
 
-        $this->assertSame(0, $this->page('/')->query('//a[@data-assistant-fab]')->length);
-        $dom = $this->page('/', $guest);
+        $dom = $this->page('/');
+        $this->assertSame(1, $dom->query(self::LINK)->length);
+        $this->assertSame(1, $dom->query('//section[@data-agent-present]')->length);
         $this->assertSame(0, $dom->query('//a[@data-assistant-fab]')->length);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function accountsTheAgentDoesNotAccept(): array
+    {
+        return [
+            'no UPN yet' => ['no-upn'],
+            'guest' => ['guest'],
+            'company with no mapping' => ['unmapped'],
+        ];
+    }
+
+    #[DataProvider('accountsTheAgentDoesNotAccept')]
+    public function test_a_configured_connection_falls_back_to_the_old_button_for_an_account_it_does_not_accept(string $kind): void
+    {
+        $this->turnTheAssistantOn();
+        $account = match ($kind) {
+            'no-upn' => User::factory()->microsoft($this->segurex)->create(['email' => 'n@segurex.com', 'upn' => null]),
+            'guest' => User::factory()->microsoft($this->segurex)->create(['email' => 'g@example.test', 'is_guest' => true]),
+            'unmapped' => User::factory()->microsoft(Company::factory()->create(['slug' => 'tercera', 'domains' => ['tercera.com']]))->create(['email' => 't@tercera.com', 'upn' => 't@tercera.com']),
+        };
+
+        $dom = $this->page('/', $account);
+
+        $this->assertSame(1, $dom->query('//a[@data-assistant-fab]')->length);
         $this->assertSame(0, $dom->query(self::LINK)->length);
+        $this->assertSame(0, $dom->query('//*[@data-agent-present]')->length);
     }
 
     private function turnTheAssistantOn(): void

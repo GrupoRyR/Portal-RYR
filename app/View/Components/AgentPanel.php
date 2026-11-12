@@ -19,6 +19,8 @@ use Illuminate\View\Component;
  *   not an emergency or guest account, with an active mapped company;
  * - not on /asistente (the announcement drafts), which keeps its own forms.
  *
+ * Any other account keeps the old «Asistente» button ({@see offeredTo()}).
+ *
  * The page carries no token. The link is the plain `<agent>/panel/abrir`
  * and the launcher (the app's own copy, public/js/agente-lanzador.js, pinned
  * by a test) asks POST /agente/token (`data-agente-token-url`, with the
@@ -31,12 +33,19 @@ class AgentPanel extends Component
 {
     public function shouldRender(): bool
     {
-        $user = Auth::user();
+        return ! request()->routeIs('assistant.*') && self::offeredTo(Auth::user());
+    }
 
-        return $user instanceof User
-            && ! request()->routeIs('assistant.*')
-            && AgentSettings::active()
-            && PanelToken::eligible($user);
+    /**
+     * Whether the agent's button is the one this account gets: the connection
+     * is configured and the account is one the agent accepts. The layout uses
+     * it to fall back to the old «Asistente» button for every other account,
+     * so no account is left without a button. Costs no query: the company is
+     * already loaded by the layout.
+     */
+    public static function offeredTo(mixed $user): bool
+    {
+        return $user instanceof User && AgentSettings::active() && PanelToken::eligible($user);
     }
 
     public function render(): View
