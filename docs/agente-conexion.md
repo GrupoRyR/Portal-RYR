@@ -23,7 +23,7 @@ Las define TI en el `.env` del servidor. Nada de esto se versiona.
 | `AGENT_PANEL_KEY` | Llave de panel de esta app: texto base64 de 32 bytes o más. La entrega el equipo del agente por un canal seguro |
 | `AGENT_APP_URL` | Origen https del Portal tal como lo ve el agente. Si falta, se usa `APP_URL` |
 
-Si `AGENT_URL` o `AGENT_PANEL_KEY` faltan o no son válidos, el botón no se dibuja, no se firma ningún token, y la cabecera `Permissions-Policy` vuelve a `microphone=()`. El manifiesto solo depende de `AGENT_APP_URL` o `APP_URL` (responde 503 si ninguno es un origen https), así que se puede importar antes de encender el botón.
+Si `AGENT_URL` o `AGENT_PANEL_KEY` faltan o no son válidos, el botón del agente no se dibuja, no se firma ningún token (ni siquiera se arman las claims), la cabecera `Permissions-Policy` vuelve a `microphone=()` y el layout vuelve a dibujar el botón «Asistente» de antes (mientras el asistente esté encendido). Con la conexión configurada, una cuenta que el agente no acepta no ve ninguno de los dos botones. El manifiesto solo depende de `AGENT_APP_URL` o `APP_URL` (responde 503 si ninguno es un origen https), así que se puede importar antes de encender el botón.
 
 Generar una llave (en un equipo de confianza, nunca en el chat):
 
@@ -123,7 +123,7 @@ Orden importante: primero la base, al final el botón.
 6. **Manifiesto.** Compruebe que `https://<portal>/.well-known/agente-ryr.json` responde 200 sin iniciar sesión y sin cookies, con `version` igual a `Manifest::VERSION`. Impórtelo en el agente.
 7. **Conexión del agente** a la base con `agente_portal_ro` (`APPDB_PORTAL_RYR_*` en el agente).
 8. **Asignaciones.** Una por persona, con su rol. El agente identifica a la persona por el UPN (en minúsculas) que el Portal guarda al iniciar sesión: el mismo que usa el agente como correo del usuario.
-9. **Prueba de aceptación** (sección 7). Si algo falla, quite `AGENT_URL` del `.env`: el botón desaparece y la cabecera del micrófono vuelve a la de antes, sin tocar código.
+9. **Prueba de aceptación** (sección 7). Si algo falla, quite `AGENT_URL` del `.env`: el botón del agente desaparece (vuelve el «Asistente») y la cabecera del micrófono vuelve a la de antes, sin tocar código.
 
 Reversa: `AGENT_URL` vacío apaga el botón y el token; `php artisan migrate:rollback --path=database/migrations/2026_11_12_000003_create_agent_views.php` quita las vistas (el rollback solo ejecuta `DROP VIEW`).
 
