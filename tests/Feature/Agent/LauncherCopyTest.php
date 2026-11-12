@@ -12,9 +12,9 @@ use Tests\TestCase;
  */
 class LauncherCopyTest extends TestCase
 {
-    private const EXPECTED_VERSION = '2';
+    private const EXPECTED_VERSION = '3';
 
-    private const EXPECTED_SHA256 = 'a480f3a71d8d2d7b17f75e612237a54876b34022d8f01eeb7bdb1c3634835eeb';
+    private const EXPECTED_SHA256 = '0a7d1f307a76f0afd1fe194ea030325eeb3e9cfc04e9c82797159867e0c7ca38';
 
     private function copy(): string
     {
@@ -35,9 +35,11 @@ class LauncherCopyTest extends TestCase
         $this->assertMatchesRegularExpression("/LANZADOR_VERSION = '".self::EXPECTED_VERSION."'/", $this->copy());
     }
 
-    public function test_it_takes_the_origin_from_the_attribute_and_reads_the_token_from_the_fragment(): void
+    public function test_it_takes_the_origin_and_the_token_route_from_attributes_and_hands_the_token_in_the_fragment(): void
     {
         $this->assertStringContainsString('data-agente-origen', $this->copy());
+        $this->assertStringContainsString('data-agente-token-url', $this->copy());
         $this->assertStringContainsString('#t=', $this->copy());
+        $this->assertStringContainsString('panel:expired', $this->copy());
     }
 }

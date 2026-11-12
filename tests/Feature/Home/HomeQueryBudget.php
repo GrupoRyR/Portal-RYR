@@ -25,9 +25,10 @@ final class HomeQueryBudget
     public const WITH_EVERY_BLOCK = 23;
 
     /**
-     * What the agent's floating button adds to either budget, only while the
+     * What the agent's floating button adds to either budget while the
      * connection is configured (tests/Feature/Agent/AgentPanelQueryCountTest.php):
-     * the permission registry that the management check of the token reads.
+     * nothing. It decides from data the page already has (the account and its
+     * company); the token is asked for on click (POST /agente/token), not at render.
      */
-    public const AGENT_PANEL = 1;
+    public const AGENT_PANEL = 0;
 }

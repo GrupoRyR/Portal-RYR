@@ -61,21 +61,29 @@ class AgentPanelTest extends TestCase
         }
     }
 
-    public function test_the_link_carries_a_valid_token_in_the_fragment_and_never_in_a_query(): void
+    public function test_the_link_carries_no_token_and_the_script_names_the_token_route(): void
     {
-        $href = $this->page('/')->query(self::LINK)->item(0)->getAttribute('href');
+        $dom = $this->page('/');
+        $href = $dom->query(self::LINK)->item(0)->getAttribute('href');
 
-        $this->assertStringStartsWith(self::ORIGIN.'/panel/abrir#t=', $href);
-        $this->assertStringNotContainsString('?', $href);
+        $this->assertSame(self::ORIGIN.'/panel/abrir', $href);
+        $html = $this->actingAs($this->user)->get('/')->getContent();
+        $this->assertStringNotContainsString('#t=', $html);
+        $this->assertStringNotContainsString('?t=', $html);
+        $this->assertDoesNotMatchRegularExpression('~eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+~', $html);
 
-        $token = substr($href, strlen(self::ORIGIN.'/panel/abrir#t='));
-        [$h, $p, $s] = explode('.', $token);
-        $this->assertSame(
-            rtrim(strtr(base64_encode(hash_hmac('sha256', $h.'.'.$p, $this->key, true)), '+/', '-_'), '='),
-            $s,
-        );
-        $claims = json_decode(base64_decode(strtr($p, '-_', '+/')), true);
-        $this->assertSame(['ana@segurex.com', 'SGX', 'empleado'], [$claims['sub'], $claims['empresa'], $claims['rol']]);
+        $script = $dom->query('//section[@data-agent-present]/script')->item(0);
+        // A path from the route helper, never an absolute URL.
+        $this->assertSame('/agente/token', $script->getAttribute('data-agente-token-url'));
+        $this->assertSame(route('agent.token', absolute: false), $script->getAttribute('data-agente-token-url'));
+    }
+
+    public function test_the_page_carries_the_csrf_token_the_launcher_sends(): void
+    {
+        $dom = $this->page('/');
+
+        $this->assertSame(1, $dom->query('//meta[@name="csrf-token"]')->length);
+        $this->assertNotSame('', $dom->query('//meta[@name="csrf-token"]')->item(0)->getAttribute('content'));
     }
 
     public function test_the_launcher_is_our_own_copy_and_takes_the_origin_from_an_attribute(): void
@@ -100,7 +108,7 @@ class AgentPanelTest extends TestCase
         // The service worker's own pattern (resources/js/sw.js) removes the whole block.
         $html = $this->actingAs($this->user)->get('/')->getContent();
         $stripped = preg_replace('~<(section|li)\b[^>]*\bdata-offline-omit\b[^>]*>[\s\S]*?</\1>\s*~', '', $html);
-        $this->assertStringNotContainsString('#t=', $stripped);
+        $this->assertStringNotContainsString('data-agente-token-url', $stripped);
         $this->assertStringNotContainsString('data-agente-panel', $stripped);
     }
 
@@ -156,7 +164,7 @@ class AgentPanelTest extends TestCase
             $html = $this->actingAs($account)->get('/')->assertOk()->getContent();
             $this->assertStringNotContainsString('data-agente-panel', $html);
             $this->assertStringNotContainsString('agente-lanzador', $html);
-            $this->assertStringNotContainsString('#t=', $html);
+            $this->assertStringNotContainsString('data-agente-token-url', $html);
         }
     }
 

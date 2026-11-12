@@ -18,9 +18,9 @@ use Tests\Feature\Home\HomeQueryBudget;
 use Tests\TestCase;
 
 /**
- * What the agent's button adds to the home page in queries: a bounded,
- * fixed number (the account's company, the management check), never one per
- * row of the page. Hosts and keys are invented.
+ * What the agent's button adds to the home page in queries: nothing beyond
+ * HomeQueryBudget::AGENT_PANEL (the token is asked for on click, so no
+ * management check runs at render), and never one per row of the page. Hosts and keys are invented.
  */
 class AgentPanelQueryCountTest extends TestCase
 {
@@ -111,11 +111,8 @@ class AgentPanelQueryCountTest extends TestCase
         [$offMany, $onMany] = $this->offAndOn($user);
 
         $this->assertStringContainsString('data-agente-panel', $this->actingAs($user->fresh())->get('/')->getContent());
-        // The extra cost is bounded and does not grow with the page. It is not exactly the same every
-        // time: the permission registry of the management check may already be loaded in the process.
-        $this->assertGreaterThanOrEqual(0, $onFew - $offFew);
+        // The extra cost is bounded and does not grow with the page.
         $this->assertLessThanOrEqual(HomeQueryBudget::AGENT_PANEL, $onFew - $offFew);
-        $this->assertGreaterThanOrEqual(0, $onMany - $offMany);
         $this->assertLessThanOrEqual(HomeQueryBudget::AGENT_PANEL, $onMany - $offMany);
         $this->assertLessThanOrEqual($budget + HomeQueryBudget::AGENT_PANEL, $onMany);
     }

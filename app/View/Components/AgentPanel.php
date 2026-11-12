@@ -19,26 +19,24 @@ use Illuminate\View\Component;
  *   not an emergency or guest account, with an active mapped company;
  * - not on /asistente (the announcement drafts), which keeps its own forms.
  *
- * The link carries the token in the URL fragment (`#t=`), which browsers
- * never send to any server, so it is in no access log. The launcher is the
- * app's own copy (public/js/agente-lanzador.js, pinned by a test) and takes
- * the agent's origin from `data-agente-origen`.
+ * The page carries no token. The link is the plain `<agent>/panel/abrir`
+ * and the launcher (the app's own copy, public/js/agente-lanzador.js, pinned
+ * by a test) asks POST /agente/token (`data-agente-token-url`, with the
+ * page's `csrf-token` meta) when the person clicks, so the button keeps
+ * working on a page left open all day and no token sits in the HTML, in a
+ * cache or in the saved offline copy. The launcher takes the agent's origin
+ * from `data-agente-origen`.
  */
 class AgentPanel extends Component
 {
-    private ?string $token = null;
-
     public function shouldRender(): bool
     {
         $user = Auth::user();
 
-        if (! $user instanceof User || request()->routeIs('assistant.*')) {
-            return false;
-        }
-
-        $this->token = PanelToken::for($user);
-
-        return $this->token !== null;
+        return $user instanceof User
+            && ! request()->routeIs('assistant.*')
+            && AgentSettings::active()
+            && PanelToken::eligible($user);
     }
 
     public function render(): View
@@ -49,7 +47,7 @@ class AgentPanel extends Component
 
         return view('components.agent-panel', [
             'origin' => AgentSettings::origin(),
-            'token' => $this->token,
+            'tokenUrl' => route('agent.token', absolute: false),
             // The launcher knows these two brands and falls back to neutral.
             'brand' => in_array($slug, ['segurex', 'derivados'], true) ? $slug : 'neutral',
             'script' => asset('js/agente-lanzador.js').'?v='.(is_file($script) ? filemtime($script) : 0),
