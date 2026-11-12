@@ -165,6 +165,9 @@ class MicrosoftLogin
     {
         $user->email = $identity->email;
         $user->microsoft_login_hint = $identity->loginHint;
+        // Each account keeps its own sign-in name, refreshed at every sign-in
+        // (null for a guest UPN or when Microsoft sent none).
+        $user->upn = $identity->upn;
         $user->is_guest = ! $identity->isHomeSignIn();
         $user->company_id = $company->id;
     }

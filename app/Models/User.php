@@ -32,6 +32,12 @@ use Spatie\Permission\Traits\HasRoles;
  * sign-in (App\Auth\MicrosoftLogin), so they are not fillable. `is_guest`
  * is null until the account signs in again after it was added: not known.
  *
+ * `upn` is the account's own sign-in name in lower case, written only by the
+ * same sign-in (so not fillable) and null until the account signs in again,
+ * for a guest (`#EXT#`) UPN, and for emergency accounts. It is the identity
+ * the agent matches (App\Agent\PanelToken); `email` is `mail` first and is
+ * never used for that.
+ *
  * `person_id` links the accounts one person has in several companies. Only
  * App\Auth\LinkedAccounts writes it, so it is not fillable either, and it
  * never authorizes anything: roles, groups, favorites and app access stay
