@@ -12,6 +12,10 @@ return new class extends Migration
      * MariaDB/MySQL, and on SQLite so the test database has them. Dropping
      * first makes running it again harmless. Granting SELECT on `v_*` to the
      * agent's database user is a manual step of IT (docs/).
+     *
+     * It must sort after every migration that adds a column a view reads
+     * (today `users.upn`, 2026_11_12_000002): MariaDB checks the columns when
+     * the view is created. MigrationOrderTest guards it on SQLite.
      */
     public function up(): void
     {

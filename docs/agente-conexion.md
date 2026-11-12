@@ -1,6 +1,6 @@
 # Conexión del Portal con el agente RYR
 
-Contrato de referencia: `CONTRATO_CONEXION_AGENTE.md` v0.4 del proyecto del agente. Este documento es el procedimiento de TI para dejar el Portal conectado. El código está en `app/Agent/**`, `config/agent.php` y la migración `2026_11_12_000001_create_agent_views.php`; la decisión y el avance, en `odd/tasks/agente-conexion.md`.
+Contrato de referencia: `CONTRATO_CONEXION_AGENTE.md` v0.4 del proyecto del agente. Este documento es el procedimiento de TI para dejar el Portal conectado. El código está en `app/Agent/**`, `config/agent.php` y la migración `2026_11_12_000003_create_agent_views.php`; la decisión y el avance, en `odd/tasks/agente-conexion.md`.
 
 ## 1. Qué hace y qué decidimos
 
@@ -33,7 +33,7 @@ php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
 
 ## 3. Vistas
 
-Una migración (`2026_11_12_000001_create_agent_views.php`) crea la vista auxiliar `aux_empresa` y las cinco vistas. Son SQL puro, con columnas explícitas, y no dependen de la zona horaria de la sesión: la base guarda hora de Bogotá (UTC-5, sin horario de verano) y las vistas calculan «ahora» con `UTC_TIMESTAMP() - INTERVAL 5 HOUR`. Una prueba falla si alguien cambia `APP_TIMEZONE` a una zona con otro desfase.
+Una migración (`2026_11_12_000003_create_agent_views.php`) crea la vista auxiliar `aux_empresa` y las cinco vistas. Son SQL puro, con columnas explícitas, y no dependen de la zona horaria de la sesión: la base guarda hora de Bogotá (UTC-5, sin horario de verano) y las vistas calculan «ahora» con `UTC_TIMESTAMP() - INTERVAL 5 HOUR`. Una prueba falla si alguien cambia `APP_TIMEZONE` a una zona con otro desfase.
 
 | Vista | Para qué | Dueño por persona |
 |---|---|---|
@@ -125,7 +125,7 @@ Orden importante: primero la base, al final el botón.
 8. **Asignaciones.** Una por persona, con su rol. El agente identifica a la persona por el UPN (en minúsculas) que el Portal guarda al iniciar sesión: el mismo que usa el agente como correo del usuario.
 9. **Prueba de aceptación** (sección 7). Si algo falla, quite `AGENT_URL` del `.env`: el botón desaparece y la cabecera del micrófono vuelve a la de antes, sin tocar código.
 
-Reversa: `AGENT_URL` vacío apaga el botón y el token; `php artisan migrate:rollback --path=database/migrations/2026_11_12_000001_create_agent_views.php` quita las vistas (el rollback solo ejecuta `DROP VIEW`).
+Reversa: `AGENT_URL` vacío apaga el botón y el token; `php artisan migrate:rollback --path=database/migrations/2026_11_12_000003_create_agent_views.php` quita las vistas (el rollback solo ejecuta `DROP VIEW`).
 
 ## 7. Lista de aceptación (contrato §7)
 
@@ -159,10 +159,10 @@ Para actualizarla: 1) pida al equipo del agente el archivo nuevo y su versión; 
 - **Token y páginas guardadas.** El inicio se guarda para uso sin conexión y el token dibujado caduca a los 5 minutos y es de un solo uso. Mientras el lanzador no pida el token al hacer clic (necesidad N5), una página vieja abre el agente con un token vencido: recargar lo renueva.
 - **`gerencia` depende del último inicio de sesión.** Si una persona sale del grupo de gerencia, el rol del token cambia al iniciar sesión de nuevo en el Portal; el rol asignado por TI en el agente es el techo.
 - **Cambios de visibilidad en PHP** deben replicarse en las vistas (sección 3).
-- **Vistas no ejecutadas en MariaDB aquí.** Las pruebas corren en SQLite; el dialecto MariaDB tiene su prueba opcional (`AGENT_TEST_MARIADB_*`, contra una base vacía). Córrala en un ambiente de prueba antes de desplegar.
+- **Vistas probadas en MariaDB 10.11.19 (2026-11-12).** Las pruebas de rutina corren en SQLite; la prueba opcional `tests/Feature/Agent/Views/AgentViewsMariaDbTest.php` (4 casos: migrar y consultar cada vista, hora local con cualquier zona de sesión, tareas por persona, estado de TI y cifras) pasó contra un MariaDB real vacío. Volver a correrla en un ambiente de prueba antes de desplegar, con `AGENT_TEST_MARIADB_HOST`, `_DATABASE`, `_USER`, `_PASSWORD` (y `_PORT`) en el entorno, contra una base vacía: la prueba la deja vacía al terminar. **Orden de migraciones:** MariaDB comprueba las columnas al crear una vista, por eso la migración de las vistas (`…000003`) va después de la que agrega `users.upn` (`…000002`); `MigrationOrderTest` lo vigila en SQLite.
 - **Dos asistentes.** `/asistente` sigue para borradores de anuncio hasta que exista la acción equivalente del agente (P7, otra tarea).
 - **Llaves.** La rotación de la llave de panel se pide al equipo del agente; el Portal solo cambia `AGENT_PANEL_KEY`.
 - **Zona horaria de la conexión del agente.** `work_items.due_at`, `it_services.updated_at` y `apps.updated_at` son columnas `TIMESTAMP`: en MariaDB su texto depende de la zona horaria de la sesión que lee. El Portal no fija `timezone` en la conexión (`config/database.php`), así que la conexión del agente debe usar el mismo `time_zone` que la del Portal; si no, `vencida` (`mis_pendientes`) y `actualizado` (`estado_de_ti`) pueden correrse horas. Las demás columnas son `DATETIME` y no se afectan. Compruébelo en la prueba de aceptación con una tarea que venza hoy.
 - **`puede_completar` es una cota superior.** Completar desde el Portal depende de validar en PHP la URL de la integración (`Integration::completionUrl`); la vista dice 1 cuando es tarea, es completable, y la integración tiene secreto y URL base. Las aprobaciones siempre dan 0. El agente no completa nada de todos modos.
 - **Diferencias deliberadas con el Portal.** (1) `v_tareas_pendientes` excluye cuentas invitadas y de emergencia (el alcance de Eloquent no las excluye). (2) `v_estado_ti` lista todos los servicios, también los operando; el tablero del Portal solo muestra los que no lo están. (3) Las reglas de acceso por grupo de Entra a las apps viven en PHP y no se replican: la vista puede listar una app que la empresa tiene pero que ningún grupo abre.
-- **Vistas listas para MariaDB, no ejecutadas aquí.** Construcciones a vigilar en la primera ejecución: subconsultas en `FROM` dentro de una vista, `STR_TO_DATE`, `JSON_CONTAINS(abilities, '"work:write"')`, `INTERVAL (expr) HOUR` y `CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW`.
+- **Construcciones de MariaDB ya ejercitadas:** subconsultas en `FROM` dentro de una vista, `STR_TO_DATE`, `JSON_CONTAINS(abilities, '"work:write"')`, `INTERVAL (expr) HOUR` y `CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW` corrieron en MariaDB 10.11.19 con la prueba opcional. Aun así, el hosting puede traer otra versión: confirme con `SELECT VERSION();` (10.6 o superior).

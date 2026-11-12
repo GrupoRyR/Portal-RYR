@@ -22,7 +22,7 @@ class MigrationAndClockTest extends TestCase
 
     private function migration(): Migration
     {
-        return require base_path('database/migrations/2026_11_12_000001_create_agent_views.php');
+        return require base_path('database/migrations/2026_11_12_000003_create_agent_views.php');
     }
 
     /** @return list<string> */

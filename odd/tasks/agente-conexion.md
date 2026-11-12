@@ -46,7 +46,7 @@ Fuera de alcance: P7 (retirar `app/Assistant/**`), `resources/js/assistant-panel
 
 ## Declaración de ruta
 
-Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y sus pruebas: `database/migrations/2026_11_12_000001_create_agent_views.php`, `app/Agent/Views/**`, `tests/**/Agent/Views/**`) y esta sesión (el resto). Disparadores: más de 2 archivos no triviales y lectura previa a la escritura. El subagente no hace commits.
+Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y sus pruebas: `database/migrations/2026_11_12_000003_create_agent_views.php`, `app/Agent/Views/**`, `tests/**/Agent/Views/**`) y esta sesión (el resto). Disparadores: más de 2 archivos no triviales y lectura previa a la escritura. El subagente no hace commits.
 
 ## Progreso
 
@@ -62,7 +62,7 @@ Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y 
 - Cuentas existentes: reciben el botón en su siguiente inicio de sesión con Microsoft.
 - `v_estado_ti` no aplica `app_access_rules`: puede listar el nombre y el estado de una app que ningún grupo abre para esa persona (baja).
 - Zona horaria de la conexión del agente: debe coincidir con la del Portal para `due_at` y las columnas `updated_at` (`TIMESTAMP`).
-- La consulta de las vistas nunca se ejecutó en MariaDB aquí.
+- Las vistas se ejercitaron una vez en MariaDB 10.11.19 (prueba opcional, 4 casos). Repetir en el ambiente de prueba del hosting antes de desplegar.
 - Barra inferior del inicio en teléfono (N8): el lanzador queda encima; documentado, sin resolver.
 
 ## Seguimiento UPN (2026-11-12)
@@ -71,3 +71,9 @@ Dos escritores en archivos distintos del mismo worktree: el subagente (vistas y 
 - [x] U2. Migración `users.upn`, lectura en `MicrosoftIdentity`, escritura en `MicrosoftLogin::applyIdentity`, `User` (sin asignación masiva). Ruta: directa.
 - [x] U3. `PanelToken::subject` = UPN, sin UPN no hay token; vista `usuario_correo` = `LOWER(users.upn)`, filas sin UPN excluidas; pruebas de paridad actualizadas. Ruta: directa.
 - [x] U4. Docs. Revisión corta de solo lectura del cambio de inicio de sesión.
+
+## Seguimiento: orden de migraciones (2026-11-12)
+
+- La migración de las vistas se llamaba `…000001` y corría antes de `users.upn` (`…000002`): en MariaDB `CREATE VIEW v_tareas_pendientes` falló con «Unknown column 'u.upn'» y SQLite no lo vio, porque no comprueba las columnas al crear la vista.
+- [x] Renombrada a `2026_11_12_000003_create_agent_views.php` (`git mv`). Prueba nueva `MigrationOrderTest`: crea el esquema en orden hasta la migración de las vistas y lee cada vista por sus columnas (falló antes del cambio con el mismo error en SQLite) y comprueba el orden de los dos archivos.
+- [x] `AgentViewsMariaDbTest`: el `tearDown` usa `db:wipe --drop-views` (sin eso las vistas quedaban y los casos siguientes se omitían). Los 4 casos pasan en MariaDB 10.11.19.

@@ -81,7 +81,8 @@ class AgentViewsMariaDbTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->db !== null) {
-            Artisan::call('db:wipe', ['--database' => self::CONNECTION, '--force' => true]);
+            // Views too: without --drop-views they stay, and the next test finds the database «not empty».
+            Artisan::call('db:wipe', ['--database' => self::CONNECTION, '--drop-views' => true, '--force' => true]);
             DB::setDefaultConnection($this->previousDefault);
             config(['database.default' => $this->previousDefault]);
         }
