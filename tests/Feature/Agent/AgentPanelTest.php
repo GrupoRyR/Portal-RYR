@@ -169,6 +169,36 @@ class AgentPanelTest extends TestCase
         }
     }
 
+    public function test_the_old_assistant_button_stays_while_the_connection_is_not_configured(): void
+    {
+        $this->turnTheAssistantOn();
+
+        foreach ([['agent.panel_key', null], ['agent.panel_key', base64_encode('short')], ['agent.origin', null], ['agent.origin', 'http://agente.example.test']] as [$name, $value]) {
+            config(['agent.origin' => self::ORIGIN, 'agent.panel_key' => base64_encode($this->key), $name => $value]);
+
+            $dom = $this->page('/');
+            $this->assertSame(1, $dom->query('//a[@data-assistant-fab]')->length, $name.'='.var_export($value, true));
+            $this->assertSame(0, $dom->query(self::LINK)->length, $name);
+        }
+    }
+
+    public function test_a_configured_connection_replaces_the_old_button_even_for_an_account_it_does_not_accept(): void
+    {
+        $this->turnTheAssistantOn();
+        $guest = User::factory()->microsoft($this->segurex)->create(['email' => 'g@example.test', 'is_guest' => true]);
+
+        $this->assertSame(0, $this->page('/')->query('//a[@data-assistant-fab]')->length);
+        $dom = $this->page('/', $guest);
+        $this->assertSame(0, $dom->query('//a[@data-assistant-fab]')->length);
+        $this->assertSame(0, $dom->query(self::LINK)->length);
+    }
+
+    private function turnTheAssistantOn(): void
+    {
+        config(['assistant.enabled' => true, 'services.anthropic.key' => 'sk-ant-test']);
+        DB::table('portal_settings')->insert(['key' => AssistantSwitch::SETTING, 'value' => 'true']);
+    }
+
     // --- Headers (app/Http/Middleware/SecurityHeaders.php) ---
 
     public function test_the_microphone_is_delegated_only_to_the_agent_origin(): void
