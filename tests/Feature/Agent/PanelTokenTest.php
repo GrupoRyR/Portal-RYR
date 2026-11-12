@@ -8,7 +8,9 @@ use App\Models\Company;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -245,6 +247,29 @@ class PanelTokenTest extends TestCase
             ]);
 
             $this->assertNull(PanelToken::for($user), $name.'='.var_export($value, true));
+        }
+    }
+
+    public function test_without_a_valid_key_or_origin_it_does_no_work_at_all(): void
+    {
+        $id = $this->user()->id;
+
+        foreach ([['agent.panel_key', null], ['agent.panel_key', base64_encode('short')], ['agent.origin', null], ['agent.origin', 'http://agente.example.test']] as [$name, $value]) {
+            config([$name => $value]);
+            // A user fresh from the database: its company, roles and groups are not loaded.
+            $user = User::query()->findOrFail($id);
+
+            $queries = [];
+            DB::listen(function ($query) use (&$queries) {
+                $queries[] = $query->sql;
+            });
+
+            $this->assertNull(PanelToken::for($user), $name);
+            $this->assertSame([], $queries, $name.' ran queries: '.implode(' | ', $queries));
+            $this->assertFalse($user->relationLoaded('company'), $name);
+
+            app('events')->forget(QueryExecuted::class);
+            config(['agent.origin' => 'https://agente.example.test', 'agent.panel_key' => base64_encode($this->key)]);
         }
     }
 

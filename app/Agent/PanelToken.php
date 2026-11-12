@@ -26,7 +26,8 @@ use JsonException;
  * - it lives {@see LIFETIME} seconds and has a random single-use `jti`.
  *
  * Header: only `alg` and `typ`. Nothing is signed for an account that may
- * not use the agent ({@see eligible()}).
+ * not use the agent ({@see eligible()}), and nothing is even built while the
+ * key or origin is missing.
  */
 final class PanelToken
 {
@@ -43,10 +44,18 @@ final class PanelToken
      */
     public static function for(User $user, ?DateTimeInterface $now = null): ?string
     {
+        // Configuration first: without a valid key and origin there is nothing
+        // to sign, so no claims are built (no random_bytes, no company or
+        // management queries).
         $key = AgentSettings::key();
+
+        if ($key === null || AgentSettings::origin() === null) {
+            return null;
+        }
+
         $claims = self::claims($user, $now);
 
-        if ($key === null || $claims === null || AgentSettings::origin() === null) {
+        if ($claims === null) {
             return null;
         }
 
