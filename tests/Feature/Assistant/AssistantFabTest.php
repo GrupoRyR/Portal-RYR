@@ -17,12 +17,10 @@ use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
 /**
- * The floating «Asistente» button (<x-assistant-fab>, odd/tasks/liquid-glass.md
- * G7): on the pages that opt in (layouts.app `assistant`) for a signed-in
- * account while the assistant is on, a plain link to /asistente without
- * JavaScript. resources/js/assistant-panel.js (tests/js/assistant-panel.test.mjs)
- * turns it into the chat panel. Never on the sign-in, the error pages or
- * /asistente itself, which keeps its forms.
+ * The old floating «Asistente» button (<x-assistant-fab>, odd/tasks/liquid-glass.md
+ * G7) was replaced by the agent's button (odd/tasks/agente-conexion.md): no
+ * page draws it any more. /asistente stays, for the announcement drafts, with
+ * its forms and its link in the user menu.
  */
 class AssistantFabTest extends TestCase
 {
@@ -52,93 +50,32 @@ class AssistantFabTest extends TestCase
         $this->user = User::factory()->microsoft($this->segurex)->create(['name' => 'Jhon Castro']);
     }
 
-    public function test_the_button_floats_on_the_home_screen_and_on_a_secondary_page(): void
+    public function test_the_old_button_no_longer_floats_anywhere(): void
     {
+        // The agent's button replaced it (tests/Feature/Agent/AgentPanelTest.php);
+        // the panel script and its endpoints stay in the code, unused by the pages.
         $pages = ['/', 'announcements.index', 'events.index', 'people.index', 'account.show'];
 
         foreach (array_map(fn (string $page) => $page === '/' ? $page : route($page, absolute: false), $pages) as $path) {
-            $fab = $this->page($path)->query(self::FAB);
-
-            $this->assertSame(1, $fab->length, $path);
-            $this->assertSame('Asistente', trim($fab->item(0)->textContent), $path);
+            $this->assertSame(0, $this->page($path)->query(self::FAB)->length, $path);
         }
-    }
 
-    public function test_without_javascript_it_is_a_plain_link_to_the_assistant(): void
-    {
-        $fab = $this->page('/')->query(self::FAB)->item(0);
-
-        $this->assertSame(route('assistant.show'), $fab->getAttribute('href'));
-        $this->assertFalse($fab->hasAttribute('onclick'));
-        $this->assertFalse($fab->hasAttribute('role'));
-        // What the panel needs, read only once it is opened.
-        $this->assertStringContainsString('/build/assets/assistant-panel-', $fab->getAttribute('data-module'));
-        $this->assertSame(route('assistant.conversation', absolute: false), $fab->getAttribute('data-conversation-url'));
-        $this->assertSame(route('assistant.ask', absolute: false), $fab->getAttribute('data-ask-url'));
-        $this->assertSame(route('assistant.clear', absolute: false), $fab->getAttribute('data-clear-url'));
-    }
-
-    public function test_the_page_never_loads_the_panel_script_or_the_conversation_up_front(): void
-    {
         $html = $this->actingAs($this->user)->get('/')->assertOk()->getContent();
-
-        $this->assertStringNotContainsString('<script type="module" src="'.$this->fabModule(), $html);
-        $this->assertStringNotContainsString('rel="modulepreload" href="'.$this->fabModule(), $html);
+        $this->assertStringNotContainsString($this->fabModule(), $html);
         $this->assertSame([], $this->model->requests);
     }
 
-    public function test_the_home_screen_raises_it_above_the_bottom_bar(): void
+    public function test_a_glass_page_that_opts_in_does_not_draw_it_either(): void
     {
-        $raised = self::FAB.'[contains(concat(" ", @class, " "), " g-fab--raised ")]';
-
-        $this->assertSame(1, $this->page('/')->query($raised)->length);
-        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query($raised)->length);
-    }
-
-    public function test_it_is_absent_on_the_assistant_page_itself(): void
-    {
-        $this->assertSame(0, $this->page(route('assistant.show', absolute: false))->query(self::FAB)->length);
-    }
-
-    public function test_it_is_absent_on_the_sign_in_page(): void
-    {
-        $this->get(route('login'))->assertOk()->assertDontSee('data-assistant-fab', false);
-    }
-
-    public function test_it_is_absent_on_the_error_pages_of_a_signed_in_account(): void
-    {
-        $this->actingAs($this->user)->get('/admin')->assertForbidden()->assertDontSee('data-assistant-fab', false);
-    }
-
-    public function test_a_glass_page_shows_it_only_when_it_opts_in(): void
-    {
-        // The sign-in, the error pages and Administración may be glass too (G8, G10).
         $this->actingAs($this->user);
 
-        $this->assertStringNotContainsString('data-assistant-fab', (string) $this->blade('<x-layouts.app glass><main>Página</main></x-layouts.app>'));
-        $this->assertStringContainsString('data-assistant-fab', (string) $this->blade('<x-layouts.app glass assistant><main>Página</main></x-layouts.app>'));
+        $this->assertStringNotContainsString('data-assistant-fab', (string) $this->blade('<x-layouts.app glass assistant><main>Página</main></x-layouts.app>'));
     }
 
-    public function test_it_is_absent_while_the_admin_toggle_is_off(): void
+    public function test_the_assistant_page_stays_for_the_announcement_drafts_and_links_from_the_menu(): void
     {
-        DB::table('portal_settings')->where('key', AssistantSwitch::SETTING)->update(['value' => 'false']);
-
-        $this->assertSame(0, $this->page('/')->query(self::FAB)->length);
-        $this->assertSame(0, $this->page(route('announcements.index', absolute: false))->query(self::FAB)->length);
-    }
-
-    public function test_it_is_absent_while_the_deploy_flag_is_off(): void
-    {
-        config(['assistant.enabled' => false]);
-
-        $this->assertSame(0, $this->page('/')->query(self::FAB)->length);
-    }
-
-    public function test_without_the_api_key_it_stays_so_the_panel_can_say_it_is_not_available(): void
-    {
-        config(['services.anthropic.key' => null]);
-
-        $this->assertSame(1, $this->page('/')->query(self::FAB)->length);
+        $this->assertSame(0, $this->page(route('assistant.show', absolute: false))->query(self::FAB)->length);
+        $this->assertSame(1, $this->page('/')->query('//a[@href="'.route('assistant.show').'"]')->length);
     }
 
     public function test_the_assistant_page_is_glass_and_keeps_its_forms_and_anchors(): void

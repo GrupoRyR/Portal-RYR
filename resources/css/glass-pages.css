@@ -43,7 +43,9 @@
         color: var(--g-ink);
     }
 
-    /* Room for the floating «Asistente» over the last card. */
+    /* Room for the agent's floating button (components/agent-panel) over the
+       last card; .g-fab is the old «Asistente» button's class. */
+    .g-canvas:has(.agent-anchor) .g-page,
     .g-canvas:has(.g-fab) .g-page {
         margin-bottom: 96px;
     }
