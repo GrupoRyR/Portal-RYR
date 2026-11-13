@@ -1,0 +1,76 @@
+# Vistas de aplicaciones en el inicio
+
+Archivo: `odd/tasks/vistas-apps.md`. Copia en Engram: `odd/vistas-apps/tasks`.
+Rama: `feat/vistas-apps`, creada desde `origin/main` en `82cfdae`.
+
+## Objetivo
+
+En la tarjeta «Mis aplicaciones» del inicio, cada persona puede escoger entre cuatro vistas. La que elige se guarda en su cuenta.
+
+Jhon las eligió el 2026-11-13 sobre bocetos:
+
+1. **Por categorías** (`categories`, por defecto): la actual. Primero Favoritos, luego Recientes, luego un grupo por categoría.
+2. **Todas, sin categorías** (`all`): un solo mosaico en orden alfabético por nombre. No hay sección de favoritos ni de recientes; la estrella de favorito sigue en cada tarjeta.
+3. **Lista compacta** (`list`): una fila por app con ícono, nombre, descripción corta y estado, en orden alfabético.
+4. **Íconos tipo lanzador** (`launcher`): solo ícono y nombre, en una cuadrícula densa y en orden alfabético.
+
+Descartadas: «Más usadas» y «Solo favoritos».
+
+## Por qué
+
+Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en un formato que ocupe menos espacio en el celular.
+
+## Alcance y restricciones
+
+- Las vistas se escogen con un selector `g-seg` (`button[aria-pressed]`) dentro de un formulario `POST` con CSRF, en el encabezado de la tarjeta. **Funciona sin JavaScript.**
+- Columna `users.apps_view`: texto corto, nulo equivale a `categories`, y queda fuera de la asignación masiva. Los valores permitidos viven en una sola clase.
+- Ruta autenticada que guarda la vista, rechaza valores desconocidos (422 o error de validación) y vuelve al inicio, al ancla de la tarjeta.
+- **Ninguna consulta nueva en el inicio.** La preferencia está en la fila de `users`, que ya está cargada; `HomeQueryBudget` no sube.
+- La búsqueda `?q=` filtra igual en las cuatro vistas. El estado (mantenimiento, caída) y el botón de favorito se ven en las cuatro.
+- Liquid Glass:
+  - todo el texto va sobre vidrio y se ven el contraste AA y el foco de 2 px;
+  - los ids son únicos;
+  - el diseño funciona a 375 px;
+  - los colores salen de los tokens existentes, sin crear nuevos;
+  - nada se mueve, así que no hay reglas nuevas de movimiento.
+- Sin Livewire ni Alpine en el inicio.
+
+## Fuera de alcance
+
+- Vistas para Administración.
+- Ordenar las apps por uso.
+
+## Tareas
+
+- [x] V1. Preferencia: migración `users.apps_view`, clase de valores, ruta y controlador, más las pruebas. Pruebas primero.
+- [ ] V2. Datos de cada vista en `HomePageBuilder` y `HomePage`: lista plana A-Z para `all`, `list` y `launcher`; sin consultas nuevas; pruebas de orden, búsqueda, favoritos y presupuesto de consultas.
+- [ ] V3. Marcado y CSS: el selector y las variantes `list` y `launcher` en `glass.css`, más las pruebas de HTML (escape, `aria-pressed` e ids únicos).
+- [ ] V4. Revisión visual: Segurex, SDC, claro, oscuro, 375 px y escritorio, en el panel del navegador.
+- [ ] V5. `/code-review` y `/security-review`. Documentación del manual de usuario y del estado del proyecto, que va por el documentador.
+
+## Criterios de aceptación
+
+- Una cuenta nueva ve la vista por categorías, idéntica a la de hoy.
+- Al cambiar la vista y recargar, se mantiene la elegida; en otro dispositivo también.
+- Un valor inválido no se guarda.
+- El presupuesto de consultas del inicio no cambia.
+- La suite completa queda en verde y Pint, limpio.
+
+## Entrega
+
+- Estrategia `ask-on-risk`. Estimado: 450 a 600 líneas, la mayoría pruebas.
+- Si pasa de unas 400 líneas, se pregunta si va como PR único con `size:exception` o encadenado (V1 y V2, luego V3).
+
+## Ruta
+
+- Delegada: un solo escritor, porque son 2 o más archivos no triviales y hay que leer antes de escribir.
+- La sesión coordinadora revisa, corre las comprobaciones y hace la revisión visual.
+
+## Progreso
+
+- 2026-11-13: documento creado.
+- 2026-11-13, V1 (ruta delegada, escritor único). `users.apps_view` (texto de 16, nulo), `App\View\Home\AppsView` (enum con `DEFAULT`, `fromStored()`, `isFlat()` y `label()`), `PUT /inicio/vista` (`home.apps-view`, `auth`, `throttle:20,1`) con `AppsViewController`, que valida con `Rule::enum`, guarda con `forceFill` y vuelve a `/#mis-aplicaciones` conservando `?q=`. La columna queda fuera de `Fillable`.
+  - RED: `php artisan test tests/Unit/View/AppsViewTest.php tests/Feature/Home/AppsViewPreferenceTest.php` → 22 pruebas, 1 pasa, 1 falla y 20 con error (no existen la clase, la columna ni la ruta).
+  - GREEN: el mismo comando → `29 passed, 82 assertions`.
+  - Suite completa: `3542 tests, 3538 passed, 4 skipped`, 0 fallas. `vendor/bin/pint --test` sobre los archivos tocados: limpio.
+  - Commit: se anota en el de V2.

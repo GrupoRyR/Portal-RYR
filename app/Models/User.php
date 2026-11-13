@@ -42,6 +42,10 @@ use Spatie\Permission\Traits\HasRoles;
  * so they are not fillable: the day and month only, never the year, shown
  * to the account's company in «Mi día» only while `show_birthday` is on.
  *
+ * `apps_view`, the view of «Mis aplicaciones» on the home screen
+ * (App\View\Home\AppsView, null until chosen), is written only by
+ * App\Http\Controllers\AppsViewController, so it is not fillable either.
+ *
  * Emergency accounts (`is_emergency`) are local: password + TOTP, no
  * tenant, object ID or company. They are managed only through the
  * `portal:emergency-account` command, so the 2FA columns are not fillable.
