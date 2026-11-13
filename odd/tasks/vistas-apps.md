@@ -98,4 +98,5 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
   - RED: `php artisan test tests/Feature/Home/HomeAppsViewMarkupTest.php` → 38 pruebas, 34 pasan y fallan 4 (marca de estado, área táctil, nombre de la lista y filas iguales).
   - GREEN: `php artisan test tests/Feature/Home/` → `302 passed`; `node --test tests/js/*.test.mjs` → `50 pass, 0 fail`.
   - Suite completa: `3601 tests, 3597 passed, 4 skipped`, 0 fallas. Pint limpio.
-  - `public/build`: se recompila con `npm run build` y va en su propio commit `build:` (ver `docs/despliegue.md`, 1.11).
+  - `public/build`: recompilado con `npm run build` (sale `app-ExZamMJw.css` y `home-DPtL4dO0.js`, entran `app-B8-HL0RB.css` y `home-qK12Y4t0.js`, cambia `manifest.json`), en su propio commit como manda `docs/despliegue.md`. Pruebas de Home, PWA, seguridad y layouts con el build nuevo: `427 passed`.
+  - Commits: `0e79027` (`fix(home): fit the launcher status and star and wrap long list names`) y `4f17ff4` (`build: rebuild assets for the apps views`).
