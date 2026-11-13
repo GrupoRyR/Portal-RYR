@@ -87,4 +87,4 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
   - GREEN: `php artisan test tests/Feature/Home/` → `299 passed`; `node --test tests/js/*.test.mjs` → `50 pass, 0 fail`.
   - Suite completa: `3598 tests, 3594 passed, 4 skipped`, 0 fallas. Pint limpio. `vite build` a una carpeta temporal compila sin errores; `public/build` no se tocó.
   - 375 px: el escritor no pudo verla en el navegador (el panel solo muestra una instantánea del HTML local, sin cambiar el ancho). Por cálculo: el selector ocupa unos 265 px de 307 disponibles, «Íconos» deja 3 columnas de unos 97 px y «Lista» deja unos 183 px al texto. Queda para V4.
-  - Commit: se anota en el commit de cierre del documento.
+  - Commit: `33f50aa` (`feat(home): add the apps view selector and the list and launcher layouts`).
