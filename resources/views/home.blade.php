@@ -115,71 +115,71 @@
                         @php($order = 0)
 
                         @if ($page->appsView->isFlat())
-                        {{-- «Todas», «Lista» and «Íconos»: every app once, from A to Z, the
-                             favorites in place with their star on (HomePageBuilder). --}}
-                        <ul id="aplicaciones" data-list @class([
-                            'g-apps',
-                            'g-apps--list' => $page->appsView === AppsView::List,
-                            'g-apps--launcher' => $page->appsView === AppsView::Launcher,
-                            'scroll-mt-6',
-                        ])>
-                            @foreach ($page->apps as $card)
-                                <x-home.app-card :card="$card" :query="$page->query" :order="$order" :view="$page->appsView" />
-                                @php($order++)
-                            @endforeach
-                        </ul>
+                            {{-- «Todas», «Lista» and «Íconos»: every app once, from A to Z, the
+                                 favorites in place with their star on (HomePageBuilder). --}}
+                            <ul id="aplicaciones" data-list @class([
+                                'g-apps',
+                                'g-apps--list' => $page->appsView === AppsView::List,
+                                'g-apps--launcher' => $page->appsView === AppsView::Launcher,
+                                'scroll-mt-6',
+                            ])>
+                                @foreach ($page->apps as $card)
+                                    <x-home.app-card :card="$card" :query="$page->query" :order="$order" :view="$page->appsView" />
+                                    @php($order++)
+                                @endforeach
+                            </ul>
                         @else
-                        <div class="flex flex-col gap-6">
-                            <section id="favoritos" aria-labelledby="favoritos-titulo" data-section class="g-apps-group min-w-0 scroll-mt-6" @if ($searching && $page->favorites === []) hidden @endif>
-                                <h3 id="favoritos-titulo">Favoritos</h3>
-                                <p data-favorites-hint class="text-sm text-fg-muted" @if ($page->favorites !== []) hidden @endif>Toca la estrella de una aplicación para fijarla aquí.</p>
-                                <ul data-list class="g-apps">
-                                    @foreach ($page->favorites as $card)
-                                        <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
-                                        @php($order++)
-                                    @endforeach
-                                </ul>
-                            </section>
-
-                            @if ($page->recents !== [])
-                                <section id="recientes" aria-labelledby="recientes-titulo" class="g-apps-group min-w-0 scroll-mt-6">
-                                    <h3 id="recientes-titulo">Recientes</h3>
-                                    <ul class="grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
-                                        @foreach ($page->recents as $card)
-                                            <li class="min-w-0">
-                                                <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="flex min-h-touch items-center gap-3 rounded-control px-2 py-1.5 hover:bg-subtle">
-                                                    @if ($card->iconUrl)
-                                                        <picture class="shrink-0">
-                                                            @if ($card->iconDarkUrl)
-                                                                <source srcset="{{ $card->iconDarkUrl }}" media="(prefers-color-scheme: dark)">
-                                                            @endif
-                                                            <img src="{{ $card->iconUrl }}" alt="" width="36" height="36" class="size-9 rounded-[10px]">
-                                                        </picture>
-                                                    @else
-                                                        <span aria-hidden="true" class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--app-accent) font-display font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
-                                                    @endif
-                                                    <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ $card->name }}</span>
-                                                </a>
-                                            </li>
+                            <div class="flex flex-col gap-6">
+                                <section id="favoritos" aria-labelledby="favoritos-titulo" data-section class="g-apps-group min-w-0 scroll-mt-6" @if ($searching && $page->favorites === []) hidden @endif>
+                                    <h3 id="favoritos-titulo">Favoritos</h3>
+                                    <p data-favorites-hint class="text-sm text-fg-muted" @if ($page->favorites !== []) hidden @endif>Toca la estrella de una aplicación para fijarla aquí.</p>
+                                    <ul data-list class="g-apps">
+                                        @foreach ($page->favorites as $card)
+                                            <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
+                                            @php($order++)
                                         @endforeach
                                     </ul>
                                 </section>
-                            @endif
 
-                            <div id="aplicaciones" class="flex scroll-mt-6 flex-col gap-6">
-                                @foreach ($page->categories as $group)
-                                    <section aria-labelledby="categoria-{{ $group->slug }}" data-section data-category="{{ $group->slug }}" class="g-apps-group min-w-0" @if ($group->isEmpty()) hidden @endif>
-                                        <h3 id="categoria-{{ $group->slug }}">{{ $group->name }}</h3>
-                                        <ul data-list class="g-apps">
-                                            @foreach ($group->cards as $card)
-                                                <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
-                                                @php($order++)
+                                @if ($page->recents !== [])
+                                    <section id="recientes" aria-labelledby="recientes-titulo" class="g-apps-group min-w-0 scroll-mt-6">
+                                        <h3 id="recientes-titulo">Recientes</h3>
+                                        <ul class="grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
+                                            @foreach ($page->recents as $card)
+                                                <li class="min-w-0">
+                                                    <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="flex min-h-touch items-center gap-3 rounded-control px-2 py-1.5 hover:bg-subtle">
+                                                        @if ($card->iconUrl)
+                                                            <picture class="shrink-0">
+                                                                @if ($card->iconDarkUrl)
+                                                                    <source srcset="{{ $card->iconDarkUrl }}" media="(prefers-color-scheme: dark)">
+                                                                @endif
+                                                                <img src="{{ $card->iconUrl }}" alt="" width="36" height="36" class="size-9 rounded-[10px]">
+                                                            </picture>
+                                                        @else
+                                                            <span aria-hidden="true" class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--app-accent) font-display font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
+                                                        @endif
+                                                        <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ $card->name }}</span>
+                                                    </a>
+                                                </li>
                                             @endforeach
                                         </ul>
                                     </section>
-                                @endforeach
+                                @endif
+
+                                <div id="aplicaciones" class="flex scroll-mt-6 flex-col gap-6">
+                                    @foreach ($page->categories as $group)
+                                        <section aria-labelledby="categoria-{{ $group->slug }}" data-section data-category="{{ $group->slug }}" class="g-apps-group min-w-0" @if ($group->isEmpty()) hidden @endif>
+                                            <h3 id="categoria-{{ $group->slug }}">{{ $group->name }}</h3>
+                                            <ul data-list class="g-apps">
+                                                @foreach ($group->cards as $card)
+                                                    <x-home.app-card :card="$card" :query="$page->query" :order="$order" />
+                                                    @php($order++)
+                                                @endforeach
+                                            </ul>
+                                        </section>
+                                    @endforeach
+                                </div>
                             </div>
-                        </div>
                         @endif
                     @endif
                 </div>

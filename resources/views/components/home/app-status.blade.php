@@ -21,6 +21,6 @@
         @break
     @default
         <span class="mt-auto flex items-center gap-1.5 text-xs font-semibold text-fg-muted">
-            <x-home.icon :name="$card->status === AppCardStatus::Local ? 'monitor' : 'lock'" stroke-width="2" class="size-3.5" />{{ $card->status->label() }}
+            <x-home.icon :name="$card->status->icon()" stroke-width="2" class="size-3.5" />{{ $card->status->label() }}
         </span>
 @endswitch

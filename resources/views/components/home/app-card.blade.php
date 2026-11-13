@@ -12,9 +12,10 @@
     `view` (App\View\Home\AppsView) picks the layout: the tile of
     «Categorías» and «Todas» (the default), a row of «Lista» (.g-app--row:
     logo, name, description, status, star) or the icon of «Íconos»
-    (.g-app--icon: logo and name, the star in a corner, the status only when
-    the app is down or in maintenance). Logo, status and star come from
-    x-home.app-logo, x-home.app-status and x-home.app-star in all three.
+    (.g-app--icon: logo and name, the status as a small mark in one top
+    corner, x-home.app-mark, and the star in the other). Logo and star come
+    from x-home.app-logo and x-home.app-star in all three, the status chip
+    from x-home.app-status in the tile and the row.
 --}}
 @props(['card', 'query' => '', 'order' => 0, 'view' => null])
 @use('App\View\Home\AppCardStatus')
@@ -46,7 +47,7 @@
         <x-home.app-logo :card="$card" small />
 
         <div class="g-app__text">
-            <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="truncate text-[0.9375rem] leading-tight font-bold {{ $link }}">{{ $card->name }}</a>
+            <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="line-clamp-2 text-[0.9375rem] leading-tight font-bold break-words {{ $link }}">{{ $card->name }}</a>
             <p class="truncate text-[0.8125rem] leading-snug text-fg-muted">{{ $card->description }}</p>
         </div>
 
@@ -60,11 +61,7 @@
 
         <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="line-clamp-2 text-[0.8125rem] leading-tight font-semibold break-words {{ $link }}">{{ $card->name }}</a>
 
-        @if (in_array($card->status, [AppCardStatus::Maintenance, AppCardStatus::Failing], true))
-            <div class="g-app__status">
-                <x-home.app-status :card="$card" />
-            </div>
-        @endif
+        <x-home.app-mark :card="$card" />
 
         <x-home.app-star :card="$card" :query="$query" class="g-app__star z-10" compact />
     @else

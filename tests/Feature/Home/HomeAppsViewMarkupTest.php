@@ -222,19 +222,82 @@ class HomeAppsViewMarkupTest extends TestCase
         $this->assertSame(1, $xpath->query('//li[@id="app-toma-pedidos"]//img[@width="40"][@height="40"]')->length);
     }
 
-    public function test_the_launcher_shows_the_status_only_when_an_app_is_down(): void
+    /**
+     * A long name wraps to two lines instead of losing its ending at 375 px;
+     * the description stays on one.
+     */
+    public function test_the_list_wraps_a_long_name_and_keeps_the_description_on_one_line(): void
+    {
+        $this->catalog();
+        $this->choose('list');
+
+        $xpath = $this->xpath($this->home());
+        $name = $xpath->query('//li[@id="app-cartera"]/div[@class="g-app__text"]/a')->item(0);
+        $description = $xpath->query('//li[@id="app-cartera"]/div[@class="g-app__text"]/p')->item(0);
+
+        $this->assertEqualsCanonicalizing(['line-clamp-2', 'break-words'], array_values(array_intersect(['line-clamp-2', 'break-words', 'truncate'], explode(' ', $name->getAttribute('class')))));
+        $this->assertContains('truncate', explode(' ', $description->getAttribute('class')));
+    }
+
+    /**
+     * «Íconos» marks every status but «Activa» with a round icon chip of
+     * 24 px (glass.css), its text for screen readers and as a tooltip; no
+     * text badge, so every tile keeps the same height.
+     */
+    public function test_the_launcher_marks_each_status_with_a_small_icon(): void
     {
         $this->catalog();
         $this->choose('launcher');
 
         $xpath = $this->xpath($this->home());
-        $statuses = iterator_to_array($xpath->query('//ul[@id="aplicaciones"]/li/div[@class="g-app__status"]'));
 
-        $this->assertSame(['bancos', 'camaras'], array_map(fn (DOMElement $status) => $status->parentNode->getAttribute('data-app'), $statuses));
-        $this->assertStringContainsString('En mantenimiento', $xpath->query('//li[@id="app-camaras"]')->item(0)->textContent);
+        $this->assertSame(0, $xpath->query('//ul[@id="aplicaciones"]/li/div[@class="g-app__status"]')->length);
+
+        $marks = [];
+        foreach ($xpath->query('//ul[@id="aplicaciones"]/li/span[contains(concat(" ", @class, " "), " g-app__mark ")]') as $mark) {
+            $this->assertSame(1, $xpath->query('./*[name()="svg"][@aria-hidden="true"]', $mark)->length);
+            $this->assertSame($mark->getAttribute('title'), trim($xpath->query('./span[@class="sr-only"]', $mark)->item(0)->textContent));
+            $marks[$mark->parentNode->getAttribute('data-app')] = [$mark->getAttribute('data-mark'), $mark->getAttribute('title')];
+        }
+
+        $this->assertSame([
+            'bancos' => ['warning', 'Con fallas · SAP no responde'],
+            'camaras' => ['wrench', 'En mantenimiento'],
+            'nomina' => ['monitor', 'Instalada en tu equipo'],
+            'portafolio' => ['lock', 'Inicio de sesión propio'],
+        ], $marks);
         $this->assertStringNotContainsString('Activa', $xpath->query('//li[@id="app-cartera"]')->item(0)->textContent);
-        // The star keeps its form and its accessible name.
-        $this->assertSame(1, $xpath->query('//li[@id="app-cartera"]//form[@data-favorite]//button[@aria-label="Marcar Cartera como favorita"]')->length);
+    }
+
+    /**
+     * The 32 px star of «Íconos» keeps the 44 px touch target with a
+     * pseudo-element around it.
+     */
+    public function test_the_launcher_star_keeps_a_touch_sized_hit_area(): void
+    {
+        $this->catalog();
+        $this->choose('launcher');
+
+        $button = $this->xpath($this->home())->query('//li[@id="app-cartera"]//form[@data-favorite]//button[@aria-label="Marcar Cartera como favorita"]');
+
+        $this->assertSame(1, $button->length);
+        $classes = explode(' ', $button->item(0)->getAttribute('class'));
+        foreach (['relative', 'size-8', 'before:absolute', 'before:-inset-1.5'] as $class) {
+            $this->assertContains($class, $classes);
+        }
+        $this->assertNotContains('size-touch', $classes);
+    }
+
+    /**
+     * Every tile of «Íconos» is as tall as the tallest one, and the status
+     * mark is at most 24 px.
+     */
+    public function test_the_launcher_rows_share_one_height(): void
+    {
+        $css = (string) file_get_contents(resource_path('css/glass.css'));
+
+        $this->assertMatchesRegularExpression('/\.g-apps--launcher \{[^}]*grid-auto-rows: 1fr;/', $css);
+        $this->assertMatchesRegularExpression('/\.g-app--icon > \.g-app__mark \{[^}]*width: 24px;[^}]*height: 24px;/', $css);
     }
 
     #[DataProvider('everyView')]

@@ -45,7 +45,7 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
 - [x] V1. Preferencia: migración `users.apps_view`, clase de valores, ruta y controlador, más las pruebas. Pruebas primero.
 - [x] V2. Datos de cada vista en `HomePageBuilder` y `HomePage`: lista plana A-Z para `all`, `list` y `launcher`; sin consultas nuevas; pruebas de orden, búsqueda, favoritos y presupuesto de consultas.
 - [x] V3. Marcado y CSS: el selector y las variantes `list` y `launcher` en `glass.css`, más las pruebas de HTML (escape, `aria-pressed` e ids únicos).
-- [ ] V4. Revisión visual: Segurex, SDC, claro, oscuro, 375 px y escritorio, en el panel del navegador.
+- [x] V4. Revisión visual: Segurex, SDC, claro, oscuro, 375 px y escritorio, en el panel del navegador.
 - [ ] V5. `/code-review` y `/security-review`. Documentación del manual de usuario y del estado del proyecto, que va por el documentador.
 
 ## Criterios de aceptación
@@ -88,3 +88,14 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
   - Suite completa: `3598 tests, 3594 passed, 4 skipped`, 0 fallas. Pint limpio. `vite build` a una carpeta temporal compila sin errores; `public/build` no se tocó.
   - 375 px: el escritor no pudo verla en el navegador (el panel solo muestra una instantánea del HTML local, sin cambiar el ancho). Por cálculo: el selector ocupa unos 265 px de 307 disponibles, «Íconos» deja 3 columnas de unos 97 px y «Lista» deja unos 183 px al texto. Queda para V4.
   - Commit: `33f50aa` (`feat(home): add the apps view selector and the list and launcher layouts`).
+- 2026-11-13, V4, revisión visual (sesión coordinadora): Chrome sin interfaz a 375 px y 1280 px, 24 capturas. Encontró 2 defectos en «Íconos», que se corrigieron abajo junto con 3 hallazgos de la revisión de código.
+- 2026-11-13, correcciones de V4 y de la revisión (ruta delegada):
+  - «Íconos», estado: en vez de la etiqueta de texto (a 375 px «En mantenimiento» se salía 14 px por los dos lados y «Con fallas · SAP no responde» ocupaba 4 líneas), una marca redonda de 24 px en la esquina superior izquierda (`x-home.app-mark`, `.g-app__mark`): llave para mantenimiento, alerta para fallas, monitor para instalada y candado para inicio de sesión propio, nada si está activa. El texto queda en `sr-only` y en `title`. Así también se ven Local y Restringida, que antes no mostraban estado. `AppCardStatus::icon()` reúne los íconos.
+  - «Íconos», alto: `grid-auto-rows: 1fr`, todas las filas miden lo que la más alta.
+  - «Íconos», estrella: se ve de 32 px, pero un `before:absolute before:-inset-1.5` le da 44 px de área táctil. La franja superior de 38 px hace que esa área termine donde empieza el logo.
+  - «Lista», nombre: `line-clamp-2 break-words` en vez de `truncate`; la descripción sigue en una línea.
+  - `home.blade.php`: la rama de «Categorías» queda sangrada dentro del `@if/@else`. Solo cambian espacios y la prueba de los fixtures sigue en verde.
+  - RED: `php artisan test tests/Feature/Home/HomeAppsViewMarkupTest.php` → 38 pruebas, 34 pasan y fallan 4 (marca de estado, área táctil, nombre de la lista y filas iguales).
+  - GREEN: `php artisan test tests/Feature/Home/` → `302 passed`; `node --test tests/js/*.test.mjs` → `50 pass, 0 fail`.
+  - Suite completa: `3601 tests, 3597 passed, 4 skipped`, 0 fallas. Pint limpio.
+  - `public/build`: se recompila con `npm run build` y va en su propio commit `build:` (ver `docs/despliegue.md`, 1.11).
