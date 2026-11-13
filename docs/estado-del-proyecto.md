@@ -1,6 +1,6 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-05.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-13.
 
 ## 1. Qué es y dónde está
 
@@ -41,6 +41,34 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 - **Asistente del portal** (`odd/tasks/asistente.md`, ola 3), aprobado por Jhon como líder de IA. Página `/asistente` que responde con lo que la cuenta activa ya ve, con Claude Haiku 5.5 (personas) y Sonnet 5.5 (editores) por el SDK oficial de PHP, las mismas herramientas de solo lectura del conector, presupuesto mensual de US$ 20, proveedores enchufables (DeepSeek por verificar) y un proveedor secundario opcional. Los editores reciben borradores de anuncios que solo se publican con su confirmación. Fusionado en `main` (rama `feat/asistente`). Apagado por defecto (`PORTAL_ASSISTANT_ENABLED`, interruptor de Configuración y `ANTHROPIC_API_KEY`, `docs/despliegue.md` §1.23; manual §15).
 - **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`), fusionada en `main`. Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) se fusionó en `main` desde la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
 - **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, fusionada en `main`): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Está en `main`; aún no está en producción.
+
+### 2026-11-13
+
+**Vistas de «Mis aplicaciones»** (PR #120, fusionado en `main` con el merge `a381c80`). La tarjeta «Mis aplicaciones» del inicio tiene un selector en el encabezado con cuatro vistas. La vista elegida se guarda en la cuenta de cada persona y la sigue en cualquier dispositivo.
+
+| Vista | Qué muestra |
+|---|---|
+| **Categorías** (por defecto) | Favoritos, Recientes y un grupo por categoría, como antes. |
+| **Todas** | Una cuadrícula de A a Z, sin Favoritos ni Recientes. La estrella de favorito sigue en cada tarjeta. |
+| **Lista** | Una fila por app: logo, nombre, descripción corta y estado. |
+| **Íconos** | Cuadrícula compacta con logo y nombre. Un icono en la esquina muestra el estado: llave inglesa (en mantenimiento), alerta (con fallas), monitor (instalada en el equipo) o candado (inicio de sesión propio). |
+
+El buscador filtra igual en las cuatro vistas.
+
+Detalles técnicos:
+
+- Columna `users.apps_view` (texto de 16 caracteres, nulo). Nulo equivale a «Categorías».
+- Enum `App\View\Home\AppsView`: valores permitidos, valor por defecto y etiquetas del selector.
+- Ruta `PUT /inicio/vista` (`home.apps-view`), atendida por `AppsViewController`. Un valor fuera de la lista se rechaza.
+- El inicio no hace consultas nuevas: la vista se lee de la fila del usuario que ya se carga.
+
+**Para desplegar:**
+
+1. Migración nueva: `2026_11_13_000001_add_apps_view_to_users_table` (`deploy/deploy.sh` corre `artisan migrate --force`).
+
+**Pendientes para Jhon:**
+
+- [ ] Desplegar con `bash deploy/deploy.sh` y probar el selector en el inicio con una cuenta real.
 
 ### 2026-11-05
 
