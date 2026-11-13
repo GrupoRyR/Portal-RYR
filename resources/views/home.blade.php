@@ -5,7 +5,8 @@
 
     - the main column (<main>): the greeting banner, then the glass cards
       «Panel gerencial» (only «Gerencia»), «Mis aplicaciones» (favorites,
-      recents and the categories), «Accesos rápidos», «Anuncios»,
+      recents and the categories, or one list from A to Z in the view the
+      account picks in its head), «Accesos rápidos», «Anuncios»,
       «Noticias» and «Catálogos y categorías»;
     - «Mi día» (<aside>, beside it from 1024 px, after it on phones and
       tablets): «Tareas pendientes», the mandatory announcements still to
@@ -20,6 +21,7 @@
     data-pwa-source turns to "cache" when the service worker (resources/js/sw.js)
     answers with the saved copy of this page.
 --}}
+@use('App\View\Home\AppsView')
 @php
     /** @var \App\View\Home\HomePage $page */
     $searching = $page->isSearching();
@@ -75,6 +77,21 @@
                     <h2 id="mis-aplicaciones-titulo">Mis aplicaciones</h2>
                     @if ($page->hasApps())
                         <span class="g-note">{{ $page->availability() }}</span>
+
+                        {{-- The view of the apps (App\View\Home\AppsView): a plain form, so it
+                             works without JavaScript (AppsViewController), back here keeping the search. --}}
+                        <form method="POST" action="{{ route('home.apps-view') }}" class="g-apps-view">
+                            @csrf
+                            @method('PUT')
+                            @if ($page->query !== '')
+                                <input type="hidden" name="q" value="{{ $page->query }}">
+                            @endif
+                            <div class="g-seg" role="group" aria-label="Vista de aplicaciones">
+                                @foreach (AppsView::cases() as $appsView)
+                                    <button type="submit" name="view" value="{{ $appsView->value }}" aria-pressed="{{ $appsView === $page->appsView ? 'true' : 'false' }}">{{ $appsView->label() }}</button>
+                                @endforeach
+                            </div>
+                        </form>
                     @endif
                 </div>
 
@@ -97,6 +114,21 @@
                              in its own statement: Blade evaluates component attributes twice. --}}
                         @php($order = 0)
 
+                        @if ($page->appsView->isFlat())
+                        {{-- «Todas», «Lista» and «Íconos»: every app once, from A to Z, the
+                             favorites in place with their star on (HomePageBuilder). --}}
+                        <ul id="aplicaciones" data-list @class([
+                            'g-apps',
+                            'g-apps--list' => $page->appsView === AppsView::List,
+                            'g-apps--launcher' => $page->appsView === AppsView::Launcher,
+                            'scroll-mt-6',
+                        ])>
+                            @foreach ($page->apps as $card)
+                                <x-home.app-card :card="$card" :query="$page->query" :order="$order" :view="$page->appsView" />
+                                @php($order++)
+                            @endforeach
+                        </ul>
+                        @else
                         <div class="flex flex-col gap-6">
                             <section id="favoritos" aria-labelledby="favoritos-titulo" data-section class="g-apps-group min-w-0 scroll-mt-6" @if ($searching && $page->favorites === []) hidden @endif>
                                 <h3 id="favoritos-titulo">Favoritos</h3>
@@ -148,6 +180,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        @endif
                     @endif
                 </div>
             </section>

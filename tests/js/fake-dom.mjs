@@ -1,43 +1,64 @@
 // A tiny stand-in for the DOM, enough for resources/js/theme.js,
-// resources/js/header.js and resources/js/assistant-panel.js under Node's
-// own runner. Selectors are matched for real, from the subset those scripts
-// use (tag, [attr], [attr="v"], [attr*="v"], comma lists); anything else
-// throws, so a typo in a script's selector fails its test instead of
-// passing silently.
+// resources/js/header.js, resources/js/assistant-panel.js and the favorite
+// star of resources/js/home.js under Node's own runner. Selectors are
+// matched for real, from the subset those scripts use (tag, #id, [attr],
+// [attr="v"], [attr*="v"], descendants, comma lists); anything else throws,
+// so a typo in a script's selector fails its test instead of passing
+// silently.
 //
 // Strings appended to an element become text nodes. Setting innerHTML keeps
 // the markup as given (no parsing) and its text without the tags, so a test
 // can tell text inserted as text (escaped in innerHTML) from markup.
 
-const PART = /^([a-z][a-z0-9-]*)?((?:\[[^\]]+\])*)$/i;
+const PART = /^([a-z][a-z0-9-]*)?(?:#([a-z][a-z0-9_-]*))?((?:\[[^\]]+\])*)$/i;
+// Whitespace between compounds, not inside an attribute value.
+const DESCENDANT = /\s+(?![^[]*\])/;
 const ATTRIBUTE = /\[([a-z][a-z0-9-]*)(?:(\*?=)"([^"]*)")?\]/gi;
 
-function parse(selector) {
-    return selector.split(',').map((raw) => {
-        const part = raw.trim();
-        const match = PART.exec(part);
-        if (!match || part === '') throw new Error(`Unsupported selector: ${selector}`);
+function compound(part, selector) {
+    const match = PART.exec(part);
+    if (!match || part === '') throw new Error(`Unsupported selector: ${selector}`);
 
-        const attributes = [...match[2].matchAll(ATTRIBUTE)].map(([, name, operator, value]) => ({ name, operator, value }));
-        if (attributes.length !== (match[2].match(/\[/g) ?? []).length) {
-            throw new Error(`Unsupported selector: ${selector}`);
-        }
+    const attributes = [...match[3].matchAll(ATTRIBUTE)].map(([, name, operator, value]) => ({ name, operator, value }));
+    if (attributes.length !== (match[3].match(/\[/g) ?? []).length) {
+        throw new Error(`Unsupported selector: ${selector}`);
+    }
 
-        return { tag: match[1]?.toLowerCase() ?? null, attributes };
-    });
+    return { tag: match[1]?.toLowerCase() ?? null, id: match[2] ?? null, attributes };
 }
 
-function matches(element, selector) {
-    return parse(selector).some(({ tag, attributes }) =>
+/** Each alternative of a comma list, as its compounds from the outermost. */
+function parse(selector) {
+    return selector.split(',').map((raw) => raw.trim().split(DESCENDANT).map((part) => compound(part, selector)));
+}
+
+function matchesCompound(element, { tag, id, attributes }) {
+    return (
         (tag === null || element.tagName === tag) &&
+        (id === null || element.getAttribute('id') === id) &&
         attributes.every(({ name, operator, value }) => {
             const actual = element.getAttribute(name);
             if (actual === null) return false;
             if (operator === '=') return actual === value;
             if (operator === '*=') return actual.includes(value);
             return true;
-        }),
+        })
     );
+}
+
+/** The last compound on the element, each one before it on an ancestor. */
+function matches(element, selector) {
+    return parse(selector).some((compounds) => {
+        if (!matchesCompound(element, compounds[compounds.length - 1])) return false;
+
+        let node = element.parentElement;
+        for (let i = compounds.length - 2; i >= 0; i--) {
+            while (node && !matchesCompound(node, compounds[i])) node = node.parentElement;
+            if (!node) return false;
+            node = node.parentElement;
+        }
+        return true;
+    });
 }
 
 const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -107,6 +128,18 @@ export class FakeElement {
             this.children.push(child);
         }
         return this;
+    }
+
+    insertBefore(child, reference) {
+        if (reference === null) {
+            this.append(child);
+            return child;
+        }
+
+        child.parentElement?.children.splice(child.parentElement.children.indexOf(child), 1);
+        child.parentElement = this;
+        this.children.splice(this.children.indexOf(reference), 0, child);
+        return child;
     }
 
     replaceChildren(...children) {

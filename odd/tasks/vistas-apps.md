@@ -44,7 +44,7 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
 
 - [x] V1. Preferencia: migración `users.apps_view`, clase de valores, ruta y controlador, más las pruebas. Pruebas primero.
 - [x] V2. Datos de cada vista en `HomePageBuilder` y `HomePage`: lista plana A-Z para `all`, `list` y `launcher`; sin consultas nuevas; pruebas de orden, búsqueda, favoritos y presupuesto de consultas.
-- [ ] V3. Marcado y CSS: el selector y las variantes `list` y `launcher` en `glass.css`, más las pruebas de HTML (escape, `aria-pressed` e ids únicos).
+- [x] V3. Marcado y CSS: el selector y las variantes `list` y `launcher` en `glass.css`, más las pruebas de HTML (escape, `aria-pressed` e ids únicos).
 - [ ] V4. Revisión visual: Segurex, SDC, claro, oscuro, 375 px y escritorio, en el panel del navegador.
 - [ ] V5. `/code-review` y `/security-review`. Documentación del manual de usuario y del estado del proyecto, que va por el documentador.
 
@@ -79,4 +79,12 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
   - GREEN: `php artisan test tests/Feature/Home/HomeAppsViewDataTest.php tests/Feature/Home/HomePageBuilderTest.php tests/Feature/Home/HomeScreenTest.php` → `60 passed, 278 assertions`.
   - Suite completa: `3563 tests, 3559 passed, 4 skipped`, 0 fallas. Pint limpio.
   - Consultas: ninguna nueva; las vistas planas corren una menos (Recientes). `HomeQueryBudget::MAX` sigue en 18.
-  - Commit: se anota en el de V3.
+  - Commit: `0988d81` (`feat(home): build a flat A-Z apps list for the flat views`).
+- 2026-11-13, V3 (ruta delegada). Selector en el encabezado de la tarjeta: `form` POST con `@csrf` y `@method('PUT')`, `q` oculto si hay búsqueda, `.g-seg` con `role="group"` y `aria-label="Vista de aplicaciones"`, cuatro `button name="view"` («Categorías», «Todas», «Lista», «Íconos») y `aria-pressed` en la elegida. Las vistas planas pintan un solo `ul#aplicaciones.g-apps` (`--list` o `--launcher`). `x-home.app-card` recibe `view` y elige entre la tarjeta de siempre, la fila (`.g-app--row`) y el ícono (`.g-app--icon`); el logo, el estado y la estrella pasan a `x-home.app-logo`, `x-home.app-status` y `x-home.app-star`, que se usan en las tres. «Íconos» muestra el estado solo en mantenimiento o con fallas y la estrella de 32 px en la esquina. `glass.css` suma `.g-apps-view`, `.g-apps--list` y `.g-apps--launcher`, sin tokens nuevos. `home.js` ya no mueve la tarjeta cuando no existe `#favoritos`: antes lanzaba un error y reenviaba el formulario, lo que habría quitado la estrella recién puesta.
+  - Regresión de «Categorías»: `tests/Feature/Home/fixtures/apps-card-categories*.html` se generaron con el código de `82cfdae` antes de tocar las vistas; la prueba compara el cuerpo de la tarjeta (espacios normalizados y token CSRF fijo) con y sin `?q=`.
+  - RED PHP: `php artisan test tests/Feature/Home/HomeAppsViewMarkupTest.php` → 35 pruebas, 14 pasan, 20 fallan y 1 con error.
+  - RED JS: `node --test tests/js/*.test.mjs` → 50 pruebas, 49 pasan y falla «in a flat view the card keeps its place from A to Z» (el formulario se reenviaba). `fake-dom.mjs` ahora entiende `#id`, descendientes e `insertBefore`.
+  - GREEN: `php artisan test tests/Feature/Home/` → `299 passed`; `node --test tests/js/*.test.mjs` → `50 pass, 0 fail`.
+  - Suite completa: `3598 tests, 3594 passed, 4 skipped`, 0 fallas. Pint limpio. `vite build` a una carpeta temporal compila sin errores; `public/build` no se tocó.
+  - 375 px: el escritor no pudo verla en el navegador (el panel solo muestra una instantánea del HTML local, sin cambiar el ancho). Por cálculo: el selector ocupa unos 265 px de 307 disponibles, «Íconos» deja 3 columnas de unos 97 px y «Lista» deja unos 183 px al texto. Queda para V4.
+  - Commit: se anota en el commit de cierre del documento.
