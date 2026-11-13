@@ -39,6 +39,8 @@ final readonly class HomePage
      * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
      * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
      * @param  NotificationList|null  $notifications  The bell of the header (HomePageBuilder always sets it); null hides it.
+     * @param  AppsView  $appsView  The view of «Mis aplicaciones» the account chose; «Categorías» fills $favorites, $recents and $categories, the others $apps.
+     * @param  list<AppCard>  $apps  The flat views (AppsView::isFlat()): every visible app from A to Z, favorites in place, narrowed by the search; empty in «Categorías».
      */
     public function __construct(
         public string $salutation,
@@ -76,6 +78,8 @@ final readonly class HomePage
         public ?WorkList $work = null,
         public ?ItStatus $itStatus = null,
         public ?NotificationList $notifications = null,
+        public AppsView $appsView = AppsView::DEFAULT,
+        public array $apps = [],
     ) {}
 
     /**
@@ -114,18 +118,25 @@ final readonly class HomePage
             $sections[] = ['href' => '#panel-gerencial', 'label' => 'Panel gerencial', 'offline' => false];
         }
 
-        // A search hides Favoritos without matches (home.blade.php).
-        if (! $this->isSearching() || $this->favorites !== []) {
-            $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
-        }
+        if ($this->appsView->isFlat()) {
+            // One list from A to Z (home.blade.php): no Favoritos or Recientes.
+            if ($this->apps !== []) {
+                $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+            }
+        } else {
+            // A search hides Favoritos without matches (home.blade.php).
+            if (! $this->isSearching() || $this->favorites !== []) {
+                $sections[] = ['href' => '#favoritos', 'label' => 'Favoritos'];
+            }
 
-        if ($this->recents !== []) {
-            $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
-        }
+            if ($this->recents !== []) {
+                $sections[] = ['href' => '#recientes', 'label' => 'Recientes'];
+            }
 
-        // Empty categories are hidden; a search drops those without matches.
-        if (array_filter($this->categories, fn (CategoryGroup $group) => ! $group->isEmpty()) !== []) {
-            $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+            // Empty categories are hidden; a search drops those without matches.
+            if (array_filter($this->categories, fn (CategoryGroup $group) => ! $group->isEmpty()) !== []) {
+                $sections[] = ['href' => '#aplicaciones', 'label' => 'Aplicaciones'];
+            }
         }
 
         if ($this->quickLinks !== []) {

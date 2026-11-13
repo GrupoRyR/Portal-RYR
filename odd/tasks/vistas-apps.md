@@ -43,7 +43,7 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
 ## Tareas
 
 - [x] V1. Preferencia: migración `users.apps_view`, clase de valores, ruta y controlador, más las pruebas. Pruebas primero.
-- [ ] V2. Datos de cada vista en `HomePageBuilder` y `HomePage`: lista plana A-Z para `all`, `list` y `launcher`; sin consultas nuevas; pruebas de orden, búsqueda, favoritos y presupuesto de consultas.
+- [x] V2. Datos de cada vista en `HomePageBuilder` y `HomePage`: lista plana A-Z para `all`, `list` y `launcher`; sin consultas nuevas; pruebas de orden, búsqueda, favoritos y presupuesto de consultas.
 - [ ] V3. Marcado y CSS: el selector y las variantes `list` y `launcher` en `glass.css`, más las pruebas de HTML (escape, `aria-pressed` e ids únicos).
 - [ ] V4. Revisión visual: Segurex, SDC, claro, oscuro, 375 px y escritorio, en el panel del navegador.
 - [ ] V5. `/code-review` y `/security-review`. Documentación del manual de usuario y del estado del proyecto, que va por el documentador.
@@ -73,4 +73,10 @@ Las personas con muchas apps quieren ver todo de una vez, sin agrupaciones, o en
   - RED: `php artisan test tests/Unit/View/AppsViewTest.php tests/Feature/Home/AppsViewPreferenceTest.php` → 22 pruebas, 1 pasa, 1 falla y 20 con error (no existen la clase, la columna ni la ruta).
   - GREEN: el mismo comando → `29 passed, 82 assertions`.
   - Suite completa: `3542 tests, 3538 passed, 4 skipped`, 0 fallas. `vendor/bin/pint --test` sobre los archivos tocados: limpio.
-  - Commit: se anota en el de V2.
+  - Commit: `07e1a0c` (`feat(home): save the apps view preference per account`).
+- 2026-11-13, V2 (ruta delegada). `HomePage` expone `appsView` y `apps`; `HomePageBuilder` lee la vista de la fila de `users` ya cargada. En «Categorías» todo queda igual; en `all`, `list` y `launcher`, `apps` lleva todas las apps visibles una vez, de la A a la Z (nombre normalizado como la búsqueda, sin tildes ni mayúsculas, con números en orden natural; empata el orden del catálogo), los favoritos en su sitio con la estrella marcada y sin Recientes ni su consulta. `?q=` filtra igual en las cuatro; `sections()` enlaza `#aplicaciones` en las vistas planas.
+  - RED: `php artisan test tests/Feature/Home/HomeAppsViewDataTest.php` → 21 pruebas, 5 pasan, 6 fallan y 10 con error (`Undefined property: HomePage::$appsView`). Las 5 que pasan son las del presupuesto de consultas, que ya se cumplía.
+  - GREEN: `php artisan test tests/Feature/Home/HomeAppsViewDataTest.php tests/Feature/Home/HomePageBuilderTest.php tests/Feature/Home/HomeScreenTest.php` → `60 passed, 278 assertions`.
+  - Suite completa: `3563 tests, 3559 passed, 4 skipped`, 0 fallas. Pint limpio.
+  - Consultas: ninguna nueva; las vistas planas corren una menos (Recientes). `HomeQueryBudget::MAX` sigue en 18.
+  - Commit: se anota en el de V3.

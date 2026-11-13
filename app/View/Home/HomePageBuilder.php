@@ -28,13 +28,19 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
- * Builds the home screen of one user from App\Catalog\AppCatalog:
+ * Builds the home screen of one user from App\Catalog\AppCatalog. The
+ * apps follow the view the account chose (App\View\Home\AppsView, read
+ * from the user row already loaded: no query). «Categorías», the default:
  *
  * - favorites first (in the order they were added), taken out of their
  *   category so no app appears twice;
  * - categories in their order; categories without visible apps are left
  *   out (one emptied by favorites stays, empty, for the favorite toggle);
- * - up to five recent apps;
+ * - up to five recent apps.
+ *
+ * «Todas», «Lista» and «Íconos»: every app once, from A to Z, favorites
+ * in place with their star on, and no recents (nor their query). Then:
+ *
  * - Microsoft 365 quick links;
  * - up to three announcements for the user's company, with the user's
  *   read state of the mandatory ones (one query);
@@ -69,7 +75,8 @@ use InvalidArgumentException;
  *   unread mandatory announcements (one query), the pending items above
  *   and the events of the coming week.
  *
- * A search (`?q=`) narrows favorites and categories and hides recents; that
+ * A search (`?q=`) narrows favorites, categories and the flat list the
+ * same way and hides recents; that
  * page, the server search without JavaScript, carries no index.
  * Runs a fixed number of queries whatever the size of the catalog.
  */
@@ -122,17 +129,26 @@ final class HomePageBuilder
 
         $matches = fn (AppCard $card) => $search->matches($card->name, $card->description);
 
-        $favorites = array_values(array_filter(
-            array_map(fn (int $id) => $cards[$id], $favoriteIds),
-            $matches,
-        ));
+        $appsView = AppsView::fromStored($user->apps_view);
 
-        $categories = $this->categories($visible, $cards, $search);
+        if ($appsView->isFlat()) {
+            $apps = self::alphabetical(array_values(array_filter($cards, $matches)));
+            $favorites = $categories = $recents = [];
+        } else {
+            $apps = [];
 
-        $recents = $search->isActive() ? [] : $this->catalog
-            ->recentApps($user, self::RECENT_LIMIT, $visible)
-            ->map(fn (App $app) => $cards[$app->id])
-            ->all();
+            $favorites = array_values(array_filter(
+                array_map(fn (int $id) => $cards[$id], $favoriteIds),
+                $matches,
+            ));
+
+            $categories = $this->categories($visible, $cards, $search);
+
+            $recents = $search->isActive() ? [] : $this->catalog
+                ->recentApps($user, self::RECENT_LIMIT, $visible)
+                ->map(fn (App $app) => $cards[$app->id])
+                ->all();
+        }
 
         $now ??= now();
         $greeting = Greeting::at($now);
@@ -175,7 +191,7 @@ final class HomePageBuilder
             recents: $recents,
             quickLinks: QuickLinks::for($company),
             query: $search->isActive() ? $search->query() : '',
-            resultCount: count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
+            resultCount: count($apps) + count($favorites) + array_sum(array_map(fn (CategoryGroup $group) => count($group->cards), $categories)),
             announcements: $announcements
                 ->take(self::ANNOUNCEMENT_LIMIT)
                 ->map(fn (Announcement $announcement) => AnnouncementCard::from($announcement, now: $now))
@@ -208,7 +224,30 @@ final class HomePageBuilder
             work: $work,
             itStatus: $itStatus->available ? $itStatus : null,
             notifications: NotificationList::forHome(NotificationList::unreadAnnouncements($user), $work, $visibleEvents, $now),
+            appsView: $appsView,
+            apps: $apps,
         );
+    }
+
+    /**
+     * The cards of the flat views from A to Z: by name, ignoring accents and
+     * case as the search does (AppSearch::normalize(), «Ámbito» next to
+     * «Alfa»), numbers in natural order («App 9» before «App 10»); the
+     * catalog order breaks a tie.
+     *
+     * @param  list<AppCard>  $cards
+     * @return list<AppCard>
+     */
+    private static function alphabetical(array $cards): array
+    {
+        $names = [];
+        foreach ($cards as $card) {
+            $names[$card->id] = AppSearch::normalize($card->name);
+        }
+
+        usort($cards, fn (AppCard $a, AppCard $b) => strnatcmp($names[$a->id], $names[$b->id]) ?: $a->position <=> $b->position);
+
+        return $cards;
     }
 
     /**
