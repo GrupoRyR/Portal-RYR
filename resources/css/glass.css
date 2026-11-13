@@ -1523,6 +1523,131 @@
         color: var(--g-ink-soft);
     }
 
+    /* The view of «Mis aplicaciones» (App\View\Home\AppsView, a form in the
+       card head): the whole width on phones, at the end of the head from
+       640 px. Smaller than the theme switch so the four fit in 375 px. */
+    .g-apps-view {
+        flex-basis: 100%;
+    }
+
+    .g-apps-view .g-seg {
+        display: flex;
+    }
+
+    .g-apps-view .g-seg button {
+        flex: 1;
+        padding: 6px 8px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    @media (min-width: 640px) {
+        .g-apps-view {
+            flex-basis: auto;
+            margin-left: auto;
+        }
+
+        .g-apps-view .g-seg {
+            display: inline-flex;
+        }
+
+        .g-apps-view .g-seg button {
+            padding: 6px 12px;
+        }
+    }
+
+    /* «Lista»: one row per app. Logo, name and description, the status
+       under them on phones and beside them from 640 px, then the star. */
+    .g-apps--list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .g-apps--list > .g-app {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            'logo text star'
+            'logo status star';
+        align-items: center;
+        column-gap: 12px;
+        row-gap: 4px;
+        min-height: 0;
+        padding: 8px 4px 8px 12px;
+    }
+
+    .g-app--row > .app-logo {
+        grid-area: logo;
+    }
+
+    .g-app--row > .g-app__text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        grid-area: text;
+        min-width: 0;
+    }
+
+    .g-app--row > .g-app__status {
+        display: flex;
+        grid-area: status;
+    }
+
+    .g-app--row > .g-app__star {
+        grid-area: star;
+    }
+
+    @media (min-width: 640px) {
+        .g-apps--list > .g-app {
+            grid-template-columns: auto minmax(0, 1fr) auto auto;
+            grid-template-areas: 'logo text status star';
+        }
+    }
+
+    /* «Íconos»: logo and name in a dense grid, three a row on phones, every
+       row as tall as the tallest. The top band holds the status mark and
+       the star; the star's 44 px hit area (components/home/app-star) ends
+       where the logo starts. */
+    .g-apps--launcher {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: 1fr;
+        gap: 8px;
+    }
+
+    @media (min-width: 640px) {
+        .g-apps--launcher {
+            grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+        }
+    }
+
+    .g-apps--launcher > .g-app {
+        align-items: center;
+        gap: 6px;
+        min-height: 0;
+        padding: 38px 8px 12px;
+        text-align: center;
+    }
+
+    /* The status (components/home/app-mark): a round icon chip, its text
+       for screen readers and as a tooltip. */
+    .g-app--icon > .g-app__mark {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--g-r-pill);
+    }
+
+    .g-app--icon > .g-app__star {
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
     /* Accesos rápidos, the catalog filters and the news tabs: chips that wrap. */
     .g-quick {
         display: flex;

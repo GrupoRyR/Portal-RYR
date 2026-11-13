@@ -39,4 +39,19 @@ enum AppCardStatus: string
             self::Local => 'Instalada en tu equipo',
         };
     }
+
+    /**
+     * The icon of the chip (components/home/icon), and the mark of «Íconos»
+     * (components/home/app-mark); none for an active app.
+     */
+    public function icon(): ?string
+    {
+        return match ($this) {
+            self::Active => null,
+            self::Maintenance => 'wrench',
+            self::Failing => 'warning',
+            self::OwnLogin => 'lock',
+            self::Local => 'monitor',
+        };
+    }
 }

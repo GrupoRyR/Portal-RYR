@@ -3,8 +3,9 @@
 // star is a POST/DELETE form handled by FavoriteController.
 //
 // - Instant search over the rendered cards, with the count announced.
-// - Favorite toggle without a reload: the card moves between Favoritos and
-//   its category.
+// - Favorite toggle without a reload: in «Categorías» the card moves between
+//   Favoritos and its category; in the flat views (App\View\Home\AppsView)
+//   it keeps its place from A to Z.
 // - «Ctrl K» (⌘ K), "/" and the bottom bar's «Buscar» open the search
 //   dialog over apps, announcements and dates; without it (a server search),
 //   "/" and «Buscar» focus the search field. The bottom bar also opens the
@@ -321,8 +322,10 @@ document.addEventListener('submit', async (event) => {
         form.elements._method.value = favorite ? 'DELETE' : 'POST';
 
         endEntrance();
-        if (favorite) $('#favoritos [data-list]').append(card);
-        else placeInCategory(card);
+        // Only «Categorías» has Favoritos; the flat views leave the card be.
+        const favorites = $('#favoritos [data-list]');
+        if (favorites && favorite) favorites.append(card);
+        else if (favorites) placeInCategory(card);
 
         refreshSections();
         button.focus();

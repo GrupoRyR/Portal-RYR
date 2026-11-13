@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
+use App\Http\Controllers\AppsViewController;
 use App\Http\Controllers\Assistant\AssistantController;
 use App\Http\Controllers\Assistant\AssistantDraftController;
 use App\Http\Controllers\Auth\EmergencyLoginController;
@@ -212,6 +213,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/favoritos/{app:slug}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favoritos/{app:slug}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
     });
+
+    // The view of «Mis aplicaciones» (App\View\Home\AppsView): a plain form
+    // in the card head, back to the card afterwards.
+    Route::put('/inicio/vista', [AppsViewController::class, 'update'])
+        ->middleware('throttle:20,1')
+        ->name('home.apps-view');
 });
 
 // Administration: super_admin, portal_admin and announcements_editor (role

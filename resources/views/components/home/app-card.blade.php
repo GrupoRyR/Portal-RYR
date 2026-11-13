@@ -8,9 +8,26 @@
     and home.js drops it when the card's pop ends. `order` is the card's place
     on the page (home.blade.php); the entrance timing, its cap included, lives
     in app.css alone.
+
+    `view` (App\View\Home\AppsView) picks the layout: the tile of
+    «Categorías» and «Todas» (the default), a row of «Lista» (.g-app--row:
+    logo, name, description, status, star) or the icon of «Íconos»
+    (.g-app--icon: logo and name, the status as a small mark in one top
+    corner, x-home.app-mark, and the star in the other). Logo and star come
+    from x-home.app-logo and x-home.app-star in all three, the status chip
+    from x-home.app-status in the tile and the row.
 --}}
-@props(['card', 'query' => '', 'order' => 0])
+@props(['card', 'query' => '', 'order' => 0, 'view' => null])
 @use('App\View\Home\AppCardStatus')
+@use('App\View\Home\AppsView')
+@php
+    $layout = match ($view) {
+        AppsView::List => 'row',
+        AppsView::Launcher => 'icon',
+        default => 'tile',
+    };
+    $link = "after:absolute after:inset-0 after:rounded-[18px] after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-fg";
+@endphp
 <li
     id="app-{{ $card->slug }}"
     data-app="{{ $card->slug }}"
@@ -21,57 +38,44 @@
     @if ($query === '') data-enter style="--logo-order: {{ $order }}" @endif
     @class([
         'g-tile g-app min-w-0',
+        'g-app--row' => $layout === 'row',
+        'g-app--icon' => $layout === 'icon',
         'g-app--failing' => $card->status === AppCardStatus::Failing,
     ])
 >
-    <div class="flex items-start justify-between">
-        @if ($card->iconUrl)
-            <picture class="app-logo block shrink-0">
-                @if ($card->iconDarkUrl)
-                    <source srcset="{{ $card->iconDarkUrl }}" media="(prefers-color-scheme: dark)">
-                @endif
-                <img src="{{ $card->iconUrl }}" alt="" width="48" height="48" class="size-12 rounded-icon">
-            </picture>
-        @else
-            <span aria-hidden="true" class="app-logo flex size-12 shrink-0 items-center justify-center rounded-icon bg-(--app-accent) font-display text-xl font-bold text-white" style="--app-accent: {{ $card->accentColor }}">{{ $card->initial }}</span>
-        @endif
+    @if ($layout === 'row')
+        <x-home.app-logo :card="$card" small />
 
-        <form method="POST" action="{{ route($card->favorite ? 'favorites.destroy' : 'favorites.store', $card->slug) }}" class="relative z-10 -mt-2 -mr-2" data-favorite>
-            @csrf
-            <input type="hidden" name="_method" value="{{ $card->favorite ? 'DELETE' : 'POST' }}">
-            @if ($query !== '')
-                <input type="hidden" name="q" value="{{ $query }}">
-            @endif
-            <button type="submit" aria-pressed="{{ $card->favorite ? 'true' : 'false' }}" aria-label="Marcar {{ $card->name }} como favorita" class="group flex size-touch cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle aria-pressed:text-brand-ink">
-                <x-home.icon name="star" stroke-width="1.6" class="size-5 group-aria-pressed:fill-current" />
-            </button>
-        </form>
-    </div>
+        <div class="g-app__text">
+            <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="line-clamp-2 text-[0.9375rem] leading-tight font-bold break-words {{ $link }}">{{ $card->name }}</a>
+            <p class="truncate text-[0.8125rem] leading-snug text-fg-muted">{{ $card->description }}</p>
+        </div>
 
-    <div class="flex flex-col gap-1">
-        <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="text-[0.9375rem] leading-tight font-bold break-words after:absolute after:inset-0 after:rounded-[18px] after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-fg">{{ $card->name }}</a>
-        <p class="line-clamp-2 text-[0.8125rem] leading-snug text-fg-muted">{{ $card->description }}</p>
-    </div>
+        <div class="g-app__status">
+            <x-home.app-status :card="$card" />
+        </div>
 
-    @switch($card->status)
-        @case(AppCardStatus::Active)
-            <span class="mt-auto flex items-center gap-1.5 text-xs font-semibold text-status-active">
-                <span class="size-2 rounded-full bg-status-active-dot" aria-hidden="true"></span>{{ $card->status->label() }}
-            </span>
-            @break
-        @case(AppCardStatus::Maintenance)
-            <span class="mt-auto flex items-center gap-1.5 self-start rounded-lg bg-status-maintenance-bg px-2 py-1 text-xs font-semibold text-status-maintenance">
-                <x-home.icon name="wrench" stroke-width="2" class="size-3.5" />{{ $card->status->label() }}
-            </span>
-            @break
-        @case(AppCardStatus::Failing)
-            <span class="mt-auto flex items-start gap-1.5 self-start rounded-lg bg-status-failure-bg px-2 py-1 text-xs leading-snug font-semibold text-status-failure">
-                <x-home.icon name="warning" stroke-width="2.2" class="mt-px size-3.5" /><span>{{ $card->status->label() }} · {{ $card->statusDetail }}</span>
-            </span>
-            @break
-        @default
-            <span class="mt-auto flex items-center gap-1.5 text-xs font-semibold text-fg-muted">
-                <x-home.icon :name="$card->status === AppCardStatus::Local ? 'monitor' : 'lock'" stroke-width="2" class="size-3.5" />{{ $card->status->label() }}
-            </span>
-    @endswitch
+        <x-home.app-star :card="$card" :query="$query" class="g-app__star relative z-10" />
+    @elseif ($layout === 'icon')
+        <x-home.app-logo :card="$card" />
+
+        <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="line-clamp-2 text-[0.8125rem] leading-tight font-semibold break-words {{ $link }}">{{ $card->name }}</a>
+
+        <x-home.app-mark :card="$card" />
+
+        <x-home.app-star :card="$card" :query="$query" class="g-app__star z-10" compact />
+    @else
+        <div class="flex items-start justify-between">
+            <x-home.app-logo :card="$card" />
+
+            <x-home.app-star :card="$card" :query="$query" class="relative z-10 -mt-2 -mr-2" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+            <a href="{{ $card->href }}"@if ($card->opensInNewTab) target="_blank" rel="noopener"@endif class="text-[0.9375rem] leading-tight font-bold break-words {{ $link }}">{{ $card->name }}</a>
+            <p class="line-clamp-2 text-[0.8125rem] leading-snug text-fg-muted">{{ $card->description }}</p>
+        </div>
+
+        <x-home.app-status :card="$card" />
+    @endif
 </li>
