@@ -12,6 +12,8 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanyWizardController;
 use App\Http\Controllers\Admin\UsageController;
+use App\Http\Controllers\Agent\ManifestController as AgentManifestController;
+use App\Http\Controllers\Agent\TokenController as AgentTokenController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AnnouncementReadController;
 use App\Http\Controllers\AppLaunchController;
@@ -40,8 +42,13 @@ use App\Models\MarketInput;
 use App\Models\NewsSource;
 use App\Models\Product;
 use App\Policies\AdminSections;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Spatie\Permission\Models\Role;
 
 // Installable app (PWA): the manifest of the signed-in user's company,
@@ -49,6 +56,19 @@ use Spatie\Permission\Models\Role;
 // so that its scope is the whole portal.
 Route::get('/manifest.webmanifest', ManifestController::class)->name('pwa.manifest');
 Route::get('/sw.js', ServiceWorkerController::class)->name('pwa.service-worker');
+
+// The Portal's tool manifest for the agent (docs/agente-conexion.md): public,
+// no data, no session and no cookies, so it carries nothing of any account.
+Route::get('/.well-known/agente-ryr.json', AgentManifestController::class)
+    ->middleware('throttle:60,1')
+    ->withoutMiddleware([
+        StartSession::class,
+        ShareErrorsFromSession::class,
+        AddQueuedCookiesToResponse::class,
+        EncryptCookies::class,
+        PreventRequestForgery::class,
+    ])
+    ->name('agent.manifest');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [MicrosoftLoginController::class, 'show'])->name('login');
@@ -76,6 +96,14 @@ Route::get('/auth/microsoft/callback', [MicrosoftLoginController::class, 'callba
 
 Route::middleware('auth')->group(function () {
     Route::get('/', HomeController::class)->name('home');
+
+    // The agent's launcher asks for a fresh panel token when the person clicks
+    // (docs/agente-conexion.md). `auth` and CSRF as any POST; the third
+    // `throttle` argument is a key prefix: ten a minute per account in a
+    // bucket of its own, not shared with the other `throttle:N,1` routes.
+    Route::post('/agente/token', AgentTokenController::class)
+        ->middleware('throttle:'.AgentTokenController::PER_MINUTE.',1,agent-token:')
+        ->name('agent.token');
 
     // Re-authentication before sensitive actions (middleware microsoft.recent).
     Route::get('/auth/microsoft/confirm', [MicrosoftLoginController::class, 'confirm'])

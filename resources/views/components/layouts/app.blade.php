@@ -13,11 +13,12 @@
     // everything (.g-canvas, resources/css/glass.css). Text on it must sit
     // inside a glass panel, never straight on the photo.
     'glass' => false,
-    // The floating «Asistente» button (components/assistant-fab): only on the
-    // pages that ask for it (home and the secondary pages with the portal
-    // header), never on the sign-in, the error pages or Administración, glass
-    // or not. The component itself checks the account, the assistant switch
-    // and /asistente.
+    // The floating button: the agent's (components/agent-panel) while the
+    // connection is configured and the account is one the agent accepts,
+    // else the old «Asistente» (components/assistant-fab). Only on the pages
+    // that ask for it (home and the secondary pages with the portal header),
+    // never on the sign-in, the error pages or Administración, glass or not.
+    // Each component checks the account and /asistente itself.
     'assistant' => false,
 ])
 @php
@@ -57,7 +58,15 @@
     {{ $slot }}
 
     @if ($assistant)
-        <x-assistant-fab />
+        {{-- The agent's button for an account the agent accepts once the
+             connection is configured (valid origin and key); the old
+             «Asistente» button for every other case, so no account is left
+             without one. --}}
+        @if (\App\View\Components\AgentPanel::offeredTo($user))
+            <x-agent-panel />
+        @else
+            <x-assistant-fab />
+        @endif
     @endif
 
     @if ($livewire)

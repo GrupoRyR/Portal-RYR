@@ -24,6 +24,7 @@ final readonly class MicrosoftIdentity
         public ?string $homeTenantId = null,
         public ?int $authTime = null,
         public ?string $loginHint = null,
+        public ?string $upn = null,
     ) {}
 
     /**
@@ -70,7 +71,39 @@ final readonly class MicrosoftIdentity
             self::homeTenant($claims->idp ?? null, $tenantId),
             self::timestamp($claims->auth_time ?? null),
             self::loginHint([$claims->login_hint ?? null, $claims->preferred_username ?? null, $email]),
+            self::upn([$raw['userPrincipalName'] ?? null, $claims->upn ?? null]),
         );
+    }
+
+    /**
+     * The account's sign-in name (UPN), in lower case, for the agent's
+     * identity: the Graph profile's `userPrincipalName`, else the `upn`
+     * claim. Only those two: `preferred_username` and `email` are not
+     * guaranteed to be a UPN. The first one present decides, so a guest UPN
+     * (`…#EXT#@tenant.onmicrosoft.com`) is never replaced by a later
+     * candidate, and a value that is not a plain address is null. Like
+     * `email` it is set by the signing tenant's admins: it proves nothing
+     * by itself (the agent connection checks the company's domain).
+     *
+     * @param  list<mixed>  $candidates
+     */
+    private static function upn(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            $candidate = is_string($candidate) ? mb_strtolower(trim($candidate)) : '';
+
+            if ($candidate === '') {
+                continue;
+            }
+
+            return strlen($candidate) <= 255
+                && ! str_contains($candidate, '#ext#')
+                && preg_match('/^[^@\s\x00-\x1F\x7F]+@[^@\s\x00-\x1F\x7F]+$/', $candidate) === 1
+                ? $candidate
+                : null;
+        }
+
+        return null;
     }
 
     /**

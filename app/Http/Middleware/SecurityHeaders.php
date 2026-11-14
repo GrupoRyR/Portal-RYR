@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Agent\AgentSettings;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,7 +17,12 @@ use Symfony\Component\HttpFoundation\Response;
  *   (clickjacking); the CSP carries no other directive on purpose, since a
  *   full policy needs Livewire/Alpine to run without inline code first;
  * - Referrer-Policy: other sites only see the origin, never the path;
- * - Permissions-Policy: no page needs the camera, microphone or location.
+ * - Permissions-Policy: no page needs the camera or location. The microphone
+ *   is delegated only to the agent's origin, and only while the connection
+ *   to the agent is configured (the agent's panel dictates questions); never
+ *   to this site (`self`) or anyone else. The CSP has no frame-src or
+ *   script-src, so the agent's iframe and the app's own launcher copy are
+ *   not blocked, and none is added.
  *
  * HSTS goes only on HTTPS responses, as Laravel sees them: direct TLS, or
  * X-Forwarded-Proto from the trusted local proxy (bootstrap/app.php). This
@@ -38,11 +44,29 @@ class SecurityHeaders
 
     public const HSTS = 'max-age=31536000; includeSubDomains';
 
+    /**
+     * The headers to add: {@see HEADERS}, with the microphone delegated to
+     * the agent's origin when the connection is configured.
+     *
+     * @return array<string, string>
+     */
+    public static function headers(): array
+    {
+        $headers = self::HEADERS;
+        $agent = AgentSettings::active() ? AgentSettings::origin() : null;
+
+        if ($agent !== null) {
+            $headers['Permissions-Policy'] = 'camera=(), microphone=("'.$agent.'"), geolocation=()';
+        }
+
+        return $headers;
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
-        $headers = self::HEADERS;
+        $headers = self::headers();
 
         if ($request->isSecure()) {
             $headers['Strict-Transport-Security'] = self::HSTS;

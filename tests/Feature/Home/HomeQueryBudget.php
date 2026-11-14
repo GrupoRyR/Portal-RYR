@@ -23,4 +23,12 @@ final class HomeQueryBudget
      * the products of the catalog (+1).
      */
     public const WITH_EVERY_BLOCK = 23;
+
+    /**
+     * What the agent's floating button adds to either budget while the
+     * connection is configured (tests/Feature/Agent/AgentPanelQueryCountTest.php):
+     * nothing. It decides from data the page already has (the account and its
+     * company); the token is asked for on click (POST /agente/token), not at render.
+     */
+    public const AGENT_PANEL = 0;
 }
