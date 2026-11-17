@@ -2,6 +2,7 @@
 
 namespace App\Agent\Views;
 
+use App\Models\Company;
 use Illuminate\Database\ConnectionInterface;
 use InvalidArgumentException;
 use LogicException;
@@ -122,13 +123,21 @@ final class AgentViews
         }
     }
 
+    /** The codes come from Company::SAP_CODES, the one slug-to-`empresa` mapping. */
     private static function helper(): string
     {
-        return <<<'SQL'
+        $codes = implode(' ', array_map(
+            fn (string $slug, string $code) => "WHEN '{$slug}' THEN '{$code}'",
+            array_keys(Company::SAP_CODES),
+            Company::SAP_CODES,
+        ));
+        $slugs = implode(', ', array_map(fn (string $slug) => "'{$slug}'", array_keys(Company::SAP_CODES)));
+
+        return <<<SQL
 SELECT c.id AS company_id,
-       CASE c.slug WHEN 'segurex' THEN 'SGX' WHEN 'derivados' THEN 'SDC' END AS empresa
+       CASE c.slug {$codes} END AS empresa
 FROM companies c
-WHERE c.is_active = 1 AND c.slug IN ('segurex', 'derivados')
+WHERE c.is_active = 1 AND c.slug IN ({$slugs})
 SQL;
     }
 

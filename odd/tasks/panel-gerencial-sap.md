@@ -44,7 +44,7 @@ The «Panel gerencial» block on the home page shows sales, margin and receivabl
 
 ## Tareas
 
-- [ ] T1. Connections, configuration and the read model of the figures, with tests of each calculation rule (including ranges = saldo and «Sin vendedor»).
+- [x] T1. Connections, configuration and the read model of the figures, with tests of each calculation rule (including ranges = saldo and «Sin vendedor»). Route: delegated writer (2+ non-trivial files).
 - [ ] T2. Home block with the SAP figures, coverage notice, ranges and top 5; fallback to the published KPIs; query budget.
 - [ ] T3. «Actualizar ventas y cartera» button, request status and «Datos actualizados a las …».
 - [ ] T4. Docs for deploy and administration (through the documentador-portal session after merge).
@@ -62,3 +62,4 @@ The «Panel gerencial» block on the home page shows sales, margin and receivabl
 ## Progreso
 
 - 2026-11-17: proposal approved with Jhon's four adjustments (ranges, no `estado_documento` filter, top 5 by `slp_code`, coverage notice stays).
+- 2026-11-17: T1 done. Connections `sap_ventas`, `sap_cartera`, `sap_maestros` and `services.bases_sap`; `App\Management\SapFigures` (three aggregate queries, cache 10 min per company, failures reported and cached 1 min) returning `SapFigureSet`; one slug-to-`empresa` mapping in `Company::SAP_CODES`, reused by `AgentViews` (same SQL). Seller name from `v_ventas.vendedor` (no join with `v_vendedores`). `.env.example` lines pending: the writer's permissions block `.env*`. Tests: `tests/Feature/Management/SapFiguresTest.php` (20).
