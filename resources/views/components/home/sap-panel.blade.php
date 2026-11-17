@@ -3,13 +3,20 @@
     the month's net sale, gross profit and margin (with its coverage notice,
     always shown), the receivables by range and the top sellers of the
     account's own company (App\View\Home\SapPanelCard). HomePageBuilder only
-    builds it for a «Gerencia» account of that company. The ranges are a
+    builds it for a «Gerencia» account of that company. «Actualizar ventas y
+    cartera» is a plain form (no JavaScript): the server asks Bases SAP with
+    its own key, and the status and «Datos actualizados a las …» are read on
+    the server (App\Management\SapRefresh). The ranges are a
     table with their values in text: the bars only repeat them for the eye.
     A glass card of the main column, like management-panel.blade.php, with
     the same id; data-offline-omit: the service worker (resources/js/sw.js)
     never saves it for offline use, so it holds no nested <section>.
 --}}
 @props(['card'])
+
+{{-- The result of «Actualizar ventas y cartera» (App\Http\Controllers\Management\SapRefreshController).
+     A successful press is left to the request's own status line when there is one, so it is not said twice. --}}
+@php($flash = is_string($flashed = session(\App\Http\Controllers\Management\SapRefreshController::FLASH_KEY)) && $flashed !== '' && ($flashed !== \App\Management\SapRefreshOutcome::Requested->message() || $card->refreshStatus === null) ? $flashed : null)
 
 <section id="panel-gerencial" aria-labelledby="panel-gerencial-titulo" data-offline-omit {{ $attributes->merge(['class' => 'g-card min-w-0 scroll-mt-6']) }}>
     <div class="g-card__head">
@@ -89,6 +96,28 @@
                                 </li>
                             @endforeach
                         </ol>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        @if ($card->refreshAction || $card->refreshStatus || $card->updatedAt || $flash)
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                @if ($card->refreshAction)
+                    <form method="POST" action="{{ $card->refreshAction }}">
+                        @csrf
+                        <button type="submit" class="g-btn">Actualizar ventas y cartera</button>
+                    </form>
+                @endif
+                <div class="flex min-w-0 flex-col gap-0.5 text-xs">
+                    @if ($flash)
+                        <p role="status" data-flash class="font-semibold text-fg-soft">{{ $flash }}</p>
+                    @endif
+                    @if ($card->refreshStatus)
+                        <p role="status" class="font-semibold text-fg-soft">{{ $card->refreshStatus }}</p>
+                    @endif
+                    @if ($card->updatedAt)
+                        <p class="text-fg-muted">{{ $card->updatedAt }}</p>
                     @endif
                 </div>
             </div>

@@ -2,6 +2,7 @@
 
 namespace App\View\Home;
 
+use App\Management\SapFigures;
 use App\Management\SapFigureSet;
 use App\Management\SapSeller;
 use Carbon\CarbonImmutable;
@@ -36,17 +37,33 @@ final readonly class SapPanelCard
         public ?string $rangesNotice = null,
         public array $sellers = [],
         public string $source = 'Fuente: Bases de datos SAP',
+        public ?string $refreshAction = null,
+        public ?string $refreshStatus = null,
+        public ?string $updatedAt = null,
     ) {}
 
-    public static function from(?SapFigureSet $figures, CarbonImmutable $now): self
+    /**
+     * @param  string|null  $refreshAction  The form action of «Actualizar ventas y cartera»; null hides the button (API not configured).
+     * @param  string|null  $refreshStatus  How the last press goes (App\Management\SapRefresh::status()).
+     * @param  CarbonImmutable|null  $updatedAt  The last update of the data, for «Datos actualizados a las …»; null leaves the line out.
+     */
+    public static function from(?SapFigureSet $figures, CarbonImmutable $now, ?string $refreshAction = null, ?string $refreshStatus = null, ?CarbonImmutable $updatedAt = null): self
     {
-        $month = ($figures?->month ?? $now->setTimezone('America/Bogota')->startOfMonth())->locale('es');
+        $updated = $updatedAt === null ? null : self::updated($updatedAt, $now);
+
+        $month = ($figures?->month ?? $now->setTimezone(SapFigures::TIMEZONE)->startOfMonth())->locale('es');
         // «Noviembre de 2026».
         $period = $month->isoFormat('MMMM [de] YYYY');
         $period = mb_strtoupper(mb_substr($period, 0, 1)).mb_substr($period, 1);
 
         if ($figures === null) {
-            return new self(period: $period, available: false);
+            return new self(
+                period: $period,
+                available: false,
+                refreshAction: $refreshAction,
+                refreshStatus: $refreshStatus,
+                updatedAt: $updated,
+            );
         }
 
         $margin = $figures->margin();
@@ -77,7 +94,23 @@ final readonly class SapPanelCard
                 'name' => $seller->name,
                 'value' => self::pesos($seller->netSales),
             ], $figures->topSellers),
+            refreshAction: $refreshAction,
+            refreshStatus: $refreshStatus,
+            updatedAt: $updated,
         );
+    }
+
+    /** «Datos actualizados a las 09:15», or «… el 16 de noviembre a las 02:05» for another day (Bogotá). */
+    private static function updated(CarbonImmutable $at, CarbonImmutable $now): string
+    {
+        $at = $at->setTimezone(SapFigures::TIMEZONE)->locale('es');
+        $time = 'a las '.$at->format('H:i');
+
+        if ($at->isSameDay($now->setTimezone(SapFigures::TIMEZONE))) {
+            return "Datos actualizados {$time}";
+        }
+
+        return 'Datos actualizados el '.$at->isoFormat('D [de] MMMM').($at->year === $now->year ? '' : " de {$at->year}")." {$time}";
     }
 
     /** Whole pesos: «$1.250.000.000», «-$50.000», «$0». */

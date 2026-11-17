@@ -9,6 +9,7 @@ use App\Catalog\AppSearch;
 use App\ItStatus\ItStatusBoard;
 use App\Management\ManagementPanel;
 use App\Management\SapFigures;
+use App\Management\SapRefresh;
 use App\Markets\MarketBoard;
 use App\Models\Announcement;
 use App\Models\App;
@@ -71,7 +72,9 @@ use InvalidArgumentException;
  *   the month's figures of «Bases de datos SAP» when its connections are
  *   configured and the company has a SAP code (App\Management\SapFigures,
  *   cached: one query for the ability, none on the SAP connections between
- *   two reads), the published figures otherwise;
+ *   two reads), with «Actualizar ventas y cartera» and its status
+ *   (App\Management\SapRefresh, cached HTTP reads, no query), the
+ *   published figures otherwise;
  * - «Tareas pendientes»: the account's own approvals and tasks
  *   (App\View\Home\WorkList, four queries);
  * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
@@ -116,6 +119,7 @@ final class HomePageBuilder
         private readonly ManagementPanel $management,
         private readonly ItStatusBoard $itStatus,
         private readonly SapFigures $sapFigures,
+        private readonly SapRefresh $sapRefresh,
     ) {}
 
     /**
@@ -274,7 +278,18 @@ final class HomePageBuilder
         $code = $user->company->sapCode();
 
         if ($code !== null && $this->sapFigures->configured()) {
-            return SapPanelCard::from($this->sapFigures->forCompany($code, $now), $now);
+            // «Actualizar ventas y cartera» only with the API configured. Its
+            // status comes first: a finished update drops the cached figures.
+            $refresh = $this->sapRefresh->configured();
+            $status = $refresh ? $this->sapRefresh->status($code, $now) : null;
+
+            return SapPanelCard::from(
+                $this->sapFigures->forCompany($code, $now),
+                $now,
+                refreshAction: $refresh ? route('management.sap-refresh') : null,
+                refreshStatus: $status,
+                updatedAt: $refresh ? $this->sapRefresh->updatedAt($code) : null,
+            );
         }
 
         $snapshot = $this->management->forCompany($user->company);
