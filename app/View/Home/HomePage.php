@@ -35,7 +35,7 @@ final readonly class HomePage
      * @param  list<MarketFigure>  $markets  The «Mercados» band (the series for everyone, the company's inputs, then its manual prices); empty hides it (before the first sync).
      * @param  list<NewsTab>  $news  «Noticias»: the tabs with headlines of the user's company; empty hides the block.
      * @param  ProductShelf|null  $catalog  «Catálogos y categorías»; null hides it (nothing published, or a server search).
-     * @param  ManagementCard|null  $management  «Panel gerencial»; null hides it (not «Gerencia» of this company, or no figures yet).
+     * @param  ManagementCard|SapPanelCard|null  $management  «Panel gerencial»: from «Bases de datos SAP» when configured, else the published figures; null hides it (not «Gerencia» of this company, or no figures yet).
      * @param  WorkList|null  $work  «Tareas pendientes» of «Mi día»; null when nothing is pending (the block still shows a «Completar» message).
      * @param  ItStatus|null  $itStatus  «Estado de TI» of the active company; null hides it (no active company, or the emergency account).
      * @param  NotificationList|null  $notifications  The bell of the header (HomePageBuilder always sets it); null hides it.
@@ -74,7 +74,7 @@ final readonly class HomePage
         public array $markets = [],
         public array $news = [],
         public ?ProductShelf $catalog = null,
-        public ?ManagementCard $management = null,
+        public ManagementCard|SapPanelCard|null $management = null,
         public ?WorkList $work = null,
         public ?ItStatus $itStatus = null,
         public ?NotificationList $notifications = null,

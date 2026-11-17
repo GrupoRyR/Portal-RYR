@@ -8,6 +8,8 @@ use App\Catalog\AppCatalog;
 use App\Catalog\AppSearch;
 use App\ItStatus\ItStatusBoard;
 use App\Management\ManagementPanel;
+use App\Management\SapFigures;
+use App\Management\SapRefresh;
 use App\Markets\MarketBoard;
 use App\Models\Announcement;
 use App\Models\App;
@@ -66,7 +68,13 @@ use InvalidArgumentException;
  * - «Catálogos y categorías» of the user's company (App\Products\ProductBoard,
  *   two queries), the category of `?catalogo=` selected (none on a server search);
  * - the «Panel gerencial» for a «Gerencia» account of the same company
- *   (App\Management\ManagementPanel: two queries for them, none for others);
+ *   (App\Management\ManagementPanel: two queries for them, none for others):
+ *   the month's figures of «Bases de datos SAP» when its connections are
+ *   configured and the company has a SAP code (App\Management\SapFigures,
+ *   cached: one query for the ability, none on the SAP connections between
+ *   two reads), with «Actualizar ventas y cartera» and its status
+ *   (App\Management\SapRefresh, cached HTTP reads, no query), the
+ *   published figures otherwise;
  * - «Tareas pendientes»: the account's own approvals and tasks
  *   (App\View\Home\WorkList, four queries);
  * - «Estado de TI» of the user's active company (App\ItStatus\ItStatusBoard,
@@ -110,6 +118,8 @@ final class HomePageBuilder
         private readonly ProductBoard $products,
         private readonly ManagementPanel $management,
         private readonly ItStatusBoard $itStatus,
+        private readonly SapFigures $sapFigures,
+        private readonly SapRefresh $sapRefresh,
     ) {}
 
     /**
@@ -220,7 +230,7 @@ final class HomePageBuilder
             // A server search shows the cards only.
             news: $search->isActive() || $companyBlocks === null ? [] : NewsTab::fromBoard($this->news->forCompany($companyBlocks->id), $newsTab),
             catalog: $search->isActive() || $companyBlocks === null ? null : ProductShelf::fromBoard($this->products->forCompany($companyBlocks), $catalogCategory),
-            management: $search->isActive() ? null : $this->managementCard($user, $today),
+            management: $search->isActive() ? null : $this->managementCard($user, $today, CarbonImmutable::instance($now)),
             work: $work,
             itStatus: $itStatus->available ? $itStatus : null,
             notifications: NotificationList::forHome(NotificationList::unreadAnnouncements($user), $work, $visibleEvents, $now),
@@ -251,19 +261,38 @@ final class HomePageBuilder
     }
 
     /**
-     * The «Panel gerencial» when the account may see it and the robot has
-     * published figures (ManagementPanel::forViewer()).
+     * The «Panel gerencial» when the account may see it: the figures of
+     * «Bases de datos SAP» when they are configured for its company (or the
+     * message that they could not be read), else the published figures,
+     * when there are any (ManagementPanel::forCompany()).
      */
-    private function managementCard(User $user, CarbonImmutable $today): ?ManagementCard
+    private function managementCard(User $user, CarbonImmutable $today, CarbonImmutable $now): ManagementCard|SapPanelCard|null
     {
         // Only an account with the role can pass the ability: the others skip
         // the gate, and with it the permission lookup of its `before` hook
         // (the roles are already loaded by canAdminister).
-        if (! $user->hasRole(MicrosoftLogin::MANAGEMENT)) {
+        if (! $user->hasRole(MicrosoftLogin::MANAGEMENT) || ! $this->management->allows($user)) {
             return null;
         }
 
-        $snapshot = $this->management->forViewer($user);
+        $code = $user->company->sapCode();
+
+        if ($code !== null && $this->sapFigures->configured()) {
+            // «Actualizar ventas y cartera» only with the API configured. Its
+            // status comes first: a finished update drops the cached figures.
+            $refresh = $this->sapRefresh->configured();
+            $status = $refresh ? $this->sapRefresh->status($code, $now) : null;
+
+            return SapPanelCard::from(
+                $this->sapFigures->forCompany($code, $now),
+                $now,
+                refreshAction: $refresh ? route('management.sap-refresh') : null,
+                refreshStatus: $status,
+                updatedAt: $refresh ? $this->sapRefresh->updatedAt($code) : null,
+            );
+        }
+
+        $snapshot = $this->management->forCompany($user->company);
 
         return $snapshot === null ? null : ManagementCard::from($snapshot, $today);
     }

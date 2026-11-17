@@ -67,6 +67,14 @@ class Company extends Model
     public const MANUAL_COLORS = ['color_button', 'color_ink', 'color_text', 'color_ink_dark_mode', 'color_text_dark_mode'];
 
     /**
+     * The `empresa` code of each company in SAP and in the views built on it:
+     * the agent's views (App\Agent\Views\AgentViews) and «Bases de datos
+     * SAP» (App\Management\SapFigures). Keyed by slug; any other company
+     * has none.
+     */
+    public const SAP_CODES = ['segurex' => 'SGX', 'derivados' => 'SDC'];
+
+    /**
      * Every change to a fillable attribute is logged with its causer and the
      * before/after values of the changed fields only. Companies hold no
      * secrets, so all fillable attributes may be stored.
@@ -327,6 +335,14 @@ class Company extends Model
     public static function displayInitial(?self $company): string
     {
         return mb_strtoupper(mb_substr($company?->short_name ?: self::displayName($company), 0, 1));
+    }
+
+    /**
+     * The company's `empresa` code in SAP (self::SAP_CODES), or null.
+     */
+    public function sapCode(): ?string
+    {
+        return self::SAP_CODES[(string) $this->slug] ?? null;
     }
 
     /**

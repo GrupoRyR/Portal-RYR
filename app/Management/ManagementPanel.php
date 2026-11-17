@@ -59,12 +59,17 @@ final class ManagementPanel
      */
     public function forViewer(User $user): ?ManagementSnapshot
     {
+        return $this->allows($user) ? $this->forCompany($user->company) : null;
+    }
+
+    /**
+     * Whether the account may see the panel of its own company, whatever
+     * the source of the figures (published here, or App\Management\SapFigures).
+     */
+    public function allows(User $user): bool
+    {
         $company = $user->company;
 
-        if ($company === null || ! Gate::forUser($user)->allows(self::ABILITY, $company)) {
-            return null;
-        }
-
-        return $this->forCompany($company);
+        return $company !== null && Gate::forUser($user)->allows(self::ABILITY, $company);
     }
 }

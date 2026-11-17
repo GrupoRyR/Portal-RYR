@@ -96,6 +96,36 @@ return [
             ],
         ],
 
+        // «Bases de datos SAP» (the guide docs/guia-apps.md §1.2 of that
+        // repository): read-only, one user for the three databases, which
+        // live in the same cPanel account (localhost). The Portal reads only
+        // their `v_*` views (App\Management\SapFigures); without host,
+        // user or database a connection counts as not configured and the
+        // «Panel gerencial» keeps the published figures. A short connect
+        // timeout so a stopped server never holds the home page.
+        ...array_map(fn (string $database) => [
+            'driver' => 'mysql',
+            'host' => env('SAP_DB_HOST', 'localhost'),
+            'port' => env('SAP_DB_PORT', '3306'),
+            'database' => $database,
+            'username' => env('SAP_DB_USERNAME'),
+            'password' => env('SAP_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('SAP_DB_SSL_CA'),
+                PDO::ATTR_TIMEOUT => 5,
+            ]) : [],
+        ], [
+            'sap_ventas' => env('SAP_DB_VENTAS', 'ventas_sap'),
+            'sap_cartera' => env('SAP_DB_CARTERA', 'cartera_sap'),
+            'sap_maestros' => env('SAP_DB_MAESTROS', 'maestros_sap'),
+        ]),
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),

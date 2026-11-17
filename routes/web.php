@@ -27,11 +27,13 @@ use App\Http\Controllers\EventCalendarController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Management\SapRefreshController;
 use App\Http\Controllers\People\PeopleController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Http\Controllers\Pwa\ServiceWorkerController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\WorkItemCompletionController;
+use App\Management\ManagementPanel;
 use App\Models\Announcement;
 use App\Models\App;
 use App\Models\AppCategory;
@@ -104,6 +106,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/agente/token', AgentTokenController::class)
         ->middleware('throttle:'.AgentTokenController::PER_MINUTE.',1,agent-token:')
         ->name('agent.token');
+
+    // «Actualizar ventas y cartera» of the «Panel gerencial» (Bases de datos
+    // SAP): Gerencia of the account's own company only, and its own bucket
+    // of the rate limit, as /agente/token.
+    Route::post('/panel-gerencial/actualizar', SapRefreshController::class)
+        ->middleware(['can:'.ManagementPanel::ABILITY, 'throttle:'.SapRefreshController::PER_MINUTE.',1,sap-refresh:'])
+        ->name('management.sap-refresh');
 
     // Re-authentication before sensitive actions (middleware microsoft.recent).
     Route::get('/auth/microsoft/confirm', [MicrosoftLoginController::class, 'confirm'])

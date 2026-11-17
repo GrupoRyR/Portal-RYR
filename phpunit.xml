@@ -33,5 +33,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SAP_DB_USERNAME" value=""/>
+        <env name="SAP_DB_PASSWORD" value=""/>
+        <env name="BASES_SAP_API_URL" value=""/>
+        <env name="BASES_SAP_API_KEY" value=""/>
     </php>
 </phpunit>

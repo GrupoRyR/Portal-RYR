@@ -56,6 +56,16 @@ return [
         'key' => env('FRED_API_KEY'),
     ],
 
+    // «Bases de datos SAP» API (its guide docs/guia-apps.md §2): the
+    // «Actualizar ventas y cartera» button of the «Panel gerencial» asks it
+    // for fresh data with the Portal's own key (App\Management\SapRefresh).
+    // Set on the server only; the key never reaches the browser or the
+    // repository. Without both, the button is not offered.
+    'bases_sap' => [
+        'url' => env('BASES_SAP_API_URL'),
+        'key' => env('BASES_SAP_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
