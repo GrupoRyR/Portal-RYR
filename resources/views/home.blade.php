@@ -67,7 +67,9 @@
                 <p role="status" data-flash class="g-card g-flash">{{ $status }}</p>
             @endif
 
-            @if ($page->management)
+            @if ($page->management instanceof \App\View\Home\SapPanelCard)
+                <x-home.sap-panel :card="$page->management" />
+            @elseif ($page->management)
                 <x-home.management-panel :card="$page->management" />
             @endif
 

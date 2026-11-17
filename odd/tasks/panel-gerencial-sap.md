@@ -45,7 +45,7 @@ The «Panel gerencial» block on the home page shows sales, margin and receivabl
 ## Tareas
 
 - [x] T1. Connections, configuration and the read model of the figures, with tests of each calculation rule (including ranges = saldo and «Sin vendedor»). Route: delegated writer (2+ non-trivial files).
-- [ ] T2. Home block with the SAP figures, coverage notice, ranges and top 5; fallback to the published KPIs; query budget.
+- [x] T2. Home block with the SAP figures, coverage notice, ranges and top 5; fallback to the published KPIs; query budget. Route: delegated writer.
 - [ ] T3. «Actualizar ventas y cartera» button, request status and «Datos actualizados a las …».
 - [ ] T4. Docs for deploy and administration (through the documentador-portal session after merge).
 
@@ -63,3 +63,4 @@ The «Panel gerencial» block on the home page shows sales, margin and receivabl
 
 - 2026-11-17: proposal approved with Jhon's four adjustments (ranges, no `estado_documento` filter, top 5 by `slp_code`, coverage notice stays).
 - 2026-11-17: T1 done. Connections `sap_ventas`, `sap_cartera`, `sap_maestros` and `services.bases_sap`; `App\Management\SapFigures` (three aggregate queries, cache 10 min per company, failures reported and cached 1 min) returning `SapFigureSet`; one slug-to-`empresa` mapping in `Company::SAP_CODES`, reused by `AgentViews` (same SQL). Seller name from `v_ventas.vendedor` (no join with `v_vendedores`). `.env.example` lines pending: the writer's permissions block `.env*`. Tests: `tests/Feature/Management/SapFiguresTest.php` (20).
+- 2026-11-17: T1 commit `a7a3c77`. T2 done: `App\View\Home\SapPanelCard` and `components/home/sap-panel.blade.php` (same id `panel-gerencial`, offline-omitted) when the SAP connections are configured and the company has a code; published KPIs otherwise; «No pudimos leer las cifras de SAP» on a read failure (it replaces the published figures, since SAP is then the source). Whole pesos («$1.250.000.000») so the figures read like SAP's reports; coverage cut, never rounded up. `ManagementPanel::allows()` splits the ability from the KPI query, so cached SAP figures cost one query fewer than the published ones. Tests: `tests/Feature/Home/HomeSapPanelTest.php` (15).
