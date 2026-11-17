@@ -22,7 +22,7 @@ final readonly class SapPanelCard
     public const UNAVAILABLE = 'No pudimos leer las cifras de SAP. Inténtalo de nuevo en unos minutos.';
 
     /**
-     * @param  list<array{label: string, value: string, share: int}>  $ranges  «Sin vencer» and the seven ranges, with their share of the total (0–100).
+     * @param  list<array{label: string, value: string, share: int|null}>  $ranges  «Sin vencer» and the seven ranges, with their share of the positive ranges (0–100); null for a credit balance.
      * @param  list<array{name: string, value: string}>  $sellers
      */
     public function __construct(
@@ -69,6 +69,9 @@ final readonly class SapPanelCard
         $margin = $figures->margin();
         $coverage = $figures->coverage();
         $total = $figures->receivables;
+        // Shares over the positive ranges only: a credit balance (a negative
+        // range) gets none, and no other share can pass 100 %.
+        $positive = array_sum(array_map(fn (float $value) => max(0.0, $value), $figures->ranges));
 
         return new self(
             period: $period,
@@ -83,7 +86,7 @@ final readonly class SapPanelCard
             ranges: array_map(fn (string $column, string $label) => [
                 'label' => $label,
                 'value' => self::pesos($figures->ranges[$column] ?? 0.0),
-                'share' => $total > 0 ? (int) max(0, min(100, round(($figures->ranges[$column] ?? 0.0) / $total * 100))) : 0,
+                'share' => self::share($figures->ranges[$column] ?? 0.0, $positive),
             ], array_keys(SapFigureSet::RANGES), SapFigureSet::RANGES),
             rangesNotice: $figures->rangesMatch() ? null : sprintf(
                 'Los rangos no suman la cartera total: %s %s.',
@@ -111,6 +114,16 @@ final readonly class SapPanelCard
         }
 
         return 'Datos actualizados el '.$at->isoFormat('D [de] MMMM').($at->year === $now->year ? '' : " de {$at->year}")." {$time}";
+    }
+
+    /** A range's share of the positive ranges, 0 to 100; null for a negative range. */
+    private static function share(float $value, float $positive): ?int
+    {
+        if ($value < 0) {
+            return null;
+        }
+
+        return $positive > 0 ? (int) min(100, round($value / $positive * 100)) : 0;
     }
 
     /** Whole pesos: «$1.250.000.000», «-$50.000», «$0». */

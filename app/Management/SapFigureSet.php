@@ -52,6 +52,59 @@ final readonly class SapFigureSet
     ) {}
 
     /**
+     * Plain values only, for the cache: production unserializes no classes
+     * (config/cache.php `serializable_classes`), so an object would come
+     * back incomplete.
+     *
+     * @return array{company: string, month: string, netSales: float, grossProfit: float, salesWithProfit: float, receivables: float, ranges: array<string, float>, topSellers: list<array{code: int, name: string, netSales: float}>}
+     */
+    public function toArray(): array
+    {
+        return [
+            'company' => $this->company,
+            'month' => $this->month->toDateString(),
+            'netSales' => $this->netSales,
+            'grossProfit' => $this->grossProfit,
+            'salesWithProfit' => $this->salesWithProfit,
+            'receivables' => $this->receivables,
+            'ranges' => $this->ranges,
+            'topSellers' => array_map(fn (SapSeller $seller) => [
+                'code' => $seller->code,
+                'name' => $seller->name,
+                'netSales' => $seller->netSales,
+            ], $this->topSellers),
+        ];
+    }
+
+    /**
+     * The set toArray() gave; null for anything else (an older or broken entry).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): ?self
+    {
+        if (! is_string($data['company'] ?? null) || ! is_string($data['month'] ?? null)
+            || ! is_array($data['ranges'] ?? null) || ! is_array($data['topSellers'] ?? null)) {
+            return null;
+        }
+
+        return new self(
+            company: $data['company'],
+            month: CarbonImmutable::parse($data['month'], SapFigures::TIMEZONE)->startOfMonth(),
+            netSales: (float) ($data['netSales'] ?? 0),
+            grossProfit: (float) ($data['grossProfit'] ?? 0),
+            salesWithProfit: (float) ($data['salesWithProfit'] ?? 0),
+            receivables: (float) ($data['receivables'] ?? 0),
+            ranges: array_map(fn ($value) => (float) $value, $data['ranges']),
+            topSellers: array_values(array_map(fn (array $seller) => new SapSeller(
+                (int) ($seller['code'] ?? 0),
+                (string) ($seller['name'] ?? ''),
+                (float) ($seller['netSales'] ?? 0),
+            ), $data['topSellers'])),
+        );
+    }
+
+    /**
      * Gross profit over the net sale of the lines that bring it (0.25 is
      * 25 %); null when those lines add up to nothing.
      */

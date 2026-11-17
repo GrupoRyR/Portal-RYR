@@ -273,6 +273,34 @@ class SapFiguresTest extends TestCase
         $this->assertSame(1501.0, $this->figures()->netSales);
     }
 
+    /**
+     * Production caches in the database with `serializable_classes` off
+     * (config/cache.php): an object would come back incomplete and never
+     * hit. The figures must survive such a store.
+     */
+    public function test_the_cache_hits_on_a_store_that_unserializes_no_classes(): void
+    {
+        config([
+            'cache.stores.serialized' => ['driver' => 'array', 'serialize' => true],
+            'cache.default' => 'serialized',
+            'cache.serializable_classes' => false,
+        ]);
+        $this->sapSale(['total' => 1000, 'ganancia_bruta' => 250, 'slp_code' => 3, 'vendedor' => 'Ana Ruiz']);
+        $this->sapReceivable(['sin_vencer' => 100, 'd_0_30' => 50]);
+
+        $first = $this->figures();
+        $second = null;
+        $queries = $this->queriesDuring(function () use (&$second) {
+            $second = $this->figures();
+        });
+
+        $this->assertSame([], $queries);
+        $this->assertInstanceOf(SapFigureSet::class, $second);
+        $this->assertEquals($first, $second);
+        $this->assertSame('2026-11-01', $second->month->toDateString());
+        $this->assertSame('Ana Ruiz', $second->topSellers[0]->name);
+    }
+
     public function test_without_configuration_nothing_is_read(): void
     {
         config(['database.connections.sap_cartera.username' => null]);

@@ -193,6 +193,23 @@ class HomeSapPanelTest extends TestCase
         $this->assertStringNotContainsString('no suman', $this->text($this->element($response, 'id', 'panel-gerencial')));
     }
 
+    public function test_a_credit_balance_range_has_no_share_and_the_others_share_the_positive_sum(): void
+    {
+        $this->sapReceivable(['sin_vencer' => 150000, 'd_0_30' => -50000]);
+        $this->sapReceivable(['sin_vencer' => 50000]);
+
+        $rows = $this->xpath($this->home(as: $this->manager()))->query('//*[@id="panel-gerencial"]//table//tbody/tr');
+        $cells = array_map(fn ($row) => $this->text($row->textContent), iterator_to_array($rows));
+
+        // Over the positive ranges (200.000), never over the balance (150.000): no share passes 100 %.
+        $this->assertStringContainsString('$200.000', $cells[0]);
+        $this->assertStringContainsString('100 %', $cells[0]);
+        $this->assertStringContainsString('-$50.000', $cells[1]);
+        $this->assertStringNotContainsString('%', $cells[1]);
+        $this->assertSame(0, $this->xpath($this->home(as: $this->manager()))->query('//*[@id="panel-gerencial"]//tbody/tr[2]//*[contains(@class, "g-bar")]')->length);
+        $this->assertStringContainsString('0 %', $cells[2]);
+    }
+
     public function test_ranges_that_do_not_add_up_are_pointed_out(): void
     {
         $this->sapReceivable(['sin_vencer' => 100000, 'saldo' => 150000]);

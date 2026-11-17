@@ -8,6 +8,7 @@
     its own key, and the status and «Datos actualizados a las …» are read on
     the server (App\Management\SapRefresh). The ranges are a
     table with their values in text: the bars only repeat them for the eye.
+    Shares are over the positive ranges; a credit balance shows none.
     A glass card of the main column, like management-panel.blade.php, with
     the same id; data-offline-omit: the service worker (resources/js/sw.js)
     never saves it for offline use, so it holds no nested <section>.
@@ -66,10 +67,15 @@
                                         <th scope="row" class="py-1.5 pr-3 text-left font-normal whitespace-nowrap">{{ $range['label'] }}</th>
                                         <td class="py-1.5 pr-3 text-right font-semibold whitespace-nowrap">{{ $range['value'] }}</td>
                                         <td class="py-1.5">
-                                            <span class="flex items-center gap-2">
-                                                <span class="g-bar w-16 shrink-0 sm:w-24" aria-hidden="true"><i style="width: {{ $range['share'] }}%"></i></span>
-                                                <span class="text-xs text-fg-muted">{{ $range['share'] }} %</span>
-                                            </span>
+                                            @if ($range['share'] === null)
+                                                {{-- A credit balance: no share of the positive ranges. --}}
+                                                <span class="text-xs text-fg-muted">Saldo a favor</span>
+                                            @else
+                                                <span class="flex items-center gap-2">
+                                                    <span class="g-bar w-16 shrink-0 sm:w-24" aria-hidden="true"><i style="width: {{ $range['share'] }}%"></i></span>
+                                                    <span class="text-xs text-fg-muted">{{ $range['share'] }} %</span>
+                                                </span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach

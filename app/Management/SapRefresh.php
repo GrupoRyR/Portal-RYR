@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -23,7 +24,8 @@ use Throwable;
  * - request(): asks for VENTAS and CARTERA of one company (`parte` null),
  *   on behalf of the person, and keeps both request ids per company.
  *   201 (created) and 200 (joined to one already waiting) both succeed;
- *   the first refusal stops and gives a plain SapRefreshOutcome.
+ *   the first refusal stops and gives a plain SapRefreshOutcome, and a
+ *   half-accepted press is not followed (only a complete pair is).
  * - status(): the message of guide §2.4 for those requests. Each request's
  *   state is asked for at most once per STATUS_CACHE_SECONDS, whoever is
  *   looking (the key has 60 requests a minute for every viewer). When both
@@ -34,8 +36,9 @@ use Throwable;
  *   (`GET /api/v1/estado`), for «Datos actualizados a las …»; null when
  *   unknown. Cached for FRESHNESS_CACHE_SECONDS, failures too.
  *
- * Reads made while the home page renders use a short READ_TIMEOUT: a
- * stopped API must never hold the page. Nothing here throws: a network
+ * Reads made while the home page renders use a short READ_TIMEOUT and go
+ * in pairs at once (Http::pool): a stopped API never holds the page for
+ * more than one timeout per pair. Nothing here throws: a network
  * failure is expected (logged on a press), anything else is reported.
  */
 final class SapRefresh
@@ -106,8 +109,13 @@ final class SapRefresh
             $ids[$dataset] = $id;
         }
 
-        if ($ids !== []) {
+        // Only a complete pair is followed: half of one would later say
+        // «Datos actualizados.» with one set old. An earlier press is
+        // forgotten either way, so its message does not linger.
+        if (count($ids) === count(self::DATASETS)) {
             Cache::put(self::requestsKey($company), ['ids' => $ids], self::PENDING_CACHE_SECONDS);
+        } else {
+            Cache::forget(self::requestsKey($company));
         }
 
         return $outcome;
@@ -129,7 +137,7 @@ final class SapRefresh
             return $record['message'];
         }
 
-        $states = array_map(fn (int $id) => $this->state($id), $record['ids'] ?? []);
+        $states = $this->states($record['ids'] ?? []);
         $known = array_values(array_filter($states));
 
         if ($known === []) {
@@ -173,10 +181,15 @@ final class SapRefresh
             return $cached === self::UNKNOWN ? null : CarbonImmutable::parse($cached);
         }
 
+        // Both sets at once: a slow API costs one READ_TIMEOUT, not two.
+        $responses = $this->getAll(array_combine(self::DATASETS, array_map(
+            fn (string $dataset) => ['/api/v1/estado', ['empresa' => $company, 'conjunto' => $dataset]],
+            self::DATASETS,
+        )));
         $oldest = null;
 
         foreach (self::DATASETS as $dataset) {
-            $time = $this->lastUpdate($company, $dataset);
+            $time = self::lastUpdate($responses[$dataset] ?? null);
 
             if ($time === null) {
                 Cache::put($key, self::UNKNOWN, self::FRESHNESS_CACHE_SECONDS);
@@ -266,58 +279,61 @@ final class SapRefresh
     }
 
     /**
-     * The state of one request, cached for STATUS_CACHE_SECONDS whatever
-     * the answer; null when it could not be read.
+     * The state of each request, cached for STATUS_CACHE_SECONDS whatever
+     * the answer; null for one that could not be read. The ones not cached
+     * are asked at once (getAll()).
      *
+     * @param  array<string, int>  $ids  Keyed by set.
+     * @return array<string, array{estado: string, correr_desde: string|null}|null>
+     */
+    private function states(array $ids): array
+    {
+        $states = [];
+        $missing = [];
+
+        foreach ($ids as $dataset => $id) {
+            $cached = Cache::get(self::stateKey($id));
+
+            if (is_array($cached) || $cached === self::UNKNOWN) {
+                $states[$dataset] = is_array($cached) ? $cached : null;
+            } else {
+                $missing[$dataset] = $id;
+            }
+        }
+
+        $responses = $this->getAll(array_map(fn (int $id) => ["/api/v1/solicitudes/{$id}", []], $missing));
+
+        foreach ($missing as $dataset => $id) {
+            $state = self::state($responses[$dataset] ?? null);
+            Cache::put(self::stateKey($id), $state ?? self::UNKNOWN, self::STATUS_CACHE_SECONDS);
+            $states[$dataset] = $state;
+        }
+
+        return $states;
+    }
+
+    private static function stateKey(int $id): string
+    {
+        return "management:sap-request:{$id}";
+    }
+
+    /**
      * @return array{estado: string, correr_desde: string|null}|null
      */
-    private function state(int $id): ?array
+    private static function state(?Response $response): ?array
     {
-        $key = "management:sap-request:{$id}";
-        $cached = Cache::get($key);
-
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        if ($cached === self::UNKNOWN) {
-            return null;
-        }
-
-        try {
-            $response = $this->client(self::READ_TIMEOUT)->get("/api/v1/solicitudes/{$id}");
-        } catch (ConnectionException) {
-            $response = null;
-        } catch (Throwable $exception) {
-            report($exception);
-            $response = null;
-        }
-
         $estado = $response?->successful() ? self::json($response, 'estado') : null;
         $runFrom = $response === null ? null : self::json($response, 'correr_desde');
-        $state = is_string($estado) && in_array($estado, self::STATES, true)
+
+        return is_string($estado) && in_array($estado, self::STATES, true)
             ? ['estado' => $estado, 'correr_desde' => is_string($runFrom) ? $runFrom : null]
             : null;
-
-        Cache::put($key, $state ?? self::UNKNOWN, self::STATUS_CACHE_SECONDS);
-
-        return $state;
     }
 
     /** The oldest `actualizado_en` of the set's parts, or null when any is missing. */
-    private function lastUpdate(string $company, string $dataset): ?CarbonImmutable
+    private static function lastUpdate(?Response $response): ?CarbonImmutable
     {
-        try {
-            $response = $this->client(self::READ_TIMEOUT)->get('/api/v1/estado', ['empresa' => $company, 'conjunto' => $dataset]);
-        } catch (ConnectionException) {
-            return null;
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return null;
-        }
-
-        $parts = $response->successful() ? self::json($response, 'partes') : null;
+        $parts = $response?->successful() ? self::json($response, 'partes') : null;
 
         if (! is_array($parts) || $parts === []) {
             return null;
@@ -338,9 +354,56 @@ final class SapRefresh
         return $oldest;
     }
 
+    /**
+     * Several GETs at once (Http::pool), so a slow API holds the page for
+     * one READ_TIMEOUT, not one per call. A network failure gives null; any
+     * other failure is reported and gives null too.
+     *
+     * @param  array<string, array{0: string, 1: array<string, string>}>  $gets  Path and query, keyed by name.
+     * @return array<string, Response|null>
+     */
+    private function getAll(array $gets): array
+    {
+        if ($gets === []) {
+            return [];
+        }
+
+        try {
+            $results = Http::pool(function (Pool $pool) use ($gets) {
+                foreach ($gets as $name => [$path, $query]) {
+                    $this->configure($pool->as((string) $name), self::READ_TIMEOUT)->get($path, $query);
+                }
+            });
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return array_fill_keys(array_keys($gets), null);
+        }
+
+        $responses = [];
+
+        foreach (array_keys($gets) as $name) {
+            $result = $results[$name] ?? null;
+
+            if ($result instanceof Throwable && ! $result instanceof ConnectionException) {
+                report($result);
+            }
+
+            $responses[$name] = $result instanceof Response ? $result : null;
+        }
+
+        return $responses;
+    }
+
     private function client(int $timeout): PendingRequest
     {
-        return Http::baseUrl((string) config('services.bases_sap.url'))
+        return $this->configure(Http::withOptions([]), $timeout);
+    }
+
+    /** The API's base URL, the Portal's key and the timeouts, for one call or a pooled one. */
+    private function configure(PendingRequest $request, int $timeout): PendingRequest
+    {
+        return $request->baseUrl((string) config('services.bases_sap.url'))
             ->withToken((string) config('services.bases_sap.key'))
             ->acceptJson()
             ->connectTimeout(min($timeout, 5))

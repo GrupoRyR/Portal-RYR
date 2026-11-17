@@ -252,6 +252,39 @@ class SapRefreshTest extends TestCase
         $this->assertStringNotContainsString('cURL', $this->panel());
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function partialPresses(): array
+    {
+        return ['cartera refused' => ['CARTERA'], 'ventas refused' => ['VENTAS']];
+    }
+
+    /**
+     * Half a press is not followed: the panel would later say «Datos
+     * actualizados.» with only one of the two sets updated.
+     */
+    #[DataProvider('partialPresses')]
+    public function test_a_half_accepted_press_is_not_followed(string $refused): void
+    {
+        Http::fake([
+            self::API.'/api/v1/solicitudes' => fn (Request $request) => $request['conjunto'] === $refused
+                ? Http::response(['message' => 'Llave inválida.'], 401)
+                : Http::response(self::request(41, $request['conjunto']), 201),
+            self::API.'/api/v1/solicitudes/*' => Http::response(self::request(41, 'VENTAS', 'terminada')),
+            self::API.'/api/v1/estado*' => Http::response([], 500),
+        ]);
+        // An earlier press that finished must not linger either.
+        cache()->put(SapRefresh::requestsKey('SGX'), ['message' => SapRefresh::DONE], 600);
+
+        $this->press()->assertSessionHas('management_status', 'No pudimos pedir la actualización. Avísale a TI.');
+
+        $panel = $this->panel();
+        $this->assertStringNotContainsString('Datos actualizados', $panel);
+        $this->assertStringNotContainsString('Pedimos los datos', $panel);
+        $this->assertSame([], $this->sent('/api/v1/solicitudes/41'));
+    }
+
     public function test_the_button_has_its_own_rate_limit(): void
     {
         $this->fakeApi();
@@ -382,6 +415,32 @@ class SapRefreshTest extends TestCase
         foreach ($this->sent('/api/v1/estado') as $request) {
             $this->assertSame(['Bearer '.self::KEY], $request->header('Authorization'));
         }
+    }
+
+    public function test_both_last_updates_are_asked_together_even_when_one_fails(): void
+    {
+        // VENTAS times out; CARTERA is still asked in the same go.
+        Http::fake([
+            self::API.'/api/v1/estado?empresa=SGX&conjunto=VENTAS' => Http::failedConnection(),
+            self::API.'/api/v1/estado?empresa=SGX&conjunto=CARTERA' => Http::response(['partes' => ['cartera' => ['actualizado_en' => '2026-11-17T09:00:00-05:00']]]),
+        ]);
+
+        $this->assertStringNotContainsString('Datos actualizados', $this->panel());
+
+        $cartera = fn () => array_filter($this->sent('/api/v1/estado'), fn (Request $request) => str_contains($request->url(), 'conjunto=CARTERA'));
+        $this->assertCount(1, $cartera(), 'Both sets are asked at once, not one after the other.');
+        $this->panel();
+        $this->assertCount(1, $cartera(), 'The failure is cached.');
+    }
+
+    public function test_both_request_states_are_asked_together_even_when_one_fails(): void
+    {
+        $this->fakeApi('tomada', 'pendiente');
+        $this->press();
+        Http::fake([self::API.'/api/v1/solicitudes/41' => Http::failedConnection()]);
+
+        $this->assertStringContainsString('Pedimos los datos a SAP', $this->panel());
+        $this->assertCount(1, $this->sent('/api/v1/solicitudes/42'));
     }
 
     public function test_an_older_day_is_named(): void

@@ -81,8 +81,8 @@ final class SapFigures
         $key = self::cacheKey($company, $month);
         $cached = Cache::get($key);
 
-        if ($cached instanceof SapFigureSet) {
-            return $cached;
+        if (is_array($cached) && ($figures = SapFigureSet::fromArray($cached)) !== null) {
+            return $figures;
         }
 
         if ($cached === self::FAILED) {
@@ -105,7 +105,8 @@ final class SapFigures
             ]);
         }
 
-        Cache::put($key, $figures, self::CACHE_SECONDS);
+        // Plain values: the cache store unserializes no classes (SapFigureSet::toArray()).
+        Cache::put($key, $figures->toArray(), self::CACHE_SECONDS);
 
         return $figures;
     }
