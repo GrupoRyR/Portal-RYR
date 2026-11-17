@@ -686,7 +686,7 @@ Administración › **Catálogos** guarda las categorías y los productos de cad
 
 ### 1.19 Panel gerencial
 
-El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa las cifras clave del mes «al cierre de ayer». Las publica cada noche un robot de SAP (otro proyecto) con `PUT /api/v1/kpis` (`docs/api.md` §8), y solo las ven las personas del grupo de Gerencia de **esa** empresa. No hay claves nuevas en `.env`. El diseño está en `odd/tasks/panel-gerencial.md`.
+El bloque «Panel gerencial» del inicio muestra a la gerencia de cada empresa las cifras clave del mes «al cierre de ayer». Las publica cada noche un robot de SAP (otro proyecto) con `PUT /api/v1/kpis` (`docs/api.md` §8), y solo las ven las personas del grupo de Gerencia de **esa** empresa. No hay claves nuevas en `.env` para esta parte. El diseño está en `odd/tasks/panel-gerencial.md`. Con las variables de Bases SAP de la sección 1.24 configuradas, el bloque lee las cifras de Bases SAP y estas publicaciones quedan como respaldo.
 
 1. **Migraciones.** El despliegue de rutina (paso 2.2) agrega `companies.management_group_id` e `integrations.company_id` y crea la tabla `company_kpis` con `php artisan migrate --force`.
 2. **Crear el grupo en cada empresa.** En el inquilino de cada empresa que vaya a usar el panel, un administrador de Microsoft 365 crea el grupo de **seguridad** `APP-PortalGerencia`. Puede usar el mismo script de los grupos `APP-…` (sección 1.10):
@@ -890,6 +890,19 @@ Está **apagado** hasta que se cumplan los tres puntos: `PORTAL_ASSISTANT_ENABLE
     - **Si los dos fallan**, la página dice «El asistente no está disponible en este momento.» y queda en Auditoría.
     - El uso y el costo se guardan con el proveedor y el modelo que respondieron de verdad, y todos cuentan para el mismo presupuesto.
     - **Ley 1581.** Con el secundario en DeepSeek, una falla de Anthropic envía a DeepSeek los datos del portal que la respuesta necesita (también datos de empleados). Aplica la misma revisión legal del punto 12 antes de configurarlo.
+### 1.24 Panel gerencial con datos de Bases SAP
+
+El bloque «Panel gerencial» lee las cifras del mes en curso de la empresa de cada cuenta desde «Bases de datos SAP» (https://basessap.segurexlatam.net), en la misma cuenta de cPanel (conexión por `localhost`). Sin estas variables el bloque sigue con las cifras publicadas por el robot (§1.19). No hay migraciones. Las contraseñas y las llaves van en la Bóveda, nunca en esta documentación ni en Cerebro; aquí solo se nombran las variables.
+
+1. **Usuario de solo lectura en cPanel.** En **Bases de datos MySQL**, cree un usuario para el Portal y otorgue **solo** `SELECT` sobre las bases `ventas_sap`, `cartera_sap` y `maestros_sap`. El Portal no escribe en esas bases. cPanel da privilegios por base completa, no por vista.
+2. **Llave del Portal en Bases SAP.** En el panel de Bases SAP, cree una llave para el Portal y entréguela por el gestor de secretos, nunca por correo ni chat.
+3. **Variables en el `.env` del servidor.** Solo los nombres; los valores van en la Bóveda:
+   - `SAP_DB_HOST` (por defecto `localhost`), `SAP_DB_PORT` (por defecto `3306`), `SAP_DB_USERNAME` y `SAP_DB_PASSWORD` (el usuario del paso 1);
+   - `SAP_DB_VENTAS` (por defecto `ventas_sap`), `SAP_DB_CARTERA` (`cartera_sap`), `SAP_DB_MAESTROS` (`maestros_sap`) y `SAP_DB_SSL_CA` (ruta al certificado de la CA, si la conexión lo exige);
+   - `BASES_SAP_API_URL` (origen de Bases SAP) y `BASES_SAP_API_KEY` (la llave del paso 2).
+4. **Recargar la configuración.** `php artisan config:cache` si el despliegue usa caché de configuración.
+5. **Comprobar.** Con una cuenta de la gerencia, el inicio muestra «Panel gerencial» con las cifras del mes. Compare la venta neta y la cartera con los informes de SAP de SGX y SDC (una cuenta por empresa). Si el bloque dice «No pudimos leer las cifras de SAP», revise `storage/logs` y las credenciales del paso 1.
+
 ---
 
 ## 2. Publicar cambios (despliegue de rutina)

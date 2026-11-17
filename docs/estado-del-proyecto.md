@@ -1,6 +1,6 @@
 # Estado del proyecto — Portal RYR
 
-Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-13.
+Resumen para retomar el trabajo (personas o agentes) sin depender de conversaciones anteriores. Actualizado: 2026-11-17.
 
 ## 1. Qué es y dónde está
 
@@ -41,6 +41,26 @@ Portal de Aplicaciones del Grupo Empresarial RYR (Segurex Latam + Soluciones y D
 - **Asistente del portal** (`odd/tasks/asistente.md`, ola 3), aprobado por Jhon como líder de IA. Página `/asistente` que responde con lo que la cuenta activa ya ve, con Claude Haiku 5.5 (personas) y Sonnet 5.5 (editores) por el SDK oficial de PHP, las mismas herramientas de solo lectura del conector, presupuesto mensual de US$ 20, proveedores enchufables (DeepSeek por verificar) y un proveedor secundario opcional. Los editores reciben borradores de anuncios que solo se publican con su confirmación. Fusionado en `main` (rama `feat/asistente`). Apagado por defecto (`PORTAL_ASSISTANT_ENABLED`, interruptor de Configuración y `ANTHROPIC_API_KEY`, `docs/despliegue.md` §1.23; manual §15).
 - **Conector de Claude (MCP)** (`odd/tasks/conector-mcp.md`), aprobado por Jhon como líder de IA el 2026-10-30. Cada persona conecta su Claude, incluso una cuenta personal, y Claude lee lo que ella ya ve en el portal. Solo lectura. Cadena de PR #80, #82, #84, #85, #86 y la del manual (§10 de `docs/manual-administracion.md`), fusionada en `main`. Apagado por defecto (`PORTAL_MCP_ENABLED`, `docs/despliegue.md` §1.15). C3b (`mis_tareas` y `mis_aprobaciones`) se fusionó en `main` desde la rama `feat/tareas-3-completar`, junto con «Completar» firmado (T3 de `odd/tasks/tareas-aprobaciones.md`).
 - **Bloques del nuevo inicio** (`odd/tasks/inicio-bloques.md`, rama `feat/inicio-bloques`, fusionada en `main`): el inicio muestra Mercados (TRM y euro), Panel gerencial (solo Gerencia), Noticias, Catálogos y categorías, Tareas pendientes con «Completar» y Estado de TI. Cada bloque se oculta si no tiene qué mostrar o la persona no puede verlo. Con todos los bloques, el inicio corre un número fijo de consultas (22). Incluye `public/build` con el cambio de cierre de sesión (avisos del celular). Está en `main`; aún no está en producción.
+
+### 2026-11-17
+
+**Panel gerencial con datos de Bases SAP** (PR #123, fusionado en `main` con el merge `90f4adf`). El bloque «Panel gerencial» del inicio, solo para la Gerencia de cada empresa, muestra las cifras del mes en curso de la empresa de la cuenta con la que entró, leídas de «Bases de datos SAP»: venta neta, ganancia bruta y margen (con aviso de cobertura), cartera total, cartera por rango y top 5 de vendedores. Para ver la otra empresa, la persona cambia de cuenta.
+
+- «Actualizar ventas y cartera» pide a Bases SAP datos nuevos. «Datos actualizados a las …» muestra la última actualización. El robot de Bases SAP carga cada noche a las 02:00.
+- El historial de ventas empieza el 25 de octubre de 2026: todavía no hay comparaciones con meses anteriores.
+- Sin la conexión configurada, el bloque sigue con las cifras publicadas por `PUT /api/v1/kpis`, como antes.
+
+Detalles técnicos: conexiones de solo lectura `sap_ventas`, `sap_cartera` y `sap_maestros` (`config/database.php`), llave y origen en `services.bases_sap`, y caché de 10 minutos por empresa. Ruta `POST /panel-gerencial/actualizar`. Sin migraciones.
+
+**Para desplegar:**
+
+1. Sin migraciones. Variables nuevas del `.env` del servidor, solo nombres: `SAP_DB_*` y `BASES_SAP_API_URL`, `BASES_SAP_API_KEY` (`docs/despliegue.md` §1.24).
+
+**Pendientes para Jhon:**
+
+- [ ] Crear en cPanel el usuario de solo lectura de `ventas_sap`, `cartera_sap` y `maestros_sap` (`docs/despliegue.md` §1.24).
+- [ ] Crear la llave del Portal en el panel de Bases SAP y poner los valores en la Bóveda y en el `.env` del servidor.
+- [ ] Desplegar con `bash deploy/deploy.sh` y comparar la venta neta y la cartera de SGX y SDC con los informes de SAP.
 
 ### 2026-11-13
 
