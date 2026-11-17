@@ -70,6 +70,22 @@ Detalles técnicos:
 
 - [ ] Desplegar con `bash deploy/deploy.sh` y probar el selector en el inicio con una cuenta real.
 
+**Conexión con Agente RYR** (PR #119, fusionado en `main` con el merge `c32dfb7`). Mientras `AGENT_URL` y `AGENT_PANEL_KEY` estén configuradas, las cuentas elegibles ven el botón del agente en lugar de «Asistente». Sin esas variables no cambia nada. Son elegibles las cuentas con UPN, que no sean de invitado y que pertenezcan a una empresa con mapeo.
+
+Entregado:
+
+- Botón «Preguntar al agente». Al hacer clic pide a `POST /agente/token` un token de panel de 5 minutos y de un solo uso.
+- Seis vistas de solo lectura para el agente: `aux_empresa`, `v_anuncios_vigentes`, `v_eventos_proximos`, `v_tareas_pendientes`, `v_estado_ti` y `v_kpis_empresa`. Se probaron en MariaDB 10.11.19 el 2026-11-13 (4 de 4 pruebas).
+- Manifiesto de herramientas en `/.well-known/agente-ryr.json`.
+- `users.upn` se guarda en cada inicio de sesión con Microsoft.
+
+**Pendientes para Jhon** (procedimiento paso a paso en `docs/agente-conexion.md`):
+
+- [ ] Desplegar y ejecutar las migraciones.
+- [ ] Crear el usuario de solo lectura de la base de datos, con `SELECT` sobre las vistas, y fijarle el mismo `time_zone` que a la conexión del Portal.
+- [ ] Definir `AGENT_URL`, `AGENT_PANEL_KEY` y, si hace falta, `AGENT_APP_URL` en el `.env` del servidor.
+- [ ] Probar el botón en un navegador real contra el agente.
+
 ### 2026-11-05
 
 Producción está desplegada con `main` `dcd297d` (PRs #101 a #115), con las tres migraciones nuevas: `2026_11_06_100001`, `2026_11_07_100001` y `2026_11_07_100002`.
