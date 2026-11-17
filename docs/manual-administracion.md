@@ -480,7 +480,7 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 - **Mi día › Próximas fechas:** hasta 5 fechas de los próximos 60 días, festivos y eventos juntos y en orden («Festivo» o «Evento»). **Ver eventos** lleva a la página de eventos, con **Agregar a mi calendario**.
   - Un festivo en lunes o viernes dice «Puente festivo», en el inicio y en el buscador (Ctrl K). De martes a jueves, o en fin de semana, dice «Festivo».
 - **Mercados:** franja bajo el encabezado con el dólar (TRM) y el euro en pesos, la flecha del cambio frente al valor anterior y la fecha de vigencia. No aparece antes de la primera sincronización (`portal:sync-markets`); con una sola cifra, muestra solo esa.
-- **Panel gerencial** («Solo Gerencia», sección 12): antes de las apps, solo para la Gerencia de la empresa de la cuenta activa y solo cuando el robot ya publicó cifras. Una cifra con meta tiene un medidor («83 % de la meta»).
+- **Panel gerencial** («Solo Gerencia», sección 12): antes de las apps, solo para la Gerencia de la empresa de la cuenta activa, con las cifras del mes de Bases SAP (o, sin esa conexión, las publicadas por el robot). Una cifra con meta tiene un medidor («83 % de la meta»).
 - **Noticias:** después de las apps, una pestaña por cada tipo de fuente con titulares (**Colombia**, **Internacional**, **Sector**), de la empresa de la cuenta activa. Cada titular abre la nota en otra pestaña. Sin titulares no aparece.
 - **Catálogos y categorías** (sección 11): los productos publicados de la empresa, con un botón por categoría (**Todas** primero). Las fotos cargan a medida que se baja por la página. Sin productos publicados no aparece.
 - **Mi día › Tareas pendientes:** primero **Por aprobar** y después **Tareas**, solo de la cuenta activa (contrato de tareas, §4). Las vencidas van primero y dicen «Vencida»; las que no tienen fecha, al final. Hasta 20 por grupo, con **Ver todas en …** hacia la app cuando hay más. **Ver tarea** y **Ver aprobación** abren la app en otra pestaña. **Completar** aparece solo en las tareas que la app marcó como completables y cuya integración tiene secreto de firma y URL base en el host de la app: pide confirmar (**Sí, completar**) y al volver muestra el mensaje en el mismo bloque («Tarea completada.»). Las aprobaciones nunca se completan desde el portal. Sin pendientes, el bloque no aparece.
@@ -748,13 +748,14 @@ Cada cambio queda en **Auditoría**: quién creó, cambió, ordenó, publicó o 
 
 ## 12. Panel gerencial
 
-El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» («Solo Gerencia»): las cifras clave del mes de su empresa al cierre de ayer, por ejemplo las ventas contra la meta, la cartera vencida, los pedidos y los pedidos atrasados, con la fuente («SAP Business One»). La instalación está en `docs/despliegue.md` §1.19; el formato de las cifras, en `docs/api.md` §8.
+El inicio de las personas de la gerencia muestra el bloque «Panel gerencial» («Solo Gerencia»), con las cifras del mes en curso de su empresa: venta neta, ganancia bruta y margen, cartera total, cartera por rango y top 5 de vendedores. Las cifras vienen de «Bases de datos SAP» (https://basessap.segurexlatam.net). Mientras esa conexión no esté configurada, el bloque muestra las cifras que publica el robot (§12.3). La instalación está en `docs/despliegue.md` §1.19 y §1.24; el formato de las cifras publicadas, en `docs/api.md` §8.
 
 ### 12.1 Quién lo ve
 
 - Solo las cuentas con el rol **Gerencia** de esa misma empresa. Ningún otro rol lo abre, tampoco súper administrador ni administrador.
 - El rol sale del grupo de seguridad `APP-PortalGerencia` del inquilino de la empresa. No se asigna a mano: en **Administración › Roles** la columna **Gerencia** no tiene acceso a ninguna sección de Administración.
 - Una persona con cuentas vinculadas (§8) ve el panel solo cuando la cuenta activa es de una empresa en cuyo grupo está.
+- Cada persona ve solo la empresa de la cuenta con la que entró. Para ver la otra empresa, debe cambiar de cuenta.
 
 ### 12.2 Configurar una empresa (solo súper administrador)
 
@@ -766,7 +767,7 @@ Para quitar el panel a toda la empresa, borre el **Grupo de Gerencia** y guarde:
 
 ### 12.3 El token del robot (solo súper administrador)
 
-En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y elija la **Empresa de las cifras**. Ese token solo puede reemplazar las cifras de esa empresa; para otra empresa, cree otro token. En la ficha de un sistema, **Panel gerencial › Empresa de las cifras** permite cambiarla. Dar `kpis:write` o cambiar la empresa pide confirmar con Microsoft; quitar el permiso es un clic.
+Con la conexión a Bases SAP configurada (`docs/despliegue.md` §1.24), el bloque no usa estas cifras y el token queda como respaldo. En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y elija la **Empresa de las cifras**. Ese token solo puede reemplazar las cifras de esa empresa; para otra empresa, cree otro token. En la ficha de un sistema, **Panel gerencial › Empresa de las cifras** permite cambiarla. Dar `kpis:write` o cambiar la empresa pide confirmar con Microsoft; quitar el permiso es un clic.
 
 - **Revocar** el token borra las cifras que publicó: el panel de esa empresa queda vacío hasta que otro token las publique.
 - Cada publicación queda en **Auditoría** (filtro **API**) como «Publicó las cifras del panel gerencial de la empresa …», con el número de cifras. Los valores nunca quedan en Auditoría.
@@ -776,7 +777,27 @@ En **Administración › Integraciones › Nuevo token**, marque `kpis:write` y 
 | Qué pasa | Por qué | Qué hacer |
 |---|---|---|
 | Una persona de la gerencia no ve el panel. | No está en `APP-PortalGerencia` de su empresa, el grupo es de Microsoft 365 y no de seguridad, el **Grupo de Gerencia** está vacío o tiene otro Object ID, o no ha vuelto a entrar desde que la agregaron. | Revise el grupo en Entra y el Object ID en la empresa. Pida a la persona cerrar sesión y entrar de nuevo con Microsoft. |
-| El panel muestra cifras viejas. | El robot no publicó anoche. La fecha del bloque es la del último cierre recibido. | Revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
+| El panel muestra cifras viejas. | Con Bases SAP: el robot de Bases SAP no cargó esta noche. Sin Bases SAP: el robot no publicó anoche. | Con Bases SAP, pulse **Actualizar ventas y cartera** y mire «Datos actualizados a las …». Sin Bases SAP, revise en Auditoría (filtro **API**) la última publicación y avise al responsable del robot. |
+| Dice «No pudimos leer las cifras de SAP». | Bases SAP no respondió o falla la conexión de solo lectura. | Espere un minuto y recargue la página. Si sigue igual, revise `docs/despliegue.md` §1.24 y `storage/logs`. |
+
+### 12.5 Qué significa cada cifra
+
+- **Venta neta del mes:** suma de las ventas del mes en curso, por fecha de contabilización (hora de Bogotá). Las notas de crédito restan, y un documento anulado se compensa con su anulación, como en SAP.
+- **Ganancia bruta y margen:** la ganancia bruta es la suma de las líneas de venta. El margen es la ganancia bruta entre la venta neta, calculado solo sobre las líneas que traen ganancia bruta. El aviso de cobertura dice sobre qué parte de la venta neta se calculó el margen.
+- **Cartera total:** saldo de toda la cartera de la empresa.
+- **Cartera por rango:** «Sin vencer» y los rangos de 0–30, 31–60, 61–90, 91–120, 121–150, 151–180 y más de 180 días. Su suma es el saldo total. Un rango con saldo a favor dice «Saldo a favor» y no lleva barra.
+- **Top 5 vendedores del mes:** los cinco de mayor venta neta del mes en la empresa. Las ventas sin vendedor aparecen como «Sin vendedor».
+- **Historial:** las ventas empiezan el 25 de octubre de 2026. Por ahora no hay comparaciones con meses anteriores.
+
+### 12.6 Actualizar ventas y cartera
+
+- El botón pide a Bases SAP datos nuevos de ventas y de cartera de la empresa de la cuenta. Lo puede pulsar quien ve el panel. El portal limita las pulsaciones a 6 por minuto.
+- Mientras Bases SAP responde, la página muestra el estado de la petición. El estado se actualiza al recargar la página; no se actualiza solo.
+- Cuando las dos peticiones terminan, el portal vuelve a leer las cifras. Si solo una de las dos fue aceptada, el portal no la da como actualizada.
+- «Datos actualizados a las HH:MM» muestra la hora más antigua de la última actualización de ventas y de cartera. No aparece si Bases SAP no informa la hora.
+- El robot de Bases SAP carga cada noche a las 02:00.
+
+## 13. Estado de TI
 | El robot recibe `403`. | El token no tiene `kpis:write`, no tiene empresa o la llamada viene de una IP que no está en su lista. | Revise el sistema en **Integraciones**. |
 
 ## 13. Estado de TI
