@@ -128,6 +128,16 @@ class HomeAppsViewMarkupTest extends TestCase
         ];
     }
 
+    /**
+     * self::everyView() with the stored value only, for tests that take one argument.
+     *
+     * @return array<string, array{0: string|null}>
+     */
+    public static function storedViews(): array
+    {
+        return array_map(fn (array $set) => [$set[0]], self::everyView());
+    }
+
     public function test_the_selector_keeps_the_search(): void
     {
         $this->catalog();
@@ -184,7 +194,17 @@ class HomeAppsViewMarkupTest extends TestCase
         ];
     }
 
-    #[DataProvider('flatViews')]
+    /**
+     * self::flatViews() with the view name only, for tests that take one argument.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function flatViewNames(): array
+    {
+        return array_map(fn (array $set) => [$set[0]], self::flatViews());
+    }
+
+    #[DataProvider('flatViewNames')]
     public function test_a_flat_view_goes_from_a_to_z_with_every_star_in_place(string $view): void
     {
         $this->catalog();
@@ -300,7 +320,7 @@ class HomeAppsViewMarkupTest extends TestCase
         $this->assertMatchesRegularExpression('/\.g-app--icon > \.g-app__mark \{[^}]*width: 24px;[^}]*height: 24px;/', $css);
     }
 
-    #[DataProvider('everyView')]
+    #[DataProvider('storedViews')]
     public function test_the_search_narrows_every_view_the_same_way(?string $stored): void
     {
         $this->catalog();
@@ -314,7 +334,7 @@ class HomeAppsViewMarkupTest extends TestCase
         $this->home('?q=n%C3%B3mina%20sap')->assertSeeText('No encontramos aplicaciones para «nómina sap».');
     }
 
-    #[DataProvider('everyView')]
+    #[DataProvider('storedViews')]
     public function test_ids_stay_unique_in_every_view(?string $stored): void
     {
         $this->catalog();
@@ -326,7 +346,7 @@ class HomeAppsViewMarkupTest extends TestCase
         $this->assertSame([], array_keys(array_filter(array_count_values($ids), fn (int $count) => $count > 1)));
     }
 
-    #[DataProvider('everyView')]
+    #[DataProvider('storedViews')]
     public function test_stored_names_and_descriptions_are_escaped_in_every_view(?string $stored): void
     {
         $this->openableApp([
