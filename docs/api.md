@@ -46,7 +46,7 @@ El token empieza por `ryr_` y **se muestra una sola vez**, al crearlo. Guárdelo
 En cada llamada, envíe el token en el encabezado `Authorization`:
 
 ```http
-Authorization: Bearer ryr_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer <token>
 ```
 
 En los ejemplos de esta guía, `$TOKEN` es su token:

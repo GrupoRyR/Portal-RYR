@@ -491,7 +491,7 @@ Haga estas pruebas antes de publicar cada fase. Use `https://apps.segurexlatam.n
 
 ## 8. Cuentas vinculadas: una persona en varias empresas
 
-Quien tiene una cuenta de Microsoft en cada empresa del grupo (por ejemplo, `edward.ramanan@segurex.com` y `edward.ramanan@derivadoscol.com`) puede vincularlas y cambiar de empresa desde el encabezado, sin cerrar la sesión. Sirve para cualquier número de empresas.
+Quien tiene una cuenta de Microsoft en cada empresa del grupo (por ejemplo, `nombre.apellido@segurex.com` y `nombre.apellido@derivadoscol.com`) puede vincularlas y cambiar de empresa desde el encabezado, sin cerrar la sesión. Sirve para cualquier número de empresas.
 
 ### 8.1 Reglas
 

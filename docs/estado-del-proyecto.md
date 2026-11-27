@@ -119,7 +119,7 @@ Tasa de política (BanRep): 2 valores guardados.
 COLCAP: 2 valores guardados.
 ```
 
-La quinta línea fue `Sin FRED_API_KEY: se omiten Brent y los insumos.`: falta la llave de FRED (ver pendientes).
+La quinta línea fue un aviso que empieza por «Sin FRED_API_KEY»: falta la llave de FRED (ver pendientes).
 
 **Pendientes para Jhon:**
 
