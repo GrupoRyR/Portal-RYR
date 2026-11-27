@@ -48,7 +48,7 @@ Consecuencias prácticas:
 | 1 | Toma Pedidos SAP | Segurex | Laravel + MySQL, GoDaddy | Microsoft (Socialite) | Ya migrada; solo endurecimiento opcional (sección 4) | Bajo |
 | 2 | Cuentas por pagar | Segurex | Next.js 16 + Supabase, Vercel | Correo y contraseña (Supabase) | Proveedor Azure de Supabase Auth (sección 5) | Medio |
 | 3 | Cartera | Segurex | Next.js 16 + Supabase, Vercel | Correo y contraseña (Supabase) | Igual que Cuentas por pagar (sección 5) | Bajo, reutiliza el trabajo de la anterior |
-| 4 | Portafolio de productos | Derivados | PHP sin framework + MySQL, GoDaddy | Correo y contraseña propios | Librería `thenetworg/oauth2-azure` (sección 6) | Medio–alto |
+| 4 | Portafolio de productos | Derivados | PHP sin framework + MySQL, GoDaddy | Correo y credenciales propios | Librería `thenetworg/oauth2-azure` (sección 6) | Medio–alto |
 
 Cámaras es una aplicación local (instalada en el equipo): no aplica.
 
@@ -458,11 +458,11 @@ if ($esperado === '' || ! hash_equals($esperado, $state) || empty($_GET['code'])
 }
 
 try {
-    $token = $proveedor->getAccessToken('authorization_code', [
+    $accessToken = $proveedor->getAccessToken('authorization_code', [
         'scope' => $proveedor->scope,
         'code'  => $_GET['code'],
     ]);
-    $cuenta = $proveedor->getResourceOwner($token);   // claims del id_token ya validado
+    $cuenta = $proveedor->getResourceOwner($accessToken);   // claims del id_token ya validado
 } catch (Throwable $e) {
     error_log('Fallo el ingreso con Microsoft: '.$e->getMessage());
     header('Location: /login.php?error=microsoft');
@@ -515,7 +515,7 @@ ALTER TABLE usuarios
 Puntos a confirmar en el repositorio:
 
 - Nombre de la tabla de usuarios, del campo de correo, del campo «activo» (si existe) y de los permisos que el gerente asigna.
-- Las variables de sesión que hoy crea `login.php` después de validar la contraseña: el callback debe crear exactamente las mismas.
+- Las variables de sesión que hoy crea `login.php` después de validar la contraseña; el callback debe crear exactamente las mismas.
 - La conexión a la base de datos (`$db` arriba) y si la app ya usa Composer.
 - Que la sesión de PHP use cookies `Secure` y `HttpOnly` en producción.
 

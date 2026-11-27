@@ -77,7 +77,7 @@ Del token y del secreto:
 Las dos llamadas usan el token de la integración, como en [`docs/api.md`](api.md):
 
 ```http
-Authorization: Bearer ryr_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer <token>
 Content-Type: application/json
 ```
 
@@ -330,7 +330,7 @@ Receta exacta:
 3. `path` = la ruta exacta de la petición, **codificada tal como llegó**: sin esquema, sin host y sin `?` ni consulta. Si `app_base_url` tiene una ruta (por ejemplo `https://servidor/tareas`), esa ruta va incluida. No la decodifique ni la normalice. Ejemplo: `/api/portal/v1/tasks/8812%3A0b7d5e3a-0000-4000-8000-000000000002/complete`.
 4. `raw_body` = los bytes exactos del cuerpo recibido, **antes** de interpretar el JSON. No vuelva a serializarlo: cualquier espacio de diferencia cambia la firma.
 5. `mensaje` = `timestamp` + `"\n"` + `method` + `"\n"` + `path` + `"\n"` + `raw_body`. `"\n"` es un salto de línea (byte `0x0A`), sin `\r`.
-6. `firma` = `"sha256=" + hex_minúsculas(HMAC-SHA256(clave = secreto, datos = mensaje))`.
+6. `firma` = `"sha256=" + hex_minúsculas(HMAC-SHA256(secreto como clave, mensaje))`.
 7. Compare `firma` con `X-Portal-Signature` en **tiempo constante**.
 8. Rechace si `|ahora − timestamp| > 300` segundos (5 minutos), antes o después.
 

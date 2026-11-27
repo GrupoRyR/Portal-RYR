@@ -175,7 +175,7 @@ PORTAL_SUPER_ADMIN_EMAILS=<correo1>,<correo2>
 - El enlace de consentimiento vuelve a la misma dirección de `MICROSOFT_REDIRECT_URI`, así que no hay que registrar otra en Entra.
 - Cuando venza el secreto, cree uno nuevo en Entra, cámbielo en `.env` y ejecute `php artisan config:cache`.
 
-**Correo (avisos y alertas).** El portal envía un correo cuando se crea una empresa, cuando cambia su inquilino y cuando se activa, y las alertas de los respaldos (paso 1.12). Se envía en el momento (no hay cola), con Microsoft Graph, desde el buzón `segurex.info@segurex.com` de Microsoft 365 y con la misma app «Portal RYR» del inicio de sesión. No usa SMTP ni la contraseña de ningún buzón: Microsoft desactiva la autenticación básica de SMTP en Exchange Online a partir de finales de 2026.
+**Correo (avisos y alertas).** El portal envía un correo cuando se crea una empresa, cuando cambia su inquilino y cuando se activa, y las alertas de los respaldos (paso 1.12). Se envía en el momento (no hay cola), con Microsoft Graph, desde el buzón `segurex.info@segurex.com` de Microsoft 365 y con la misma app «Portal RYR» del inicio de sesión. No usa SMTP ni la contraseña de ningún buzón; Microsoft desactiva la autenticación básica de SMTP en Exchange Online a partir de finales de 2026.
 
 1. **Datos de la app.** En el centro de administración de Microsoft Entra del inquilino de Segurex, abra **Aplicaciones empresariales** › **Portal RYR** y copie el **Id. de aplicación** y el **Id. de objeto**. Use los de *Aplicaciones empresariales*, no los de *Registros de aplicaciones* (el Id. de objeto es distinto). Copie también el **Id. de inquilino** (Entra › **Información general**).
 
@@ -469,7 +469,7 @@ El portal puede funcionar como «conector propio» de Claude: cada persona conec
      cat storage/oauth-public.key    # va en PASSPORT_PUBLIC_KEY
      ```
 
-     Copie cada llave completa en `.env`, entre comillas dobles y con sus saltos de línea (`"-----BEGIN PRIVATE KEY-----` … `-----END PRIVATE KEY-----"`). Después borre los dos archivos (`rm storage/oauth-*.key`) y ejecute `php artisan optimize`.
+     Copie cada llave completa en `.env`, entre comillas dobles y con sus saltos de línea (desde su línea de inicio hasta su línea de cierre, ambas del formato PEM). Después borre los dos archivos (`rm storage/oauth-*.key`) y ejecute `php artisan optimize`.
    - **En archivos.** Deje los archivos que crea `php artisan passport:keys` en `storage/` (nunca en `public/`) y no ponga `PASSPORT_PRIVATE_KEY` ni `PASSPORT_PUBLIC_KEY` en `.env`. Ajuste los permisos: `chmod 600 storage/oauth-private.key` y `chmod 600 storage/oauth-public.key` (también sirven 400, 440, 640 o 660). Con otros permisos la librería de OAuth lanza un aviso que Laravel convierte en error 500 al conectar o al llamar al conector.
 
    Cambiar las llaves invalida todos los tokens: cada persona tendrá que volver a conectar Claude. Nunca las suba al repositorio ni las comparta por chat.
@@ -507,7 +507,7 @@ Solo se acepta la dirección de regreso de claude.ai (`https://claude.ai/api/mcp
 
 ### 1.16 Mercados
 
-El portal guarda la **TRM** y el **euro en pesos** para la banda «Mercados» del inicio. No hay claves ni cuentas: las dos fuentes son públicas. El diseño está en `odd/tasks/mercados.md`. Brent, el Banco de la República y los insumos están más abajo, en «Más mercados».
+El portal guarda la **TRM** y el **euro en pesos** para la banda «Mercados» del inicio. No hay claves ni cuentas; las dos fuentes son públicas. El diseño está en `odd/tasks/mercados.md`. Brent, el Banco de la República y los insumos están más abajo, en «Más mercados».
 
 - **TRM:** conjunto de datos oficial de datos.gov.co (`www.datos.gov.co`), las últimas 10 vigencias.
 - **Euro:** los dólares por euro del tipo de cambio de referencia del Banco Central Europeo (`www.ecb.europa.eu`) multiplicados por la TRM que estaba vigente en la fecha de ese tipo de cambio. El BCE no publica el peso colombiano.
@@ -551,12 +551,12 @@ La banda también muestra, para todos, el **petróleo Brent**, la **tasa de pol�
    3. Copie la llave (32 caracteres) en el `.env` del servidor (paso 1.6):
 
       ```dotenv
-      FRED_API_KEY=la-llave-de-32-caracteres
+      FRED_API_KEY=<llave-de-32-caracteres>
       ```
 
    4. Aplique el cambio con `php artisan config:cache`.
 
-   Sin la llave, Brent y los insumos se omiten: el comando lo dice con la línea `Sin FRED_API_KEY: se omiten Brent y los insumos.` y termina bien. La llave nunca se escribe en los registros ni en la salida del comando.
+   Sin la llave, Brent y los insumos se omiten: el comando lo dice con un aviso que empieza por «Sin FRED_API_KEY» y termina bien. La llave nunca se escribe en los registros ni en la salida del comando.
 2. **Migraciones.** El despliegue de rutina (paso 2.2) aplica con `php artisan migrate --force`:
    - `companies.market_codes`: los insumos que ve cada empresa (vacío: solo los indicadores para todos);
    - la tabla `market_inputs`: los precios ingresados a mano. Los nombres de índices y claves son cortos a propósito (MariaDB admite 64 caracteres como máximo): `mkt_inputs_company_fk`, `mkt_inputs_creator_fk` y `mkt_inputs_company_on_ix`. Borrar una empresa borra sus precios; borrar a la persona que cargó un precio deja el precio sin autor.
@@ -594,7 +594,7 @@ El detalle está en `storage/logs/laravel-AAAA-MM-DD.log`, en el aviso «Market 
 **Comprobar todo después de poner la llave de FRED:**
 
 1. `php artisan config:cache`
-2. `php artisan portal:sync-markets`: debe haber una línea por serie con valores guardados, ninguna `no se pudo actualizar` y ya no debe aparecer `Sin FRED_API_KEY: se omiten Brent y los insumos.`
+2. `php artisan portal:sync-markets`: debe haber una línea por serie con valores guardados, ninguna `no se pudo actualizar` y ya no debe aparecer el aviso que empieza por «Sin FRED_API_KEY»
 3. Si aparece `no se pudo actualizar`, busque ese `source` en el log del día.
 
 ### 1.17 Noticias
